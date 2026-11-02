@@ -23,205 +23,113 @@
 <header class="topbar">
   <div class="brand">
     <div class="brand-mark">E</div>
-    <div>
-      <div class="brand-sub">EDCF 조달 청렴성 사전 모니터링</div>
-      <div class="brand-title">부정당업자 모니터링</div>
-    </div>
+    <div class="brand-title">EDCF 업체 모니터링</div>
   </div>
   <nav class="tabs" id="tabs">
-    <button data-view="dashboard" class="active">대시보드</button>
-    <button data-view="admin">관리자</button>
-    <button data-view="report">리포트</button>
+    <button data-view="home" class="active">현황</button>
+    <button data-view="settings">설정</button>
   </nav>
   <div class="topbar-right">
-    <div id="scanState" class="scan-state"></div>
-    <button class="btn" id="btnRefresh" title="새로고침">↻</button>
-    <button class="btn primary" id="btnScan">지금 스캔</button>
-    <div class="user-chip"><span id="userEmail"></span><button class="btn sm ghost" id="btnLogout">로그아웃</button></div>
+    <span class="user-chip"><span id="userEmail"></span><button class="btn sm ghost" id="btnLogout">로그아웃</button></span>
   </div>
 </header>
 
-<main>
-  <!-- 대시보드 -->
-  <section id="view-dashboard" class="view active">
-    <div id="emptyNotice" class="notice hidden"></div>
-    <div class="kpis" id="kpis"></div>
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-head">
-          <h2>업체 리스크 현황</h2>
-          <div class="filters">
-            <select id="fProject"><option value="">전체 사업</option></select>
-            <select id="fRole"><option value="">전체 역할</option><option>컨설턴트</option><option>본구매</option><option>F/S</option></select>
-            <select id="fRisk"><option value="">전체 등급</option><option value="red">위험</option><option value="orange">경고</option><option value="yellow">주의</option><option value="none">정상</option></select>
-          </div>
-        </div>
-        <table class="tbl" id="companyTable">
-          <thead><tr><th>등급</th><th>업체</th><th>참여 사업 · 역할 · 단계</th><th class="c">위험/경고/주의</th><th class="c">미검토</th></tr></thead>
-          <tbody></tbody>
-        </table>
+<main class="narrow">
+  <!-- 현황 -->
+  <section id="view-home" class="view active">
+    <div class="card summary">
+      <div class="summary-left">
+        <div class="summary-title" id="sumTitle">-</div>
+        <div class="summary-sub" id="sumSub">-</div>
       </div>
-      <div class="card">
-        <div class="card-head"><h2>최근 리스크 신호</h2><span class="muted small">출처 포함</span></div>
-        <div id="feed" class="feed"></div>
+      <div class="pills" id="pills"></div>
+      <div class="summary-actions">
+        <button class="btn" id="btnRefresh" title="새로고침">↻ 새로고침</button>
+        <button class="btn primary" id="btnScan">지금 스캔</button>
       </div>
     </div>
+
+    <div id="guide" class="notice hidden"></div>
+
     <div class="card">
-      <div class="card-head"><h2>사업별 참여업체 맵</h2><span class="muted small">업체를 누르면 상세가 열립니다</span></div>
+      <div class="card-head"><h2>확인이 필요한 이슈 <span class="muted" id="issueCount"></span></h2></div>
+      <div id="feed" class="feed"></div>
+      <details id="doneWrap" class="more hidden"><summary>검토 완료한 이슈 보기</summary><div id="feedDone" class="feed"></div></details>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>사업별 업체</h2><span class="muted small">업체를 누르면 상세 내용이 열립니다</span></div>
       <div id="projectMap" class="project-map"></div>
     </div>
   </section>
 
-  <!-- 관리자 -->
-  <section id="view-admin" class="view">
-    <nav class="subtabs" id="subtabs">
-      <button data-sub="import" class="active">엑셀 일괄 등록</button>
-      <button data-sub="companies">업체·사업 관리</button>
-      <button data-sub="keywords">키워드</button>
-      <button data-sub="recipients">메일 수신자</button>
-      <button data-sub="system">데이터 연결·실행 이력</button>
-    </nav>
-
-    <div class="sub active" id="sub-import">
-      <div class="card">
-        <h2>엑셀에서 붙여넣기로 일괄 등록</h2>
-        <p class="muted small">엑셀에서 <b>사업명 · 구분 · 업체명</b> 3개 열을 드래그해 복사(Ctrl+C)한 뒤 아래에 붙여넣으세요(Ctrl+V). 사업명이 빈 칸이면 윗줄 사업으로 처리합니다. "(1순위)"는 우선협상 1순위로, "주식회사"는 자동으로 정리됩니다. 이미 있는 사업·업체는 중복 등록되지 않습니다.</p>
-        <textarea id="importText" placeholder="탄자니아 국토정보인프라 개선사업(항공기 및 카메라)	컨설턴트	안세기술
-	컨설턴트	지오투정보기술
-케냐 나이로비 its 개선사업 2차	본구매	포스코 인터내셔널(1순위)"></textarea>
+  <!-- 설정 -->
+  <section id="view-settings" class="view">
+    <div class="card">
+      <h2>업체 추가</h2>
+      <form id="addForm" class="add-row" autocomplete="off">
+        <select name="project" required></select>
+        <input name="newProject" placeholder="새 사업명" class="hidden">
+        <select name="role"><option>컨설턴트</option><option>본구매</option><option>F/S</option></select>
+        <input name="name" placeholder="업체명" required>
+        <label class="chk small"><input type="checkbox" name="priority"> 우선협상</label>
+        <button class="btn primary">추가</button>
+      </form>
+      <details class="more">
+        <summary>여러 업체 한 번에 붙여넣기</summary>
+        <p class="muted small">한 줄에 <code>사업명 | 구분 | 업체명</code> 형식으로 적으세요. 사업명을 비우면 윗줄 사업으로 처리합니다. 탭이나 쉼표로 구분해도 됩니다.</p>
+        <textarea id="importText" placeholder="케냐 나이로비 ITS 개선사업 2차 | 컨설턴트 | 도화엔지니어링
+ | 본구매 | 에스트래픽(1순위)"></textarea>
         <div class="actions left">
           <button class="btn" id="btnImportPreview">미리보기</button>
           <button class="btn primary" id="btnImportRun" disabled>등록하기</button>
         </div>
         <div id="importPreview" class="import-preview"></div>
-      </div>
+      </details>
     </div>
 
-    <div class="sub" id="sub-companies">
-      <div class="grid-2">
-        <div class="card">
-          <h2>업체 등록 / 수정</h2>
-          <p class="muted small">업체명을 입력하면 이미 등록된 업체와 DART 기업 목록에서 자동완성됩니다(DART 목록은 Actions의 <b>dart</b> 작업을 한 번 실행하면 생깁니다). DART에서 고른 업체는 다음 스캔 때 대표자·사업자번호가 자동으로 채워집니다.</p>
-          <form id="companyForm" class="form" autocomplete="off">
-            <input type="hidden" name="id">
-            <label class="ac-wrap">업체명 *
-              <input name="name" required placeholder="예: 도화엔지니어링">
-              <div class="ac-list" id="acList"></div>
-            </label>
-            <div class="row">
-              <label>영문명<input name="name_en" placeholder="제재리스트·해외뉴스 매칭용"></label>
-              <label>DART 고유번호<input name="corp_code" readonly></label>
-            </div>
-            <div class="row">
-              <label>대표자<input name="ceo"></label>
-              <label>사업자번호<input name="biz_no"></label>
-            </div>
-            <label>별칭 (쉼표 구분)<input name="aliases" placeholder="예: 포스코인터내셔널, POSCO International"></label>
-            <label>보조 키워드 (동명 업체 구분용: 업종·대표자·지역)<input name="context_keywords" placeholder="예: 감리, 엔지니어링, 홍길동"></label>
-            <div class="row">
-              <label>국가<input name="country" value="KR"></label>
-              <label>검색 언어<input name="search_langs" value="ko" placeholder="ko,en,id"></label>
-            </div>
-            <label>메모<input name="note"></label>
-            <fieldset class="eng-box">
-              <legend>참여 사업 연결 (선택)</legend>
-              <div class="row3">
-                <select name="e_project"><option value="">사업 선택</option></select>
-                <select name="e_role"><option>컨설턴트</option><option>본구매</option><option>F/S</option></select>
-                <select name="e_stage"><option>계약</option><option>우선협상</option><option>입찰중</option></select>
-                <input name="e_rank" type="number" min="1" placeholder="순위">
-              </div>
-            </fieldset>
-            <div class="actions">
-              <button type="button" class="btn" id="btnFormReset">새로 입력</button>
-              <button class="btn primary" type="submit">저장</button>
-            </div>
-          </form>
-        </div>
-        <div class="card">
-          <div class="card-head"><h2>사업 목록</h2></div>
-          <form id="projectForm" class="form inline">
-            <input name="name" placeholder="사업명" required>
-            <input name="country" placeholder="국가코드 (TZ)" maxlength="2" style="width:110px">
-            <button class="btn primary">추가</button>
-          </form>
-          <div id="projectList" class="project-list"></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-head"><h2>등록 업체 (<span id="companyCount">0</span>)</h2></div>
-        <table class="tbl" id="adminCompanyTable">
-          <thead><tr><th>업체</th><th>영문명 / 별칭</th><th>보조키워드</th><th>국가·언어</th><th>참여</th><th></th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="sub" id="sub-keywords">
-      <div class="card">
-        <h2>리스크 키워드</h2>
-        <p class="muted small">기사에서 아래 키워드가 발견되면 표시되고, AI 판정 시 힌트로도 쓰입니다. '검색 조합'을 켜면 "업체명 + 키워드"로도 검색합니다(네이버 호출 수 증가).</p>
-        <form id="kwForm" class="form inline">
-          <input name="word" placeholder="키워드" required>
-          <select name="level"><option value="red">위험</option><option value="orange" selected>경고</option><option value="yellow">주의</option></select>
-          <select name="lang"><option value="ko">한국어</option><option value="en">영어</option><option value="id">인니어</option></select>
-          <label class="chk"><input type="checkbox" name="use_in_query"> 검색 조합</label>
-          <button class="btn primary">추가</button>
-          <button type="button" class="btn" id="btnKwDefault">기본 키워드 불러오기</button>
-        </form>
-        <div id="kwList" class="chips"></div>
-      </div>
-    </div>
-
-    <div class="sub" id="sub-recipients">
-      <div class="card">
-        <h2>일일 리포트 수신자</h2>
-        <form id="rcForm" class="form inline">
-          <input name="email" type="email" placeholder="email@example.com" required>
-          <input name="name" placeholder="이름 (선택)">
-          <button class="btn primary">추가</button>
-        </form>
-        <table class="tbl" id="rcTable"><tbody></tbody></table>
-      </div>
-    </div>
-
-    <div class="sub" id="sub-system">
-      <div class="grid-2">
-        <div class="card">
-          <h2>데이터 연결 상태</h2>
-          <p class="muted small">마지막 GitHub Actions 실행 기준입니다. 키는 GitHub 저장소 Settings → Secrets 에서 관리합니다.</p>
-          <div id="connList" class="conn-list"></div>
-          <div class="actions left">
-            <a class="btn" id="lnkActions" target="_blank" rel="noopener">GitHub Actions 열기 ↗</a>
-            <a class="btn" id="lnkSecrets" target="_blank" rel="noopener">Secrets 설정 열기 ↗</a>
-          </div>
-        </div>
-        <div class="card">
-          <h2>실행 이력</h2>
-          <div id="runList" class="run-list"></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 리포트 -->
-  <section id="view-report" class="view">
     <div class="card">
-      <div class="card-head">
-        <h2>일일 리포트 미리보기</h2>
-        <div class="filters">
-          <button class="btn" id="btnTestSend">테스트 발송 방법</button>
-          <button class="btn primary" id="btnSend">전체 발송 방법</button>
-        </div>
-      </div>
-      <p class="muted small" id="reportMeta">아직 보고되지 않은 신규 이슈만 포함됩니다. 매일 07:30 자동 발송 후에는 '보고됨'으로 처리되어 다음 리포트에서 빠집니다.</p>
-      <iframe id="reportFrame" class="report-frame" sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe>
+      <div class="card-head"><h2>등록된 업체 <span class="muted" id="companyCount"></span></h2></div>
+      <div id="companyList"></div>
     </div>
+
+    <div class="card">
+      <h2>메일 받는 사람</h2>
+      <p class="muted small">매일 07:30에 새로 발견된 이슈를 메일로 보냅니다.</p>
+      <form id="rcForm" class="add-row">
+        <input name="email" type="email" placeholder="email@example.com" required>
+        <button class="btn primary">추가</button>
+      </form>
+      <div id="rcList" class="simple-list"></div>
+    </div>
+
+    <details class="card more-card">
+      <summary><b>고급 설정</b> <span class="muted small">— 연결 상태, 키워드, 메일 미리보기</span></summary>
+      <h3>연결 상태 <span class="muted small">(마지막 스캔 기준)</span></h3>
+      <div id="connList" class="conn-list"></div>
+      <div class="actions left">
+        <a class="btn sm" id="lnkActions" target="_blank" rel="noopener">GitHub Actions ↗</a>
+        <a class="btn sm" id="lnkSecrets" target="_blank" rel="noopener">Secrets 설정 ↗</a>
+      </div>
+      <h3>최근 실행 기록</h3>
+      <div id="runList" class="run-list"></div>
+      <h3>리스크 키워드</h3>
+      <form id="kwForm" class="add-row">
+        <input name="word" placeholder="키워드" required>
+        <select name="level"><option value="red">위험</option><option value="orange" selected>경고</option><option value="yellow">주의</option></select>
+        <select name="lang"><option value="ko">한국어</option><option value="en">영어</option><option value="id">인니어</option></select>
+        <button class="btn primary">추가</button>
+      </form>
+      <div id="kwList" class="chips"></div>
+      <h3>메일 미리보기</h3>
+      <p class="muted small" id="reportMeta"></p>
+      <iframe id="reportFrame" class="report-frame" sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe>
+    </details>
   </section>
 </main>
 </div>
 
-<!-- 업체 상세 드로어 -->
+<!-- 업체 상세 -->
 <div class="drawer-bg" id="drawerBg"></div>
 <aside class="drawer" id="drawer">
   <div class="drawer-head">
@@ -231,9 +139,7 @@
   <div id="drawerBody" class="drawer-body"></div>
 </aside>
 
-<!-- 안내 모달 -->
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
-
 <div id="toast" class="toast"></div>
 <script type="module" src="assets/app.js"></script>
 </body>

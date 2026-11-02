@@ -179,3 +179,32 @@ textarea { font: inherit; padding: 8px 10px; border: 1px solid var(--border-stro
 .import-preview { max-height: 320px; overflow: auto; margin-top: 10px; }
 .notice { padding: 10px 12px; border-radius: 8px; background: var(--brand-soft); color: var(--text); font-size: 13px; margin-bottom: 12px; }
 .hidden { display: none !important; }
+
+/* ---- 심플 버전 ---- */
+main.narrow { max-width: 1040px; }
+.summary { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.summary-left { flex: 1 1 220px; }
+.summary-title { font-size: 18px; font-weight: 800; }
+.summary-sub { font-size: 13px; color: var(--muted); }
+.pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-weight: 700; font-size: 13px; }
+.pill.red { color: var(--red); background: var(--red-bg); } .pill.orange { color: var(--orange); background: var(--orange-bg); }
+.pill.yellow { color: var(--yellow); background: var(--yellow-bg); } .pill.none { color: var(--green); background: var(--green-bg); }
+.summary-actions { display: flex; gap: 6px; }
+.add-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+.add-row input[name=name], .add-row input[name=email], .add-row input[name=newProject] { flex: 1 1 180px; }
+.add-row select[name=project] { flex: 1 1 260px; max-width: 100%; }
+details.more { margin-top: 12px; }
+details.more > summary, details.more-card > summary { cursor: pointer; color: var(--text-2); font-size: 13px; padding: 4px 0; }
+details.more-card > summary { font-size: 14px; }
+details.more-card h3 { font-size: 14px; margin: 18px 0 8px; }
+.cgroup { border-top: 1px solid var(--border); padding: 10px 0; }
+.cgroup:first-child { border-top: 0; }
+.cgroup-title { font-weight: 700; margin-bottom: 6px; }
+.crow { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; }
+.crow .nm { font-weight: 600; cursor: pointer; } .crow .nm:hover { text-decoration: underline; }
+.crow .rm { margin-left: auto; }
+.simple-list .srow { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.ok-box { padding: 18px; text-align: center; color: var(--green); background: var(--green-bg); border-radius: 8px; font-weight: 600; }
+.notice ol { margin: 6px 0 0; padding-left: 20px; line-height: 1.8; }
+.report-frame { height: 640px; }
