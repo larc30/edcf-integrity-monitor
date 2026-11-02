@@ -375,3 +375,6 @@ body.dnd-active .dropzone { border-color: var(--border-strong); background: var(
 .job { padding: 6px 10px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
 .job.run { background: var(--brand-soft); color: var(--brand-2); } .job.ok { background: var(--green-bg); color: var(--green); } .job.bad { background: var(--red-bg); color: var(--red); }
 .modal input#tokenInput { flex: 1 1 260px; }
+
+.conn.relay input { flex: 1 1 240px; font-size: 12px; }
+.job.bad a { color: inherit; }

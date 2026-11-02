@@ -106,6 +106,14 @@ def main() -> int:
         only = [x for x in a.companies.split(",") if x.strip()] or None
         res = scanner.run_scan(only)
         log.info("스캔 결과: %s", json.dumps(res, ensure_ascii=False))
+        # 전체 스캔이면 대시보드에서 기다리던 스캔 요청도 함께 완료 처리 (Actions에서 직접 실행한 경우 포함)
+        try:
+            summary = {k: res.get(k) for k in ("companies", "fetched", "new_findings", "official")}
+            for r in store.where("requests", "status", "==", "pending"):
+                if r.get("task") == "scan" and (not only or (r.get("companies") or "").strip() in only):
+                    store.update("requests", r["id"], {"status": "done", "finished_at": store.now_str(), "result": summary})
+        except Exception as e:
+            log.warning("요청 상태 갱신 실패: %s", e)
 
     if a.task in ("daily", "scan", "preview"):
         log.info("리포트 미리보기: %s", report.save_preview())

@@ -5,7 +5,7 @@ import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=7";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=8";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -75,7 +75,7 @@ onAuthStateChanged(auth, async (user) => {
 // ---------- 데이터 ----------
 const docs = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 async function loadAll() {
-  const [p, c, f, k, r, st, runs] = await Promise.all([
+  const [p, c, f, k, r, st, runs, cfg] = await Promise.all([
     getDocs(collection(db, "projects")),
     getDocs(collection(db, "companies")),
     getDocs(query(collection(db, "findings"), where("relevant", "==", true))),
@@ -83,6 +83,7 @@ async function loadAll() {
     getDocs(collection(db, "recipients")),
     getDoc(doc(db, "meta", "status")),
     getDocs(query(collection(db, "runs"), orderBy("at_ms", "desc"), limit(10))),
+    getDoc(doc(db, "meta", "settings")),
   ]);
   state.projects = docs(p).sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")) || a.name.localeCompare(b.name));
   state.companies = docs(c);
@@ -91,6 +92,7 @@ async function loadAll() {
   state.recipients = docs(r);
   state.status = st.exists() ? st.data() : {};
   state.runs = docs(runs);
+  state.settings = cfg.exists() ? cfg.data() : {};
   if (!state.keywords.length) await loadDefaultKeywords();
   compute();
 }
@@ -488,15 +490,29 @@ async function queueRequest(full, label) {
       });
       id = ref.id;
     }
-    startJob({ mode: "queue", label, started: same?.requested_ms || Date.now(), reqId: id });
+    const relayed = await pingRelay();
+    startJob({ mode: "queue", label, started: same?.requested_ms || Date.now(), reqId: id, relayed });
   } catch (e) {
     errorModal("실행 요청을 저장하지 못했습니다", e.message, ["Ctrl + F5로 새로고침 후 다시 시도", "Firebase 보안 규칙(firestore.rules)이 게시돼 있는지 확인"]);
   }
 }
+// 즉시 실행 중계(Google Apps Script): 로그인 토큰을 보내면 중계기가 GitHub 실행을 바로 시작
+async function pingRelay() {
+  const url = (state.settings?.relay_url || "").trim();
+  if (!url) return false;
+  try {
+    const idToken = await auth.currentUser.getIdToken();
+    const r = await fetch(url, { method: "POST", body: JSON.stringify({ idToken }) }); // text/plain → 사전 확인 없이 전송
+    const d = await r.json();
+    if (!d.ok) console.warn("relay:", d.error);
+    return !!d.ok;
+  } catch (e) { console.warn("relay unreachable:", e); return false; }
+}
 function startJob(j) {
   state.job = { ...j, status: "queued" };
   try { localStorage.setItem(JOB_KEY, JSON.stringify(j)); } catch {}
-  toast(j.mode === "queue" ? `${j.label}을(를) 요청했습니다. 보통 5~20분 안에 시작되고, 끝나면 자동으로 반영됩니다` : `${j.label}을(를) 시작했습니다. 완료되면 자동으로 반영됩니다`, 5000);
+  toast(j.mode === "direct" || j.relayed ? `${j.label}을(를) 시작했습니다. 1~2분 안에 실행되고, 끝나면 자동으로 반영됩니다`
+    : `${j.label}을(를) 요청했습니다. GitHub 예약 확인 때 시작됩니다(늦어질 수 있음). 끝나면 자동으로 반영됩니다`, 5000);
   renderJob(); trackJob();
 }
 async function trackJob() {
@@ -536,7 +552,12 @@ function renderJob() {
   if (!j) { el.innerHTML = ""; return; }
   const sec = Math.round((Date.now() - j.started) / 1000), mmss = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
   const link = j.url ? ` · <a href="${esc(j.url)}" target="_blank" rel="noopener">진행 보기 ↗</a>` : j.mode === "queue" ? ` · <a href="${ACTIONS_URL}" target="_blank" rel="noopener">GitHub ↗</a>` : "";
-  const waiting = j.mode === "queue" ? "요청됨 · 시작 대기 (보통 5~20분)" : "대기 중";
+  const late = j.mode === "queue" && !j.done && j.status !== "in_progress" && sec > 25 * 60;
+  const waiting = j.mode === "queue" ? (j.relayed ? "곧 시작 (1~2분)" : "요청됨 · GitHub 예약 확인 대기") : "대기 중";
+  if (late) {
+    el.innerHTML = `<span class="job bad">⚠ ${esc(j.label)} ${mmss}째 대기 — GitHub 예약 실행이 지연 중입니다 · <a href="${ACTIONS_URL}" target="_blank" rel="noopener">직접 실행 ↗</a> (Run workflow → queue)</span>`;
+    return;
+  }
   el.innerHTML = !j.done ? `<span class="job run">⏳ ${esc(j.label)} ${j.status === "in_progress" ? "실행 중" : waiting} ${mmss}${link}</span>`
     : j.conclusion === "success" ? `<span class="job ok">✓ ${esc(j.label)} 완료</span>`
     : `<span class="job bad" title="${esc(j.error || "")}">✕ ${esc(j.label)} ${j.status === "timeout" ? "확인 시간 초과" : "실패"}${link}</span>`;
@@ -847,6 +868,10 @@ function renderConnections() {
     rows.map(([k, ok, d, always]) => `<div class="conn"><div><div class="k">${k}</div><div class="d">${esc(d)}</div></div>${always || known ? (ok ? `<span class="badge none">연결됨</span>` : `<span class="badge yellow">미설정</span>`) : `<span class="badge" style="background:var(--gray-bg);color:var(--gray)">확인 전</span>`}</div>`).join("")
     + `<div class="conn"><div><div class="k">즉시 실행 (선택)</div><div class="d">${ghToken() ? "GitHub 토큰 등록됨 — GitHub에 닿는 망에서는 바로 시작" : "토큰 없이도 실행 요청은 됩니다(5~20분 대기). 개인망에서 바로 시작하려면 GitHub 토큰 등록"}</div></div>
         ${ghToken() ? `<button class="btn sm ghost" id="tokClear">삭제</button>` : `<button class="btn sm" id="tokSet">등록</button>`}</div>
+      <div class="conn relay"><div style="flex:1"><div class="k">즉시 실행 중계 (Google Apps Script)</div>
+          <div class="d">${state.settings?.relay_url ? "설정됨 — [지금 스캔]이 1~2분 안에 시작됩니다" : "미설정 — [지금 스캔]이 GitHub 예약 확인 때까지 대기합니다. README '즉시 실행 중계' 참고"}</div>
+          <div class="add-row" style="margin:6px 0 0"><input id="relayUrl" placeholder="https://script.google.com/macros/s/.../exec" value="${esc(state.settings?.relay_url || "")}">
+            <button class="btn sm" id="relaySave">저장</button><button class="btn sm" id="relayTest">연결 테스트</button></div></div></div>
       <div class="actions left">
         <button class="btn sm" id="runTestMail">테스트 메일 받기 (내 주소)</button>
         <button class="btn sm" id="runMailAll">수신자 전체 발송</button>
@@ -857,6 +882,21 @@ function renderConnections() {
   $("#runTestMail").onclick = () => runWorkflow({ task: "report-test", test_to: auth.currentUser.email }, "테스트 메일 발송");
   $("#runMailAll").onclick = () => { if (confirm("등록된 수신자 전체에게 지금 리포트를 보낼까요?")) runWorkflow({ task: "report" }, "리포트 발송"); };
   $("#runDart").onclick = () => runWorkflow({ task: "dart" }, "DART 기업목록 갱신");
+  $("#relaySave").onclick = async () => {
+    const url = $("#relayUrl").value.trim();
+    if (url && !/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(url)) return toast("웹 앱 URL은 https://script.google.com/macros/s/…/exec 형식입니다", 5000);
+    await setDoc(doc(db, "meta", "settings"), { relay_url: url || null }, { merge: true });
+    state.settings = { ...(state.settings || {}), relay_url: url || null };
+    toast(url ? "저장했습니다. [연결 테스트]로 확인하세요" : "중계 주소를 지웠습니다"); renderConnections();
+  };
+  $("#relayTest").onclick = async () => {
+    const url = $("#relayUrl").value.trim();
+    if (!url) return toast("주소를 먼저 입력하세요");
+    try {
+      const d = await (await fetch(url)).json();
+      toast(d.service === "edcf-relay" ? (d.token ? "✓ 중계기 연결됨 (GitHub 토큰 설정됨)" : "중계기는 연결됐지만 스크립트 속성에 GITHUB_TOKEN이 없습니다") : "응답이 올바르지 않습니다", 5000);
+    } catch (e) { errorModal("중계기에 연결하지 못했습니다", e.message, ["배포 시 <b>액세스 권한: 모든 사용자</b>로 했는지 확인", "웹 앱 URL(…/exec)을 정확히 복사했는지 확인", "회사망에서 script.google.com이 막혀 있을 수 있음"]); }
+  };
 }
 const DEFAULT_KEYWORDS = [
   ["부정당업자", "red", "ko", 1], ["입찰참가자격 제한", "red", "ko", 0], ["입찰 참가 제한", "red", "ko", 0], ["영업정지", "red", "ko", 0],

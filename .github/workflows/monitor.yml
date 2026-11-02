@@ -17,6 +17,7 @@ on:
           - report        # 수신자 전체 메일 발송만
           - preview       # 리포트 미리보기만 갱신
           - dart          # DART 기업목록 갱신 (자동완성용)
+          - queue         # 대시보드에서 남긴 실행 요청 처리
       companies:
         description: "특정 업체만 스캔 (쉼표 구분, 비우면 전체)"
         required: false

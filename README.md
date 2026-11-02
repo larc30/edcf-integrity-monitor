@@ -49,9 +49,20 @@ Firebase 콘솔 → Authentication → 설정 → 승인된 도메인에 `larc30
 - 사업자번호는 DART에 있는 업체면 스캔 때 자동으로 채워지고, 없으면 업체 상세의 **식별 정보**에 직접 입력합니다.
 
 ## 대시보드에서 스캔하기
-현황의 **[지금 스캔]**을 누르면 Firebase에 '실행 요청'이 저장되고, GitHub Actions가 **10분마다** 요청을 확인해 처리합니다. 보통 5~20분 안에 시작되며, 끝나면 화면에 자동 반영됩니다.
-- 회사망에서 `api.github.com`이 막혀 있어도 동작합니다(Firebase만 되면 됨). 토큰도 필요 없습니다.
-- (선택) 개인망에서 바로 시작하고 싶으면 설정 → 연결 상태 → **즉시 실행**에 GitHub 토큰을 등록하세요. https://github.com/settings/personal-access-tokens/new → 이 저장소만 선택 → Permissions: **Actions: Read and write**. 토큰은 그 브라우저에만 저장되며, GitHub에 닿지 않으면 자동으로 요청 방식으로 바뀝니다.
+현황의 **[지금 스캔]**을 누르면 Firebase에 '실행 요청'이 저장되고, 아래 방법 중 하나로 GitHub Actions가 처리합니다. 끝나면 화면에 자동 반영됩니다.
+
+1. **즉시 실행 중계(권장, 1~2분)**: Google Apps Script 중계기가 바로 GitHub 실행을 시작합니다. 회사망에서 `api.github.com`이 막혀도 동작합니다.
+2. **예약 확인(백업)**: GitHub가 10분마다 요청을 확인합니다. GitHub 예약 실행은 크게 늦어지거나 건너뛰는 일이 있어 백업 용도입니다.
+
+### 즉시 실행 중계 설정 (한 번만, 10분)
+1. GitHub 토큰 만들기: https://github.com/settings/personal-access-tokens/new → Repository access: **Only select repositories** → 이 저장소 → Permissions: **Actions: Read and write** → Generate → 복사
+2. https://script.google.com → **새 프로젝트** → 기본 코드를 지우고 [`tools/relay.gs`](tools/relay.gs) 내용을 전부 붙여넣기 → 저장
+3. 왼쪽 **⚙ 프로젝트 설정** → 맨 아래 **스크립트 속성 추가**: 속성 `GITHUB_TOKEN`, 값 = 1의 토큰 → 저장
+4. 편집기로 돌아와 위쪽 함수 선택에서 `authorize` → **▶ 실행** → 권한 검토 → 계정 선택 → (경고 화면) **고급 → 이동** → 허용
+5. 오른쪽 위 **배포 → 새 배포** → 톱니 → **웹 앱** → 실행 계정: **나**, 액세스 권한: **모든 사용자** → 배포 → **웹 앱 URL** 복사(`…/exec`)
+6. 대시보드 → 설정 → 연결 상태 → **즉시 실행 중계**에 URL 붙여넣기 → 저장 → [연결 테스트]
+
+중계기는 대시보드에 로그인한 허용 이메일만 실행할 수 있습니다(Firebase 로그인 토큰 확인). 팀원을 추가하면 `tools/relay.gs`의 `ALLOWED_EMAILS`도 함께 수정해 다시 배포하세요(배포 관리 → 수정 → 새 버전).
 
 ## '정상'의 의미
 '정상'은 "문제가 없다는 보장"이 아니라 **"확인한 범위에서 발견되지 않음"**입니다. 업체마다 **검사 내역**(뉴스 몇 건 확인, MDB 리스트 대조 여부, 조달청 조회 여부)이 기록되며, 확인 못 한 항목이 있으면 ⚠로 표시됩니다. 현황의 **검사 범위**에서 전체 현황과 보완할 업체를 볼 수 있습니다.
