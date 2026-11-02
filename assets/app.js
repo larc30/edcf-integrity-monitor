@@ -5,7 +5,7 @@ import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=5";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=6";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -417,12 +417,24 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeDra
 const GH_KEY = "edcf_gh_token", JOB_KEY = "edcf_job";
 const ghToken = () => { try { return localStorage.getItem(GH_KEY) || ""; } catch { return ""; } };
 const setGhToken = (t) => { try { t ? localStorage.setItem(GH_KEY, t) : localStorage.removeItem(GH_KEY); } catch {} };
+// 브라우저에서 GitHub API 호출 (CORS 허용 헤더만 사용: Accept·Authorization·Content-Type)
 async function gh(path, opts = {}) {
   return fetch(`https://api.github.com/repos/${GITHUB_REPO}${path}`, {
     ...opts,
-    headers: { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", Authorization: `Bearer ${ghToken()}`, ...(opts.body ? { "Content-Type": "application/json" } : {}) },
+    headers: { Accept: "application/vnd.github+json", Authorization: `Bearer ${ghToken()}`, ...(opts.body ? { "Content-Type": "application/json" } : {}) },
   });
 }
+async function ghError(r) {
+  let msg = ""; try { msg = (await r.json()).message || ""; } catch {}
+  return `HTTP ${r.status}${msg ? ` — ${msg}` : ""}`;
+}
+function errorModal(title, detail, tips) {
+  modal(`<h2>${title}</h2>
+    <p><code>${esc(detail)}</code></p>
+    <ul class="small">${tips.map((t) => `<li>${t}</li>`).join("")}</ul>
+    <p class="muted small">계속 안 되면 이 창을 캡처해서 보내주세요. 토큰 없이 실행하려면 <a href="${ACTIONS_URL}" target="_blank" rel="noopener">GitHub에서 직접 실행 ↗</a></p>`);
+}
+const NET_TIPS = ["회사망·보안 프로그램이 <code>api.github.com</code> 접속을 막고 있을 수 있습니다 → 개인 PC·휴대폰 테더링으로 시도", "광고 차단 등 브라우저 확장 프로그램을 잠시 끄고 시도", "Ctrl + F5로 새로고침 후 다시 시도"];
 function tokenSetup(after) {
   modal(`<h2>스캔 버튼 연결 (처음 한 번)</h2>
     <p class="muted small">대시보드에서 바로 스캔하려면 GitHub 토큰을 한 번 등록해야 합니다. 토큰은 <b>이 브라우저에만</b> 저장되고, 이 저장소의 실행 권한만 가집니다.</p>
@@ -439,8 +451,14 @@ function tokenSetup(after) {
     const t = $("#tokenInput").value.trim();
     if (!t) return;
     setGhToken(t);
-    const r = await gh("");
-    if (!r.ok) { setGhToken(""); return toast(r.status === 401 ? "토큰이 올바르지 않습니다" : `이 저장소에 접근할 수 없습니다 (${r.status}). 저장소 선택을 확인하세요`, 5000); }
+    let r;
+    try { r = await gh(""); }
+    catch (e) { setGhToken(""); return errorModal("GitHub에 연결하지 못했습니다", e.message, NET_TIPS); }
+    if (!r.ok) {
+      const d = await ghError(r); setGhToken("");
+      if (r.status === 401) return toast("토큰이 올바르지 않습니다. 복사가 잘 됐는지 확인하세요", 5000);
+      return errorModal("이 저장소에 접근할 수 없습니다", d, ["토큰의 <b>Repository access</b>에 <code>edcf-integrity-monitor</code>가 선택돼 있는지 확인"]);
+    }
     closeModal(); toast("토큰을 저장했습니다"); after?.();
   };
 }
@@ -450,10 +468,18 @@ async function runWorkflow(inputs, label) {
   const started = Date.now();
   let r;
   try { r = await gh("/actions/workflows/monitor.yml/dispatches", { method: "POST", body: JSON.stringify({ ref: "main", inputs: { task: "scan", companies: "", test_to: "", ...inputs } }) }); }
-  catch (e) { return toast("GitHub에 연결하지 못했습니다: " + e.message, 5000); }
+  catch (e) { return errorModal("GitHub에 연결하지 못했습니다", e.message, NET_TIPS); }
   if (r.status === 401) { setGhToken(""); toast("토큰이 만료됐거나 올바르지 않습니다. 다시 등록하세요", 5000); return tokenSetup(() => runWorkflow(inputs, label)); }
-  if (r.status === 403 || r.status === 404) return modal(`<h2>실행 권한이 없습니다</h2><p>토큰의 <b>Repository access</b>에 <code>edcf-integrity-monitor</code>가 선택돼 있고, <b>Actions</b> 권한이 <b>Read and write</b>인지 확인하세요.</p><button class="btn" id="reTok">토큰 다시 등록</button>`), ($("#reTok").onclick = () => { setGhToken(""); tokenSetup(() => runWorkflow(inputs, label)); });
-  if (!r.ok) return toast(`실행 요청 실패 (${r.status}): ${(await r.text()).slice(0, 120)}`, 6000);
+  if (!r.ok) {
+    const d = await ghError(r);
+    errorModal(r.status === 403 || r.status === 404 ? "실행 권한이 없습니다" : "실행 요청이 거절됐습니다", d, [
+      "토큰의 <b>Permissions</b>에 <b>Actions</b>가 있고 <b>Read and write</b>인지 확인",
+      "토큰의 <b>Repository access</b>에 <code>edcf-integrity-monitor</code>가 선택돼 있는지 확인",
+      `<a href="#" id="reTok">토큰 다시 등록하기</a>`,
+    ]);
+    $("#reTok").onclick = (ev) => { ev.preventDefault(); setGhToken(""); tokenSetup(() => runWorkflow(inputs, label)); };
+    return;
+  }
   state.job = { label, started, status: "queued" };
   try { localStorage.setItem(JOB_KEY, JSON.stringify({ label, started })); } catch {}
   toast(`${label}을(를) 시작했습니다. 완료되면 자동으로 반영됩니다`);
