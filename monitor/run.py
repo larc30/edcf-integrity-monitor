@@ -1,6 +1,7 @@
 """실행 진입점 (GitHub Actions에서 호출)
 
 python -m monitor.run daily                 # 스캔 → 리포트 메일 발송 (매일 자동)
+python -m monitor.run queue                 # 대시보드에서 남긴 실행 요청 처리 (10분마다 자동)
 python -m monitor.run scan [--companies 업체1,업체2]
 python -m monitor.run preview               # 리포트 미리보기만 갱신
 python -m monitor.run report-test --test-to me@example.com
@@ -19,18 +20,86 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger("monitor")
 
 
+def sync_dart() -> int:
+    n = dart.sync_corp_master()
+    store.update("meta", "status", {"dart_synced_at": store.now_str(), "corp_master": n})
+    store.log_run("dart", True, {"count": n})
+    return n
+
+
+def process_queue() -> int:
+    """대시보드 [지금 스캔] 등이 Firestore 'requests'에 남긴 요청을 처리한다.
+    회사망에서 api.github.com이 막혀도 Firebase만 되면 실행할 수 있게 하기 위함."""
+    reqs = sorted(store.where("requests", "status", "==", "pending"), key=lambda r: r.get("requested_ms", 0))
+    if not reqs:
+        log.info("대기 중인 요청 없음")
+        return 0
+    log.info("요청 %d건 처리", len(reqs))
+    for r in reqs:
+        store.update("requests", r["id"], {"status": "running", "started_at": store.now_str()})
+
+    def finish(r, ok, result):
+        store.update("requests", r["id"], {"status": "done" if ok else "error", "finished_at": store.now_str(), "result": result})
+
+    # 스캔 요청은 한 번에 묶어서: 전체 스캔이 하나라도 있으면 전체, 아니면 요청된 업체만
+    scans = [r for r in reqs if r.get("task") in ("scan", "daily")]
+    if scans:
+        full = any(not (r.get("companies") or "").strip() for r in scans)
+        names = None if full else sorted({n.strip() for r in scans for n in r["companies"].split(",") if n.strip()})
+        try:
+            res = scanner.run_scan(names)
+            report.save_preview()
+            summary = {k: res.get(k) for k in ("companies", "fetched", "new_findings", "official")}
+            summary["errors"] = len(res.get("errors") or [])
+            for r in scans:
+                finish(r, True, summary)
+        except Exception as e:
+            log.exception("스캔 실패")
+            for r in scans:
+                finish(r, False, {"error": str(e)[:300]})
+
+    for r in reqs:
+        task = r.get("task")
+        if task in ("scan", "daily"):
+            if task == "daily":
+                try:
+                    report.send()
+                except Exception as e:
+                    log.warning("리포트 발송 실패: %s", e)
+            continue
+        try:
+            if task == "report-test":
+                to = (r.get("test_to") or "").strip()
+                if not to:
+                    raise RuntimeError("받을 이메일 주소가 없습니다")
+                res = report.send(to)
+            elif task == "report":
+                res = report.send()
+            elif task == "dart":
+                res = {"count": sync_dart()}
+            elif task == "preview":
+                res = report.save_preview()
+            else:
+                raise RuntimeError(f"알 수 없는 작업: {task}")
+            finish(r, True, {k: v for k, v in res.items() if k in ("items", "subject", "count", "test")})
+        except Exception as e:
+            log.exception("요청 처리 실패: %s", task)
+            finish(r, False, {"error": str(e)[:300]})
+    return 0
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("task", choices=["daily", "scan", "preview", "report", "report-test", "dart"])
+    p.add_argument("task", choices=["daily", "queue", "scan", "preview", "report", "report-test", "dart"])
     p.add_argument("--companies", default="")
     p.add_argument("--test-to", default="")
     a = p.parse_args()
 
+    if a.task == "queue":
+        return process_queue()
+
     if a.task == "dart":
-        n = dart.sync_corp_master()
-        store.update("meta", "status", {"dart_synced_at": store.now_str(), "corp_master": n})
-        store.log_run("dart", True, {"count": n})
-        log.info("DART 기업목록 %d개 저장", n)
+        log.info("DART 기업목록 %d개 저장", sync_dart())
         return 0
 
     if a.task in ("daily", "scan"):

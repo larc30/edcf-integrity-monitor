@@ -5,7 +5,7 @@ import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=6";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=7";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -413,8 +413,7 @@ $("#drawerClose").onclick = closeDrawer; $("#drawerBg").onclick = closeDrawer;
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeDrawer(); closeModal(); } });
 
 // ---------- 스캔 실행 (대시보드 → GitHub Actions) ----------
-// 개인 GitHub 토큰(이 저장소의 Actions 권한만)을 이 브라우저에만 저장해 두고, 버튼 한 번으로 실행한다.
-const GH_KEY = "edcf_gh_token", JOB_KEY = "edcf_job";
+const GH_KEY = "edcf_gh_token", JOB_KEY = "edcf_job2";
 const ghToken = () => { try { return localStorage.getItem(GH_KEY) || ""; } catch { return ""; } };
 const setGhToken = (t) => { try { t ? localStorage.setItem(GH_KEY, t) : localStorage.removeItem(GH_KEY); } catch {} };
 // 브라우저에서 GitHub API 호출 (CORS 허용 헤더만 사용: Accept·Authorization·Content-Type)
@@ -462,46 +461,73 @@ function tokenSetup(after) {
     closeModal(); toast("토큰을 저장했습니다"); after?.();
   };
 }
+// 실행 요청: ① 토큰이 있고 api.github.com에 닿으면 바로 실행(빠름)
+//           ② 아니면 Firebase에 '실행 요청'을 남기고, GitHub가 10분마다 확인해 처리(회사망에서도 동작)
 async function runWorkflow(inputs, label) {
-  if (!ghToken()) return tokenSetup(() => runWorkflow(inputs, label));
-  if (state.job && !state.job.done) return toast("이미 실행 중인 작업이 있습니다. 끝난 뒤 다시 눌러주세요");
-  const started = Date.now();
-  let r;
-  try { r = await gh("/actions/workflows/monitor.yml/dispatches", { method: "POST", body: JSON.stringify({ ref: "main", inputs: { task: "scan", companies: "", test_to: "", ...inputs } }) }); }
-  catch (e) { return errorModal("GitHub에 연결하지 못했습니다", e.message, NET_TIPS); }
-  if (r.status === 401) { setGhToken(""); toast("토큰이 만료됐거나 올바르지 않습니다. 다시 등록하세요", 5000); return tokenSetup(() => runWorkflow(inputs, label)); }
-  if (!r.ok) {
-    const d = await ghError(r);
-    errorModal(r.status === 403 || r.status === 404 ? "실행 권한이 없습니다" : "실행 요청이 거절됐습니다", d, [
-      "토큰의 <b>Permissions</b>에 <b>Actions</b>가 있고 <b>Read and write</b>인지 확인",
-      "토큰의 <b>Repository access</b>에 <code>edcf-integrity-monitor</code>가 선택돼 있는지 확인",
-      `<a href="#" id="reTok">토큰 다시 등록하기</a>`,
-    ]);
-    $("#reTok").onclick = (ev) => { ev.preventDefault(); setGhToken(""); tokenSetup(() => runWorkflow(inputs, label)); };
-    return;
+  if (state.job && !state.job.done) return toast("이미 진행 중인 작업이 있습니다. 끝난 뒤 다시 눌러주세요");
+  const full = { task: "scan", companies: "", test_to: "", ...inputs };
+  if (ghToken()) {
+    const started = Date.now();
+    let r = null;
+    try { r = await gh("/actions/workflows/monitor.yml/dispatches", { method: "POST", body: JSON.stringify({ ref: "main", inputs: full }) }); }
+    catch { r = null; } // 회사망 등에서 막힘 → 요청 방식으로
+    if (r && r.ok) return startJob({ mode: "direct", label, started });
+    if (r && r.status === 401) { setGhToken(""); toast("등록된 토큰이 만료돼 요청 방식으로 실행합니다", 4000); }
   }
-  state.job = { label, started, status: "queued" };
-  try { localStorage.setItem(JOB_KEY, JSON.stringify({ label, started })); } catch {}
-  toast(`${label}을(를) 시작했습니다. 완료되면 자동으로 반영됩니다`);
-  trackJob();
+  return queueRequest(full, label);
+}
+async function queueRequest(full, label) {
+  try {
+    // 같은 작업이 이미 대기 중이면 새로 만들지 않고 그것을 따라감
+    const pend = docs(await getDocs(query(collection(db, "requests"), where("status", "==", "pending"))));
+    const same = pend.find((r) => r.task === full.task && (r.companies || "") === full.companies && (r.test_to || "") === full.test_to);
+    let id = same?.id;
+    if (!id) {
+      const ref = await addDoc(collection(db, "requests"), {
+        ...full, label, status: "pending", requested_by: auth.currentUser?.email || "", requested_at: nowStr(), requested_ms: Date.now(),
+      });
+      id = ref.id;
+    }
+    startJob({ mode: "queue", label, started: same?.requested_ms || Date.now(), reqId: id });
+  } catch (e) {
+    errorModal("실행 요청을 저장하지 못했습니다", e.message, ["Ctrl + F5로 새로고침 후 다시 시도", "Firebase 보안 규칙(firestore.rules)이 게시돼 있는지 확인"]);
+  }
+}
+function startJob(j) {
+  state.job = { ...j, status: "queued" };
+  try { localStorage.setItem(JOB_KEY, JSON.stringify(j)); } catch {}
+  toast(j.mode === "queue" ? `${j.label}을(를) 요청했습니다. 보통 5~20분 안에 시작되고, 끝나면 자동으로 반영됩니다` : `${j.label}을(를) 시작했습니다. 완료되면 자동으로 반영됩니다`, 5000);
+  renderJob(); trackJob();
 }
 async function trackJob() {
   const j = state.job;
   if (!j || j.done) return;
+  if (!auth.currentUser) return setTimeout(trackJob, 2000);
   try {
-    const r = await gh("/actions/workflows/monitor.yml/runs?event=workflow_dispatch&per_page=5");
-    if (r.ok) {
-      const run = (await r.json()).workflow_runs?.find((x) => new Date(x.created_at).getTime() >= j.started - 20000);
-      if (run) { j.status = run.status; j.conclusion = run.conclusion; j.url = run.html_url; }
+    if (j.mode === "queue") {
+      const snap = await getDoc(doc(db, "requests", j.reqId));
+      const d = snap.exists() ? snap.data() : null;
+      if (d) {
+        j.status = { pending: "queued", running: "in_progress", done: "completed", error: "completed" }[d.status] || "queued";
+        j.conclusion = d.status === "done" ? "success" : d.status === "error" ? "failure" : null;
+        j.error = d.result?.error;
+      }
+    } else {
+      const r = await gh("/actions/workflows/monitor.yml/runs?event=workflow_dispatch&per_page=5");
+      if (r.ok) {
+        const run = (await r.json()).workflow_runs?.find((x) => new Date(x.created_at).getTime() >= j.started - 20000);
+        if (run) { j.status = run.status; j.conclusion = run.conclusion; j.url = run.html_url; }
+      }
     }
   } catch {}
+  const limit = j.mode === "queue" ? 90 * 60e3 : 45 * 60e3;
   if (j.status === "completed") {
     j.done = true;
     try { localStorage.removeItem(JOB_KEY); } catch {}
     if (j.conclusion === "success") { await loadAll(); rerender(); toast(`${j.label} 완료 — 결과를 반영했습니다`, 4000); }
-    else toast(`${j.label} 실패 — 실행 기록을 확인하세요`, 6000);
-  } else if (Date.now() - j.started > 45 * 60e3) { j.done = true; j.status = "timeout"; }
-  else setTimeout(trackJob, 6000);
+    else toast(`${j.label} 실패${j.error ? `: ${j.error}` : ""}`, 7000);
+  } else if (Date.now() - j.started > limit) { j.done = true; j.status = "timeout"; try { localStorage.removeItem(JOB_KEY); } catch {} }
+  else setTimeout(trackJob, j.mode === "queue" ? 15000 : 6000);
   renderJob();
 }
 function renderJob() {
@@ -509,15 +535,16 @@ function renderJob() {
   if (!el) return;
   if (!j) { el.innerHTML = ""; return; }
   const sec = Math.round((Date.now() - j.started) / 1000), mmss = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
-  const link = j.url ? ` · <a href="${esc(j.url)}" target="_blank" rel="noopener">진행 보기 ↗</a>` : "";
-  el.innerHTML = !j.done ? `<span class="job run">⏳ ${esc(j.label)} ${j.status === "in_progress" ? "실행 중" : "대기 중"} ${mmss}${link}</span>`
+  const link = j.url ? ` · <a href="${esc(j.url)}" target="_blank" rel="noopener">진행 보기 ↗</a>` : j.mode === "queue" ? ` · <a href="${ACTIONS_URL}" target="_blank" rel="noopener">GitHub ↗</a>` : "";
+  const waiting = j.mode === "queue" ? "요청됨 · 시작 대기 (보통 5~20분)" : "대기 중";
+  el.innerHTML = !j.done ? `<span class="job run">⏳ ${esc(j.label)} ${j.status === "in_progress" ? "실행 중" : waiting} ${mmss}${link}</span>`
     : j.conclusion === "success" ? `<span class="job ok">✓ ${esc(j.label)} 완료</span>`
-    : `<span class="job bad">✕ ${esc(j.label)} ${j.status === "timeout" ? "확인 시간 초과" : "실패"}${link}</span>`;
+    : `<span class="job bad" title="${esc(j.error || "")}">✕ ${esc(j.label)} ${j.status === "timeout" ? "확인 시간 초과" : "실패"}${link}</span>`;
 }
 setInterval(() => { if (state.job && !state.job.done) renderJob(); }, 1000);
 $("#btnScan").onclick = () => runWorkflow({ task: "scan" }, "전체 스캔");
 // 새로고침 후에도 진행 중이던 작업 이어서 추적
-try { const s = JSON.parse(localStorage.getItem(JOB_KEY) || "null"); if (s && Date.now() - s.started < 45 * 60e3) { state.job = { ...s, status: "queued" }; setTimeout(trackJob, 1500); } } catch {}
+try { const s = JSON.parse(localStorage.getItem(JOB_KEY) || "null"); if (s && Date.now() - s.started < 90 * 60e3) { state.job = { ...s, status: "queued" }; setTimeout(trackJob, 1500); } } catch {}
 
 // ---------- 설정 (드래그 앤 드롭) ----------
 const STAGES = ["계약", "우선협상", "입찰중"];
@@ -818,7 +845,7 @@ function renderConnections() {
   ];
   $("#connList").innerHTML = (known ? "" : `<div class="notice">아직 스캔이 실행되지 않아 GitHub 쪽 연결 상태를 알 수 없습니다. 첫 스캔 후 표시됩니다.</div>`) +
     rows.map(([k, ok, d, always]) => `<div class="conn"><div><div class="k">${k}</div><div class="d">${esc(d)}</div></div>${always || known ? (ok ? `<span class="badge none">연결됨</span>` : `<span class="badge yellow">미설정</span>`) : `<span class="badge" style="background:var(--gray-bg);color:var(--gray)">확인 전</span>`}</div>`).join("")
-    + `<div class="conn"><div><div class="k">스캔 버튼 (GitHub 토큰)</div><div class="d">${ghToken() ? "이 브라우저에 등록됨" : "등록하면 대시보드에서 바로 스캔·메일 발송"}</div></div>
+    + `<div class="conn"><div><div class="k">즉시 실행 (선택)</div><div class="d">${ghToken() ? "GitHub 토큰 등록됨 — GitHub에 닿는 망에서는 바로 시작" : "토큰 없이도 실행 요청은 됩니다(5~20분 대기). 개인망에서 바로 시작하려면 GitHub 토큰 등록"}</div></div>
         ${ghToken() ? `<button class="btn sm ghost" id="tokClear">삭제</button>` : `<button class="btn sm" id="tokSet">등록</button>`}</div>
       <div class="actions left">
         <button class="btn sm" id="runTestMail">테스트 메일 받기 (내 주소)</button>

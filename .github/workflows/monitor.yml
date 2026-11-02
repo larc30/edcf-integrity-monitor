@@ -2,7 +2,8 @@ name: 업체 모니터링
 
 on:
   schedule:
-    - cron: "30 22 * * *"   # 매일 07:30 (한국시간) = 22:30 UTC
+    - cron: "30 22 * * *"    # 매일 07:30 (한국시간) = 22:30 UTC → 스캔 + 메일 발송
+    - cron: "*/10 * * * *"   # 10분마다: 대시보드에서 남긴 실행 요청 처리 (요청 없으면 바로 종료)
   workflow_dispatch:
     inputs:
       task:
@@ -30,7 +31,7 @@ permissions:
 
 concurrency:
   group: monitor
-  cancel-in-progress: false
+  cancel-in-progress: false   # 실행 중이면 다음 실행은 끝날 때까지 대기
 
 jobs:
   run:
@@ -48,7 +49,7 @@ jobs:
 
       - name: 실행
         env:
-          TASK: ${{ github.event.inputs.task || 'daily' }}
+          TASK: ${{ github.event.inputs.task || (github.event.schedule == '30 22 * * *' && 'daily' || 'queue') }}
           COMPANIES: ${{ github.event.inputs.companies }}
           TEST_TO: ${{ github.event.inputs.test_to }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
