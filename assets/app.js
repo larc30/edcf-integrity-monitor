@@ -1,11 +1,11 @@
-// EDCF 업체 모니터링 — GitHub Pages + Firebase (심플 버전)
+// EDCF 부정당업자 모니터링 — GitHub Pages + Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=3";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -18,10 +18,15 @@ const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const LEVEL = { red: "위험", orange: "경고", yellow: "주의", none: "정상" };
+const LEVEL_DESC = { red: "제재·영업정지 등 직접 장애", orange: "최근 수사·담합·처분", yellow: "과거 이력·의혹", none: "발견된 이슈 없음" };
 const LV = { red: 3, orange: 2, yellow: 1, none: 0 };
+const ROLE_CLS = { 컨설턴트: "consult", 본구매: "buy", "F/S": "fs" };
+const ROLE_ORDER = ["F/S", "컨설턴트", "본구매"];
 const COUNTRY = { TZ: "탄자니아", PK: "파키스탄", KE: "케냐", MN: "몽골", LA: "라오스", ID: "인도네시아", KR: "한국", VN: "베트남", KH: "캄보디아", BD: "방글라데시", PH: "필리핀", UZ: "우즈베키스탄", ET: "에티오피아", GH: "가나", MM: "미얀마", LK: "스리랑카", NP: "네팔", RW: "르완다", UG: "우간다", TN: "튀니지", EG: "이집트", BO: "볼리비아", PY: "파라과이", CO: "콜롬비아", PE: "페루", EC: "에콰도르", GT: "과테말라", SN: "세네갈", MZ: "모잠비크", CM: "카메룬", NG: "나이지리아", TR: "튀르키예", UA: "우크라이나", GE: "조지아", AZ: "아제르바이잔", KZ: "카자흐스탄", KG: "키르기스스탄", TJ: "타지키스탄", TL: "동티모르" };
 const COUNTRY_BY_NAME = { ...Object.fromEntries(Object.entries(COUNTRY).map(([k, v]) => [v, k])), 카라치: "PK", 이슬라마바드: "PK", 나이로비: "KE", 다르에스살람: "TZ", 울란바토르: "MN", 비엔티안: "LA", 자카르타: "ID", 하노이: "VN", 프놈펜: "KH", 다카: "BD", 마닐라: "PH", 타슈켄트: "UZ" };
 const badge = (lv) => `<span class="badge ${lv || "none"}">${LEVEL[lv || "none"]}</span>`;
+const roleTag = (r) => `<span class="role ${ROLE_CLS[r] || "fs"}">${esc(r)}</span>`;
+const stageTag = (e) => e.stage && e.stage !== "계약" ? `<span class="stage">${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""}</span>` : "";
 const state = { projects: [], companies: [], findings: [], keywords: [], recipients: [], status: {}, runs: [] };
 
 function toast(msg, ms = 2800) {
@@ -32,9 +37,10 @@ function modal(html) { $("#modal").innerHTML = html + `<div class="actions"><but
 function closeModal() { $("#modalBg").classList.remove("open"); }
 $("#modalBg").addEventListener("click", (e) => { if (e.target.id === "modalBg") closeModal(); });
 const projName = (pid) => state.projects.find((p) => p.id === pid)?.name || "(삭제된 사업)";
-const engLine = (e) => `${esc(projName(e.project_id))} · ${esc(e.role)}${e.stage !== "계약" ? ` · ${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""}` : ""}`;
+const engText = (e) => `${esc(projName(e.project_id))} · ${esc(e.role)}${e.stage && e.stage !== "계약" ? ` · ${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""}` : ""}`;
 const nowStr = () => new Date(Date.now() + 9 * 3600e3).toISOString().replace("T", " ").slice(0, 19); // KST
 const guessCountry = (t) => Object.entries(COUNTRY_BY_NAME).find(([n]) => t.includes(n))?.[1] || null;
+const scanned = () => !!state.status.last_scan_at;
 
 // ---------- 로그인 ----------
 $("#btnLogin").onclick = async () => {
@@ -57,13 +63,13 @@ onAuthStateChanged(auth, async (user) => {
   $("#lnkActions").href = ACTIONS_URL; $("#lnkSecrets").href = SECRETS_URL;
   try {
     await loadAll();
-    let v = "home"; try { v = localStorage.getItem("view2") || v; } catch {}
-    showView(v);
   } catch (e) {
     console.error(e);
-    showView("home");
-    showGuide(`<b>데이터를 불러오지 못했습니다</b> (${esc(e.code || e.message)})<br>Firebase 콘솔 → Firestore Database → 규칙 탭에 <code>firestore.rules</code> 내용을 붙여넣고 [게시]했는지 확인하세요.`);
+    showGuide(`<b>Firebase에서 데이터를 읽지 못했습니다</b> (${esc(e.code || e.message)})<br>Firebase 콘솔 → Firestore Database → 규칙 탭에 <code>firestore.rules</code> 내용을 붙여넣고 [게시]했는지 확인하세요.`);
+    return;
   }
+  let v = "home"; try { v = localStorage.getItem("view3") || v; } catch {}
+  showView(v);
 });
 
 // ---------- 데이터 ----------
@@ -94,9 +100,11 @@ function compute() {
     const fs = state.findings.filter((f) => f.company_id === c.id && f.status !== "dismissed");
     c.risk = fs.reduce((m, f) => (LV[f.level] || 0) > (LV[m] || 0) ? f.level : m, "none");
     c.open = fs.filter((f) => f.status === "new").length;
+    c.total = fs.length;
   }
 }
 const byLevelDate = (a, b) => (LV[b.level] - LV[a.level]) || String(b.published_at || "").localeCompare(String(a.published_at || ""));
+const worstOf = (cs) => cs.reduce((m, c) => LV[c.risk] > LV[m] ? c.risk : m, "none");
 
 // ---------- 화면 전환 ----------
 $$("#tabs button").forEach((b) => b.addEventListener("click", () => showView(b.dataset.view)));
@@ -104,7 +112,7 @@ function showView(v) {
   if (!$(`#view-${v}`)) v = "home";
   $$("#tabs button").forEach((x) => x.classList.toggle("active", x.dataset.view === v));
   $$(".view").forEach((x) => x.classList.toggle("active", x.id === `view-${v}`));
-  try { localStorage.setItem("view2", v); } catch {}
+  try { localStorage.setItem("view3", v); } catch {}
   v === "home" ? renderHome() : renderSettings();
 }
 const rerender = () => { compute(); showView($("#tabs button.active")?.dataset.view || "home"); if (state.openCid && $("#drawer").classList.contains("open")) openCompany(state.openCid); };
@@ -114,42 +122,82 @@ function showGuide(html) { const g = $("#guide"); g.innerHTML = html; g.classLis
 // ---------- 현황 ----------
 function renderHome() {
   const cs = state.companies, s = state.status;
-  $("#sumTitle").textContent = `업체 ${cs.length}개 · 사업 ${state.projects.length}개`;
-  $("#sumSub").textContent = s.last_scan_at ? `마지막 스캔 ${s.last_scan_at.slice(0, 16)} · 매일 07:30 자동 스캔` : "아직 스캔하지 않았습니다";
-  const cnt = (lv) => cs.filter((c) => c.risk === lv).length;
-  $("#pills").innerHTML = s.last_scan_at
-    ? ["red", "orange", "yellow"].map((lv) => `<span class="pill ${lv}">${LEVEL[lv]} ${cnt(lv)}</span>`).join("") + `<span class="pill none">정상 ${cnt("none")}</span>`
-    : "";
+  $("#sumSub").textContent = scanned()
+    ? `마지막 스캔 ${s.last_scan_at.slice(0, 16)} · ${s.analyzer === "claude" ? "AI 판정" : "키워드 판정"} · 매일 07:30 자동 스캔`
+    : "아직 스캔하지 않았습니다 · 매일 07:30 자동 스캔";
 
-  if (!cs.length) showGuide(`<b>시작하기</b><ol><li><b>설정</b> 탭에서 업체를 추가하세요.</li><li>여기로 돌아와 <b>지금 스캔</b>을 누르세요.</li></ol>`);
-  else if (!s.last_scan_at) showGuide(`업체 ${cs.length}개가 등록됐습니다. <b>지금 스캔</b>을 눌러 첫 스캔을 실행하세요.`);
+  if (!cs.length) showGuide(`<b>시작하기</b><ol><li><b>설정</b> 탭에서 사업과 업체를 추가하세요.</li><li>여기로 돌아와 <b>지금 스캔</b>을 누르세요.</li></ol>`);
+  else if (!scanned()) showGuide(`업체 ${cs.length}개가 등록됐습니다. 오른쪽 위 <b>지금 스캔</b>을 눌러 첫 스캔을 실행하세요.`);
   else showGuide("");
 
+  // KPI
+  const cnt = (lv) => cs.filter((c) => c.risk === lv).length;
   const open = state.findings.filter((f) => f.status === "new").sort(byLevelDate);
+  const tiles = [
+    ["", "모니터링 업체", cs.length, `${state.projects.length}개 사업`],
+    ["red", "위험 업체", scanned() ? cnt("red") : "-", LEVEL_DESC.red],
+    ["orange", "경고 업체", scanned() ? cnt("orange") : "-", LEVEL_DESC.orange],
+    ["yellow", "주의 업체", scanned() ? cnt("yellow") : "-", LEVEL_DESC.yellow],
+    ["blue", "확인할 이슈", open.length, "확인했음/관련 없음 처리 전"],
+  ];
+  $("#kpis").innerHTML = tiles.map(([c, l, v, h]) => `<div class="ktile ${c} ${c && c !== "blue" && v > 0 ? "on" : ""}"><div class="label">${l}</div><div class="value">${esc(v)}</div><div class="hint">${esc(h)}</div></div>`).join("");
+
+  // 등급별 업체
+  const groupHtml = (lv, list) => {
+    if (lv === "none" || lv === "pending") {
+      return `<div class="rgroup ${lv}"><div class="rgroup-head">${lv === "pending" ? "스캔 전" : "정상"} <span class="desc">${lv === "pending" ? "아직 스캔하지 않음" : LEVEL_DESC.none}</span><span class="n">${list.length}개</span></div>
+        <div class="rgroup-body"><div class="chipwrap">${list.map((c) => `<span class="nchip" data-cid="${c.id}">${esc(c.name)}</span>`).join("") || `<span class="muted small">없음</span>`}</div></div></div>`;
+    }
+    return `<div class="rgroup ${lv}"><div class="rgroup-head">${LEVEL[lv]} <span class="desc">${LEVEL_DESC[lv]}</span><span class="n">${list.length}개</span></div>
+      <div class="rgroup-body">${list.map((c) => `<div class="rrow" data-cid="${c.id}">
+        <div><div class="rname">${esc(c.name)}</div><div class="rmeta">${c.engagements.map(engText).join("<br>") || "-"}</div></div>
+        <div class="issues">이슈 ${c.total}${c.open ? ` · 미확인 ${c.open}` : ""}</div></div>`).join("") || `<div class="muted small" style="padding:8px 0">해당 업체 없음</div>`}</div></div>`;
+  };
+  const sorted = [...cs].sort((a, b) => a.name.localeCompare(b.name));
+  $("#riskGroups").innerHTML = !cs.length ? `<div class="empty">등록된 업체가 없습니다.</div>`
+    : !scanned() ? groupHtml("pending", sorted)
+    : ["red", "orange", "yellow"].map((lv) => groupHtml(lv, sorted.filter((c) => c.risk === lv))).join("") + groupHtml("none", sorted.filter((c) => c.risk === "none"));
+  $$("#riskGroups [data-cid]").forEach((x) => x.addEventListener("click", () => openCompany(x.dataset.cid)));
+
+  // 이슈
   const done = state.findings.filter((f) => f.status === "reviewed").sort(byLevelDate);
-  $("#issueCount").textContent = open.length ? `(${open.length})` : "";
+  $("#issueCount").textContent = open.length;
   if (open.length) renderFeed(open, $("#feed"));
-  else $("#feed").innerHTML = s.last_scan_at ? `<div class="ok-box">✓ 확인이 필요한 이슈가 없습니다</div>` : `<div class="empty">스캔 후 여기에 이슈가 표시됩니다.</div>`;
+  else $("#feed").innerHTML = scanned() ? `<div class="ok-box">✓ 확인이 필요한 이슈가 없습니다</div>` : `<div class="empty">스캔 후 이곳에 이슈가 출처와 함께 표시됩니다.</div>`;
   $("#doneWrap").classList.toggle("hidden", !done.length);
   if (done.length) renderFeed(done, $("#feedDone"));
 
-  $("#projectMap").innerHTML = state.projects.map((p) => {
-    const rows = [];
-    for (const c of cs) for (const e of c.engagements) if (e.project_id === p.id) rows.push({ c, e });
-    const worst = rows.reduce((m, r) => LV[r.c.risk] > LV[m] ? r.c.risk : m, "none");
-    const roles = [...new Set(rows.map((r) => r.e.role))];
-    return `<div class="pcard">
-      <div class="pcard-title"><span class="dot ${worst}"></span>${esc(p.name)} <span class="flag">${esc(COUNTRY[p.country] || "")}</span></div>
-      ${roles.map((role) => `<div class="role-group"><div class="role-label">${esc(role)}</div>${rows.filter((r) => r.e.role === role).map(({ c, e }) =>
-        `<span class="cchip ${c.risk}" data-cid="${c.id}"><span class="dot ${c.risk}"></span>${esc(c.name)}${e.stage !== "계약" ? ` <span class="muted">(${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""})</span>` : ""}</span>`).join("")}</div>`).join("") || `<div class="muted small">연결된 업체 없음</div>`}
-    </div>`;
-  }).join("") || `<div class="empty">등록된 사업이 없습니다.</div>`;
-  $$("#projectMap .cchip").forEach((x) => x.addEventListener("click", () => openCompany(x.dataset.cid)));
+  // 사업별
+  $("#projectMap").innerHTML = state.projects.map((p) => projectBox(p, false)).join("") || `<div class="empty">등록된 사업이 없습니다.</div>`;
+  bindProjectBoxes($("#projectMap"));
+}
+
+function projectBox(p, editable) {
+  const rows = [];
+  for (const c of state.companies) c.engagements.forEach((e, i) => { if (e.project_id === p.id) rows.push({ c, e, i }); });
+  const worst = scanned() ? worstOf(rows.map((r) => r.c)) : "pending";
+  const roles = [...new Set(rows.map((r) => r.e.role))].sort((a, b) => ROLE_ORDER.indexOf(a) - ROLE_ORDER.indexOf(b));
+  const issueN = rows.reduce((s, r) => s + (scanned() ? r.c.total : 0), 0);
+  return `<div class="pbox">
+    <div class="pbox-head ${worst}"><div class="pname">${esc(p.name)}</div>${p.country ? `<span class="ctry">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</div>
+    <div class="pbox-body">
+      ${roles.map((role) => `<div class="rsec">${roleTag(role)}
+        ${rows.filter((r) => r.e.role === role).map(({ c, e, i }) => `<div class="corow ${scanned() ? c.risk : ""}" data-cid="${c.id}">
+          <span class="dot ${scanned() ? c.risk : ""}" style="${scanned() ? "" : "background:var(--border-strong)"}"></span>
+          <span class="cn">${esc(c.name)}</span>${stageTag(e)}
+          <span class="right">${scanned() && c.total ? badge(c.risk) : ""}${editable ? `<button class="xbtn" data-unlink="${c.id}|${i}" title="이 사업에서 빼기">✕</button>` : ""}</span>
+        </div>`).join("")}</div>`).join("") || `<div class="muted small" style="padding:10px 0">연결된 업체 없음</div>`}
+    </div>
+    <div class="pbox-foot"><span>업체 ${rows.length}개${scanned() ? ` · 이슈 ${issueN}건` : ""}</span>${editable ? `<button class="btn sm ghost danger" data-del-proj="${p.id}">사업 삭제</button>` : ""}</div>
+  </div>`;
+}
+function bindProjectBoxes(root) {
+  $$(".corow", root).forEach((x) => x.addEventListener("click", (ev) => { if (!ev.target.closest(".xbtn")) openCompany(x.dataset.cid); }));
 }
 
 function findingHtml(f, showCompany = true) {
   const official = f.source_type !== "news";
-  return `<div class="item ${f.status === "reviewed" ? "reviewed" : ""}" data-fid="${esc(f.id)}">
+  return `<div class="item lv-${f.level} ${f.status === "reviewed" ? "reviewed" : ""}" data-fid="${esc(f.id)}">
     <div class="item-head">
       ${badge(f.level)}
       ${showCompany ? `<span class="item-company" data-cid="${f.company_id}">${esc(f.company_name)}</span>` : ""}
@@ -190,14 +238,21 @@ function openCompany(cid) {
   state.openCid = cid;
   const fs = state.findings.filter((f) => f.company_id === cid && f.status !== "dismissed").sort(byLevelDate);
   const dismissed = state.findings.filter((f) => f.company_id === cid && f.status === "dismissed");
-  $("#drawerTitle").innerHTML = `<div class="t">${esc(c.name)} ${badge(c.risk)}</div><div class="muted small">${c.engagements.map(engLine).join(" / ")}</div>`;
+  $("#drawerTitle").innerHTML = `<div class="t">${esc(c.name)} ${scanned() ? badge(c.risk) : ""}</div>`;
   $("#drawerBody").innerHTML = `
-    <div class="actions left" style="margin-top:0">
-      <button class="btn primary" id="dScan">이 업체만 다시 스캔</button>
-      <a class="btn" target="_blank" rel="noopener" href="https://search.naver.com/search.naver?where=news&query=${encodeURIComponent('"' + c.name + '"')}">네이버 뉴스 ↗</a>
+    <div class="card">
+      <div class="kv">
+        <div class="k">참여 사업</div><div>${c.engagements.map((e) => `<div>${roleTag(e.role)} ${esc(projName(e.project_id))} ${stageTag(e)}</div>`).join("") || "-"}</div>
+        <div class="k">영문명 / 별칭</div><div>${esc(c.name_en || "-")}${c.aliases ? ` / ${esc(c.aliases)}` : ""}</div>
+        <div class="k">대표자</div><div>${esc(c.ceo || "-")}</div>
+      </div>
+      <div class="actions left">
+        <button class="btn primary" id="dScan">이 업체만 다시 스캔</button>
+        <a class="btn" target="_blank" rel="noopener" href="https://search.naver.com/search.naver?where=news&query=${encodeURIComponent('"' + c.name + '"')}">네이버 뉴스 ↗</a>
+      </div>
     </div>
-    <h2 style="margin-top:18px">이슈 (${fs.length})</h2>
-    <div id="dFeed" class="feed" style="max-height:none">${fs.length ? "" : `<div class="empty">발견된 이슈가 없습니다.</div>`}</div>
+    <h2>이슈 <span class="count">${fs.length}</span></h2>
+    <div id="dFeed" class="feed" style="max-height:none">${fs.length ? "" : `<div class="empty">${scanned() ? "발견된 이슈가 없습니다." : "아직 스캔하지 않았습니다."}</div>`}</div>
     ${dismissed.length ? `<details class="more"><summary>관련 없음 처리한 기사 ${dismissed.length}건</summary><div id="dDismissed" class="feed" style="max-height:none"></div></details>` : ""}
     <details class="more">
       <summary>검색 정확도 높이기 (영문명·별칭·보조 키워드)</summary>
@@ -271,40 +326,34 @@ $("#btnScan").onclick = () => scanGuide(null);
 
 // ---------- 설정 ----------
 function renderSettings() {
-  // 업체 추가 폼의 사업 선택
   const sel = $("#addForm [name=project]"), cur = sel.value;
   sel.innerHTML = state.projects.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("") + `<option value="__new">+ 새 사업 추가</option>`;
-  if (cur && [...sel.options].some((o) => o.value === cur)) sel.value = cur;
-  else if (!state.projects.length) sel.value = "__new";
-  $("#addForm [name=newProject]").classList.toggle("hidden", sel.value !== "__new");
+  const typingNew = cur === "__new" && $("#addForm [name=newProject]").value.trim();
+  if (cur && cur !== "__new" && [...sel.options].some((o) => o.value === cur)) sel.value = cur;
+  else if (!state.projects.length || typingNew) sel.value = "__new";
+  else sel.value = state.projects[0].id;
+  $("#newProjectWrap").classList.toggle("hidden", sel.value !== "__new");
 
-  // 등록 업체 (사업별)
-  $("#companyCount").textContent = `(${state.companies.length})`;
-  const groups = state.projects.map((p) => ({ p, rows: state.companies.flatMap((c) => c.engagements.map((e, i) => ({ c, e, i })).filter(({ e }) => e.project_id === p.id)) }));
+  $("#companyCount").textContent = `사업 ${state.projects.length} · 업체 ${state.companies.length}`;
   const orphans = state.companies.filter((c) => !c.engagements.length);
-  $("#companyList").innerHTML = groups.map(({ p, rows }) => `<div class="cgroup">
-      <div class="cgroup-title">${esc(p.name)} <span class="muted small">${esc(COUNTRY[p.country] || "")}</span>
-        <button class="btn sm ghost" data-del-proj="${p.id}" title="사업 삭제">삭제</button></div>
-      ${rows.map(({ c, e, i }) => `<div class="crow">${badge(c.risk)}<span class="nm" data-cid="${c.id}">${esc(c.name)}</span>
-        <span class="muted">${esc(e.role)}${e.stage !== "계약" ? " · " + esc(e.stage) + (e.rank ? " " + e.rank + "순위" : "") : ""}</span>
-        <button class="btn sm ghost rm" data-unlink="${c.id}|${i}" title="이 사업에서 빼기">✕</button></div>`).join("") || `<div class="muted small">업체 없음</div>`}
-    </div>`).join("")
-    + (orphans.length ? `<div class="cgroup"><div class="cgroup-title muted">사업 미연결</div>${orphans.map((c) => `<div class="crow"><span class="nm" data-cid="${c.id}">${esc(c.name)}</span><button class="btn sm ghost rm" data-del="${c.id}">삭제</button></div>`).join("")}</div>` : "")
-    || `<div class="empty">등록된 업체가 없습니다.</div>`;
-  $$("#companyList .nm").forEach((x) => x.onclick = () => openCompany(x.dataset.cid));
-  $$("[data-unlink]").forEach((b) => b.onclick = async () => {
+  $("#companyList").innerHTML = state.projects.map((p) => projectBox(p, true)).join("")
+    + (orphans.length ? `<div class="pbox"><div class="pbox-head pending"><div class="pname">사업 미연결 업체</div></div><div class="pbox-body">${orphans.map((c) => `<div class="corow" data-cid="${c.id}"><span class="cn">${esc(c.name)}</span><span class="right"><button class="xbtn" data-del="${c.id}" title="삭제">✕</button></span></div>`).join("")}</div></div>` : "")
+    || `<div class="empty">등록된 사업이 없습니다. 위에서 업체를 추가하세요.</div>`;
+  bindProjectBoxes($("#companyList"));
+  $$("#companyList [data-unlink]").forEach((b) => b.onclick = async (ev) => {
+    ev.stopPropagation();
     const [cid, i] = b.dataset.unlink.split("|");
     const c = state.companies.find((x) => x.id === cid);
-    if (!confirm(`'${c.name}'을(를) 이 사업에서 뺄까요?`)) return;
+    if (!confirm(`'${c.name}'을(를) 이 사업에서 뺄까요?${c.engagements.length === 1 ? "\n(다른 사업이 없으므로 업체와 수집 이력도 삭제됩니다)" : ""}`)) return;
     c.engagements.splice(+i, 1);
     if (c.engagements.length) await updateDoc(doc(db, "companies", cid), { engagements: c.engagements });
     else await deleteCompany(cid);
     rerender();
   });
-  $$("[data-del]").forEach((b) => b.onclick = async () => { if (confirm("업체를 삭제할까요?")) { await deleteCompany(b.dataset.del); rerender(); } });
-  $$("[data-del-proj]").forEach((b) => b.onclick = async () => {
+  $$("#companyList [data-del]").forEach((b) => b.onclick = async (ev) => { ev.stopPropagation(); if (confirm("업체를 삭제할까요?")) { await deleteCompany(b.dataset.del); rerender(); } });
+  $$("#companyList [data-del-proj]").forEach((b) => b.onclick = async () => {
     const pid = b.dataset.delProj;
-    if (!confirm(`'${projName(pid)}' 사업을 삭제할까요? (이 사업에만 있던 업체도 함께 삭제)`)) return;
+    if (!confirm(`'${projName(pid)}' 사업을 삭제할까요?\n(이 사업에만 참여한 업체도 함께 삭제됩니다)`)) return;
     for (const c of [...state.companies]) {
       if (!c.engagements.some((e) => e.project_id === pid)) continue;
       c.engagements = c.engagements.filter((e) => e.project_id !== pid);
@@ -316,10 +365,10 @@ function renderSettings() {
     rerender();
   });
 
-  // 수신자
-  $("#rcList").innerHTML = state.recipients.map((r) => `<div class="srow"><span>${esc(r.email)}</span><button class="btn sm ghost" data-del-rc="${r.id}">삭제</button></div>`).join("") || `<div class="muted small">아직 없습니다.</div>`;
+  $("#rcList").innerHTML = state.recipients.map((r) => `<div class="srow"><span>✉ ${esc(r.email)}</span><button class="xbtn" data-del-rc="${r.id}" title="삭제">✕</button></div>`).join("") || `<div class="muted small">아직 없습니다.</div>`;
   $$("[data-del-rc]").forEach((b) => b.onclick = async () => { await deleteDoc(doc(db, "recipients", b.dataset.delRc)); state.recipients = state.recipients.filter((r) => r.id !== b.dataset.delRc); renderSettings(); });
 
+  renderConnections();
   renderAdvanced();
 }
 async function deleteCompany(cid) {
@@ -331,10 +380,8 @@ async function deleteCompany(cid) {
   state.companies = state.companies.filter((c) => c.id !== cid);
   state.findings = state.findings.filter((f) => f.company_id !== cid);
 }
+$("#addForm [name=project]").addEventListener("change", (e) => $("#newProjectWrap").classList.toggle("hidden", e.target.value !== "__new"));
 
-$("#addForm [name=project]").addEventListener("change", (e) => $("#addForm [name=newProject]").classList.toggle("hidden", e.target.value !== "__new"));
-
-// 업체/사업 등록 공통
 function cleanCompanyName(raw) {
   let rank = null, name = raw;
   const m = name.match(/\(\s*(\d+)\s*순위\s*\)/);
@@ -368,12 +415,12 @@ async function registerRows(rows) {
       cByName[norm(c.name)] = c; state.companies.push(c); newC++;
     }
     if (!c.engagements.some((e) => e.project_id === p.id && e.role === r.role)) {
-      c.engagements.push({ project_id: p.id, role: r.role, stage: r.rank || r.priority ? "우선협상" : "계약", rank: r.rank || null }); links++;
+      c.engagements.push({ project_id: p.id, role: r.role, stage: r.stage || (r.rank ? "우선협상" : "계약"), rank: r.rank || null }); links++;
     }
     touched.add(c);
   }
   for (const c of touched) {
-    const { id, risk, open, ...data } = c;
+    const { id, risk, open, total, ...data } = c;
     batch.set(doc(db, "companies", id), data, { merge: true });
   }
   await batch.commit();
@@ -388,17 +435,16 @@ $("#addForm").onsubmit = async (ev) => {
   const { name, rank } = cleanCompanyName(fd.name);
   if (!name) return;
   try {
-    const r = await registerRows([{ project, role: fd.role, name, rank, priority: !!fd.priority }]);
-    toast(r.links ? `'${name}' 추가했습니다` : "이미 등록된 업체입니다");
-    ev.target.name.value = ""; ev.target.priority.checked = false; ev.target.newProject.value = "";
+    const r = await registerRows([{ project, role: fd.role, name, rank, stage: rank ? "우선협상" : fd.stage }]);
+    toast(r.links ? `'${name}'을(를) 추가했습니다` : "이미 같은 사업·구분으로 등록된 업체입니다");
+    ev.target.name.value = ""; ev.target.newProject.value = "";
     rerender();
-    const np = state.projects.find((p) => p.name === project); if (np) $("#addForm [name=project]").value = np.id;
-    $("#addForm [name=newProject]").classList.add("hidden");
+    const np = state.projects.find((p) => p.name === project);
+    if (np) { $("#addForm [name=project]").value = np.id; $("#newProjectWrap").classList.add("hidden"); }
     ev.target.name.focus();
   } catch (e) { toast("저장 실패: " + e.message, 5000); }
 };
 
-// 여러 줄 붙여넣기: "사업명 | 구분 | 업체명" (탭/쉼표/| 모두 허용)
 function parseImport(text) {
   const rows = [], errors = [];
   let last = "";
@@ -423,7 +469,7 @@ $("#btnImportPreview").onclick = () => {
   const have = new Set(state.companies.map((c) => c.name.replace(/\s+/g, "")));
   $("#importPreview").innerHTML = (errors.length ? `<div class="notice">${errors.map(esc).join("<br>")}</div>` : "") +
     (rows.length ? `<table class="tbl"><thead><tr><th>사업</th><th>구분</th><th>업체</th><th></th></tr></thead><tbody>${rows.map((r) => `<tr>
-      <td class="small">${esc(r.project)}</td><td class="small">${esc(r.role)}${r.rank ? ` · 우선협상 ${r.rank}순위` : ""}</td>
+      <td class="small">${esc(r.project)}</td><td>${roleTag(r.role)} ${r.rank ? `<span class="stage">우선협상 ${r.rank}순위</span>` : ""}</td>
       <td><b>${esc(r.name)}</b></td><td class="small muted">${have.has(r.name.replace(/\s+/g, "")) ? "기존 업체" : "신규"}</td></tr>`).join("")}</tbody></table>` : "");
   $("#btnImportRun").disabled = !rows.length;
   $("#btnImportRun").textContent = rows.length ? `${rows.length}건 등록하기` : "등록하기";
@@ -449,7 +495,22 @@ $("#rcForm").onsubmit = async (ev) => {
   ev.target.reset(); renderSettings();
 };
 
-// ---------- 고급 ----------
+// ---------- 연결 상태 / 고급 ----------
+function renderConnections() {
+  const s = state.status, c = s.connections || {}, known = !!s.connections;
+  const lists = s.sanction_lists ? Object.entries(s.sanction_lists).map(([k, v]) => `${k} ${v}`).join(", ") : "";
+  const rows = [
+    ["Firebase (데이터 저장)", true, "이 화면이 보이면 정상", true],
+    ["Google 뉴스", c.google_news ?? true, "키 불필요"],
+    ["네이버 뉴스", c.naver, "Secret: NAVER_CLIENT_ID / NAVER_CLIENT_SECRET"],
+    ["메일 발송", c.smtp, "Secret: SMTP_USER / SMTP_PASSWORD"],
+    ["MDB 제재리스트", !!lists && !/오류/.test(lists), lists || "스캔 때 자동으로 내려받음"],
+    ["AI 판정 (Claude)", c.claude, c.claude ? `모델 ${s.claude_model}` : "Secret: ANTHROPIC_API_KEY (없으면 키워드 판정)"],
+    ["DART 기업정보", c.dart, "Secret: DART_API_KEY (선택)"],
+  ];
+  $("#connList").innerHTML = (known ? "" : `<div class="notice">아직 스캔이 실행되지 않아 GitHub 쪽 연결 상태를 알 수 없습니다. 첫 스캔 후 표시됩니다.</div>`) +
+    rows.map(([k, ok, d, always]) => `<div class="conn"><div><div class="k">${k}</div><div class="d">${esc(d)}</div></div>${always || known ? (ok ? `<span class="badge none">연결됨</span>` : `<span class="badge yellow">미설정</span>`) : `<span class="badge" style="background:var(--gray-bg);color:var(--gray)">확인 전</span>`}</div>`).join("");
+}
 const DEFAULT_KEYWORDS = [
   ["부정당업자", "red", "ko", 1], ["입찰참가자격 제한", "red", "ko", 0], ["입찰 참가 제한", "red", "ko", 0], ["영업정지", "red", "ko", 0],
   ["회생절차", "red", "ko", 0], ["법정관리", "red", "ko", 0], ["부도", "red", "ko", 0],
@@ -479,19 +540,6 @@ $("#kwForm").onsubmit = async (ev) => {
   ev.target.reset(); renderAdvanced();
 };
 function renderAdvanced() {
-  const s = state.status, c = s.connections || {}, known = !!s.connections;
-  const lists = s.sanction_lists ? Object.entries(s.sanction_lists).map(([k, v]) => `${k} ${v}`).join(", ") : "";
-  const rows = [
-    ["Firebase (데이터 저장)", true, "연결됨 — 이 화면이 보이면 정상"],
-    ["Google 뉴스", c.google_news ?? true, "키 불필요"],
-    ["네이버 뉴스", c.naver, "Secret: NAVER_CLIENT_ID / NAVER_CLIENT_SECRET"],
-    ["메일 발송", c.smtp, "Secret: SMTP_USER / SMTP_PASSWORD"],
-    ["MDB 제재리스트", !!lists && !/오류/.test(lists), lists || "스캔 때 자동으로 내려받음"],
-    ["AI 판정 (Claude)", c.claude, c.claude ? `모델 ${s.claude_model}` : "Secret: ANTHROPIC_API_KEY (없으면 키워드 규칙 판정)"],
-    ["DART 기업정보", c.dart, "Secret: DART_API_KEY (선택)"],
-  ];
-  $("#connList").innerHTML = (known ? "" : `<div class="notice">아직 스캔이 실행되지 않아 GitHub 쪽 연결 상태를 알 수 없습니다.</div>`) +
-    rows.map(([k, ok, d], i) => `<div class="conn"><div><div class="k">${k}</div><div class="d">${esc(d)}</div></div>${i === 0 || known ? (ok ? `<span class="badge none">연결됨</span>` : `<span class="badge yellow">미설정</span>`) : `<span class="badge yellow">확인 전</span>`}</div>`).join("");
   const KIND = { scan: "스캔", report: "메일 발송", dart: "DART" };
   $("#runList").innerHTML = state.runs.map((r) => `<div class="run"><b>${esc(KIND[r.kind] || r.kind)}</b> · ${esc(r.at)} ${r.ok ? `<span class="badge none">정상</span>` : `<span class="badge orange">일부 오류</span>`}<pre>${esc(JSON.stringify(r.detail, null, 1)).slice(0, 1200)}</pre></div>`).join("") || `<div class="muted small">아직 실행 기록이 없습니다.</div>`;
   $("#kwList").innerHTML = [...state.keywords].sort((a, b) => (LV[b.level] - LV[a.level]) || a.word.localeCompare(b.word))
