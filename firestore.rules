@@ -1,0 +1,18 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 대시보드에 접근할 수 있는 Google 계정 — 팀원 추가 시 여기에 이메일을 넣고 [게시]
+    function allowed() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in [
+          'larc30730@gmail.com'
+        ];
+    }
+
+    match /{document=**} {
+      allow read, write: if allowed();
+    }
+  }
+}

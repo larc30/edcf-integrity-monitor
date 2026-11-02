@@ -1,0 +1,73 @@
+name: 업체 모니터링
+
+on:
+  schedule:
+    - cron: "30 22 * * *"   # 매일 07:30 (한국시간) = 22:30 UTC
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "실행할 작업"
+        type: choice
+        default: scan
+        options:
+          - scan          # 스캔 + 미리보기 갱신 (메일 발송 없음)
+          - daily         # 스캔 + 수신자 전체 메일 발송
+          - report-test   # 테스트 메일 1통 (아래 test_to 주소로)
+          - report        # 수신자 전체 메일 발송만
+          - preview       # 리포트 미리보기만 갱신
+          - dart          # DART 기업목록 갱신 (자동완성용)
+      companies:
+        description: "특정 업체만 스캔 (쉼표 구분, 비우면 전체)"
+        required: false
+        default: ""
+      test_to:
+        description: "테스트 메일 받을 주소 (report-test 일 때)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write   # dart 작업 시 data/corp_master.json 커밋
+
+concurrency:
+  group: monitor
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: 실행
+        env:
+          TASK: ${{ github.event.inputs.task || 'daily' }}
+          COMPANIES: ${{ github.event.inputs.companies }}
+          TEST_TO: ${{ github.event.inputs.test_to }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+          PPS_SANCTION_API_URL: ${{ secrets.PPS_SANCTION_API_URL }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          DASHBOARD_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+        run: python -m monitor.run "$TASK" --companies "$COMPANIES" --test-to "$TEST_TO"
+
+      - name: DART 기업목록 커밋
+        if: github.event.inputs.task == 'dart'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/corp_master.json
+          git diff --cached --quiet || (git commit -m "DART 기업목록 갱신" && git push)
