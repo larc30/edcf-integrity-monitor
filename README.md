@@ -21,7 +21,7 @@ Firebase 콘솔 → Firestore Database → **규칙** 탭 → 이 저장소의 `
 | 이름 | 값 | 필수 |
 |---|---|---|
 | `FIREBASE_SERVICE_ACCOUNT` | Firebase 서비스 계정 JSON 파일 **내용 전체** | ✅ |
-| `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` | 네이버 개발자센터 검색 API | 권장 |
+| `NAVER_APIHUB_KEY_ID` / `NAVER_APIHUB_KEY` | 네이버 클라우드 **NAVER API HUB** 검색 API 인증 정보 (2026-07-31부터 개발자센터 신규 발급 종료) | 권장 |
 | `SMTP_USER` / `SMTP_PASSWORD` | Gmail 주소 / 앱 비밀번호(16자리) | 메일 발송 시 |
 | `ANTHROPIC_API_KEY` | Claude API 키 | 선택 (없으면 키워드 규칙 판정) |
 | `DART_API_KEY` | DART OpenAPI 인증키 | 권장 (사업자번호·영문명 자동 채움) |

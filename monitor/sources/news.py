@@ -30,20 +30,32 @@ def _domain(url: str) -> str:
         return ""
 
 
+APIHUB_NEWS_URL = "https://naverapihub.apigw.ntruss.com/search/v1/news"
+LEGACY_NEWS_URL = "https://openapi.naver.com/v1/search/news.json"
+
+
+def naver_endpoint() -> tuple[str, dict] | None:
+    """NAVER API HUB 키가 있으면 우선, 없으면 (구) 개발자센터 키. 둘 다 없으면 None.
+    검색 조건(query·display·sort)과 결과 형식은 두 방식이 같다."""
+    if config.NAVER_APIHUB_KEY_ID and config.NAVER_APIHUB_KEY:
+        return APIHUB_NEWS_URL, {"X-NCP-APIGW-API-KEY-ID": config.NAVER_APIHUB_KEY_ID, "X-NCP-APIGW-API-KEY": config.NAVER_APIHUB_KEY}
+    if config.NAVER_CLIENT_ID and config.NAVER_CLIENT_SECRET:
+        return LEGACY_NEWS_URL, {"X-Naver-Client-Id": config.NAVER_CLIENT_ID, "X-Naver-Client-Secret": config.NAVER_CLIENT_SECRET}
+    return None
+
+
+def naver_enabled() -> bool:
+    return naver_endpoint() is not None
+
+
 def naver_news(query: str, display: int | None = None, sort: str = "date") -> list[dict]:
     """sort: date(최신순) / sim(관련도순 — 오래된 사건도 잡힘)"""
-    if not (config.NAVER_CLIENT_ID and config.NAVER_CLIENT_SECRET):
+    ep = naver_endpoint()
+    if not ep:
         return []
+    url, headers = ep
     try:
-        r = httpx.get(
-            "https://openapi.naver.com/v1/search/news.json",
-            params={"query": query, "display": display or config.NEWS_PER_QUERY, "sort": sort},
-            headers={
-                "X-Naver-Client-Id": config.NAVER_CLIENT_ID,
-                "X-Naver-Client-Secret": config.NAVER_CLIENT_SECRET,
-            },
-            timeout=_TIMEOUT,
-        )
+        r = httpx.get(url, params={"query": query, "display": display or config.NEWS_PER_QUERY, "sort": sort}, headers=headers, timeout=_TIMEOUT)
         r.raise_for_status()
     except httpx.HTTPError as e:
         log.warning("naver news error (%s): %s", query, e)

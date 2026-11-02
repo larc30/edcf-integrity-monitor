@@ -37,7 +37,7 @@ def _queries(company: dict, keywords: list[dict]) -> list[tuple[str, str, str, s
         qs.append(("google", "en", f'"{en_name}"', "date"))
     if "id" in langs:
         qs.append(("google", "id", f'"{en_name or company["name"]}" {ID_RISK_QUERY}', "date"))
-    if not config.NAVER_CLIENT_ID:
+    if not news.naver_enabled():
         qs = [q for q in qs if q[0] != "naver"]
     return qs
 
@@ -251,7 +251,7 @@ def run_scan(only_names: list[str] | None = None) -> dict:
 def connections() -> dict:
     """어떤 Secrets가 설정됐는지 (값은 기록하지 않음)"""
     return {
-        "naver": bool(config.NAVER_CLIENT_ID and config.NAVER_CLIENT_SECRET),
+        "naver": news.naver_enabled(),
         "google_news": config.GOOGLE_NEWS_ENABLED,
         "claude": bool(config.ANTHROPIC_API_KEY),
         "dart": bool(config.DART_API_KEY),

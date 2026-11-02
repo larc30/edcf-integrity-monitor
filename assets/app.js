@@ -783,7 +783,7 @@ function renderConnections() {
   const rows = [
     ["Firebase (데이터 저장)", true, "이 화면이 보이면 정상", true],
     ["Google 뉴스", c.google_news ?? true, "키 불필요"],
-    ["네이버 뉴스", c.naver, "Secret: NAVER_CLIENT_ID / NAVER_CLIENT_SECRET"],
+    ["네이버 뉴스", c.naver, "Secret: NAVER_APIHUB_KEY_ID / NAVER_APIHUB_KEY (네이버 클라우드 NAVER API HUB)"],
     ["메일 발송", c.smtp, "Secret: SMTP_USER / SMTP_PASSWORD"],
     ["MDB 제재리스트", !!lists && !/오류/.test(lists), lists || "스캔 때 자동으로 내려받음"],
     ["조달청 부정당제재", c.pps, "Secret: DATA_GO_KR_KEY (공공데이터포털 '나라장터 사용자정보 서비스' Decoding 키)"],

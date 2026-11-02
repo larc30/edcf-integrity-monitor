@@ -20,6 +20,10 @@ def _get(name: str, default: str = "") -> str:
 FIREBASE_SERVICE_ACCOUNT = _get("FIREBASE_SERVICE_ACCOUNT")
 
 # --- 뉴스 ---
+# 네이버 검색: 2026-07-31부터 신규 발급은 NAVER API HUB(네이버 클라우드)에서만 가능
+NAVER_APIHUB_KEY_ID = _get("NAVER_APIHUB_KEY_ID")
+NAVER_APIHUB_KEY = _get("NAVER_APIHUB_KEY")
+# (구) 네이버 개발자센터 키 — 이미 갖고 있는 경우에만. 2027-06-30 종료 예정
 NAVER_CLIENT_ID = _get("NAVER_CLIENT_ID")
 NAVER_CLIENT_SECRET = _get("NAVER_CLIENT_SECRET")
 GOOGLE_NEWS_ENABLED = _get("GOOGLE_NEWS_ENABLED", "true").lower() == "true"
