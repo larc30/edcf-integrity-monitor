@@ -30,13 +30,14 @@ def _domain(url: str) -> str:
         return ""
 
 
-def naver_news(query: str, display: int | None = None) -> list[dict]:
+def naver_news(query: str, display: int | None = None, sort: str = "date") -> list[dict]:
+    """sort: date(최신순) / sim(관련도순 — 오래된 사건도 잡힘)"""
     if not (config.NAVER_CLIENT_ID and config.NAVER_CLIENT_SECRET):
         return []
     try:
         r = httpx.get(
             "https://openapi.naver.com/v1/search/news.json",
-            params={"query": query, "display": display or config.NEWS_PER_QUERY, "sort": "date"},
+            params={"query": query, "display": display or config.NEWS_PER_QUERY, "sort": sort},
             headers={
                 "X-Naver-Client-Id": config.NAVER_CLIENT_ID,
                 "X-Naver-Client-Secret": config.NAVER_CLIENT_SECRET,

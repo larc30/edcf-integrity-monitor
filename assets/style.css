@@ -351,3 +351,27 @@ body.dnd-active .dropzone { border-color: var(--border-strong); background: var(
 .stagebtn { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border-strong); color: var(--muted); background: var(--surface); cursor: pointer; white-space: nowrap; }
 .stagebtn.on { border-color: var(--orange); color: var(--orange); }
 .stagebtn:hover { border-color: var(--brand-2); }
+
+/* ================= v5: 검사 범위 / 실행 상태 ================= */
+.coverage { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -4px 0 16px; font-size: 12px; }
+.coverage:empty { display: none; }
+.cv-title { font-weight: 700; color: var(--text-2); margin-right: 2px; }
+.cv { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); }
+.cv.ok { border-color: var(--green); color: var(--green); } .cv.warn { border-color: var(--orange); color: var(--orange); }
+.cv.bad { border-color: var(--red); color: var(--red); } .cv.na { color: var(--muted); }
+.cv .muted { color: inherit; opacity: .75; }
+.nchip.partial { border-style: dashed; border-color: var(--orange); }
+.chk-row { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--border); font-size: 13px; }
+.chk-row:last-of-type { border-bottom: 0; }
+.chk-row .ic { flex: 0 0 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 12px; }
+.chk-row.ok .ic { background: var(--green-bg); color: var(--green); } .chk-row.warn .ic { background: var(--orange-bg); color: var(--orange); }
+.chk-row.bad .ic { background: var(--red-bg); color: var(--red); } .chk-row.na .ic { background: var(--gray-bg); color: var(--gray); }
+.chk-row .d { color: var(--text-2); font-size: 12px; margin-top: 1px; }
+.chk-note { font-size: 12px; color: var(--text-2); background: var(--surface-2); border-radius: 6px; padding: 6px 8px; margin-top: 6px; }
+.gap-list { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow: auto; }
+.gap-row { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+.gap-row:hover { border-color: var(--brand-2); background: var(--brand-soft); }
+#jobState { display: inline-flex; align-items: center; font-size: 12px; }
+.job { padding: 6px 10px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+.job.run { background: var(--brand-soft); color: var(--brand-2); } .job.ok { background: var(--green-bg); color: var(--green); } .job.bad { background: var(--red-bg); color: var(--red); }
+.modal input#tokenInput { flex: 1 1 260px; }

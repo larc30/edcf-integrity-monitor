@@ -24,8 +24,8 @@ Firebase 콘솔 → Firestore Database → **규칙** 탭 → 이 저장소의 `
 | `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` | 네이버 개발자센터 검색 API | 권장 |
 | `SMTP_USER` / `SMTP_PASSWORD` | Gmail 주소 / 앱 비밀번호(16자리) | 메일 발송 시 |
 | `ANTHROPIC_API_KEY` | Claude API 키 | 선택 (없으면 키워드 규칙 판정) |
-| `DART_API_KEY` | DART OpenAPI 인증키 | 선택 (업체 자동완성) |
-| `DATA_GO_KR_KEY` / `PPS_SANCTION_API_URL` | 공공데이터포털 조달청 부정당제재 API | 선택 |
+| `DART_API_KEY` | DART OpenAPI 인증키 | 권장 (사업자번호·영문명 자동 채움) |
+| `DATA_GO_KR_KEY` | 공공데이터포털 **조달청_나라장터 사용자정보 서비스**의 **Decoding** 인증키 | 강력 권장 (국내 부정당제재 조회) |
 
 ### 3. GitHub Pages 켜기
 **Settings → Pages → Source: Deploy from a branch → Branch: `main` / `(root)` → Save**. 1~2분 뒤 `https://larc30.github.io/edcf-integrity-monitor/`로 접속할 수 있습니다.
@@ -38,6 +38,23 @@ Firebase 콘솔 → Authentication → 설정 → 승인된 도메인에 `larc30
 2. **관리자 → 메일 수신자** 추가
 3. GitHub **Actions → 업체 모니터링 → Run workflow**에서 작업 `scan`을 선택해 실행합니다(3~10분).
 4. 대시보드 상단 **↻** 버튼으로 새로고침
+
+## 조달청 부정당제재 조회 연결 (공공데이터포털)
+1. https://www.data.go.kr/data/15129466/openapi.do 접속 (로그인) → **활용신청**
+2. 활용목적: `참고자료` 선택 + 입력란에 한 줄 작성 → 라이선스 동의 → **신청** (자동승인)
+3. 마이페이지 → 활용신청 현황 → 서비스 이름 → **일반 인증키(Decoding)** 복사 (끝이 `==`)
+4. GitHub Secrets에 `DATA_GO_KR_KEY`로 등록
+
+- 이 API는 **사업자등록번호로** 조회하며, **조회 시점에 유효한 제재만** 알려줍니다(만료된 과거 제재는 제공 안 됨).
+- 사업자번호는 DART에 있는 업체면 스캔 때 자동으로 채워지고, 없으면 업체 상세의 **식별 정보**에 직접 입력합니다.
+
+## 대시보드에서 바로 스캔하기
+현황의 **[지금 스캔]**을 처음 누르면 GitHub 토큰 등록 안내가 나옵니다(한 번만).
+- https://github.com/settings/personal-access-tokens/new → Repository access: **Only select repositories** → 이 저장소 → Permissions: **Actions: Read and write** → Generate
+- 토큰은 그 브라우저에만 저장됩니다. 설정 → 연결 상태에서 삭제할 수 있습니다.
+
+## '정상'의 의미
+'정상'은 "문제가 없다는 보장"이 아니라 **"확인한 범위에서 발견되지 않음"**입니다. 업체마다 **검사 내역**(뉴스 몇 건 확인, MDB 리스트 대조 여부, 조달청 조회 여부)이 기록되며, 확인 못 한 항목이 있으면 ⚠로 표시됩니다. 현황의 **검사 범위**에서 전체 현황과 보완할 업체를 볼 수 있습니다.
 
 ## GitHub Actions 작업 종류
 

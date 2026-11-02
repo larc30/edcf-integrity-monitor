@@ -40,9 +40,9 @@ OPENSANCTIONS_DATASETS = [
     if d.strip()
 ]
 OPENSANCTIONS_BASE = _get("OPENSANCTIONS_BASE", "https://data.opensanctions.org/datasets/latest")
+# 조달청 나라장터 사용자정보 서비스 (공공데이터포털, Decoding 인증키)
 DATA_GO_KR_KEY = _get("DATA_GO_KR_KEY")
-PPS_SANCTION_API_URL = _get("PPS_SANCTION_API_URL")
-PPS_NAME_PARAM = _get("PPS_NAME_PARAM", "corpNm")
+PPS_BASE_URL = _get("PPS_BASE_URL", "https://apis.data.go.kr/1230000/ao/UsrInfoService02")
 
 # --- AI 분석 (Claude) ---
 ANTHROPIC_API_KEY = _get("ANTHROPIC_API_KEY")

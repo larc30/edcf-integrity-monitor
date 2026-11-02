@@ -3,7 +3,7 @@
 1) MDB 제재 리스트 — OpenSanctions가 정리해 공개하는 데이터셋(세계은행·ADB·AfDB·IDB·EBRD)을
    실행할 때마다 내려받아, 등록 업체명(국문/영문/별칭)과 매칭한다.
    ※ OpenSanctions 데이터는 비상업적 이용 무료(CC BY-NC). 실서비스 전 라이선스 확인 필요.
-2) 조달청 부정당제재 — 공공데이터포털 활용신청 후 받은 엔드포인트를 PPS_SANCTION_API_URL 로 설정.
+2) 조달청 부정당제재는 sources/pps.py
 """
 import csv
 import difflib
@@ -115,50 +115,6 @@ def match_company(entries: list[dict], company: dict) -> list[dict]:
                     if exact
                     else f"{DATASET_LABEL.get(ds, ds)} 등재 업체 '{e['name']}'와 이름이 유사합니다(유사도 {best:.2f}). 동일 법인인지 확인 필요."
                 ),
-                "analyzer": "list-match",
-            }
-        )
-    return out
-
-
-def pps_lookup(company: dict) -> list[dict]:
-    """조달청 부정당제재 조회 (공공데이터포털). URL 미설정 시 건너뜀."""
-    if not (config.PPS_SANCTION_API_URL and config.DATA_GO_KR_KEY):
-        return []
-    params = {
-        "serviceKey": config.DATA_GO_KR_KEY,
-        "type": "json",
-        "numOfRows": 50,
-        "pageNo": 1,
-        config.PPS_NAME_PARAM: company["name"],
-    }
-    r = httpx.get(config.PPS_SANCTION_API_URL, params=params, timeout=30)
-    r.raise_for_status()
-    data = r.json()
-    items = (((data.get("response") or {}).get("body") or {}).get("items")) or []
-    if isinstance(items, dict):
-        items = items.get("item", [])
-    if isinstance(items, dict):
-        items = [items]
-    out = []
-    target = norm(company["name"])
-    for it in items:
-        name = next((str(v) for k, v in it.items() if "nm" in k.lower() and "corp" in k.lower()), "")
-        if name and norm(name) != target:
-            continue
-        desc = ", ".join(f"{k}={v}" for k, v in it.items() if v)[:500]
-        out.append(
-            {
-                "source_type": "official",
-                "source_name": "조달청 부정당제재",
-                "title": f"[조달청 부정당제재] {name or company['name']}",
-                "url": "https://www.g2b.go.kr",
-                "published_at": "",
-                "snippet": desc,
-                "matched_keywords": "조달청 API",
-                "level": "red",
-                "category": "부정당업자 제재",
-                "summary": "조달청 부정당제재 정보에 해당 업체 기록이 있습니다. 제재기간·처분기관을 확인하세요.",
                 "analyzer": "list-match",
             }
         )

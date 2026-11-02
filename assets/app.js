@@ -5,7 +5,7 @@ import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=4";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=5";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -159,11 +159,25 @@ function renderHome() {
       <div class="hint">'확인했음/관련 없음' 처리 전 기사·기록</div>
     </div>`;
 
+  // 검사 범위: '정상'이 어디까지 확인한 결과인지
+  const cv = coverage();
+  const cvItem = (label, n, total, note) => {
+    const st = !total ? "na" : n === total ? "ok" : n === 0 ? "bad" : "warn";
+    return `<span class="cv ${st}"><b>${label}</b> ${total ? `${n}/${total}` : "-"}${note ? ` <span class="muted">${note}</span>` : ""}</span>`;
+  };
+  const gapCount = state.companies.filter((c) => c.last_check && checkGaps(c).length).length;
+  $("#coverage").innerHTML = !cv.scanned ? "" : `<span class="cv-title">검사 범위</span>
+    ${cvItem("뉴스 검색", cv.news, cv.scanned)}
+    ${cvItem("MDB 제재리스트 대조", cv.mdb, cv.scanned, cv.mdb < cv.scanned ? "(영문명 필요)" : "")}
+    ${cv.ppsConnected ? cvItem("조달청 부정당제재 조회", cv.pps, cv.ppsTotal, cv.pps < cv.ppsTotal ? "(사업자번호 필요)" : "") : `<span class="cv na"><b>조달청 부정당제재 조회</b> 미연결</span>`}
+    ${gapCount ? `<button class="btn sm" id="btnGaps">보완할 업체 ${gapCount}곳 보기</button>` : ""}`;
+  $("#btnGaps")?.addEventListener("click", showGaps);
+
   // 등급별 업체
   const groupHtml = (lv, list) => {
     if (lv === "none" || lv === "pending") {
-      return `<div class="rgroup ${lv}"><div class="rgroup-head">${lv === "pending" ? "스캔 전" : "정상"} <span class="desc">${lv === "pending" ? "아직 스캔하지 않음" : LEVEL_DESC.none}</span><span class="n">${list.length}개</span></div>
-        <div class="rgroup-body"><div class="chipwrap">${list.map((c) => `<span class="nchip" data-cid="${c.id}">${esc(c.name)}</span>`).join("") || `<span class="muted small">없음</span>`}</div></div></div>`;
+      return `<div class="rgroup ${lv}"><div class="rgroup-head">${lv === "pending" ? "스캔 전" : "정상"} <span class="desc">${lv === "pending" ? "아직 스캔하지 않음" : "확인한 범위에서 발견 없음 · ⚠는 일부 확인 못 함"}</span><span class="n">${list.length}개</span></div>
+        <div class="rgroup-body"><div class="chipwrap">${list.map((c) => { const g = lv === "none" ? checkGaps(c) : []; return `<span class="nchip ${g.length ? "partial" : ""}" data-cid="${c.id}" title="${esc(g.join(" / "))}">${g.length ? "⚠ " : ""}${esc(c.name)}</span>`; }).join("") || `<span class="muted small">없음</span>`}</div></div></div>`;
     }
     return `<div class="rgroup ${lv}"><div class="rgroup-head">${LEVEL[lv]} <span class="desc">${LEVEL_DESC[lv]}</span><span class="n">${list.length}개</span></div>
       <div class="rgroup-body">${list.map((c) => `<div class="rrow" data-cid="${c.id}">
@@ -248,39 +262,108 @@ function renderFeed(list, el, showCompany = true) {
   }));
 }
 
+// ---------- 검사 범위 ----------
+// 업체별로 '무엇을 확인했는지'를 해석. 이슈가 없을 때 '정상'이 어디까지 확인된 결과인지 보여주기 위함.
+function checkGaps(c) {
+  const lc = c.last_check;
+  if (!lc) return ["아직 스캔하지 않음"];
+  const g = [];
+  if (!lc.news?.engines?.length) g.push("뉴스 검색 실패");
+  if (lc.mdb?.status === "no_en") g.push("영문명 없음 → MDB 제재리스트 대조 불완전");
+  if (lc.pps?.status === "no_bizno") g.push("사업자번호 없음 → 조달청 부정당제재 조회 못 함");
+  if (lc.pps?.status === "error") g.push("조달청 조회 오류");
+  return g;
+}
+function coverage() {
+  const cs = state.companies.filter((c) => c.last_check);
+  const domestic = cs.filter((c) => c.last_check.pps?.status !== "foreign");
+  return {
+    scanned: cs.length,
+    news: cs.filter((c) => c.last_check.news?.engines?.length).length,
+    mdb: cs.filter((c) => c.last_check.mdb?.status === "ok").length,
+    pps: domestic.filter((c) => c.last_check.pps?.status === "ok").length,
+    ppsTotal: domestic.length,
+    ppsConnected: !!state.status.connections?.pps,
+  };
+}
+function showGaps() {
+  const list = state.companies.filter((c) => c.last_check && checkGaps(c).length).sort((a, b) => a.name.localeCompare(b.name));
+  modal(`<h2>보완할 업체 ${list.length}곳</h2>
+    <p class="muted small">아래 업체는 일부 항목을 확인하지 못했습니다. 업체를 눌러 <b>식별 정보</b>에 사업자번호·영문명을 넣으면 다음 스캔부터 확인됩니다.</p>
+    <div class="gap-list">${list.map((c) => `<div class="gap-row" data-cid="${c.id}"><b>${esc(c.name)}</b><div class="muted small">${checkGaps(c).map(esc).join(" · ")}</div></div>`).join("")}</div>`);
+  $$("#modal .gap-row").forEach((x) => x.onclick = () => { closeModal(); openCompany(x.dataset.cid); });
+}
+const fmtBiz = (b) => { const d = String(b || "").replace(/\D/g, ""); return d.length === 10 ? `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}` : (b || ""); };
+
 // ---------- 업체 상세 ----------
+function checkRows(c) {
+  const lc = c.last_check;
+  if (!lc) return `<div class="muted small">아직 스캔하지 않았습니다.</div>`;
+  const row = (st, k, d) => `<div class="chk-row ${st}"><span class="ic">${{ ok: "✓", warn: "!", bad: "✕", na: "–" }[st]}</span><div><b>${k}</b><div class="d">${d}</div></div></div>`;
+  const n = lc.news || {}, m = lc.mdb || {}, p = lc.pps || {};
+  const ppsRow = {
+    ok: () => row("ok", "조달청 부정당제재", `사업자번호 ${esc(fmtBiz(p.bizno))}로 조회 — 현재 유효한 제재 ${p.hits ? `<b>${p.hits}건</b>` : "없음"} <span class="muted">(만료된 과거 제재는 제공되지 않음)</span>`),
+    no_bizno: () => row("warn", "조달청 부정당제재", "사업자번호가 없어 조회하지 못했습니다 → 아래 <b>사업자번호</b>를 입력하세요"),
+    not_connected: () => row("na", "조달청 부정당제재", "미연결 (GitHub Secret <code>DATA_GO_KR_KEY</code> 필요)"),
+    foreign: () => row("na", "조달청 부정당제재", "해외 업체 — 해당 없음"),
+    error: () => row("bad", "조달청 부정당제재", `조회 오류: ${esc(p.error || "")}`),
+  }[p.status || "not_connected"]();
+  return `
+    ${row(n.engines?.length ? "ok" : "bad", "뉴스", n.engines?.length ? `${esc(n.engines.join("·"))} 검색어 ${n.queries}개로 기사 ${n.fetched}건 확인 (업체명 언급 ${n.mentioned}건, 이번 신규 분석 ${n.new_analyzed}건)` : "검색 실패 — 실행 기록을 확인하세요")}
+    ${row("ok", "판정 방식", lc.analyzer === "claude" ? "AI(Claude)가 기사별로 관련성·등급 판정" : "키워드 규칙 (AI 키 없음 — 키워드 없는 기사는 놓칠 수 있음)")}
+    ${m.status === "ok" ? row("ok", "MDB 제재리스트", `${m.lists}개 리스트(World Bank·ADB 등)와 '${esc((m.names || []).join(", "))}' 이름으로 대조`)
+      : m.status === "no_lists" ? row("bad", "MDB 제재리스트", "리스트를 내려받지 못했습니다")
+      : row("warn", "MDB 제재리스트", "영문명이 없어 대조가 불완전합니다 → 아래 <b>영문명</b>을 입력하세요")}
+    ${ppsRow}
+    ${(lc.identity?.notes || []).map((t) => `<div class="chk-note">ℹ ${esc(t)}</div>`).join("")}
+    <div class="muted small" style="margin-top:6px">검사 시각 ${esc(lc.at)}</div>`;
+}
+
 function openCompany(cid) {
   const c = state.companies.find((x) => x.id === cid);
   if (!c) return;
   state.openCid = cid;
   const fs = state.findings.filter((f) => f.company_id === cid && f.status !== "dismissed").sort(byLevelDate);
   const dismissed = state.findings.filter((f) => f.company_id === cid && f.status === "dismissed");
-  $("#drawerTitle").innerHTML = `<div class="t">${esc(c.name)} ${scanned() ? badge(c.risk) : ""}</div>`;
+  const gaps = checkGaps(c);
+  $("#drawerTitle").innerHTML = `<div class="t">${esc(c.name)} ${scanned() ? badge(c.risk) : ""}</div>
+    <div class="muted small">${c.engagements.map((e) => `${roleTag(e.role)} ${esc(projName(e.project_id))} ${stageTag(e)}`).join(" &nbsp; ") || "사업 미배정"}</div>`;
   $("#drawerBody").innerHTML = `
-    <div class="card">
-      <div class="kv">
-        <div class="k">참여 사업</div><div>${c.engagements.map((e) => `<div>${roleTag(e.role)} ${esc(projName(e.project_id))} ${stageTag(e)}</div>`).join("") || "-"}</div>
-        <div class="k">영문명 / 별칭</div><div>${esc(c.name_en || "-")}${c.aliases ? ` / ${esc(c.aliases)}` : ""}</div>
-        <div class="k">대표자</div><div>${esc(c.ceo || "-")}</div>
-      </div>
-      <div class="actions left">
-        <button class="btn primary" id="dScan">이 업체만 다시 스캔</button>
-        <a class="btn" target="_blank" rel="noopener" href="https://search.naver.com/search.naver?where=news&query=${encodeURIComponent('"' + c.name + '"')}">네이버 뉴스 ↗</a>
-      </div>
+    <div class="actions left" style="margin-top:0">
+      <button class="btn primary" id="dScan">이 업체만 다시 스캔</button>
+      <a class="btn" target="_blank" rel="noopener" href="https://search.naver.com/search.naver?where=news&query=${encodeURIComponent('"' + c.name + '"')}">네이버 뉴스 ↗</a>
     </div>
-    <h2>이슈 <span class="count">${fs.length}</span></h2>
-    <div id="dFeed" class="feed" style="max-height:none">${fs.length ? "" : `<div class="empty">${scanned() ? "발견된 이슈가 없습니다." : "아직 스캔하지 않았습니다."}</div>`}</div>
+
+    <h2 style="margin-top:18px">이슈 <span class="count">${fs.length}</span></h2>
+    <div id="dFeed" class="feed" style="max-height:none">${fs.length ? "" : `<div class="empty">${!c.last_check ? "아직 스캔하지 않았습니다." : gaps.length ? "확인한 범위에서는 발견되지 않았습니다. 다만 아래 '검사 내역'의 ⚠ 항목은 확인하지 못했습니다." : "확인한 범위에서 발견된 이슈가 없습니다."}</div>`}</div>
     ${dismissed.length ? `<details class="more"><summary>관련 없음 처리한 기사 ${dismissed.length}건</summary><div id="dDismissed" class="feed" style="max-height:none"></div></details>` : ""}
-    <details class="more">
-      <summary>검색 정확도 높이기 (영문명·별칭·보조 키워드)</summary>
-      <p class="muted small">동명 업체 기사가 섞이면 <b>보조 키워드</b>(업종·대표자명)를, 해외 기사를 보려면 <b>영문명</b>을 넣으세요.</p>
+
+    <div class="card" style="margin-top:16px">
+      <h2>검사 내역 ${gaps.length && c.last_check ? `<span class="badge yellow">확인 못 한 항목 ${gaps.length}</span>` : c.last_check ? `<span class="badge none">전 항목 확인</span>` : ""}</h2>
+      ${checkRows(c)}
+    </div>
+
+    <div class="card">
+      <h2>식별 정보 <span class="muted small" style="font-weight:500">— 정확한 조회에 필요합니다</span></h2>
       <form id="advForm" class="form">
-        <div class="row"><label>영문명<input name="name_en" value="${esc(c.name_en || "")}"></label><label>별칭 (쉼표 구분)<input name="aliases" value="${esc(c.aliases || "")}"></label></div>
-        <label>보조 키워드<input name="context_keywords" value="${esc(c.context_keywords || "")}" placeholder="예: 감리, 엔지니어링, 대표자명"></label>
-        <div class="row"><label>검색 언어<input name="search_langs" value="${esc(c.search_langs || "ko")}" placeholder="ko,en,id"></label><label>메모<input name="note" value="${esc(c.note || "")}"></label></div>
+        <div class="row">
+          <label>사업자등록번호 ${c.bizno_source ? `<span class="muted">(${esc(c.bizno_source)})</span>` : ""}<input name="biz_no" value="${esc(fmtBiz(c.biz_no))}" placeholder="000-00-00000"></label>
+          <label>영문명<input name="name_en" value="${esc(c.name_en || "")}" placeholder="MDB 제재리스트 대조용 (예: DOHWA ENGINEERING)"></label>
+        </div>
+        <div class="row">
+          <label>별칭 (쉼표 구분)<input name="aliases" value="${esc(c.aliases || "")}"></label>
+          <label>보조 키워드<input name="context_keywords" value="${esc(c.context_keywords || "")}" placeholder="동명 업체 구분용 (예: 감리, 대표자명)"></label>
+        </div>
+        <div class="row">
+          <label>대표자<input name="ceo" value="${esc(c.ceo || "")}"></label>
+          <label>검색 언어<input name="search_langs" value="${esc(c.search_langs || "ko")}" placeholder="ko,en,id"></label>
+        </div>
+        <label>메모<input name="note" value="${esc(c.note || "")}"></label>
         <div class="actions"><button class="btn primary">저장</button></div>
       </form>
-    </details>
+      <p class="muted small" style="margin:6px 0 0">사업자번호는 DART에 있는 업체면 스캔 때 자동으로 채워집니다. 건축사사무소·대학·소규모 업체는 직접 입력하세요.</p>
+    </div>
+
     <details class="more">
       <summary>직접 확인한 제재 기록 추가</summary>
       <form id="manualForm" class="form">
@@ -295,14 +378,18 @@ function openCompany(cid) {
     </details>`;
   if (fs.length) renderFeed(fs, $("#dFeed"), false);
   if (dismissed.length) renderFeed(dismissed, $("#dDismissed"), false);
-  $("#dScan").onclick = () => scanGuide(c.name);
+  $("#dScan").onclick = () => runWorkflow({ task: "scan", companies: c.name }, `'${c.name}' 재스캔`);
   $("#advForm").onsubmit = async (ev) => {
     ev.preventDefault();
     const fd = Object.fromEntries(new FormData(ev.target));
     const patch = Object.fromEntries(Object.entries(fd).map(([k, v]) => [k, v.trim() || null]));
+    const biz = (patch.biz_no || "").replace(/\D/g, "");
+    if (patch.biz_no && biz.length !== 10) return toast("사업자등록번호는 숫자 10자리입니다");
+    patch.biz_no = biz || null;
+    if (patch.biz_no !== (c.biz_no ? String(c.biz_no).replace(/\D/g, "") : null)) patch.bizno_source = patch.biz_no ? "직접 입력" : null;
     if (patch.name_en && !(patch.search_langs || "").includes("en")) patch.search_langs = (patch.search_langs || "ko") + ",en";
     await updateDoc(doc(db, "companies", cid), patch); Object.assign(c, patch);
-    toast("저장했습니다. 다음 스캔부터 적용됩니다");
+    toast("저장했습니다. 다음 스캔부터 적용됩니다"); openCompany(cid);
   };
   $("#manualForm").onsubmit = async (ev) => {
     ev.preventDefault();
@@ -325,21 +412,86 @@ function closeDrawer() { $("#drawer").classList.remove("open"); $("#drawerBg").c
 $("#drawerClose").onclick = closeDrawer; $("#drawerBg").onclick = closeDrawer;
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeDrawer(); closeModal(); } });
 
-// ---------- 스캔 안내 ----------
-function scanGuide(companyName) {
-  if (companyName) navigator.clipboard?.writeText(companyName).catch(() => {});
-  modal(`<h2>${companyName ? `'${esc(companyName)}' 다시 스캔` : "지금 스캔"}</h2>
-    <p class="muted small">스캔은 GitHub에서 실행됩니다(매일 07:30 자동). 지금 바로 하려면:</p>
-    <ol>
-      <li>아래 <b>[GitHub에서 실행하기]</b> 클릭</li>
-      <li>오른쪽 회색 <b>Run workflow ▾</b> 클릭</li>
-      ${companyName ? `<li><b>특정 업체만 스캔</b> 칸에 붙여넣기(Ctrl+V) — <code>${esc(companyName)}</code> 복사돼 있음</li>` : ""}
-      <li>초록 <b>Run workflow</b> 클릭 → 5분쯤 뒤 초록 체크 ✓</li>
-      <li>이 화면에서 <b>↻ 새로고침</b></li>
-    </ol>
-    <a class="btn primary" href="${ACTIONS_URL}" target="_blank" rel="noopener">GitHub에서 실행하기 ↗</a>`);
+// ---------- 스캔 실행 (대시보드 → GitHub Actions) ----------
+// 개인 GitHub 토큰(이 저장소의 Actions 권한만)을 이 브라우저에만 저장해 두고, 버튼 한 번으로 실행한다.
+const GH_KEY = "edcf_gh_token", JOB_KEY = "edcf_job";
+const ghToken = () => { try { return localStorage.getItem(GH_KEY) || ""; } catch { return ""; } };
+const setGhToken = (t) => { try { t ? localStorage.setItem(GH_KEY, t) : localStorage.removeItem(GH_KEY); } catch {} };
+async function gh(path, opts = {}) {
+  return fetch(`https://api.github.com/repos/${GITHUB_REPO}${path}`, {
+    ...opts,
+    headers: { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", Authorization: `Bearer ${ghToken()}`, ...(opts.body ? { "Content-Type": "application/json" } : {}) },
+  });
 }
-$("#btnScan").onclick = () => scanGuide(null);
+function tokenSetup(after) {
+  modal(`<h2>스캔 버튼 연결 (처음 한 번)</h2>
+    <p class="muted small">대시보드에서 바로 스캔하려면 GitHub 토큰을 한 번 등록해야 합니다. 토큰은 <b>이 브라우저에만</b> 저장되고, 이 저장소의 실행 권한만 가집니다.</p>
+    <ol>
+      <li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener"><b>토큰 만들기 페이지 열기 ↗</b></a></li>
+      <li><b>Token name</b>: <code>edcf-scan</code> · <b>Expiration</b>: 원하는 기간 (예: 90 days)</li>
+      <li><b>Repository access</b>: <b>Only select repositories</b> → <code>edcf-integrity-monitor</code> 선택</li>
+      <li><b>Permissions</b> → <b>Repository permissions</b> → <b>Actions</b>를 <b>Read and write</b>로 변경</li>
+      <li>맨 아래 <b>Generate token</b> → 나온 토큰(<code>github_pat_</code>로 시작)을 복사해 아래에 붙여넣기</li>
+    </ol>
+    <div class="add-row"><input id="tokenInput" placeholder="github_pat_..." autocomplete="off"><button class="btn primary" id="tokenSave">저장하고 실행</button></div>
+    <p class="muted small">토큰 없이 하려면 <a href="${ACTIONS_URL}" target="_blank" rel="noopener">GitHub에서 직접 실행 ↗</a> (Run workflow → scan)</p>`);
+  $("#tokenSave").onclick = async () => {
+    const t = $("#tokenInput").value.trim();
+    if (!t) return;
+    setGhToken(t);
+    const r = await gh("");
+    if (!r.ok) { setGhToken(""); return toast(r.status === 401 ? "토큰이 올바르지 않습니다" : `이 저장소에 접근할 수 없습니다 (${r.status}). 저장소 선택을 확인하세요`, 5000); }
+    closeModal(); toast("토큰을 저장했습니다"); after?.();
+  };
+}
+async function runWorkflow(inputs, label) {
+  if (!ghToken()) return tokenSetup(() => runWorkflow(inputs, label));
+  if (state.job && !state.job.done) return toast("이미 실행 중인 작업이 있습니다. 끝난 뒤 다시 눌러주세요");
+  const started = Date.now();
+  let r;
+  try { r = await gh("/actions/workflows/monitor.yml/dispatches", { method: "POST", body: JSON.stringify({ ref: "main", inputs: { task: "scan", companies: "", test_to: "", ...inputs } }) }); }
+  catch (e) { return toast("GitHub에 연결하지 못했습니다: " + e.message, 5000); }
+  if (r.status === 401) { setGhToken(""); toast("토큰이 만료됐거나 올바르지 않습니다. 다시 등록하세요", 5000); return tokenSetup(() => runWorkflow(inputs, label)); }
+  if (r.status === 403 || r.status === 404) return modal(`<h2>실행 권한이 없습니다</h2><p>토큰의 <b>Repository access</b>에 <code>edcf-integrity-monitor</code>가 선택돼 있고, <b>Actions</b> 권한이 <b>Read and write</b>인지 확인하세요.</p><button class="btn" id="reTok">토큰 다시 등록</button>`), ($("#reTok").onclick = () => { setGhToken(""); tokenSetup(() => runWorkflow(inputs, label)); });
+  if (!r.ok) return toast(`실행 요청 실패 (${r.status}): ${(await r.text()).slice(0, 120)}`, 6000);
+  state.job = { label, started, status: "queued" };
+  try { localStorage.setItem(JOB_KEY, JSON.stringify({ label, started })); } catch {}
+  toast(`${label}을(를) 시작했습니다. 완료되면 자동으로 반영됩니다`);
+  trackJob();
+}
+async function trackJob() {
+  const j = state.job;
+  if (!j || j.done) return;
+  try {
+    const r = await gh("/actions/workflows/monitor.yml/runs?event=workflow_dispatch&per_page=5");
+    if (r.ok) {
+      const run = (await r.json()).workflow_runs?.find((x) => new Date(x.created_at).getTime() >= j.started - 20000);
+      if (run) { j.status = run.status; j.conclusion = run.conclusion; j.url = run.html_url; }
+    }
+  } catch {}
+  if (j.status === "completed") {
+    j.done = true;
+    try { localStorage.removeItem(JOB_KEY); } catch {}
+    if (j.conclusion === "success") { await loadAll(); rerender(); toast(`${j.label} 완료 — 결과를 반영했습니다`, 4000); }
+    else toast(`${j.label} 실패 — 실행 기록을 확인하세요`, 6000);
+  } else if (Date.now() - j.started > 45 * 60e3) { j.done = true; j.status = "timeout"; }
+  else setTimeout(trackJob, 6000);
+  renderJob();
+}
+function renderJob() {
+  const j = state.job, el = $("#jobState");
+  if (!el) return;
+  if (!j) { el.innerHTML = ""; return; }
+  const sec = Math.round((Date.now() - j.started) / 1000), mmss = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+  const link = j.url ? ` · <a href="${esc(j.url)}" target="_blank" rel="noopener">진행 보기 ↗</a>` : "";
+  el.innerHTML = !j.done ? `<span class="job run">⏳ ${esc(j.label)} ${j.status === "in_progress" ? "실행 중" : "대기 중"} ${mmss}${link}</span>`
+    : j.conclusion === "success" ? `<span class="job ok">✓ ${esc(j.label)} 완료</span>`
+    : `<span class="job bad">✕ ${esc(j.label)} ${j.status === "timeout" ? "확인 시간 초과" : "실패"}${link}</span>`;
+}
+setInterval(() => { if (state.job && !state.job.done) renderJob(); }, 1000);
+$("#btnScan").onclick = () => runWorkflow({ task: "scan" }, "전체 스캔");
+// 새로고침 후에도 진행 중이던 작업 이어서 추적
+try { const s = JSON.parse(localStorage.getItem(JOB_KEY) || "null"); if (s && Date.now() - s.started < 45 * 60e3) { state.job = { ...s, status: "queued" }; setTimeout(trackJob, 1500); } } catch {}
 
 // ---------- 설정 (드래그 앤 드롭) ----------
 const STAGES = ["계약", "우선협상", "입찰중"];
@@ -634,11 +786,24 @@ function renderConnections() {
     ["네이버 뉴스", c.naver, "Secret: NAVER_CLIENT_ID / NAVER_CLIENT_SECRET"],
     ["메일 발송", c.smtp, "Secret: SMTP_USER / SMTP_PASSWORD"],
     ["MDB 제재리스트", !!lists && !/오류/.test(lists), lists || "스캔 때 자동으로 내려받음"],
+    ["조달청 부정당제재", c.pps, "Secret: DATA_GO_KR_KEY (공공데이터포털 '나라장터 사용자정보 서비스' Decoding 키)"],
+    ["DART 기업정보", c.dart, "Secret: DART_API_KEY — 사업자번호·영문명 자동 채움"],
     ["AI 판정 (Claude)", c.claude, c.claude ? `모델 ${s.claude_model}` : "Secret: ANTHROPIC_API_KEY (없으면 키워드 판정)"],
-    ["DART 기업정보", c.dart, "Secret: DART_API_KEY (선택)"],
   ];
   $("#connList").innerHTML = (known ? "" : `<div class="notice">아직 스캔이 실행되지 않아 GitHub 쪽 연결 상태를 알 수 없습니다. 첫 스캔 후 표시됩니다.</div>`) +
-    rows.map(([k, ok, d, always]) => `<div class="conn"><div><div class="k">${k}</div><div class="d">${esc(d)}</div></div>${always || known ? (ok ? `<span class="badge none">연결됨</span>` : `<span class="badge yellow">미설정</span>`) : `<span class="badge" style="background:var(--gray-bg);color:var(--gray)">확인 전</span>`}</div>`).join("");
+    rows.map(([k, ok, d, always]) => `<div class="conn"><div><div class="k">${k}</div><div class="d">${esc(d)}</div></div>${always || known ? (ok ? `<span class="badge none">연결됨</span>` : `<span class="badge yellow">미설정</span>`) : `<span class="badge" style="background:var(--gray-bg);color:var(--gray)">확인 전</span>`}</div>`).join("")
+    + `<div class="conn"><div><div class="k">스캔 버튼 (GitHub 토큰)</div><div class="d">${ghToken() ? "이 브라우저에 등록됨" : "등록하면 대시보드에서 바로 스캔·메일 발송"}</div></div>
+        ${ghToken() ? `<button class="btn sm ghost" id="tokClear">삭제</button>` : `<button class="btn sm" id="tokSet">등록</button>`}</div>
+      <div class="actions left">
+        <button class="btn sm" id="runTestMail">테스트 메일 받기 (내 주소)</button>
+        <button class="btn sm" id="runMailAll">수신자 전체 발송</button>
+        <button class="btn sm" id="runDart">DART 기업목록 갱신</button>
+      </div>`;
+  $("#tokSet")?.addEventListener("click", () => tokenSetup(() => renderConnections()));
+  $("#tokClear")?.addEventListener("click", () => { setGhToken(""); toast("토큰을 삭제했습니다"); renderConnections(); });
+  $("#runTestMail").onclick = () => runWorkflow({ task: "report-test", test_to: auth.currentUser.email }, "테스트 메일 발송");
+  $("#runMailAll").onclick = () => { if (confirm("등록된 수신자 전체에게 지금 리포트를 보낼까요?")) runWorkflow({ task: "report" }, "리포트 발송"); };
+  $("#runDart").onclick = () => runWorkflow({ task: "dart" }, "DART 기업목록 갱신");
 }
 const DEFAULT_KEYWORDS = [
   ["부정당업자", "red", "ko", 1], ["입찰참가자격 제한", "red", "ko", 0], ["입찰 참가 제한", "red", "ko", 0], ["영업정지", "red", "ko", 0],

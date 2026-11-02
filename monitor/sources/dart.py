@@ -11,6 +11,9 @@ import zipfile
 import httpx
 
 from .. import config
+from ..textutil import norm
+
+_master: dict | None = None
 
 
 def sync_corp_master() -> int:
@@ -48,3 +51,26 @@ def company_detail(corp_code: str) -> dict:
     if d.get("status") != "000":
         return {}
     return {"name_en": d.get("corp_name_eng") or "", "ceo": d.get("ceo_nm") or "", "biz_no": d.get("bizr_no") or ""}
+
+
+def load_master() -> dict:
+    """기업목록 색인 {정규화된 이름: [[고유번호, 이름, 영문명, 종목코드], ...]}
+    저장소의 data/corp_master.json을 쓰고, 없으면 DART에서 내려받는다."""
+    global _master
+    if _master is None:
+        if not config.CORP_MASTER_PATH.exists():
+            sync_corp_master()
+        idx: dict = {}
+        for r in json.loads(config.CORP_MASTER_PATH.read_text(encoding="utf-8")):
+            idx.setdefault(norm(r[1]), []).append(r)
+        _master = idx
+    return _master
+
+
+def match_by_name(name: str) -> tuple[list, list]:
+    """업체명 정확 일치(법인표기·공백 무시) 후보. (후보 목록, 상장사 후보)"""
+    target = norm(name)
+    if len(target) < 2:
+        return [], []
+    cands = load_master().get(target, [])
+    return cands, [r for r in cands if r[3]]
