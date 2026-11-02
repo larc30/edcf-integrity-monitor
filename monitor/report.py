@@ -63,7 +63,7 @@ def build() -> tuple[str, str, list[str]]:
     n_org = sum(1 for c in overview if c["risk"] == "orange")
     n_yel = sum(1 for c in overview if c["risk"] == "yellow")
     new_red = sum(1 for f in new if f["level"] == "red")
-    subject = f"[EDCF 업체 모니터링] {today} 신규 {len(new)}건" + (f" (위험 {new_red}건)" if new_red else "")
+    subject = f"[EDCF 부정당업자 자동감지] {today} 신규 {len(new)}건" + (f" (위험 {new_red}건)" if new_red else "")
 
     def kpi(label, value, color="#101828"):
         return (
@@ -110,8 +110,8 @@ def build() -> tuple[str, str, list[str]]:
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#F2F4F7;"><tr><td align="center" style="padding:24px 12px;">
 <table width="720" cellpadding="0" cellspacing="0" style="max-width:720px;width:100%;">
 <tr><td style="background:#0B3B6F;color:#fff;padding:20px 24px;border-radius:10px 10px 0 0;">
-  <div style="font-size:12px;opacity:.8;">EDCF 조달 청렴성 사전 모니터링</div>
-  <div style="font-size:20px;font-weight:700;margin-top:4px;">부정당업자 모니터링 일일 리포트 · {today}</div>
+  <div style="font-size:12px;opacity:.8;">EDCF 부정당업자 자동감지 시스템</div>
+  <div style="font-size:20px;font-weight:700;margin-top:4px;">일일 리포트 · {today}</div>
 </td></tr>
 <tr><td style="background:#fff;padding:16px 24px;">
   <table cellpadding="0" cellspacing="8" width="100%"><tr>

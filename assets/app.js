@@ -5,7 +5,7 @@ import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=3";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=4";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -130,17 +130,34 @@ function renderHome() {
   else if (!scanned()) showGuide(`업체 ${cs.length}개가 등록됐습니다. 오른쪽 위 <b>지금 스캔</b>을 눌러 첫 스캔을 실행하세요.`);
   else showGuide("");
 
-  // KPI
+  // KPI 보드: 전체 → 위험/경고/주의 → 비고(확인할 이슈)
   const cnt = (lv) => cs.filter((c) => c.risk === lv).length;
   const open = state.findings.filter((f) => f.status === "new").sort(byLevelDate);
-  const tiles = [
-    ["", "모니터링 업체", cs.length, `${state.projects.length}개 사업`],
-    ["red", "위험 업체", scanned() ? cnt("red") : "-", LEVEL_DESC.red],
-    ["orange", "경고 업체", scanned() ? cnt("orange") : "-", LEVEL_DESC.orange],
-    ["yellow", "주의 업체", scanned() ? cnt("yellow") : "-", LEVEL_DESC.yellow],
-    ["blue", "확인할 이슈", open.length, "확인했음/관련 없음 처리 전"],
-  ];
-  $("#kpis").innerHTML = tiles.map(([c, l, v, h]) => `<div class="ktile ${c} ${c && c !== "blue" && v > 0 ? "on" : ""}"><div class="label">${l}</div><div class="value">${esc(v)}</div><div class="hint">${esc(h)}</div></div>`).join("");
+  const n = { red: cnt("red"), orange: cnt("orange"), yellow: cnt("yellow"), none: cnt("none") };
+  const riskTotal = n.red + n.orange + n.yellow;
+  const pct = (v) => cs.length ? (v / cs.length) * 100 : 0;
+  $("#kboard").innerHTML = `
+    <div class="kb kb-total">
+      <div class="label">모니터링 업체</div>
+      <div class="value">${cs.length}</div>
+      <div class="hint">${state.projects.length}개 사업${scanned() ? ` · 정상 ${n.none}` : " · 스캔 전"}</div>
+    </div>
+    <div class="kb kb-risks">
+      <div class="kb-risks-head"><span>리스크 업체 (등급별)</span><span>${scanned() ? `총 ${riskTotal}개` : "스캔 전"}</span></div>
+      <div class="kb-cells">
+        ${["red", "orange", "yellow"].map((lv) => `<div class="kb-cell ${lv} ${scanned() && n[lv] ? "on" : ""}">
+          <div class="lv"><span class="dot ${lv}"></span>${LEVEL[lv]}</div>
+          <div class="value">${scanned() ? n[lv] : "-"}</div>
+          <div class="hint">${LEVEL_DESC[lv]}</div></div>`).join("")}
+      </div>
+      <div class="kb-bar" title="전체 업체 중 등급별 비율">${scanned() ? ["red", "orange", "yellow", "none"].map((lv) => `<i class="${lv}" style="width:${pct(n[lv])}%"></i>`).join("") : ""}</div>
+    </div>
+    <div class="kb kb-note">
+      <span class="tag-note">비고</span>
+      <div class="label">확인할 이슈</div>
+      <div class="value">${open.length}<span class="hint" style="font-size:13px;font-weight:600"> 건</span></div>
+      <div class="hint">'확인했음/관련 없음' 처리 전 기사·기록</div>
+    </div>`;
 
   // 등급별 업체
   const groupHtml = (lv, list) => {
@@ -324,53 +341,156 @@ function scanGuide(companyName) {
 }
 $("#btnScan").onclick = () => scanGuide(null);
 
-// ---------- 설정 ----------
+// ---------- 설정 (드래그 앤 드롭) ----------
+const STAGES = ["계약", "우선협상", "입찰중"];
+const ROLES = ["컨설턴트", "본구매", "F/S"];
+let picked = null; // 클릭(터치)으로 고른 업체 { cid, from }
+
 function renderSettings() {
-  const sel = $("#addForm [name=project]"), cur = sel.value;
-  sel.innerHTML = state.projects.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("") + `<option value="__new">+ 새 사업 추가</option>`;
-  const typingNew = cur === "__new" && $("#addForm [name=newProject]").value.trim();
-  if (cur && cur !== "__new" && [...sel.options].some((o) => o.value === cur)) sel.value = cur;
-  else if (!state.projects.length || typingNew) sel.value = "__new";
-  else sel.value = state.projects[0].id;
-  $("#newProjectWrap").classList.toggle("hidden", sel.value !== "__new");
+  // 업체 목록 (끌어오는 곳)
+  const q = ($("#poolSearch").value || "").trim();
+  const list = [...state.companies].filter((c) => !q || c.name.includes(q)).sort((a, b) => (a.engagements.length ? 1 : 0) - (b.engagements.length ? 1 : 0) || a.name.localeCompare(b.name));
+  $("#poolCount").textContent = state.companies.length;
+  $("#pool").innerHTML = list.map((c) => `<div class="pchip ${c.engagements.length ? "" : "unassigned"} ${picked?.cid === c.id && !picked.from ? "picked" : ""}" draggable="true" data-cid="${c.id}">
+      <span class="grip">⋮⋮</span><span class="nm">${esc(c.name)}</span>
+      <span class="n">${c.engagements.length ? `사업 ${new Set(c.engagements.map((e) => e.project_id)).size}` : "미배정"}</span>
+      ${c.engagements.length ? "" : `<button class="xbtn" data-del="${c.id}" title="업체 삭제">✕</button>`}
+    </div>`).join("") || `<div class="muted small">${q ? "검색 결과가 없습니다." : "업체가 없습니다. 위에서 추가하세요."}</div>`;
 
-  $("#companyCount").textContent = `사업 ${state.projects.length} · 업체 ${state.companies.length}`;
-  const orphans = state.companies.filter((c) => !c.engagements.length);
-  $("#companyList").innerHTML = state.projects.map((p) => projectBox(p, true)).join("")
-    + (orphans.length ? `<div class="pbox"><div class="pbox-head pending"><div class="pname">사업 미연결 업체</div></div><div class="pbox-body">${orphans.map((c) => `<div class="corow" data-cid="${c.id}"><span class="cn">${esc(c.name)}</span><span class="right"><button class="xbtn" data-del="${c.id}" title="삭제">✕</button></span></div>`).join("")}</div></div>` : "")
-    || `<div class="empty">등록된 사업이 없습니다. 위에서 업체를 추가하세요.</div>`;
-  bindProjectBoxes($("#companyList"));
-  $$("#companyList [data-unlink]").forEach((b) => b.onclick = async (ev) => {
-    ev.stopPropagation();
-    const [cid, i] = b.dataset.unlink.split("|");
-    const c = state.companies.find((x) => x.id === cid);
-    if (!confirm(`'${c.name}'을(를) 이 사업에서 뺄까요?${c.engagements.length === 1 ? "\n(다른 사업이 없으므로 업체와 수집 이력도 삭제됩니다)" : ""}`)) return;
-    c.engagements.splice(+i, 1);
-    if (c.engagements.length) await updateDoc(doc(db, "companies", cid), { engagements: c.engagements });
-    else await deleteCompany(cid);
-    rerender();
-  });
-  $$("#companyList [data-del]").forEach((b) => b.onclick = async (ev) => { ev.stopPropagation(); if (confirm("업체를 삭제할까요?")) { await deleteCompany(b.dataset.del); rerender(); } });
-  $$("#companyList [data-del-proj]").forEach((b) => b.onclick = async () => {
-    const pid = b.dataset.delProj;
-    if (!confirm(`'${projName(pid)}' 사업을 삭제할까요?\n(이 사업에만 참여한 업체도 함께 삭제됩니다)`)) return;
-    for (const c of [...state.companies]) {
-      if (!c.engagements.some((e) => e.project_id === pid)) continue;
-      c.engagements = c.engagements.filter((e) => e.project_id !== pid);
-      if (c.engagements.length) await updateDoc(doc(db, "companies", c.id), { engagements: c.engagements });
-      else await deleteCompany(c.id);
-    }
-    await deleteDoc(doc(db, "projects", pid));
-    state.projects = state.projects.filter((p) => p.id !== pid);
-    rerender();
-  });
+  // 사업 카드 (놓는 곳)
+  $("#projCount").textContent = state.projects.length;
+  $("#projBoard").innerHTML = state.projects.map((p) => {
+    const rows = [];
+    for (const c of state.companies) c.engagements.forEach((e, i) => { if (e.project_id === p.id) rows.push({ c, e, i }); });
+    return `<div class="pbox">
+      <div class="pbox-head pending"><div class="pname">${esc(p.name)}</div>${p.country ? `<span class="ctry">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</div>
+      <div class="pbox-body">
+        ${ROLES.map((role) => {
+          const rr = rows.filter((r) => r.e.role === role);
+          return `<div class="dropzone ${rr.length ? "" : "is-empty"}" data-pid="${p.id}" data-role="${esc(role)}">
+            ${roleTag(role)}
+            ${rr.map(({ c, e, i }) => `<div class="corow" draggable="true" data-cid="${c.id}" data-from="${p.id}|${i}">
+              <span class="grip muted small">⋮⋮</span><span class="cn">${esc(c.name)}</span>
+              <span class="right">
+                <button class="stagebtn ${e.stage !== "계약" ? "on" : ""}" data-stage="${c.id}|${i}" title="눌러서 단계 변경">${esc(e.stage || "계약")}${e.stage === "우선협상" && e.rank ? " " + e.rank + "순위" : ""}</button>
+                <button class="xbtn" data-unlink="${c.id}|${i}" title="이 사업에서 빼기">✕</button>
+              </span></div>`).join("")}
+            <div class="drop-hint">여기로 끌어다 놓기</div>
+          </div>`;
+        }).join("")}
+      </div>
+      <div class="pbox-foot"><span>업체 ${rows.length}개</span><button class="btn sm ghost danger" data-del-proj="${p.id}">사업 삭제</button></div>
+    </div>`;
+  }).join("") || `<div class="empty">사업이 없습니다. 오른쪽 위에서 사업을 추가하세요.</div>`;
 
+  bindDnd();
+
+  // 수신자
   $("#rcList").innerHTML = state.recipients.map((r) => `<div class="srow"><span>✉ ${esc(r.email)}</span><button class="xbtn" data-del-rc="${r.id}" title="삭제">✕</button></div>`).join("") || `<div class="muted small">아직 없습니다.</div>`;
   $$("[data-del-rc]").forEach((b) => b.onclick = async () => { await deleteDoc(doc(db, "recipients", b.dataset.delRc)); state.recipients = state.recipients.filter((r) => r.id !== b.dataset.delRc); renderSettings(); });
 
   renderConnections();
   renderAdvanced();
 }
+
+async function saveEngagements(c) { await updateDoc(doc(db, "companies", c.id), { engagements: c.engagements }); }
+
+async function placeCompany(cid, from, pid, role) {
+  const c = state.companies.find((x) => x.id === cid);
+  if (!c) return;
+  let moved = null;
+  if (from) { // 다른 사업 카드에서 끌어온 경우: 이동
+    const [fpid, fi] = from.split("|");
+    if (fpid === pid && c.engagements[+fi]?.role === role) return;
+    moved = c.engagements.splice(+fi, 1)[0];
+  }
+  if (c.engagements.some((e) => e.project_id === pid && e.role === role)) {
+    if (moved) await saveEngagements(c);
+    toast(`'${c.name}'은(는) 이미 이 사업의 ${role}로 등록돼 있습니다`); rerender(); return;
+  }
+  c.engagements.push({ project_id: pid, role, stage: moved?.stage || "계약", rank: moved?.rank || null });
+  await saveEngagements(c);
+  toast(`'${c.name}' → ${projName(pid)} · ${role}${moved ? " (이동)" : ""}`);
+  rerender();
+}
+
+function bindDnd() {
+  const root = $("#view-settings");
+  // 끌기 시작
+  $$("[draggable=true]", root).forEach((el) => {
+    el.addEventListener("dragstart", (ev) => {
+      ev.dataTransfer.setData("text/plain", JSON.stringify({ cid: el.dataset.cid, from: el.dataset.from || null }));
+      ev.dataTransfer.effectAllowed = "move";
+      el.classList.add("dragging"); document.body.classList.add("dnd-active");
+    });
+    el.addEventListener("dragend", () => { el.classList.remove("dragging"); document.body.classList.remove("dnd-active"); $$(".dropzone.over").forEach((z) => z.classList.remove("over")); });
+  });
+  // 놓는 곳
+  $$(".dropzone", root).forEach((z) => {
+    z.addEventListener("dragover", (ev) => { ev.preventDefault(); z.classList.add("over"); });
+    z.addEventListener("dragleave", (ev) => { if (!z.contains(ev.relatedTarget)) z.classList.remove("over"); });
+    z.addEventListener("drop", async (ev) => {
+      ev.preventDefault(); z.classList.remove("over"); document.body.classList.remove("dnd-active");
+      let data; try { data = JSON.parse(ev.dataTransfer.getData("text/plain")); } catch { return; }
+      await placeCompany(data.cid, data.from, z.dataset.pid, z.dataset.role);
+    });
+    // 클릭(터치)으로 놓기
+    z.addEventListener("click", async (ev) => {
+      if (!picked || ev.target.closest("button")) return;
+      const p = picked; picked = null; document.body.classList.remove("dnd-active");
+      await placeCompany(p.cid, null, z.dataset.pid, z.dataset.role);
+    });
+  });
+  // 업체 목록: 클릭하면 선택(휴대폰용), 다시 누르면 해제
+  $$("#pool .pchip").forEach((el) => el.addEventListener("click", (ev) => {
+    if (ev.target.closest("button")) return;
+    picked = picked?.cid === el.dataset.cid ? null : { cid: el.dataset.cid };
+    document.body.classList.toggle("dnd-active", !!picked);
+    $$("#pool .pchip").forEach((x) => x.classList.toggle("picked", picked?.cid === x.dataset.cid));
+    if (picked) toast("놓을 사업 카드의 역할 칸을 누르세요");
+  }));
+  // 사업 카드 안 업체 이름: 상세 열기
+  $$("#projBoard .corow .cn").forEach((x) => x.addEventListener("click", () => openCompany(x.closest(".corow").dataset.cid)));
+  // 단계 바꾸기
+  $$("[data-stage]", root).forEach((b) => b.onclick = async () => {
+    const [cid, i] = b.dataset.stage.split("|");
+    const c = state.companies.find((x) => x.id === cid), e = c.engagements[+i];
+    e.stage = STAGES[(STAGES.indexOf(e.stage || "계약") + 1) % STAGES.length];
+    if (e.stage !== "우선협상") e.rank = null;
+    await saveEngagements(c); rerender();
+  });
+  // 사업에서 빼기 → 다른 사업이 없으면 '미배정'으로 남음
+  $$("[data-unlink]", root).forEach((b) => b.onclick = async () => {
+    const [cid, i] = b.dataset.unlink.split("|");
+    const c = state.companies.find((x) => x.id === cid);
+    c.engagements.splice(+i, 1);
+    await saveEngagements(c);
+    toast(c.engagements.length ? `'${c.name}'을(를) 이 사업에서 뺐습니다` : `'${c.name}'은(는) 미배정 업체로 남겨뒀습니다 (왼쪽 목록)`);
+    rerender();
+  });
+  // 미배정 업체 삭제
+  $$("#pool [data-del]").forEach((b) => b.onclick = async () => {
+    const c = state.companies.find((x) => x.id === b.dataset.del);
+    if (!confirm(`'${c.name}' 업체와 수집 이력을 삭제할까요?`)) return;
+    await deleteCompany(c.id); rerender();
+  });
+  // 사업 삭제 → 소속 업체는 미배정으로
+  $$("[data-del-proj]", root).forEach((b) => b.onclick = async () => {
+    const pid = b.dataset.delProj;
+    if (!confirm(`'${projName(pid)}' 사업을 삭제할까요?\n(소속 업체는 삭제되지 않고 '미배정'으로 남습니다)`)) return;
+    for (const c of state.companies) {
+      if (!c.engagements.some((e) => e.project_id === pid)) continue;
+      c.engagements = c.engagements.filter((e) => e.project_id !== pid);
+      await saveEngagements(c);
+    }
+    await deleteDoc(doc(db, "projects", pid));
+    state.projects = state.projects.filter((p) => p.id !== pid);
+    rerender();
+  });
+}
+$("#poolSearch").addEventListener("input", () => renderSettings());
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && picked) { picked = null; document.body.classList.remove("dnd-active"); renderSettings(); } });
+
 async function deleteCompany(cid) {
   const fsnap = await getDocs(query(collection(db, "findings"), where("company_id", "==", cid)));
   let batch = writeBatch(db), n = 0;
@@ -380,7 +500,6 @@ async function deleteCompany(cid) {
   state.companies = state.companies.filter((c) => c.id !== cid);
   state.findings = state.findings.filter((f) => f.company_id !== cid);
 }
-$("#addForm [name=project]").addEventListener("change", (e) => $("#newProjectWrap").classList.toggle("hidden", e.target.value !== "__new"));
 
 function cleanCompanyName(raw) {
   let rank = null, name = raw;
@@ -389,11 +508,47 @@ function cleanCompanyName(raw) {
   name = name.replace(/주식회사|\(주\)|㈜/g, "").replace(/\s+/g, " ").trim();
   return { name, rank };
 }
+const normName = (s) => s.replace(/\s+/g, "");
+function newCompany(id, name, country) {
+  const foreign = /^PT[.\s]/i.test(name) || /^[A-Za-z0-9 .,&()'-]+$/.test(name);
+  const en = foreign ? name.replace(/^PT[.\s]+/i, "").trim() : null;
+  return { id, name, name_en: en, aliases: en && en !== name ? en : null, context_keywords: null,
+    country: foreign ? (country || "") : "KR", search_langs: foreign ? (country === "ID" ? "en,id" : "en") : "ko",
+    corp_code: null, biz_no: null, ceo: null, note: null, engagements: [], created_at: nowStr() };
+}
+const companyData = (c) => { const { id, risk, open, total, ...data } = c; return data; };
+
+// 새 업체 (미배정)
+$("#poolForm").onsubmit = async (ev) => {
+  ev.preventDefault();
+  const { name } = cleanCompanyName(ev.target.elements.name.value);
+  if (!name) return;
+  if (state.companies.some((c) => normName(c.name) === normName(name))) return toast("이미 있는 업체입니다");
+  const ref = doc(collection(db, "companies"));
+  const c = newCompany(ref.id, name, null);
+  await setDoc(ref, companyData(c));
+  state.companies.push(c);
+  ev.target.reset(); $("#poolSearch").value = "";
+  toast(`'${name}'을(를) 추가했습니다. 사업 카드로 끌어다 놓으세요`);
+  rerender();
+};
+// 새 사업
+$("#projForm").onsubmit = async (ev) => {
+  ev.preventDefault();
+  const name = ev.target.elements.name.value.trim();
+  if (!name) return;
+  if (state.projects.some((p) => p.name === name)) return toast("이미 있는 사업입니다");
+  const data = { name, country: guessCountry(name), created_at: nowStr() };
+  const ref = await addDoc(collection(db, "projects"), data);
+  state.projects.push({ id: ref.id, ...data });
+  ev.target.reset(); toast(`'${name}' 사업을 추가했습니다`); rerender();
+};
+
+// 여러 줄 붙여넣기 등록
 async function registerRows(rows) {
   const batch = writeBatch(db);
   const pByName = Object.fromEntries(state.projects.map((p) => [p.name, p]));
-  const norm = (s) => s.replace(/\s+/g, "");
-  const cByName = Object.fromEntries(state.companies.map((c) => [norm(c.name), c]));
+  const cByName = Object.fromEntries(state.companies.map((c) => [normName(c.name), c]));
   const touched = new Set();
   let newP = 0, newC = 0, links = 0;
   for (const r of rows) {
@@ -404,46 +559,20 @@ async function registerRows(rows) {
       batch.set(ref, { name: p.name, country: p.country, created_at: p.created_at });
       pByName[p.name] = p; state.projects.push(p); newP++;
     }
-    const foreign = /^PT[.\s]/i.test(r.name) || /^[A-Za-z0-9 .,&()'-]+$/.test(r.name);
-    let c = cByName[norm(r.name)];
+    let c = cByName[normName(r.name)];
     if (!c) {
-      const ref = doc(collection(db, "companies"));
-      const en = foreign ? r.name.replace(/^PT[.\s]+/i, "").trim() : null;
-      c = { id: ref.id, name: r.name, name_en: en, aliases: en && en !== r.name ? en : null, context_keywords: null,
-            country: foreign ? (p.country || "") : "KR", search_langs: foreign ? (p.country === "ID" ? "en,id" : "en") : "ko",
-            corp_code: null, biz_no: null, ceo: null, note: null, engagements: [], created_at: nowStr() };
-      cByName[norm(c.name)] = c; state.companies.push(c); newC++;
+      c = newCompany(doc(collection(db, "companies")).id, r.name, p.country);
+      cByName[normName(c.name)] = c; state.companies.push(c); newC++;
     }
     if (!c.engagements.some((e) => e.project_id === p.id && e.role === r.role)) {
-      c.engagements.push({ project_id: p.id, role: r.role, stage: r.stage || (r.rank ? "우선협상" : "계약"), rank: r.rank || null }); links++;
+      c.engagements.push({ project_id: p.id, role: r.role, stage: r.rank ? "우선협상" : "계약", rank: r.rank || null }); links++;
     }
     touched.add(c);
   }
-  for (const c of touched) {
-    const { id, risk, open, total, ...data } = c;
-    batch.set(doc(db, "companies", id), data, { merge: true });
-  }
+  for (const c of touched) batch.set(doc(db, "companies", c.id), companyData(c), { merge: true });
   await batch.commit();
   return { newP, newC, links };
 }
-
-$("#addForm").onsubmit = async (ev) => {
-  ev.preventDefault();
-  const fd = Object.fromEntries(new FormData(ev.target));
-  const project = fd.project === "__new" ? (fd.newProject || "").trim() : projName(fd.project);
-  if (!project) return toast("사업명을 입력하세요");
-  const { name, rank } = cleanCompanyName(fd.name);
-  if (!name) return;
-  try {
-    const r = await registerRows([{ project, role: fd.role, name, rank, stage: rank ? "우선협상" : fd.stage }]);
-    toast(r.links ? `'${name}'을(를) 추가했습니다` : "이미 같은 사업·구분으로 등록된 업체입니다");
-    ev.target.name.value = ""; ev.target.newProject.value = "";
-    rerender();
-    const np = state.projects.find((p) => p.name === project);
-    if (np) { $("#addForm [name=project]").value = np.id; $("#newProjectWrap").classList.add("hidden"); }
-    ev.target.name.focus();
-  } catch (e) { toast("저장 실패: " + e.message, 5000); }
-};
 
 function parseImport(text) {
   const rows = [], errors = [];
