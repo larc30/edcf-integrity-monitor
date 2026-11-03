@@ -8,6 +8,7 @@
  *  1) 프로젝트 설정 ⚙ → 스크립트 속성 → GITHUB_TOKEN 추가 (이 저장소 Actions: Read and write 권한의 토큰)
  *  2) 배포 → 새 배포 → 유형: 웹 앱 / 실행 계정: 나 / 액세스 권한: 모든 사용자 → 배포 → 웹 앱 URL 복사
  *  3) 대시보드 → 설정 → 연결 상태 → '즉시 실행 중계'에 URL 붙여넣기
+ *  (회사망에서 script.google.com이 막혀 있으면 2·3 대신) 왼쪽 ⏰ 트리거 → tick 함수를 5분마다 실행하도록 추가
  */
 const REPO = "larc30/edcf-integrity-monitor";
 const WORKFLOW = "monitor.yml";
@@ -35,19 +36,37 @@ function doPost(e) {
     if (cache.get("recent")) return json_({ ok: true, skipped: true });
 
     // 3) GitHub Actions 실행 (대기 중인 요청을 처리하는 queue 작업)
-    const token = PropertiesService.getScriptProperties().getProperty("GITHUB_TOKEN");
-    if (!token) return json_({ ok: false, error: "스크립트 속성에 GITHUB_TOKEN이 없습니다" });
-    const r = UrlFetchApp.fetch("https://api.github.com/repos/" + REPO + "/actions/workflows/" + WORKFLOW + "/dispatches", {
-      method: "post", contentType: "application/json", muteHttpExceptions: true,
-      headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json" },
-      payload: JSON.stringify({ ref: "main", inputs: { task: "queue", companies: "", test_to: "" } }),
-    });
-    const code = r.getResponseCode();
-    if (code === 204 || code === 200) { cache.put("recent", "1", 60); return json_({ ok: true }); }
-    return json_({ ok: false, error: "GitHub " + code + ": " + r.getContentText().slice(0, 200) });
+    const res = dispatchQueue_();
+    if (res.ok) cache.put("recent", "1", 60);
+    return json_(res);
   } catch (err) {
     return json_({ ok: false, error: String(err) });
   }
+}
+
+function dispatchQueue_() {
+  const token = PropertiesService.getScriptProperties().getProperty("GITHUB_TOKEN");
+  if (!token) return { ok: false, error: "스크립트 속성에 GITHUB_TOKEN이 없습니다" };
+  const r = UrlFetchApp.fetch("https://api.github.com/repos/" + REPO + "/actions/workflows/" + WORKFLOW + "/dispatches", {
+    method: "post", contentType: "application/json", muteHttpExceptions: true,
+    headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json" },
+    payload: JSON.stringify({ ref: "main", inputs: { task: "queue", companies: "", test_to: "" } }),
+  });
+  const code = r.getResponseCode();
+  return code === 204 || code === 200 ? { ok: true } : { ok: false, error: "GitHub " + code + ": " + r.getContentText().slice(0, 200) };
+}
+
+/**
+ * 회사망에서 이 중계 주소(script.google.com)가 막혀 있을 때를 위한 자동 확인.
+ * 5분마다 GitHub에 '요청 확인(queue)'을 보내, 대시보드 [지금 스캔] 요청을 5분 안에 처리합니다(요청이 없으면 바로 끝남).
+ * 평일 08~19시(한국시간)만 동작. 설정: 편집기 왼쪽 ⏰ 트리거 → 트리거 추가 → 함수 tick / 시간 기반 / 분 단위 타이머 / 5분마다 → 저장
+ */
+function tick() {
+  const kst = new Date(Date.now() + 9 * 3600 * 1000);
+  const h = kst.getUTCHours(), d = kst.getUTCDay();
+  if (d === 0 || d === 6 || h < 8 || h >= 19) return;
+  const res = dispatchQueue_();
+  if (!res.ok) Logger.log(res.error);
 }
 
 /** 처음 한 번 실행해서 권한을 승인하세요 (실행 ▶ → authorize). */

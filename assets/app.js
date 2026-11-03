@@ -1347,11 +1347,15 @@ $("#edcfFile").addEventListener("change", async (ev) => {
 $("#edcfPasteBtn").onclick = () => {
   modal(`<h2>EDCF 부정당업자 명단 붙여넣기</h2>
     <p class="muted small">EXIMIIS 엑셀에서 <b>제목 줄(업체명, 상태, 제재기간 …)부터</b> 표 전체를 복사해 붙여넣으세요.</p>
-    <textarea id="edcfText" placeholder="업체명	상태	제재기간	제재사유	경협사업번호	관련사업명	관련사업국가	부정당업자등록기관	대표자명	사업자번호	법인등록번호	주소"></textarea>
+    <textarea id="edcfText" placeholder="엑셀 표를 제목 줄부터 복사해 붙여넣으세요.
+복사가 막히면 쉼표로 직접 입력해도 됩니다 (제목 줄 필수, 예시는 가상 데이터):
+
+업체명, 상태, 제재기간, 사업자번호
+가나다건설, 등록, 2026.01.01 ~ 2027.12.31, 000-00-00000"></textarea>
     <div class="actions"><button class="btn primary" id="edcfParse">확인</button></div>`);
   $("#edcfParse").onclick = () => {
     try {
-      const list = rowsToEdcf($("#edcfText").value.split(/\r?\n/).map((l) => l.split("\t")));
+      const list = rowsToEdcf($("#edcfText").value.split(/\r?\n/).map((l) => l.split(l.includes("\t") ? "\t" : l.includes("|") ? "|" : ",").map((x) => x.trim())));
       if (!list.length) throw new Error("업체 행이 없습니다");
       edcfPreview(list);
     } catch (e) { toast(e.message, 5000); }

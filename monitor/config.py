@@ -59,7 +59,7 @@ CLAUDE_EFFORT = _get("AI_EFFORT", "low")
 SMTP_HOST = _get("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(_get("SMTP_PORT", "587"))
 SMTP_USER = _get("SMTP_USER")
-SMTP_PASSWORD = _get("SMTP_PASSWORD")
+SMTP_PASSWORD = _get("SMTP_PASSWORD").replace(" ", "")  # Gmail 앱 비밀번호의 띄어쓰기는 무시
 MAIL_FROM = _get("MAIL_FROM") or SMTP_USER
 DASHBOARD_URL = _get("DASHBOARD_URL", "https://larc30.github.io/edcf-integrity-monitor/")
 
