@@ -71,8 +71,13 @@ function tick() {
 
 /** 처음 한 번 실행해서 권한을 승인하세요 (실행 ▶ → authorize). */
 function authorize() {
-  UrlFetchApp.fetch("https://api.github.com/zen");
-  Logger.log("OK — GITHUB_TOKEN 설정: " + !!PropertiesService.getScriptProperties().getProperty("GITHUB_TOKEN"));
+  // 토큰으로 저장소 접근을 확인 (토큰 없이 호출하면 GitHub가 Google 서버를 403으로 막는 경우가 많음)
+  const token = PropertiesService.getScriptProperties().getProperty("GITHUB_TOKEN");
+  if (!token) { Logger.log("스크립트 속성에 GITHUB_TOKEN이 없습니다"); return; }
+  const r = UrlFetchApp.fetch("https://api.github.com/repos/" + REPO, {
+    muteHttpExceptions: true, headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json" },
+  });
+  Logger.log(r.getResponseCode() === 200 ? "OK — 권한 승인 + 토큰 정상" : "토큰 확인 실패 " + r.getResponseCode() + ": " + r.getContentText().slice(0, 200));
 }
 
 function json_(o) {
