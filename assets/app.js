@@ -5,7 +5,7 @@ import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=14";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=15";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -348,9 +348,18 @@ function renderHome() {
   $("#btnMdbKr")?.addEventListener("click", showMdbKorea);
 
   // ② 이슈 + 기간
-  const fresh = open.filter((f) => (f.level === "red" || f.level === "orange") && Date.now() - (f.first_seen_ms || 0) < DAY).sort((a, b) => (b.first_seen_ms || 0) - (a.first_seen_ms || 0))[0];
-  $("#headline").innerHTML = fresh ? `<span class="lbl">최근 감지</span><span class="txt" data-cid="${fresh.company_id}"><b>${esc(fresh.company_name)}</b> — ${esc(fresh.summary || fresh.title)} · ${relTime(fresh.first_seen_ms)}</span>` : "";
-  $("#headline .txt")?.addEventListener("click", (e) => openCompany(e.currentTarget.dataset.cid));
+  // 히어로 가운데: 최근 48시간 새로 감지된 신호 (등급 높은 순)
+  const fresh = open.filter((f) => f.level !== "none" && Date.now() - (f.first_seen_ms || 0) < 2 * DAY)
+    .sort((a, b) => (LV[b.level] - LV[a.level]) || (b.first_seen_ms || 0) - (a.first_seen_ms || 0));
+  $("#hfCount").textContent = fresh.length;
+  $("#heroFeed").innerHTML = fresh.slice(0, 4).map((f) => `<div class="hf-row lv-${f.level}" data-cid="${f.company_id}">
+      ${badge(f.level)}<div class="hf-txt"><div class="hf-co">${esc(f.company_name)}${f.source_type !== "news" ? ` <span class="tag official">공식 제재</span>` : ""}</div>
+      <div class="hf-sum">${esc(f.summary || f.title)}</div></div><span class="hf-age">${relTime(f.first_seen_ms)}</span></div>`).join("")
+    || `<div class="hf-empty">${sc ? "최근 48시간 동안 새로 감지된 신호가 없습니다" : "스캔 후 새로 감지된 신호가 여기에 표시됩니다"}</div>`;
+  $$("#heroFeed [data-cid]").forEach((x) => x.addEventListener("click", () => openCompany(x.dataset.cid)));
+  const lastRun = state.runs.find((r) => r.kind === "scan")?.detail || {};
+  $("#hfFoot").innerHTML = fresh.length > 4 ? `외 ${fresh.length - 4}건은 아래 이슈 목록에서 확인`
+    : sc && lastRun.fetched != null ? `마지막 스캔에서 기사 ${lastRun.fetched}건을 확인해 신규 ${lastRun.new_findings ?? 0}건 발견` : "";
   const counts = Object.fromEntries(PERIODS.map(([k]) => [k, open.filter((f) => inPeriod(f, k)).length]));
   if (!period || !counts.hasOwnProperty(period)) period = counts.today ? "today" : "7d";
   $("#periodSeg").innerHTML = PERIODS.map(([k, label]) => `<button data-p="${k}" class="${k === period ? "active" : ""}">${label} <span class="n">${counts[k]}</span></button>`).join("");
