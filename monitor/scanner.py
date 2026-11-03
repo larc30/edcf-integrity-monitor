@@ -80,6 +80,33 @@ def match_sweep(articles: list[dict], companies: list[dict]) -> dict[str, list[d
     return hits
 
 
+def match_edcf(edcf: list[dict], company: dict) -> list[dict]:
+    """EDCF 부정당업자 명단(EXIMIIS 엑셀 업로드) 대조: 사업자번호 우선, 없으면 업체명 정확 일치"""
+    from .textutil import norm as _n
+    biz = pps.biz_digits(company.get("biz_no"))
+    names = {_n(x) for x in _company_names(company) if x and len(_n(x)) >= 3}
+    out = []
+    for e in edcf:
+        eb = pps.biz_digits(e.get("biz_no"))
+        hit = (biz and eb and biz == eb) or ((not biz or not eb) and _n(e.get("name", "")) in names)
+        if not hit:
+            continue
+        active = "등록" in (e.get("status") or "")
+        out.append({
+            "source_type": "official", "source_name": "EDCF 부정당업자 (EXIMIIS)",
+            "title": f"[EDCF 제재 {'등록' if active else '해지'}] {e.get('name')} · {e.get('period') or ''}",
+            "url": "", "published_at": (e.get("period") or "")[:10].replace(".", "-"),
+            "snippet": f"제재사유: {e.get('reason') or '-'} / 관련사업: {e.get('project_name') or '-'} ({e.get('country') or '-'}) / 등록기관: {e.get('agency') or '-'} / 사업자번호 {e.get('biz_no') or '-'}",
+            "matched_keywords": "사업자번호 일치" if (biz and eb and biz == eb) else "업체명 일치",
+            "level": "red" if active else "yellow", "category": "부정당업자 제재",
+            "summary": (f"EDCF 부정당업자로 현재 등록되어 있습니다 (제재기간 {e.get('period') or '-'}, 사유: {(e.get('reason') or '-')[:80]})." if active
+                        else f"과거 EDCF 부정당업자 제재 이력이 있습니다 (해지, 제재기간 {e.get('period') or '-'})."),
+            "rationale": "EXIMIIS 부정당업자 명단 (경협평가부 관리)", "analyzer": "list-match",
+            "dedup_key": "edcf-" + hashlib.sha1(f"{e.get('biz_no')}|{e.get('name')}|{e.get('period')}".encode()).hexdigest()[:16],
+        })
+    return out
+
+
 def _days_since(ts: str | None) -> float:
     if not ts:
         return 1e9
@@ -182,7 +209,8 @@ def _identify(company: dict, errors: list) -> dict:
 
 
 def scan_company(company: dict, projects: dict, keywords: list[dict], entries: list[dict], lists_ok: int,
-                 sweep_hits: list[dict] | None = None, sweep_engines: list[str] | None = None, sweep_total: int = 0) -> dict:
+                 sweep_hits: list[dict] | None = None, sweep_engines: list[str] | None = None, sweep_total: int = 0,
+                 edcf: list[dict] | None = None) -> dict:
     t0 = time.time()
     errors: list[str] = []
     stats = {"fetched": 0, "candidates": 0, "new_findings": 0, "official": 0, "cleaned": 0}
@@ -278,7 +306,7 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
     ident = _identify(company, errors)
 
     # 4) MDB 제재리스트 (영문명이 있어야 의미 있는 대조가 된다)
-    official = sanctions.match_company(entries, company)
+    official = sanctions.match_company(entries, company) + match_edcf(edcf or [], company)
     mdb_names = [n for n in [company.get("name_en"), *(company.get("aliases") or "").split(","), company["name"]] if n and n.strip().isascii()]
     mdb = {"lists": lists_ok, "names": mdb_names[:3], "status": "ok" if (lists_ok and mdb_names) else ("no_lists" if not lists_ok else "no_en")}
 
@@ -381,6 +409,12 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
     lists_ok = sum(1 for v in list_status.values() if isinstance(v, int))
     lists_sec = round(time.time() - t_lists, 1)
     hits = match_sweep(sweep_articles, companies)
+    edcf = store.all_docs("edcf_sanctions")
+    # 매뉴얼: MDB는 영문명 조회 후 국적 대한민국으로 최종 확인 → 한국 국적 제재 기업 목록을 따로 기록
+    korea = [{"name": e["name"], "dataset": e["dataset"], "sanctions": (e.get("sanctions") or "")[:200],
+              "url": f"https://www.opensanctions.org/entities/{e['entity_id']}/"}
+             for e in entries if "kr" in [c.strip().lower() for c in (e.get("countries") or "").replace(",", ";").split(";")]]
+    store.update("meta", "mdb_korea", {"items": korea[:200], "count": len(korea), "at": store.now_str()})
     if progress:
         progress(0, total, f"제재 키워드 기사 {len(sweep_articles)}건 대조 완료")
 
@@ -390,7 +424,7 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
     lock, done = threading.Lock(), 0
     with ThreadPoolExecutor(max_workers=config.SCAN_WORKERS) as ex:
         futs = {ex.submit(scan_company, c, projects, keywords, entries, lists_ok,
-                          hits.get(c["id"], []), sweep_engines, len(sweep_articles)): c for c in companies}
+                          hits.get(c["id"], []), sweep_engines, len(sweep_articles), edcf): c for c in companies}
         for fut in as_completed(futs):
             c = futs[fut]
             try:

@@ -73,6 +73,8 @@ def sanctions(company: dict) -> list[dict]:
         instt = it.get("insttNm", "")
         law = " ".join(x for x in [it.get("lawordNm", ""), it.get("lawordArtclClause", "")] if x)
         status = it.get("rsttProgrsNm", "")
+        # 매뉴얼: 조회돼도 '제재정지(집행정지)' 상태일 수 있음 → 위험이 아니라 확인 필요
+        suspended = any(w in status for w in ("정지", "해제", "취소"))
         out.append(
             {
                 "source_type": "official",
@@ -82,9 +84,10 @@ def sanctions(company: dict) -> list[dict]:
                 "published_at": (bgn or "")[:10],
                 "snippet": f"사업자번호 {bizno} / 제재기간 {bgn} ~ {end} / 통보기관 {instt} / 근거 {law or '-'} / 상태 {status or '-'}",
                 "matched_keywords": "사업자번호 조회",
-                "level": "red",
+                "level": "orange" if suspended else "red",
                 "category": "부정당업자 제재",
-                "summary": f"{instt or '수요기관'}이(가) 통보한 부정당업자 제재(입찰참가자격 제한)가 현재 유효합니다. 기간 {bgn} ~ {end}. 근거: {law or '-'}.",
+                "summary": (f"나라장터에 부정당업자 제재가 조회되나 상태가 '{status}'입니다(집행정지 등). 상세정보·집행정지 조회로 현황 확인 필요. 기간 {bgn} ~ {end}." if suspended
+                            else f"{instt or '수요기관'}이(가) 통보한 부정당업자 제재(입찰참가자격 제한)가 현재 유효합니다. 기간 {bgn} ~ {end}. 근거: {law or '-'}."),
                 "rationale": "조달청 나라장터 공식 데이터 (조회 시점 유효 제재)",
                 "analyzer": "list-match",
                 "dedup_key": "pps-" + hashlib.sha1(f"{bizno}|{bgn}|{end}|{instt}".encode()).hexdigest()[:16],
