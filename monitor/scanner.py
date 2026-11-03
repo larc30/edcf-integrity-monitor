@@ -272,6 +272,12 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         if f.get("source_type") == "news" and f.get("status") == "new" and f.get("relevant")
         and not mentions(f"{f.get('title', '')} {f.get('snippet', '')}", names, ctx)
     }
+    # 키워드 규칙으로 잡았는데 키워드가 다른 단어의 일부였던 기사 (예: '정부도' → '부도')
+    for f in existing:
+        if (f["id"] not in cleanup and f.get("source_type") == "news" and f.get("status") == "new" and f.get("relevant")
+                and f.get("analyzer") == "rule" and not analyzer.kw_hits(f"{f.get('title', '')} {f.get('snippet', '')}", keywords)):
+            cleanup[f["id"]] = {"status": "dismissed", "reviewed_by": "자동 정리", "reviewed_at": store.now_str(),
+                                "reviewer_note": "리스크 키워드가 다른 단어의 일부 (예: 정부도 → 부도)"}
     if cleanup:
         store.update_many("findings", cleanup)
         stats["cleaned"] = len(cleanup)

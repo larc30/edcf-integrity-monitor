@@ -5,6 +5,7 @@
 """
 import json
 import logging
+import re
 from datetime import date, timedelta
 from typing import Literal
 
@@ -70,11 +71,20 @@ _KW_CATEGORY = [
 ]
 
 
+# 키워드가 다른 단어의 일부로 들어간 경우 (예: '정부도' 안의 '부도', '재해석' 안의 '재해')
+_FALSE_COMPOUNDS = re.compile("정부도|부도덕|부도체|부도심|재해석|구속력|불기소|무혐의|위반하지 않|제재를 피|제재 대상이 아니")
+
+
+def kw_hits(text: str, keywords: list[dict]) -> list[dict]:
+    t = _FALSE_COMPOUNDS.sub(" ", text.lower())
+    return [k for k in keywords if k["word"].lower() in t]
+
+
 def _rule_based(company: dict, articles: list[dict], keywords: list[dict]) -> list[dict]:
     out = []
     for i, a in enumerate(articles):
-        text = f"{a['title']} {a.get('snippet','')}".lower()
-        hits = [k for k in keywords if k["word"].lower() in text]
+        text = f"{a['title']} {a.get('snippet','')}"
+        hits = kw_hits(text, keywords)
         if not hits:
             out.append({"idx": i, "relevant": 0, "level": "none"})
             continue
