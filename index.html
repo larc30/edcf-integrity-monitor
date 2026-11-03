@@ -1,141 +1,108 @@
 <!doctype html>
-<html lang="ko" data-theme="dark">
+<html lang="ko" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache">
 <title>EDCF 부정당업자 자동감지 시스템</title>
-<script>try { document.documentElement.dataset.theme = localStorage.getItem("edcf_theme") || "dark"; } catch (e) {}</script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
-<link rel="stylesheet" href="assets/style.css?v=10">
+<script>try { document.documentElement.dataset.theme = localStorage.getItem("edcf_theme2") || "light"; } catch (e) {}</script>
+<link rel="stylesheet" href="assets/style.css?v=11">
 </head>
 <body>
-<div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
-
 <!-- 로그인 -->
 <div id="loginView" class="login-wrap hidden">
-  <div class="card login-card reveal">
-    <div class="logo"><div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9" opacity=".45"/><circle cx="12" cy="12" r="5" opacity=".7"/><path d="M12 12 L19 6"/><circle cx="12" cy="12" r="1.6" fill="#fff"/></svg></div></div>
+  <div class="card login-card">
+    <div class="logo"><div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg></div></div>
     <h1>EDCF 부정당업자 자동감지 시스템</h1>
-    <p id="loginMsg">허용된 Google 계정으로 로그인하세요.</p>
-    <button class="btn primary glow" id="btnLogin">Google 계정으로 로그인</button>
+    <p class="muted" id="loginMsg">허용된 Google 계정으로 로그인하세요.</p>
+    <button class="btn primary" id="btnLogin">Google 계정으로 로그인</button>
     <button class="btn ghost hidden" id="btnLogout2">다른 계정으로 로그인</button>
   </div>
 </div>
 
-<div id="appView" class="shell hidden">
-  <aside class="side">
-    <div class="logo">
-      <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9" opacity=".45"/><circle cx="12" cy="12" r="5" opacity=".7"/><path d="M12 12 L19 6"/><circle cx="12" cy="12" r="1.6" fill="#fff"/></svg></div>
-      <div><div class="logo-t">EDCF</div><div class="logo-s">부정당업자 자동감지 시스템</div></div>
+<div id="appView" class="hidden">
+  <header class="topbar"><div class="topbar-in">
+    <div class="toprow">
+      <div class="logo"><div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <div class="logo-t">EDCF 부정당업자 자동감지 시스템</div></div>
+      <div class="top-right"><span class="user" id="userEmail"></span><button class="btn sm" id="btnTheme">다크</button><button class="btn sm" id="btnLogout">로그아웃</button></div>
     </div>
-    <nav class="nav" id="tabs">
-      <button data-view="home" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>대시보드</button>
-      <button data-view="companies"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg>업체·사업</button>
-      <button data-view="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>설정</button>
+    <nav class="tabs" id="tabs">
+      <button data-view="home" class="active"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.75C1 1.78 1.78 1 2.75 1h10.5c.97 0 1.75.78 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 15H2.75A1.75 1.75 0 0 1 1 13.25Zm1.5 0v4.5h4.5v-4.75H2.75a.25.25 0 0 0-.25.25Zm6-.25v4.75h5V2.75a.25.25 0 0 0-.25-.25Zm5 6.25h-5v4.75h4.75a.25.25 0 0 0 .25-.25Zm-6.5 4.75V8.75H2.5v4.5c0 .14.11.25.25.25Z"/></svg>대시보드</button>
+      <button data-view="companies"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M1.75 16A1.75 1.75 0 0 1 0 14.25V1.75C0 .78.78 0 1.75 0h8.5C11.22 0 12 .78 12 1.75v12.5c0 .09-.01.17-.02.25h2.27a.25.25 0 0 0 .25-.25V8.29a.25.25 0 0 0-.14-.22l-1.4-.7a.75.75 0 0 1 .67-1.34l1.4.7c.59.3.97.9.97 1.56v5.96A1.75 1.75 0 0 1 14.25 16ZM1.5 14.25c0 .14.11.25.25.25H4v-1.25a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 .75.75v1.25h2.25a.25.25 0 0 0 .25-.25V1.75a.25.25 0 0 0-.25-.25h-8.5a.25.25 0 0 0-.25.25ZM3.75 3h1.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1 0-1.5Zm0 3h1.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1 0-1.5Zm3-3h1.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1 0-1.5Zm0 3h1.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1 0-1.5Z"/></svg>업체·사업 <span class="cnt" id="tabCnt">0</span></button>
+      <button data-view="settings"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8.2 8.2 0 0 1 .7.03 1.7 1.7 0 0 1 1.52 1.32l.13.6a.4.4 0 0 0 .57.27l.55-.3a1.7 1.7 0 0 1 2 .3 8 8 0 0 1 1 1 1.7 1.7 0 0 1 .3 2l-.3.55a.4.4 0 0 0 .27.57l.6.13A1.7 1.7 0 0 1 15.97 7.3a8.2 8.2 0 0 1 0 1.4 1.7 1.7 0 0 1-1.32 1.52l-.6.13a.4.4 0 0 0-.27.57l.3.55a1.7 1.7 0 0 1-.3 2 8 8 0 0 1-1 1 1.7 1.7 0 0 1-2 .3l-.55-.3a.4.4 0 0 0-.57.27l-.13.6A1.7 1.7 0 0 1 8.7 15.97a8.2 8.2 0 0 1-1.4 0 1.7 1.7 0 0 1-1.52-1.32l-.13-.6a.4.4 0 0 0-.57-.27l-.55.3a1.7 1.7 0 0 1-2-.3 8 8 0 0 1-1-1 1.7 1.7 0 0 1-.3-2l.3-.55a.4.4 0 0 0-.27-.57l-.6-.13A1.7 1.7 0 0 1 .03 8.7a8.2 8.2 0 0 1 0-1.4 1.7 1.7 0 0 1 1.32-1.52l.6-.13a.4.4 0 0 0 .27-.57l-.3-.55a1.7 1.7 0 0 1 .3-2 8 8 0 0 1 1-1 1.7 1.7 0 0 1 2-.3l.55.3a.4.4 0 0 0 .57-.27l.13-.6A1.7 1.7 0 0 1 7.3.03 8.2 8.2 0 0 1 8 0ZM8 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/></svg>설정</button>
     </nav>
-    <div class="side-foot">
-      <div class="live"><span class="live-dot"></span><div>자동 감시 중<small>매일 07:30 자동 스캔</small></div></div>
-      <div class="user-chip" id="userEmail"></div>
-      <div class="side-btns">
-        <button class="btn sm" id="btnTheme" title="화면 테마 바꾸기">☾ 테마</button>
-        <button class="btn sm" id="btnLogout">로그아웃</button>
-      </div>
-    </div>
-  </aside>
+  </div></header>
 
   <main class="main">
     <!-- ================= 대시보드 ================= -->
     <section id="view-home" class="view">
-      <div class="card hero reveal" style="--i:0">
-        <div class="hero-left">
-          <div class="eyebrow" id="heroDate">RISK BRIEFING</div>
-          <h1 class="hero-title">오늘의 <span class="grad">업체 리스크</span></h1>
-          <div class="hero-sub" id="sumSub">-</div>
-          <div class="seg scope" id="scopeSeg" style="margin-top:14px"></div>
-          <div class="hero-actions">
-            <button class="btn primary glow" id="btnScan">⚡ 지금 스캔</button>
-            <button class="btn" id="btnRefresh">↻ 새로고침</button>
-          </div>
-          <div id="jobState"></div>
-          <div class="headline" id="headline"></div>
-          <div id="guide" class="notice hidden"></div>
+      <div class="page-head">
+        <div><h1>오늘의 EDCF 업체 리스크</h1><div class="head-sub" id="sumSub">-</div></div>
+        <div class="add-row" style="margin:0">
+          <div class="seg" id="scopeSeg"></div>
+          <button class="btn primary" id="btnScan">지금 스캔</button>
+          <button class="btn danger hidden" id="btnStop">스캔 중지</button>
         </div>
-        <div class="radar-wrap"><div class="radar" id="radar"></div></div>
       </div>
-
+      <div id="jobState"></div>
+      <div id="guide" class="notice hidden"></div>
       <div class="kboard" id="kboard"></div>
       <div class="coverage" id="coverage"></div>
-
-      <div class="grid-main">
-        <div class="card reveal" style="--i:5">
-          <div class="card-head">
-            <h2>확인이 필요한 이슈 <span class="count" id="issueCount">0</span></h2>
-            <div class="seg" id="periodSeg"></div>
+      <div class="layout">
+        <div>
+          <div class="card issues-box">
+            <div class="box-title"><h2>확인이 필요한 이슈 <span class="count" id="issueCount">0</span></h2><div class="seg" id="periodSeg"></div></div>
+            <div id="headline" class="hidden"></div>
+            <div id="feed" class="feed"></div>
           </div>
-          <div id="feed" class="feed"></div>
-          <details id="doneWrap" class="more hidden"><summary>확인 완료한 이슈 보기</summary><div id="feedDone" class="feed" style="margin-top:10px"></div></details>
+          <details id="doneWrap" class="more hidden"><summary>확인 완료한 이슈 보기</summary><div class="card issues-box" style="margin-top:8px"><div id="feedDone" class="feed"></div></div></details>
         </div>
-        <div class="card reveal" style="--i:6">
-          <div class="card-head"><h2>등급별 업체</h2><span class="muted small">누르면 상세</span></div>
-          <div id="riskGroups"></div>
-        </div>
-      </div>
-
-      <div class="card reveal" style="--i:7">
-        <div class="card-head">
-          <h2>사업별 참여 업체</h2>
-          <div class="legend">
-            <span class="role consult">컨설턴트</span><span class="role buy">본구매</span><span class="role fs">F/S</span>
-            <span class="sep"></span>
-            <span class="badge red">위험</span><span class="badge orange">경고</span><span class="badge yellow">주의</span><span class="badge none">정상</span>
+        <aside>
+          <div class="card side-card">
+            <div class="card-head"><h2>진행중 사업</h2><span class="legend"><span class="role consult">컨설턴트</span><span class="role buy">본구매</span><span class="role fs">F/S</span></span></div>
+            <div id="projectMap" class="pgrid"></div>
           </div>
-        </div>
-        <div id="projectMap" class="pgrid"></div>
+          <div class="card side-card"><div class="card-head"><h2>등급별 업체</h2></div><div id="riskGroups"></div></div>
+          <div class="card side-card"><div class="card-head"><h2>MDB 한국 국적 제재 기업</h2><span class="count" id="mdbKoreaN">0</span></div><div id="mdbKorea" class="small"></div></div>
+        </aside>
       </div>
     </section>
 
     <!-- ================= 업체·사업 ================= -->
     <section id="view-companies" class="view">
-      <div class="page-head"><div><h1>업체·사업</h1><div class="head-sub">업체를 끌어서 사업 카드의 역할 칸에 놓으면 등록됩니다</div></div></div>
+      <div class="page-head"><div><h1>업체·사업</h1><div class="head-sub">업체를 끌어서 사업의 역할 칸에 놓으면 연결됩니다</div></div></div>
       <div class="dnd-layout">
-        <aside class="card pool">
-          <h2>업체 목록 <span class="count" id="poolCount">0</span></h2>
-          <form id="poolForm" class="add-row" autocomplete="off">
-            <input name="name" placeholder="새 업체명 입력 후 Enter" required>
-            <button class="btn primary sm">추가</button>
-          </form>
-          <input id="poolSearch" class="pool-search" placeholder="업체명·별칭 검색">
-          <div class="seg" id="poolFilter" style="margin-bottom:8px"></div>
-          <button class="btn sm" id="btnBaseList" style="margin-bottom:8px">⤓ 기본 명단 가져오기 (코랩 형식)</button>
-          <p class="muted small pool-hint">끌어서 오른쪽 사업 카드에 놓으세요.<br>휴대폰: 업체를 누른 뒤 놓을 칸을 누르세요.</p>
+        <div class="card pool">
+          <div class="card-head"><h2>업체 <span class="count" id="poolCount">0</span></h2><button class="btn sm primary" id="btnAddCompany">+ 업체 추가</button></div>
+          <input id="poolSearch" placeholder="업체명·별칭·사업자번호 검색" style="width:100%;margin-bottom:8px">
+          <div class="filters">
+            <select id="fCat"><option value="">분류: 전체</option></select>
+            <select id="fLink"><option value="">사업: 전체</option><option value="linked">진행중 사업 연결</option><option value="base">미연결 (주요 업체)</option></select>
+            <select id="fRisk"><option value="">등급: 전체</option><option value="red">위험</option><option value="orange">경고</option><option value="yellow">주의</option><option value="none">정상</option></select>
+            <select id="fInfo"><option value="">정보: 전체</option><option value="nobiz">사업자번호 없음</option><option value="noen">영문명 없음</option><option value="watch">집중 감시</option></select>
+          </div>
+          <div class="pool-meta"><span id="poolShown"></span><span>끌어서 사업에 놓기</span></div>
           <div id="pool" class="pool-list"></div>
-        </aside>
-        <div class="card">
-          <div class="card-head">
-            <h2>사업 <span class="count" id="projCount">0</span></h2>
-            <form id="projForm" class="add-row" style="margin:0" autocomplete="off">
-              <input name="name" placeholder="새 사업명" required>
-              <button class="btn primary sm">사업 추가</button>
-            </form>
-          </div>
-          <div class="legend" style="margin-bottom:12px">
-            <span class="role consult">컨설턴트</span><span class="role buy">본구매</span><span class="role fs">F/S</span>
-            <span class="sep"></span><span>단계 표시를 누르면 계약 → 우선협상 → 입찰중으로 바뀝니다</span>
-          </div>
-          <div id="projBoard" class="pgrid two"></div>
-          <details class="more">
-            <summary>여러 업체 한 번에 붙여넣기</summary>
-            <p class="muted small">한 줄에 <code>사업명 | 구분 | 업체명</code> 형식으로 적으세요. 사업명이 비어 있으면 윗줄 사업으로 처리하고, "(1순위)"는 우선협상 1순위로 등록합니다. 아래 예시는 형식 안내용 가상 데이터입니다.</p>
-            <textarea id="importText" placeholder="가나국 스마트시티 구축사업 | 컨설턴트 | 가나다엔지니어링
- | 컨설턴트 | 라마바컨설팅
- | 본구매 | 사아자건설(1순위)
- | 본구매 | 차카타시스템(2순위)
-다라국 병원 현대화사업 | F/S | 파하기술"></textarea>
-            <div class="actions left">
-              <button class="btn" id="btnImportPreview">미리보기</button>
-              <button class="btn primary" id="btnImportRun" disabled>등록하기</button>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-head">
+              <h2>사업 <span class="count" id="projCount">0</span></h2>
+              <form id="projForm" class="add-row" style="margin:0" autocomplete="off"><input name="name" placeholder="새 사업명" required><button class="btn sm">사업 추가</button></form>
             </div>
+            <div class="legend" style="margin-bottom:10px"><span class="role consult">컨설턴트</span><span class="role buy">본구매</span><span class="role fs">F/S</span><span class="sep"></span><span>단계 표시를 누르면 계약 → 우선협상 → 입찰중</span></div>
+            <div id="projBoard" class="pgrid two"></div>
+          </div>
+          <details class="card more-card">
+            <summary>여러 업체 한 번에 붙여넣기</summary>
+            <p class="muted small">형식을 자동으로 알아봅니다. ① <code>사업명 | 구분 | 업체명</code> — 사업 연결까지 (엑셀 표 복사도 가능) ② 코랩 명단 <code># --- 분류 ---</code> + <code>"대표이름": ["별칭", ...]</code> ③ 업체명만 한 줄에 하나 — ②③은 EDCF 주요 업체로 등록. 이미 있는 업체는 별칭·분류만 보탭니다. 예시는 가상 데이터입니다.</p>
+            <textarea id="importText" placeholder="가나국 스마트시티 구축사업 | 컨설턴트 | 가나다엔지니어링
+ | 본구매 | 사아자건설(1순위)
+
+# --- 엔지니어링·설계·CM·감리 ---
+&quot;라마바엔지니어링&quot;: [&quot;라마바엔지니어링&quot;, &quot;라마바ENG&quot;],"></textarea>
+            <div class="actions left"><button class="btn" id="btnImportPreview">미리보기</button><button class="btn primary" id="btnImportRun" disabled>등록하기</button></div>
             <div id="importPreview" class="import-preview"></div>
           </details>
         </div>
@@ -144,59 +111,50 @@
 
     <!-- ================= 설정 ================= -->
     <section id="view-settings" class="view">
-      <div class="page-head"><div><h1>설정</h1><div class="head-sub">메일 받는 사람, 데이터 연결, 실행 기록</div></div></div>
+      <div class="page-head"><div><h1>설정</h1><div class="head-sub">데이터 연결, 내부 제재 명단, 메일</div></div></div>
+      <div id="todo"></div>
       <div class="grid-2">
-        <div class="card">
-          <h2>메일 받는 사람</h2>
-          <p class="section-desc" style="margin-top:6px">매일 07:30, 새로 발견된 이슈를 메일로 보냅니다.</p>
-          <form id="rcForm" class="add-row">
-            <input name="email" type="email" placeholder="email@example.com" required>
-            <button class="btn primary">추가</button>
-          </form>
-          <div id="rcList" class="simple-list"></div>
+        <div>
+          <div class="card">
+            <h2>EDCF 부정당업자 명단 (EXIMIIS)</h2>
+            <p class="section-desc" style="margin-top:6px">EXIMIIS – 경협 – 업무지원 – 부정당업자조회에서 내려받은 엑셀을 올리면, 스캔 때 사업자번호(없으면 업체명)로 대조합니다. 상태 '등록'은 위험, '해지'는 과거 이력으로 표시합니다.</p>
+            <div class="add-row"><label class="btn primary">엑셀 파일 올리기<input type="file" id="edcfFile" accept=".xlsx,.xls,.csv" hidden></label><button class="btn" id="edcfPasteBtn">표 붙여넣기로 입력</button></div>
+            <div id="edcfInfo" class="small muted"></div>
+          </div>
+          <div class="card">
+            <h2>메일 받는 사람</h2>
+            <p class="section-desc" style="margin-top:6px">매일 07:30, 새로 발견된 이슈를 메일로 보냅니다.</p>
+            <form id="rcForm" class="add-row"><input name="email" type="email" placeholder="email@example.com" required><button class="btn primary">추가</button></form>
+            <div id="rcList" class="simple-list"></div>
+          </div>
         </div>
         <div class="card">
           <h2>연결 상태</h2>
           <p class="section-desc" style="margin-top:6px">마지막 스캔 기준입니다. 키는 GitHub Secrets에서 관리합니다.</p>
-          <div id="connList" class="conn-list"></div>
-          <div class="actions left">
-            <a class="btn sm" id="lnkActions" target="_blank" rel="noopener">GitHub Actions ↗</a>
-            <a class="btn sm" id="lnkSecrets" target="_blank" rel="noopener">Secrets 설정 ↗</a>
-          </div>
+          <div id="connList"></div>
+          <div class="actions left"><a class="btn sm" id="lnkActions" target="_blank" rel="noopener">GitHub Actions</a><a class="btn sm" id="lnkSecrets" target="_blank" rel="noopener">Secrets 설정</a></div>
         </div>
       </div>
       <details class="card more-card">
-        <summary><b>고급 설정</b> <span class="muted small">— 실행 기록, 리스크 키워드, 메일 미리보기</span></summary>
-        <h3>최근 실행 기록</h3>
-        <div id="runList" class="run-list"></div>
-        <h3>리스크 키워드</h3>
-        <form id="kwForm" class="add-row">
-          <input name="word" placeholder="키워드" required>
+        <summary>고급 설정 <span class="muted small">— 실행 기록, 리스크 키워드, 메일 미리보기</span></summary>
+        <h3>최근 실행 기록</h3><div id="runList" class="run-list"></div>
+        <h3>리스크 키워드 <span class="muted small">(위험·경고·주의 구분은 기본값이며 수정할 수 있습니다)</span></h3>
+        <form id="kwForm" class="add-row"><input name="word" placeholder="키워드" required>
           <select name="level"><option value="red">위험</option><option value="orange" selected>경고</option><option value="yellow">주의</option></select>
           <select name="lang"><option value="ko">한국어</option><option value="en">영어</option><option value="id">인니어</option></select>
-          <button class="btn primary">추가</button>
-        </form>
+          <button class="btn primary">추가</button></form>
         <div id="kwList" class="chips"></div>
-        <h3>메일 미리보기</h3>
-        <p class="muted small" id="reportMeta"></p>
+        <h3>메일 미리보기</h3><p class="muted small" id="reportMeta"></p>
         <iframe id="reportFrame" class="report-frame" sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe>
       </details>
     </section>
   </main>
 </div>
 
-<!-- 업체 상세 -->
 <div class="drawer-bg" id="drawerBg"></div>
-<aside class="drawer" id="drawer">
-  <div class="drawer-head">
-    <div id="drawerTitle"></div>
-    <button class="btn ghost" id="drawerClose">닫기 ✕</button>
-  </div>
-  <div id="drawerBody" class="drawer-body"></div>
-</aside>
-
+<aside class="drawer" id="drawer"><div class="drawer-head"><div id="drawerTitle"></div><button class="btn sm" id="drawerClose">닫기</button></div><div id="drawerBody" class="drawer-body"></div></aside>
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div id="toast" class="toast"></div>
-<script type="module" src="assets/app.js?v=10"></script>
+<script type="module" src="assets/app.js?v=11"></script>
 </body>
 </html>
