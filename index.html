@@ -7,7 +7,7 @@
 <title>EDCF 부정당업자 자동감지 시스템</title>
 <script>try { document.documentElement.dataset.theme = localStorage.getItem("edcf_theme3") || "dark"; } catch (e) {}</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="assets/style.css?v=13">
+<link rel="stylesheet" href="assets/style.css?v=14">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -43,46 +43,44 @@
   <main class="main">
     <!-- ================= 대시보드 (한 화면) ================= -->
     <section id="view-home" class="view">
-      <div class="dash">
-        <div class="dash-head">
-          <div class="dash-title"><h1>오늘의 <span class="grad">EDCF 업체 리스크</span></h1><div class="head-sub" id="sumSub">-</div></div>
-          <div class="dash-actions">
-            <div class="seg" id="scopeSeg"></div>
-            <button class="btn primary glow" id="btnScan">지금 스캔</button>
+      <!-- 히어로: 제목·범위·스캔 + 레이더 -->
+      <div class="card hero">
+        <div class="hero-main">
+          <div class="eyebrow" id="heroDate">RISK BRIEFING</div>
+          <h1 class="hero-title">오늘의 <span class="grad">EDCF 업체 리스크</span></h1>
+          <div class="hero-sub" id="sumSub">-</div>
+          <div class="seg" id="scopeSeg" style="margin-top:14px"></div>
+          <div class="hero-actions">
+            <button class="btn primary glow" id="btnScan">⚡ 지금 스캔</button>
             <button class="btn stop hidden" id="btnStop">스캔 중지</button>
           </div>
+          <div class="headline" id="headline"></div>
+          <div id="jobState"></div>
+          <div id="guide" class="notice hidden"></div>
         </div>
-        <div class="dash-msg hidden" id="dashMsg"><div id="jobState"></div><div id="guide" class="notice hidden"></div></div>
-        <div class="dash-grid">
-          <div class="col col-a">
-            <div class="panel radar-panel">
-              <div class="panel-head"><h2>리스크 레이더</h2><span class="muted small" id="radarScope"></span></div>
-              <div class="radar-box"><div class="radar" id="radar"></div></div>
-              <div class="radar-legend"><span>● 점 = 업체</span><span><b>가운데</b>일수록 위험</span><span><b>번호</b> = 사업 구역</span></div>
-              <div class="lv-row" id="lvRow"></div>
-              <div class="mini-row" id="coverage"></div>
-              <div class="mini-row" id="mdbLine"></div>
-            </div>
+        <div class="radar-wrap">
+          <div class="radar" id="radar"></div>
+          <div class="radar-legend"><span>● 점 = 업체</span><span><b>가운데</b>일수록 위험</span><span><b>번호</b> = 사업</span></div>
+        </div>
+      </div>
+      <!-- KPI -->
+      <div class="kboard" id="kboard"></div>
+      <div class="coverage" id="coverage"></div>
+      <!-- 이슈 + 오른쪽(진행중 사업, 등급별 업체) -->
+      <div class="grid-main">
+        <div class="card">
+          <div class="card-head"><h2>확인이 필요한 이슈 <span class="count" id="issueCount">0</span></h2><div class="seg" id="periodSeg"></div></div>
+          <div id="feed" class="feed"></div>
+          <details id="doneWrap" class="more hidden"><summary>확인 완료한 이슈 보기</summary><div id="feedDone" class="feed" style="margin-top:8px"></div></details>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-head"><h2>진행중 사업 <span class="count" id="projN">0</span></h2><span class="legend"><span class="role fs">F/S</span><span class="role consult">컨설턴트</span><span class="role buy">본구매</span></span></div>
+            <div id="projectMap" class="plist scroll-box"></div>
           </div>
-          <div class="col col-b">
-            <div class="panel grow">
-              <div class="panel-head"><h2>확인이 필요한 이슈 <span class="count" id="issueCount">0</span></h2><div class="seg" id="periodSeg"></div></div>
-              <div class="headline" id="headline"></div>
-              <div class="panel-body">
-                <div id="feed" class="feed"></div>
-                <details id="doneWrap" class="more hidden"><summary>확인 완료한 이슈 보기</summary><div id="feedDone" class="feed" style="margin-top:8px"></div></details>
-              </div>
-            </div>
-          </div>
-          <div class="col col-c">
-            <div class="panel grow2">
-              <div class="panel-head"><h2>진행중 사업 <span class="count" id="projN">0</span></h2><span class="legend"><span class="role fs">F/S</span><span class="role consult">컨설턴트</span><span class="role buy">본구매</span></span></div>
-              <div class="panel-body"><div id="projectMap" class="plist"></div></div>
-            </div>
-            <div class="panel grow">
-              <div class="panel-head"><h2>리스크 업체 <span class="count" id="riskN">0</span></h2><span class="muted small">누르면 상세</span></div>
-              <div class="panel-body" id="riskGroups"></div>
-            </div>
+          <div class="card">
+            <div class="card-head"><h2>등급별 업체</h2><span class="muted small">누르면 상세</span></div>
+            <div id="riskGroups"></div>
           </div>
         </div>
       </div>
@@ -167,6 +165,6 @@
 <aside class="drawer" id="drawer"><div class="drawer-head"><div id="drawerTitle"></div><button class="btn sm" id="drawerClose">닫기</button></div><div id="drawerBody" class="drawer-body"></div></aside>
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div id="toast" class="toast"></div>
-<script type="module" src="assets/app.js?v=13"></script>
+<script type="module" src="assets/app.js?v=14"></script>
 </body>
 </html>
