@@ -8,11 +8,15 @@ import json
 import xml.etree.ElementTree as ET
 import zipfile
 
+import logging
+import time
+
 import httpx
 
 from .. import config
 from ..textutil import norm
 
+log = logging.getLogger(__name__)
 _master: dict | None = None
 _master_lock = __import__("threading").Lock()
 
@@ -20,12 +24,14 @@ _master_lock = __import__("threading").Lock()
 def sync_corp_master() -> int:
     if not config.DART_API_KEY:
         raise RuntimeError("DART_API_KEY 가 설정되지 않았습니다.")
+    t0 = time.time()
     r = httpx.get(
         "https://opendart.fss.or.kr/api/corpCode.xml",
         params={"crtfc_key": config.DART_API_KEY},
         timeout=180,
     )
     r.raise_for_status()
+    log.info("DART 기업목록 다운로드 %.1f초, %.1fMB", time.time() - t0, len(r.content) / 1e6)
     zf = zipfile.ZipFile(io.BytesIO(r.content))
     root = ET.fromstring(zf.read(zf.namelist()[0]))
     rows = []

@@ -124,7 +124,6 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
     t0 = time.time()
     errors: list[str] = []
     stats = {"fetched": 0, "candidates": 0, "new_findings": 0, "official": 0, "cleaned": 0}
-    ident = _identify(company, errors)
     engagements = [
         {**e, "project_name": projects.get(e.get("project_id"), {}).get("name", "(삭제된 사업)")}
         for e in company.get("engagements") or []
@@ -199,6 +198,9 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         if j.get("relevant"):
             stats["new_findings"] += 1
 
+    # 3-1) 업체 식별 (사업자번호·영문명) — 뉴스 검색 뒤에 해서, 그동안 DART 목록을 백그라운드로 받아 둠
+    ident = _identify(company, errors)
+
     # 4) MDB 제재리스트 (영문명이 있어야 의미 있는 대조가 된다)
     official = sanctions.match_company(entries, company)
     mdb_names = [n for n in [company.get("name_en"), *(company.get("aliases") or "").split(","), company["name"]] if n and n.strip().isascii()]
@@ -254,6 +256,13 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
     return stats
 
 
+def _safe(fn):
+    try:
+        fn()
+    except Exception as e:
+        log.warning("DART 기업목록 미리 받기 실패: %s", e)
+
+
 def run_scan(only_names: list[str] | None = None, progress=None) -> dict:
     """progress(done, total, current_name) 콜백으로 진행 상황을 알린다."""
     t_start = time.time()
@@ -266,6 +275,13 @@ def run_scan(only_names: list[str] | None = None, progress=None) -> dict:
     total = len(companies)
     if progress:
         progress(0, total, "제재리스트 준비")
+
+    # DART 기업목록이 필요한 업체가 있으면 시작하자마자 백그라운드로 받기 시작
+    needs_dart = config.DART_API_KEY and any(
+        c.get("country", "KR") in ("KR", "", None) and not c.get("biz_no") and not c.get("corp_code")
+        and _days_since(c.get("dart_checked_at")) >= 30 for c in companies)
+    if needs_dart:
+        threading.Thread(target=lambda: _safe(dart.load_master), daemon=True).start()
 
     t_lists = time.time()
     entries, list_status = sanctions.load_lists()
