@@ -170,6 +170,20 @@ def _claude(company: dict, engagements: list[dict], articles: list[dict], keywor
     return out
 
 
+def check() -> None:
+    """스캔 시작 때 Claude 키·크레딧을 아주 짧은 호출로 한 번 확인 (새 기사가 없어도 상태가 정확히 표시되도록)"""
+    global CLAUDE_ERROR
+    if not config.ANTHROPIC_API_KEY:
+        return
+    try:
+        import anthropic
+        anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY).messages.create(
+            model=config.CLAUDE_MODEL, max_tokens=1, messages=[{"role": "user", "content": "ping"}])
+    except Exception as e:
+        log.warning("Claude 연결 확인 실패: %r", e)
+        CLAUDE_ERROR = str(e)
+
+
 def analyze(company: dict, engagements: list[dict], articles: list[dict], keywords: list[dict]) -> tuple[list[dict], str]:
     """returns (judgements, analyzer_used)"""
     if not articles:

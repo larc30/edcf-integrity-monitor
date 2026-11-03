@@ -389,6 +389,7 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
     """progress(done, total, current_name) 콜백으로 진행 상황을 알리고, should_stop()이 True면 남은 업체를 건너뛴다."""
     t_start = time.time()
     analyzer.CLAUDE_ERROR = None
+    analyzer.check()
     projects = {p["id"]: p for p in store.all_docs("projects")}
     keywords = store.all_docs("keywords")
     companies = sorted(store.all_docs("companies"), key=lambda c: c["name"])
