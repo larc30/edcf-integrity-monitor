@@ -1425,7 +1425,7 @@ function renderTasks() {
     ["매일 07:30 자동 스캔 켜기", dailyH != null && dailyH < 26 ? "done" : "todo", "필수", "GitHub 웹",
       dailyH != null ? `마지막 예약 실행 ${s.last_daily_at.slice(5, 16)}` : "예약 실행(매일 07:30 스캔 + 메일)이 아직 한 번도 돌지 않았습니다. 워크플로 파일을 사람이 한 번 저장해야 켜질 수 있습니다.",
       [`${L(`${REPO_URL}/edit/main/.github/workflows/monitor.yml`, "monitor.yml 편집 화면 열기")} (GitHub 로그인 필요)`,
-        `5번째 줄 <code>- cron: "30 22 * * *"    # 매일 07:30 …</code> 맨 끝에 <b>띄어쓰기 한 칸</b>을 넣습니다 (내용은 바뀌지 않음)`,
+        `아무 줄(예: 첫 줄 <code>name: 업체 모니터링</code>) 끝에 <b>띄어쓰기 한 칸</b>을 넣습니다 (내용은 바뀌지 않음)`,
         `오른쪽 위 초록색 <b>Commit changes...</b> → 창에서 다시 <b>Commit changes</b>`,
         `다음 날 07:30 이후 이 항목이 '완료'로 바뀌는지 확인 (${L(ACTIONS_URL, "Actions 실행 기록")}에서 <i>schedule</i> 실행으로도 확인 가능)`],
       "GitHub 예약 실행은 수십 분 늦게 시작될 수 있습니다. 저장소에 60일 동안 변경이 없으면 GitHub가 예약을 멈추므로, 그때 같은 방법으로 다시 켭니다."],
