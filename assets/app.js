@@ -5,7 +5,7 @@ import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=12";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=13";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -24,6 +24,7 @@ const ROLE_CLS = { 컨설턴트: "consult", 본구매: "buy", "F/S": "fs" };
 const ROLE_ORDER = ["F/S", "컨설턴트", "본구매"];
 const COUNTRY = { TZ: "탄자니아", PK: "파키스탄", KE: "케냐", MN: "몽골", LA: "라오스", ID: "인도네시아", KR: "한국", VN: "베트남", KH: "캄보디아", BD: "방글라데시", PH: "필리핀", UZ: "우즈베키스탄", ET: "에티오피아", GH: "가나", MM: "미얀마", LK: "스리랑카", NP: "네팔", RW: "르완다", UG: "우간다", TN: "튀니지", EG: "이집트", BO: "볼리비아", PY: "파라과이", CO: "콜롬비아", PE: "페루", EC: "에콰도르", GT: "과테말라", SN: "세네갈", MZ: "모잠비크", CM: "카메룬", NG: "나이지리아", TR: "튀르키예", UA: "우크라이나", GE: "조지아", AZ: "아제르바이잔", KZ: "카자흐스탄", KG: "키르기스스탄", TJ: "타지키스탄", TL: "동티모르" };
 const COUNTRY_BY_NAME = { ...Object.fromEntries(Object.entries(COUNTRY).map(([k, v]) => [v, k])), 카라치: "PK", 이슬라마바드: "PK", 나이로비: "KE", 다르에스살람: "TZ", 울란바토르: "MN", 비엔티안: "LA", 자카르타: "ID", 하노이: "VN", 프놈펜: "KH", 다카: "BD", 마닐라: "PH", 타슈켄트: "UZ" };
+const byRole = (es) => [...es].sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role));
 const badge = (lv) => `<span class="badge ${lv || "none"}">${LEVEL[lv || "none"]}</span>`;
 const roleTag = (r) => `<span class="role ${ROLE_CLS[r] || "fs"}">${esc(r)}</span>`;
 const stageTag = (e) => e.stage && e.stage !== "계약" ? `<span class="stage">${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""}</span>` : "";
@@ -129,6 +130,27 @@ function showView(v) {
   v === "home" ? renderHome() : v === "companies" ? renderCompanies() : renderSettings();
 }
 const rerender = () => { compute(); showView($("#tabs button.active")?.dataset.view || "home"); if (state.openCid && $("#drawer").classList.contains("open")) openCompany(state.openCid); };
+// 가벼운 모드: 화면이 버벅이면(초당 30프레임 미만) 레이더 파동·발광 효과를 자동으로 줄임
+let liteSaved = null;
+try { liteSaved = localStorage.getItem("edcf_lite"); } catch {}
+function setLite(on, how) {
+  document.documentElement.classList.toggle("lite", on);
+  try { localStorage.setItem("edcf_lite", how); } catch {}
+  liteSaved = how;
+  const t = $("#liteToggle"); if (t) t.checked = on;
+}
+if (liteSaved === "1" || liteSaved === "auto") document.documentElement.classList.add("lite");
+function checkSmooth() {
+  if (liteSaved || state.smoothChecked || document.visibilityState !== "visible") return;
+  state.smoothChecked = true;
+  setTimeout(() => {
+    let n = 0; const t0 = performance.now();
+    const f = (t) => { n++; if (t - t0 < 2000) requestAnimationFrame(f); else if (n / ((t - t0) / 1000) < 30) { setLite(true, "auto"); console.info("가벼운 모드 자동 적용 (fps", Math.round(n / 2), ")"); } };
+    requestAnimationFrame(f);
+  }, 1500);
+}
+$("#liteToggle").checked = document.documentElement.classList.contains("lite");
+$("#liteToggle").addEventListener("change", (e) => { setLite(e.target.checked, e.target.checked ? "1" : "0"); toast(e.target.checked ? "가벼운 모드를 켰습니다" : "화면 효과를 모두 켰습니다"); });
 // 상단 '자동 감시' 표시: 마지막 스캔이 하루 넘게 지났으면 주황
 function renderLive() {
   const s = state.status.last_scan_at, h = s ? (Date.now() - Date.parse(s.replace(" ", "T") + "+09:00")) / 3600e3 : null;
@@ -344,11 +366,11 @@ function renderHome() {
   $("#riskGroups").innerHTML = !cs.length ? `<div class="empty small">업체가 없습니다.</div>`
     : !sc ? `<div class="empty small">스캔 후 위험·경고·주의 업체가 여기에 모입니다.</div>`
     : (risky.map((c) => `<div class="rrow ${c.risk}" data-cid="${c.id}"><span class="dot ${c.risk}"></span>
-        <div class="rtxt"><div class="rname">${esc(c.name)}</div><div class="rmeta">${c.engagements.map((e) => `${esc(projName(e.project_id))} · ${esc(e.role)}`).join(" / ") || "EDCF 주요 업체"}</div></div>
+        <div class="rtxt"><div class="rname">${esc(c.name)}</div><div class="rmeta">${byRole(c.engagements).map((e) => `${esc(projName(e.project_id))} · ${esc(e.role)}`).join(" / ") || "EDCF 주요 업체"}</div></div>
         <span class="issues">${LEVEL[c.risk]} ${c.total}건${c.open ? ` · 미확인 ${c.open}` : ""}</span></div>`).join("") || `<div class="ok-box">리스크 업체가 없습니다</div>`)
       + `<div class="rfoot">정상 ${n.none}곳 — 확인한 범위에서 발견 없음${gapCount ? ` (일부 항목 미확인 ${gapCount}곳)` : ""}</div>`;
   $$("#riskGroups [data-cid]").forEach((x) => x.addEventListener("click", () => openCompany(x.dataset.cid)));
-  renderJob(); updateDashMsg();
+  renderJob(); updateDashMsg(); checkSmooth();
 }
 function projectRow(p, i, sec) {
   const rows = [];
@@ -476,7 +498,7 @@ function openCompany(cid) {
   const dismissed = state.findings.filter((f) => f.company_id === cid && f.status === "dismissed");
   const gaps = checkGaps(c);
   $("#drawerTitle").innerHTML = `<div class="t">${esc(c.name)} ${scanned() ? badge(c.risk) : ""}</div>
-    <div class="muted small">${c.engagements.map((e) => `${roleTag(e.role)} ${esc(projName(e.project_id))} ${stageTag(e)}`).join(" &nbsp; ") || "사업 미배정"}</div>`;
+    <div class="muted small">${byRole(c.engagements).map((e) => `${roleTag(e.role)} ${esc(projName(e.project_id))} ${stageTag(e)}`).join(" &nbsp; ") || "사업 미배정"}</div>`;
   $("#drawerBody").innerHTML = `
     <div class="muted small" style="margin-bottom:10px">${c.category ? `${esc(c.category)} · ` : ""}${c.focus ? "<b>집중 감시</b> — 매일 업체명 검색 + 주 1회 심층 검색" : "<b>기본 감시</b> — 매일 제재 키워드 기사·MDB 대조, 조달청 3일마다, 업체명 검색 주 1회"}</div>
     <div class="actions left" style="margin-top:0">
@@ -793,7 +815,7 @@ try { const s = JSON.parse(localStorage.getItem(JOB_KEY) || "null"); if (s && Da
 
 // ---------- 설정 (드래그 앤 드롭) ----------
 const STAGES = ["계약", "우선협상", "입찰중"];
-const ROLES = ["컨설턴트", "본구매", "F/S"];
+const ROLES = ["F/S", "컨설턴트", "본구매"]; // 사업 진행 순서
 
 const categories = () => [...new Set(state.companies.map((c) => c.category).filter(Boolean))].sort();
 

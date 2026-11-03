@@ -4,7 +4,7 @@
    ===================================================================== */
 :root, :root[data-theme="dark"] {
   --bg: #060912; --bg-2: #0A0F1E;
-  --panel: rgba(16, 22, 40, .66); --panel-solid: #0E1426; --panel-2: rgba(255, 255, 255, .035);
+  --panel: rgba(14, 20, 37, .94); --panel-solid: #0E1426; --panel-2: rgba(255, 255, 255, .035);
   --line: rgba(148, 163, 184, .13); --line-2: rgba(148, 163, 184, .24);
   --text: #E8ECF4; --text-2: #B3BCCD; --muted: #77819A;
   --accent: #7C83FF; --accent-2: #22D3EE; --accent-soft: rgba(124, 131, 255, .14);
@@ -19,7 +19,7 @@
 }
 :root[data-theme="light"] {
   --bg: #F3F5FA; --bg-2: #EAEFF7;
-  --panel: rgba(255, 255, 255, .8); --panel-solid: #FFFFFF; --panel-2: rgba(15, 23, 42, .03);
+  --panel: rgba(255, 255, 255, .96); --panel-solid: #FFFFFF; --panel-2: rgba(15, 23, 42, .03);
   --line: rgba(15, 23, 42, .08); --line-2: rgba(15, 23, 42, .16);
   --text: #0B1220; --text-2: #3D4A63; --muted: #6B7690;
   --accent: #5B5BF0; --accent-2: #0891B2; --accent-soft: rgba(91, 91, 240, .1);
@@ -47,15 +47,14 @@ code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-si
 
 /* 배경: 천천히 움직이는 빛 + 격자 */
 #bgfx { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; background: var(--bg); }
-#bgfx::before, #bgfx::after { content: ""; position: absolute; width: 60vw; height: 60vw; border-radius: 50%; filter: blur(80px); opacity: .55; animation: drift 24s ease-in-out infinite alternate; }
+#bgfx::before, #bgfx::after { content: ""; position: absolute; width: 70vw; height: 70vw; border-radius: 50%; opacity: .6; }
 #bgfx::before { background: radial-gradient(circle, rgba(124, 131, 255, .28), transparent 65%); top: -25vw; left: -10vw; }
-#bgfx::after { background: radial-gradient(circle, rgba(34, 211, 238, .2), transparent 65%); bottom: -30vw; right: -15vw; animation-delay: -12s; }
+#bgfx::after { background: radial-gradient(circle, rgba(34, 211, 238, .2), transparent 65%); bottom: -30vw; right: -15vw; }
 :root[data-theme="light"] #bgfx::before, :root[data-theme="light"] #bgfx::after { opacity: .35; }
 #bgfx .grid { position: absolute; inset: 0; background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 48px 48px; mask-image: radial-gradient(ellipse at 50% 0%, #000 0%, transparent 70%); opacity: .5; }
-@keyframes drift { to { transform: translate(8vw, 6vw) scale(1.1); } }
 
 /* ---------------- 상단 바 (제목 + 탭 + 사용자) ---------------- */
-.topbar { position: sticky; top: 0; z-index: 20; height: var(--top); border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 72%, transparent); backdrop-filter: blur(18px); }
+.topbar { position: sticky; top: 0; z-index: 20; height: var(--top); border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 94%, transparent); }
 .topbar-in { max-width: 1680px; height: 100%; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; gap: 22px; }
 .logo { display: flex; align-items: center; gap: 11px; flex: 0 0 auto; }
 .logo-mark { width: 36px; height: 36px; border-radius: 11px; background: var(--grad); display: grid; place-items: center; box-shadow: var(--glow); flex: 0 0 auto; }
@@ -84,7 +83,7 @@ code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-si
 }
 
 /* ---------------- 공통 ---------------- */
-.card, .panel { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); backdrop-filter: blur(14px); min-width: 0; }
+.card, .panel { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); min-width: 0; }
 .card { padding: 20px; margin-bottom: 16px; }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
 .card-head h2 { display: flex; align-items: center; gap: 8px; }
@@ -193,7 +192,7 @@ details.more > summary, details.more-card > summary { cursor: pointer; color: va
 .radar svg.grid circle.zone-yellow { stroke: color-mix(in srgb, var(--yellow) 35%, transparent); }
 .radar svg.grid text { fill: var(--muted); font-size: 5.5px; font-weight: 700; }
 .radar svg.grid path.sec-hl { fill: color-mix(in srgb, var(--accent) 16%, transparent); stroke: none; }
-.sweep { position: absolute; inset: 2%; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0deg, transparent 290deg, color-mix(in srgb, var(--accent-2) 10%, transparent) 320deg, color-mix(in srgb, var(--accent-2) 45%, transparent) 359deg, transparent 360deg); animation: spin var(--sweep, 6s) linear infinite; pointer-events: none; }
+.sweep { position: absolute; inset: 2%; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0deg, transparent 290deg, color-mix(in srgb, var(--accent-2) 10%, transparent) 320deg, color-mix(in srgb, var(--accent-2) 45%, transparent) 359deg, transparent 360deg); animation: spin var(--sweep, 6s) linear infinite; pointer-events: none; will-change: transform; }
 .radar.scanning { --sweep: 1.6s; }
 .radar.scanning .sweep { background: conic-gradient(from 0deg, transparent 0deg, transparent 270deg, color-mix(in srgb, var(--accent) 18%, transparent) 310deg, color-mix(in srgb, var(--accent) 65%, transparent) 359deg, transparent 360deg); }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -204,6 +203,7 @@ details.more > summary, details.more-card > summary { cursor: pointer; color: va
 .rdot.orange { background: var(--orange); color: var(--orange); box-shadow: 0 0 10px var(--orange); width: 10px; height: 10px; margin: -5px 0 0 -5px; }
 .rdot.yellow { background: var(--yellow); color: var(--yellow); }
 .rdot.none { background: var(--green); color: var(--green); opacity: .8; width: 6px; height: 6px; margin: -3px 0 0 -3px; }
+.rdot.none::after, .rdot.pending::after { content: none; }
 .rdot.pending { background: var(--gray); color: var(--gray); opacity: .7; }
 .rdot.open::before { content: ""; position: absolute; inset: -7px; border-radius: 50%; background: currentColor; opacity: .18; animation: breathe 1.8s ease-in-out infinite; }
 .rdot.dim { opacity: .12 !important; }
@@ -389,8 +389,8 @@ body.dnd-active .dropzone { border-color: var(--line-2); background: var(--panel
 @media (max-width: 640px) { .task .tbody { padding-left: 16px; } .task > summary { flex-wrap: wrap; } }
 
 /* ---------------- 드로어 / 모달 / 토스트 ---------------- */
-.drawer-bg { position: fixed; inset: 0; background: rgba(3, 6, 15, .55); backdrop-filter: blur(3px); display: none; z-index: 30; }
-.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100vw); background: color-mix(in srgb, var(--bg-2) 94%, transparent); backdrop-filter: blur(22px); border-left: 1px solid var(--line-2); z-index: 31; transform: translateX(100%); transition: transform .32s cubic-bezier(.2, .7, .2, 1); display: flex; flex-direction: column; visibility: hidden; }
+.drawer-bg { position: fixed; inset: 0; background: rgba(3, 6, 15, .6); display: none; z-index: 30; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100vw); background: var(--bg-2); border-left: 1px solid var(--line-2); z-index: 31; transform: translateX(100%); transition: transform .32s cubic-bezier(.2, .7, .2, 1); display: flex; flex-direction: column; visibility: hidden; }
 .drawer.open { transform: none; visibility: visible; box-shadow: -20px 0 60px rgba(0, 0, 0, .4); } .drawer-bg.open { display: block; }
 .drawer-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 18px 22px 14px; border-bottom: 1px solid var(--line); }
 .drawer-head .t { font-size: 20px; font-weight: 850; display: flex; gap: 10px; align-items: center; }
@@ -404,7 +404,7 @@ body.dnd-active .dropzone { border-color: var(--line-2); background: var(--panel
 .chk-row.bad .ic { background: var(--red-bg); color: var(--red); } .chk-row.na .ic { background: var(--gray-bg); color: var(--gray); }
 .chk-row .d { color: var(--text-2); font-size: 12px; margin-top: 1px; }
 .chk-note { font-size: 12px; color: var(--text-2); background: var(--panel-2); border-radius: 9px; padding: 7px 10px; margin-top: 6px; }
-.modal-bg { position: fixed; inset: 0; background: rgba(3, 6, 15, .6); backdrop-filter: blur(4px); display: none; z-index: 40; align-items: center; justify-content: center; padding: 16px; }
+.modal-bg { position: fixed; inset: 0; background: rgba(3, 6, 15, .65); display: none; z-index: 40; align-items: center; justify-content: center; padding: 16px; }
 .modal-bg.open { display: flex; }
 .modal { background: var(--panel-solid); border: 1px solid var(--line-2); border-radius: 18px; max-width: 640px; width: 100%; padding: 22px; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); max-height: 90vh; overflow: auto; animation: pop .25s cubic-bezier(.2, .7, .2, 1); }
 .modal h2 { margin-bottom: 10px; font-size: 18px; }
@@ -420,3 +420,9 @@ body.dnd-active .dropzone { border-color: var(--line-2); background: var(--panel
 .login-card .logo { justify-content: center; margin-bottom: 18px; }
 .login-card .logo-mark { width: 56px; height: 56px; border-radius: 16px; }
 .login-card h1 { font-size: 21px; margin-bottom: 8px; }
+
+/* 가벼운 모드: 화면이 버벅이는 PC(가상 데스크톱 등)에서 자동 적용, 움직임 최소화 설정도 존중 */
+html.lite .sweep { animation-duration: 12s; }
+html.lite .rdot::after, html.lite .rdot::before, html.lite .btn.glow::after, html.lite .live-dot, html.lite .radar-center, html.lite .new-pill { animation: none !important; }
+html.lite .rdot.red, html.lite .rdot.orange, html.lite .dot.red, html.lite .dot.orange, html.lite .badge::before { box-shadow: none; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

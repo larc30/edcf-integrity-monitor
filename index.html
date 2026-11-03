@@ -6,8 +6,8 @@
 <meta http-equiv="Cache-Control" content="no-cache">
 <title>EDCF 부정당업자 자동감지 시스템</title>
 <script>try { document.documentElement.dataset.theme = localStorage.getItem("edcf_theme3") || "dark"; } catch (e) {}</script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
-<link rel="stylesheet" href="assets/style.css?v=12">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="assets/style.css?v=13">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -76,7 +76,7 @@
           </div>
           <div class="col col-c">
             <div class="panel grow2">
-              <div class="panel-head"><h2>진행중 사업 <span class="count" id="projN">0</span></h2><span class="legend"><span class="role consult">컨설턴트</span><span class="role buy">본구매</span><span class="role fs">F/S</span></span></div>
+              <div class="panel-head"><h2>진행중 사업 <span class="count" id="projN">0</span></h2><span class="legend"><span class="role fs">F/S</span><span class="role consult">컨설턴트</span><span class="role buy">본구매</span></span></div>
               <div class="panel-body"><div id="projectMap" class="plist"></div></div>
             </div>
             <div class="panel grow">
@@ -110,7 +110,7 @@
             <h2>사업 <span class="count" id="projCount">0</span></h2>
             <form id="projForm" class="add-row" style="margin:0" autocomplete="off"><input name="name" placeholder="새 사업명" required><button class="btn sm">사업 추가</button></form>
           </div>
-          <div class="legend" style="margin-bottom:10px"><span class="role consult">컨설턴트</span><span class="role buy">본구매</span><span class="role fs">F/S</span><span class="sep"></span><span>단계 표시를 누르면 계약 → 우선협상 → 입찰중</span></div>
+          <div class="legend" style="margin-bottom:10px"><span class="role fs">F/S</span><span class="role consult">컨설턴트</span><span class="role buy">본구매</span><span class="sep"></span><span>단계 표시를 누르면 계약 → 우선협상 → 입찰중</span></div>
           <div id="projBoard" class="pgrid2"></div>
         </div>
       </div>
@@ -143,6 +143,8 @@
       </div>
       <details class="card more-card">
         <summary>고급 설정 <span class="muted small">— 실행 기록, 리스크 키워드, 메일 미리보기</span></summary>
+        <h3>화면 효과</h3>
+        <label class="small" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="liteToggle" style="width:auto"> 가벼운 모드 — 레이더 파동·발광 효과를 줄입니다 (화면이 버벅이면 자동으로 켜짐)</label>
         <h3>최근 실행 기록</h3><div id="runList" class="run-list"></div>
         <h3>리스크 키워드 <span class="muted small">(위험·경고·주의 구분은 기본값이며 수정할 수 있습니다)</span></h3>
         <form id="kwForm" class="add-row"><input name="word" placeholder="키워드" required>
@@ -165,6 +167,6 @@
 <aside class="drawer" id="drawer"><div class="drawer-head"><div id="drawerTitle"></div><button class="btn sm" id="drawerClose">닫기</button></div><div id="drawerBody" class="drawer-body"></div></aside>
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div id="toast" class="toast"></div>
-<script type="module" src="assets/app.js?v=12"></script>
+<script type="module" src="assets/app.js?v=13"></script>
 </body>
 </html>

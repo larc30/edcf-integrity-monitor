@@ -16,6 +16,7 @@ COLORS = {
 }
 TEXT, MUTED, LINE, SOFT, BG2, LINK = "#1f2328", "#59636e", "#d1d9e0", "#eaeef2", "#f6f8fa", "#0969da"
 E = html.escape
+ROLE_ORDER = {"F/S": 0, "컨설턴트": 1, "본구매": 2}  # 사업 진행 순서
 
 
 def load_overview() -> tuple[list[dict], list[dict], dict]:
@@ -50,7 +51,7 @@ def _badge(level: str) -> str:
 def _eng_text(engs: list[dict]) -> str:
     return "<br>".join(
         f"{E(e['project_name'])} · {E(e['role'])} · {E(e['stage'])}{' ' + str(e['rank']) + '순위' if e.get('rank') else ''}"
-        for e in engs
+        for e in sorted(engs, key=lambda e: ROLE_ORDER.get(e.get("role"), 9))
     ) or "EDCF 주요 업체 (사업 미연결)"
 
 

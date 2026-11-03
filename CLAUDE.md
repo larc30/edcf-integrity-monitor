@@ -45,6 +45,9 @@ meta/status, meta/progress, meta/settings{relay_url,keywords_version}, meta/repo
 - 업체·사업: [일괄 등록] 모달(양식 CSV 내려받기 → 엑셀·CSV 업로드 또는 표 붙여넣기, 열: 업체명·사업자번호·영문명·분류·별칭·사업명·역할), [+ 업체 추가], 필터·검색.
 - 설정: EXIMIIS 업로드, 메일 수신자, 연결 상태(5묶음), 고급 설정, 맨 아래 '연결 작업 목록'(상태 자동 판정, 단계별 방법). 예약 실행 확인용 meta/status.last_daily_at(run.py daily).
 
+- 성능(v13): backdrop-filter(유리 흐림)가 움직이는 레이더 위에서 매 프레임 다시 그려져 매우 느렸음(소프트웨어 렌더링 8fps). 흐림 제거·배경 빛 고정·정상 업체 점 파동 제거로 60fps. 버벅이면 자동 '가벼운 모드'(html.lite, localStorage edcf_lite), 고급 설정에서 수동 전환. 다시 backdrop-filter·filter:blur 애니메이션을 넣지 말 것.
+- 역할 순서는 사업 진행 순서 F/S → 컨설턴트 → 본구매 (ROLES, ROLE_ORDER, report.ROLE_ORDER).
+
 ## 남은 일
 - 사용자: Apps Script 중계 설정, monitor.yml 웹에서 한 번 수정(예약 실행), EXIMIIS 엑셀 업로드, 코랩 명단 붙여넣기, (선택) 네이버 API HUB·SMTP·ANTHROPIC 키.
 - 2부(수원국 리스크 지도)는 보류.
