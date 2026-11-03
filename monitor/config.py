@@ -29,6 +29,8 @@ NAVER_CLIENT_SECRET = _get("NAVER_CLIENT_SECRET")
 GOOGLE_NEWS_ENABLED = _get("GOOGLE_NEWS_ENABLED", "true").lower() == "true"
 NEWS_LOOKBACK_DAYS = int(_get("NEWS_LOOKBACK_DAYS", "3650"))  # 기본 10년 (과거 이력 포함)
 NEWS_PER_QUERY = int(_get("NEWS_PER_QUERY", "30"))
+SCAN_WORKERS = int(_get("SCAN_WORKERS", "6"))          # 동시에 처리할 업체 수
+DEEP_EVERY_DAYS = int(_get("DEEP_EVERY_DAYS", "7"))    # '업체명+리스크 키워드' 심층 검색 주기(일)
 
 # --- 업체 마스터 (DART) ---
 DART_API_KEY = _get("DART_API_KEY")

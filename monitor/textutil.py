@@ -69,11 +69,58 @@ def dedup_key(title: str, url: str = "") -> str:
     return hashlib.sha1(base.encode()).hexdigest()[:20]
 
 
-def mentions(text: str, names: list[str]) -> bool:
-    """본문(제목+요약)에 업체명이 실제로 등장하는지 (공백 무시)"""
-    flat = re.sub(r"\s+", "", (text or "").lower())
-    for n in names:
-        n2 = re.sub(r"\s+", "", (n or "").lower())
-        if len(n2) >= 2 and n2 in flat:
-            return True
+# 짧은 이름(3자 이하) 뒤에 붙어도 되는 조사·표기 — 이 외의 한글이 붙으면 다른 단어(예: '안세' → '안세하')
+_PARTICLES = set("은는이가을를의과와에도로측과만엔서")
+_HANGUL_ALNUM = re.compile(r"[가-힣A-Za-z0-9]")
+
+
+def _flat(s: str) -> str:
+    return re.sub(r"\s+", "", (s or "").lower())
+
+
+def _word_hit(text: str, name: str) -> bool:
+    """name이 독립된 단어로 등장하는지 (앞에 글자 없음, 뒤에는 공백·문장부호·조사만 허용)"""
+    t, n = (text or "").lower(), name.lower()
+    for m in re.finditer(re.escape(n), t):
+        before = t[m.start() - 1] if m.start() > 0 else " "
+        after = t[m.end()] if m.end() < len(t) else " "
+        if _HANGUL_ALNUM.match(before):
+            continue
+        if re.match(r"[a-z0-9]", after):
+            continue
+        if re.match(r"[가-힣]", after) and after not in _PARTICLES:
+            continue
+        return True
     return False
+
+
+def name_matches(text: str, name: str) -> bool:
+    """업체명 1개 일치 판정
+    - 영문명: 단어 경계 기준 (STraffic ≠ STrafficking)
+    - 국문 4자 이상: 공백 무시 포함 여부 ('안세기술' = '안세 기술')
+    - 국문 3자 이하(약칭·짧은 상호): 독립 단어일 때만 ('안세' ≠ '안세하', '트라콤' ≠ '트라콤스')"""
+    name = (name or "").strip()
+    core = norm(name) if not name.isascii() else re.sub(r"[^a-z0-9]", "", name.lower())
+    if len(core) < 2:
+        return False
+    if name.isascii():
+        words = re.sub(r"\s+", " ", re.sub(r"(?i)\b(co|ltd|inc|corp|corporation|company|limited|pt|tbk|persero)\b\.?", " ", name)).strip(" .,")
+        return bool(words) and _word_hit(text, words)
+    if len(core) >= 4:
+        return core in _flat(text) or _flat(name) in _flat(text)
+    return _word_hit(text, name)
+
+
+def mentions(text: str, names: list[str]) -> bool:
+    """본문(제목+요약)에 업체명(국문·영문·별칭 중 하나)이 실제로 등장하는지"""
+    return any(name_matches(text, n) for n in names if n)
+
+
+def search_names(company: dict) -> list[str]:
+    """검색어로 쓸 국문 이름: 대표명 + 4자 이상 별칭 (짧은 약칭은 검색어로 쓰면 잡음이 많아 제외)"""
+    out = [company["name"]]
+    for a in (company.get("aliases") or "").split(","):
+        a = a.strip()
+        if a and not a.isascii() and len(norm(a)) >= 4 and a not in out:
+            out.append(a)
+    return out

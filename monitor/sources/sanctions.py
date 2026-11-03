@@ -34,34 +34,36 @@ DATASET_HOME = {
 }
 
 
+def _load_one(ds: str) -> tuple[str, list[dict], object]:
+    url = f"{config.OPENSANCTIONS_BASE}/{ds}/targets.simple.csv"
+    try:
+        r = httpx.get(url, timeout=90, follow_redirects=True)
+        r.raise_for_status()
+        out = []
+        for row in csv.DictReader(io.StringIO(r.text)):
+            if row.get("schema") not in (None, "", "Company", "Organization", "LegalEntity"):
+                continue
+            names = [row.get("name", "")] + [a for a in (row.get("aliases") or "").split(";") if a]
+            out.append({
+                "dataset": ds, "entity_id": row.get("id"), "name": row.get("name"),
+                "countries": row.get("countries"), "sanctions": row.get("sanctions"),
+                "norm_names": sorted({norm(x) for x in names if norm(x)}),
+            })
+        return ds, out, len(out)
+    except Exception as e:  # 한 리스트 실패가 전체를 막지 않도록
+        log.warning("sanction list %s failed: %s", ds, e)
+        return ds, [], f"오류: {e}"
+
+
 def load_lists() -> tuple[list[dict], dict]:
-    """데이터셋을 내려받아 메모리에 적재. (entries, {dataset: count or error})"""
+    """5개 리스트를 동시에 내려받아 메모리에 적재. (entries, {dataset: count or error})"""
+    from concurrent.futures import ThreadPoolExecutor
+
     entries, result = [], {}
-    for ds in config.OPENSANCTIONS_DATASETS:
-        url = f"{config.OPENSANCTIONS_BASE}/{ds}/targets.simple.csv"
-        try:
-            r = httpx.get(url, timeout=90, follow_redirects=True)
-            r.raise_for_status()
-            n = 0
-            for row in csv.DictReader(io.StringIO(r.text)):
-                if row.get("schema") not in (None, "", "Company", "Organization", "LegalEntity"):
-                    continue
-                names = [row.get("name", "")] + [a for a in (row.get("aliases") or "").split(";") if a]
-                entries.append(
-                    {
-                        "dataset": ds,
-                        "entity_id": row.get("id"),
-                        "name": row.get("name"),
-                        "countries": row.get("countries"),
-                        "sanctions": row.get("sanctions"),
-                        "norm_names": sorted({norm(x) for x in names if norm(x)}),
-                    }
-                )
-                n += 1
-            result[ds] = n
-        except Exception as e:  # 한 리스트 실패가 전체를 막지 않도록
-            log.warning("sanction list %s failed: %s", ds, e)
-            result[ds] = f"오류: {e}"
+    with ThreadPoolExecutor(max_workers=len(config.OPENSANCTIONS_DATASETS) or 1) as ex:
+        for ds, out, status in ex.map(_load_one, config.OPENSANCTIONS_DATASETS):
+            entries += out
+            result[ds] = status
     return entries, result
 
 

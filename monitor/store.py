@@ -56,21 +56,45 @@ def known_keys(company_id: str) -> set[str]:
     return {d.get("dedup_key") for d in q.stream()}
 
 
-def add_finding(company: dict, f: dict) -> None:
+def _finding_doc(company: dict, f: dict) -> tuple[str, dict]:
     doc_id = f"{company['id']}_{f['dedup_key']}".replace("/", "_")[:1400]
     now = now_kst()
-    db().collection("findings").document(doc_id).set(
-        {
-            **f,
-            "company_id": company["id"],
-            "company_name": company["name"],
-            "relevant": bool(f.get("relevant", 1)),
-            "status": "new",
-            "first_seen": now.strftime("%Y-%m-%d %H:%M:%S"),
-            "first_seen_ms": int(now.timestamp() * 1000),
-            "reported_at": None,
-        }
-    )
+    return doc_id, {
+        **f,
+        "company_id": company["id"],
+        "company_name": company["name"],
+        "relevant": bool(f.get("relevant", 1)),
+        "status": "new",
+        "first_seen": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "first_seen_ms": int(now.timestamp() * 1000),
+        "reported_at": None,
+    }
+
+
+def add_finding(company: dict, f: dict) -> None:
+    doc_id, data = _finding_doc(company, f)
+    db().collection("findings").document(doc_id).set(data)
+
+
+def add_findings(company: dict, items: list[dict]) -> None:
+    """여러 건을 한 번에 저장 (건별 저장보다 훨씬 빠름)"""
+    col = db().collection("findings")
+    for i in range(0, len(items), 400):
+        batch = db().batch()
+        for f in items[i : i + 400]:
+            doc_id, data = _finding_doc(company, f)
+            batch.set(col.document(doc_id), data)
+        batch.commit()
+
+
+def update_many(name: str, patches: dict[str, dict]) -> None:
+    col = db().collection(name)
+    ids = list(patches)
+    for i in range(0, len(ids), 400):
+        batch = db().batch()
+        for doc_id in ids[i : i + 400]:
+            batch.set(col.document(doc_id), patches[doc_id], merge=True)
+        batch.commit()
 
 
 def update(name: str, doc_id: str, data: dict) -> None:

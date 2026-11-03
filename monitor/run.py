@@ -46,10 +46,15 @@ def process_queue() -> int:
     if scans:
         full = any(not (r.get("companies") or "").strip() for r in scans)
         names = None if full else sorted({n.strip() for r in scans for n in r["companies"].split(",") if n.strip()})
+        def progress(done, total, current):
+            data = {"progress": {"done": done, "total": total, "current": current, "at": store.now_str()}}
+            store.update_many("requests", {r["id"]: data for r in scans})
+            store.update("meta", "progress", {**data["progress"], "running": done < total})
+
         try:
-            res = scanner.run_scan(names)
+            res = scanner.run_scan(names, progress=progress)
             report.save_preview()
-            summary = {k: res.get(k) for k in ("companies", "fetched", "new_findings", "official")}
+            summary = {k: res.get(k) for k in ("companies", "fetched", "new_findings", "official", "cleaned", "seconds")}
             summary["errors"] = len(res.get("errors") or [])
             for r in scans:
                 finish(r, True, summary)
@@ -104,7 +109,7 @@ def main() -> int:
 
     if a.task in ("daily", "scan"):
         only = [x for x in a.companies.split(",") if x.strip()] or None
-        res = scanner.run_scan(only)
+        res = scanner.run_scan(only, progress=lambda d, t, c: store.update("meta", "progress", {"done": d, "total": t, "current": c, "running": d < t, "at": store.now_str()}))
         log.info("스캔 결과: %s", json.dumps(res, ensure_ascii=False))
         # 전체 스캔이면 대시보드에서 기다리던 스캔 요청도 함께 완료 처리 (Actions에서 직접 실행한 경우 포함)
         try:

@@ -48,6 +48,17 @@ jobs:
 
       - run: pip install -r requirements.txt
 
+      # DART 기업목록(약 10만 개)은 매번 받지 않고 1주일 단위로 저장해 재사용 (스캔 시간 단축)
+      - name: 주차 계산
+        id: week
+        run: echo "w=$(date +%G-%V)" >> "$GITHUB_OUTPUT"
+      - name: DART 기업목록 캐시
+        uses: actions/cache@v4
+        with:
+          path: data/corp_master.json
+          key: dart-corp-${{ steps.week.outputs.w }}
+          restore-keys: dart-corp-
+
       - name: 실행
         env:
           TASK: ${{ github.event.inputs.task || (github.event.schedule == '30 22 * * *' && 'daily' || 'queue') }}

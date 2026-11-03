@@ -14,6 +14,7 @@ from .. import config
 from ..textutil import norm
 
 _master: dict | None = None
+_master_lock = __import__("threading").Lock()
 
 
 def sync_corp_master() -> int:
@@ -57,13 +58,14 @@ def load_master() -> dict:
     """기업목록 색인 {정규화된 이름: [[고유번호, 이름, 영문명, 종목코드], ...]}
     저장소의 data/corp_master.json을 쓰고, 없으면 DART에서 내려받는다."""
     global _master
-    if _master is None:
-        if not config.CORP_MASTER_PATH.exists():
-            sync_corp_master()
-        idx: dict = {}
-        for r in json.loads(config.CORP_MASTER_PATH.read_text(encoding="utf-8")):
-            idx.setdefault(norm(r[1]), []).append(r)
-        _master = idx
+    with _master_lock:  # 여러 업체를 동시에 처리하므로 한 번만 내려받도록
+        if _master is None:
+            if not config.CORP_MASTER_PATH.exists():
+                sync_corp_master()
+            idx: dict = {}
+            for r in json.loads(config.CORP_MASTER_PATH.read_text(encoding="utf-8")):
+                idx.setdefault(norm(r[1]), []).append(r)
+            _master = idx
     return _master
 
 
