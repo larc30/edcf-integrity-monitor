@@ -52,7 +52,7 @@ PPS_BASE_URL = _get("PPS_BASE_URL", "https://apis.data.go.kr/1230000/ao/UsrInfoS
 
 # --- AI 분석 (Claude) ---
 ANTHROPIC_API_KEY = _get("ANTHROPIC_API_KEY")
-CLAUDE_MODEL = _get("AI_MODEL", "claude-opus-5-5")
+CLAUDE_MODEL = _get("AI_MODEL", "claude-haiku-5-5")  # 비용: Haiku 5.5 (입력 $0.10 / 출력 $0.50 per 1M). 정확도 우선이면 AI_MODEL=claude-opus-5-5
 CLAUDE_EFFORT = _get("AI_EFFORT", "low")
 
 # --- 메일 ---

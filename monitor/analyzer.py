@@ -178,7 +178,7 @@ def check() -> None:
     try:
         import anthropic
         anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY).messages.create(
-            model=config.CLAUDE_MODEL, max_tokens=1, messages=[{"role": "user", "content": "ping"}])
+            model=config.CLAUDE_MODEL, max_tokens=16, output_config={"effort": "low"}, messages=[{"role": "user", "content": "ping"}])
     except Exception as e:
         log.warning("Claude 연결 확인 실패: %r", e)
         CLAUDE_ERROR = str(e)
