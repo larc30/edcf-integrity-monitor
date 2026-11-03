@@ -111,7 +111,7 @@ def _rule_based(company: dict, articles: list[dict], keywords: list[dict]) -> li
     return out
 
 
-def _claude(company: dict, engagements: list[dict], articles: list[dict], keywords: list[dict]) -> list[dict]:
+def _claude(company: dict, engagements: list[dict], articles: list[dict], keywords: list[dict], feedback: dict | None = None) -> list[dict]:
     import anthropic
 
     client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
@@ -138,6 +138,7 @@ def _claude(company: dict, engagements: list[dict], articles: list[dict], keywor
         f"오늘 날짜: {date.today().isoformat()}\n\n"
         f"[업체 프로필]\n{json.dumps(profile, ensure_ascii=False, indent=1)}\n\n"
         f"[담당자 관심 키워드]\n{', '.join(k['word'] for k in keywords)}\n\n"
+        + _feedback_text(feedback) +
         f"[기사 목록]\n{json.dumps(payload, ensure_ascii=False, indent=1)}\n\n"
         "모든 기사(idx)에 대해 판정 결과를 반환하세요."
     )
@@ -170,6 +171,20 @@ def _claude(company: dict, engagements: list[dict], articles: list[dict], keywor
     return out
 
 
+def _feedback_text(feedback: dict | None) -> str:
+    """담당자가 대시보드에서 '관련 없음' / '확인했음'으로 처리한 기사를 판정 예시로 제공 (사용할수록 정확해지도록)"""
+    if not feedback:
+        return ""
+    parts = []
+    if feedback.get("dismissed"):
+        parts.append("[담당자가 '관련 없음'으로 표시한 기사 — 이와 같은 유형(동명이인·다른 회사·단순 언급·무관한 문맥)은 관련 없음으로 판정]\n"
+                     + "\n".join(f"- {t}" for t in feedback["dismissed"]))
+    if feedback.get("confirmed"):
+        parts.append("[담당자가 '확인했음'(실제 이 업체의 리스크)으로 표시한 기사 — 이와 같은 유형은 관련 있음]\n"
+                     + "\n".join(f"- {t}" for t in feedback["confirmed"]))
+    return "\n\n".join(parts) + "\n\n"
+
+
 def check() -> None:
     """스캔 시작 때 Claude 키·크레딧을 아주 짧은 호출로 한 번 확인 (새 기사가 없어도 상태가 정확히 표시되도록)"""
     global CLAUDE_ERROR
@@ -184,7 +199,7 @@ def check() -> None:
         CLAUDE_ERROR = str(e)
 
 
-def analyze(company: dict, engagements: list[dict], articles: list[dict], keywords: list[dict]) -> tuple[list[dict], str]:
+def analyze(company: dict, engagements: list[dict], articles: list[dict], keywords: list[dict], feedback: dict | None = None) -> tuple[list[dict], str]:
     """returns (judgements, analyzer_used)"""
     if not articles:
         return [], "-"
@@ -195,7 +210,7 @@ def analyze(company: dict, engagements: list[dict], articles: list[dict], keywor
             results = []
             for start in range(0, len(articles), 25):  # 25건씩 나눠 판정
                 chunk = articles[start : start + 25]
-                for r in _claude(company, engagements, chunk, keywords):
+                for r in _claude(company, engagements, chunk, keywords, feedback):
                     r["idx"] += start
                     results.append(r)
             return results, "claude"

@@ -283,7 +283,13 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         stats["cleaned"] = len(cleanup)
 
     # 3) 판정 (Claude, 실패/미설정 시 키워드 규칙)
-    judgements, used = analyzer.analyze(company, engagements, cands, keywords)
+    # 담당자 피드백(관련 없음/확인했음)을 AI 판정 예시로 전달 — 자동 정리된 것은 제외
+    fb_src = sorted(existing, key=lambda f: f.get("reviewed_at") or "", reverse=True)
+    feedback = {
+        "dismissed": [f.get("title", "")[:120] for f in fb_src if f.get("status") == "dismissed" and f.get("reviewed_by") != "자동 정리"][:12],
+        "confirmed": [f.get("title", "")[:120] for f in fb_src if f.get("status") == "reviewed"][:8],
+    }
+    judgements, used = analyzer.analyze(company, engagements, cands, keywords, feedback)
     by_idx = {j["idx"]: j for j in judgements}
     to_save = []
     for i, a in enumerate(cands):

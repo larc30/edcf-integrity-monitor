@@ -5,7 +5,7 @@ import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=15";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=16";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -168,7 +168,7 @@ async function autoRefresh(minAge) {
 }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") autoRefresh(60e3); });
 setInterval(() => { if (document.visibilityState === "visible") autoRefresh(5 * 60e3); }, 60e3);
-function showGuide(html) { const g = $("#guide"); g.innerHTML = html; g.classList.toggle("hidden", !html); updateDashMsg(); }
+function showGuide(html) { const g = $("#guide"); g.innerHTML = html; g.classList.toggle("hidden", !html); }
 
 // 테마 (다크 기본 / 라이트)
 function applyThemeLabel() { $("#btnTheme").textContent = document.documentElement.dataset.theme === "light" ? "☾ 다크" : "☀ 라이트"; }
@@ -194,7 +194,7 @@ const relTime = (ms) => { const m = Math.round((Date.now() - ms) / 60e3); return
 const weekday = ["일", "월", "화", "수", "목", "금", "토"];
 
 // ---------- 기간 ----------
-const PERIODS = [["today", "오늘·어제"], ["7d", "7일"], ["30d", "30일"], ["all", "전체"], ["old", "과거 이력"]];
+const PERIODS = [["all", "전체"], ["today", "오늘·어제"], ["7d", "7일"], ["30d", "30일"], ["old", "과거 이력"]];
 const pubMs = (f) => { const d = f.published_at ? Date.parse(String(f.published_at).slice(0, 10) + "T00:00:00+09:00") : NaN; return Number.isFinite(d) ? d : (f.first_seen_ms || Date.now()); };
 function inPeriod(f, p) {
   const age = Date.now() - pubMs(f), official = f.source_type !== "news";
@@ -217,199 +217,160 @@ const scopeProjects = () => scope === "mine" ? state.projects.filter(isMine) : s
 
 // ---------- 대시보드 (한 화면) ----------
 const ROLE_ABBR = { 컨설턴트: "컨", 본구매: "본", "F/S": "FS" };
-function updateDashMsg() {}
-// 사업별 구역 나누기: 진행중 사업마다 한 구역, 사업 미연결 업체는 'EDCF 주요 업체' 구역
-function radarSectors(cs, ps) {
-  const ids = new Set(cs.map((c) => c.id)), used = new Set(), secs = [];
-  ps.forEach((p, i) => {
-    const list = cs.filter((c) => !used.has(c.id) && c.engagements.some((e) => e.project_id === p.id));
-    list.forEach((c) => used.add(c.id));
-    if (list.length) secs.push({ key: p.id, num: String(i + 1), label: p.name, list });
-  });
-  const rest = cs.filter((c) => ids.has(c.id) && !used.has(c.id));
-  if (rest.length) secs.push({ key: "rest", num: scope === "mine" ? "감시" : "주요", label: scope === "mine" ? "집중 감시 업체" : "EDCF 주요 업체 (사업 미연결)", list: rest, rest: true });
-  // 각도: 사업 구역은 업체 수 비례(최소 보장), 미연결 구역은 최대 절반
-  const pw = secs.filter((s) => !s.rest).map((s) => Math.max(s.list.length, 2));
-  const pSum = pw.reduce((a, b) => a + b, 0);
-  const restSec = secs.find((s) => s.rest);
-  const restDeg = !restSec ? 0 : !pSum ? 360 : Math.min(180, Math.max(90, (restSec.list.length / (restSec.list.length + pSum)) * 360));
-  let a = 0, k = 0;
-  for (const s of secs) {
-    const deg = s.rest ? restDeg : ((360 - restDeg) * pw[k++]) / (pSum || 1);
-    s.a0 = a; s.a1 = a + deg; a += deg;
-    s.worst = scanned() ? worstOf(s.list) : "none";
-  }
-  return secs;
-}
+// ---------- 리스크 레이더 (가운데일수록 위험, 리스크 업체는 이름 표시) ----------
 function hash(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; } return h; }
 const polar = (deg, r) => { const rad = (deg * Math.PI) / 180; return [50 + (Math.sin(rad) * r) / 2, 50 - (Math.cos(rad) * r) / 2]; };
-function renderRadar(cs, ps) {
+const BANDS = { red: [8, 26], orange: [37, 52], yellow: [62, 74], none: [83, 93], pending: [70, 93] };
+function renderRadar(cs) {
   const el = $("#radar"), sc = scanned();
-  const secs = radarSectors(cs, ps);
-  state.radarSecs = secs;
-  const band = { red: [8, 28], orange: [36, 54], yellow: [61, 76], none: [82, 94], pending: [64, 94] };
-  const dots = [];
-  for (const s of secs) {
-    const span = s.a1 - s.a0, pad = Math.min(6, span * 0.12);
-    for (const c of s.list) {
-      const lv = sc ? c.risk : "pending", [r0, r1] = band[lv];
-      const ang = s.a0 + pad + ((hash(c.id) % 1000) / 1000) * Math.max(0, span - 2 * pad);
-      const r = r0 + ((hash(c.id + "r") % 1000) / 1000) * (r1 - r0);
-      const [x, y] = polar(ang, r);
-      dots.push(`<button class="rdot ${lv} ${c.open ? "open" : ""}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%;--d:calc(${ang.toFixed(0)} * var(--sweep, 6s) / 360)" data-cid="${c.id}" data-sec="${s.key}" data-tip="${esc(c.name)} · ${esc(s.rest ? s.label : s.num + ". " + s.label)} · ${sc ? LEVEL[c.risk] : "스캔 전"}${c.open ? ` · 미확인 ${c.open}` : ""}" aria-label="${esc(c.name)}"></button>`);
-    }
-  }
-  const lines = secs.length > 1 ? secs.map((s) => { const [x, y] = polar(s.a0, 96); return `<line class="sec" x1="100" y1="100" x2="${(x * 2).toFixed(1)}" y2="${(y * 2).toFixed(1)}"/>`; }).join("") : "";
-  const badges = secs.map((s) => { const [x, y] = polar((s.a0 + s.a1) / 2, 104); return `<span class="rsec-badge ${sc && s.worst !== "none" ? s.worst : ""}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%" data-sec="${s.key}" title="${esc(s.label)} · 업체 ${s.list.length}">${esc(s.num)}</span>`; }).join("");
+  const n = { red: 0, orange: 0, yellow: 0, none: 0 };
+  cs.forEach((c) => n[sc ? c.risk : "none"]++);
+  const risky = sc ? cs.filter((c) => c.risk !== "none").sort((a, b) => (LV[b.risk] - LV[a.risk]) || a.name.localeCompare(b.name)) : [];
+  const normal = cs.filter((c) => !risky.includes(c));
+  const dot = (c, ang, lv, label) => {
+    const [r0, r1] = BANDS[lv];
+    const r = label ? (r0 + r1) / 2 : r0 + ((hash(c.id + "r") % 1000) / 1000) * (r1 - r0);
+    const [x, y] = polar(ang, r);
+    const tip = `${c.name} · ${sc ? LEVEL[c.risk] : "스캔 전"}${c.open ? ` · 미확인 ${c.open}건` : ""}`;
+    return `<button class="rdot ${lv} ${c.open ? "open" : ""}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%" data-cid="${c.id}" data-pids="${c.engagements.map((e) => e.project_id).join(" ")}" data-tip="${esc(tip)}" aria-label="${esc(c.name)}"></button>`
+      + (label ? `<span class="rlabel ${lv} ${x >= 50 ? "r" : "l"}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%" data-cid="${c.id}" data-pids="${c.engagements.map((e) => e.project_id).join(" ")}">${esc(c.name)}</span>` : "");
+  };
+  // 위쪽(등급 글자 자리)은 비워두고, 이름은 가장 중요한 6곳만 (나머지는 마우스 올리면)
+  const LABELS = 6, labeled = [...risky].sort((a, b) => (LV[b.risk] - LV[a.risk]) || b.open - a.open).slice(0, LABELS);
+  const span = (i, k) => 70 + (k <= 1 ? 50 : (i * 220) / (k - 1));
+  const dots = [
+    ...labeled.map((c, i) => dot(c, span(i, labeled.length), c.risk, true)),
+    ...risky.filter((c) => !labeled.includes(c)).map((c) => dot(c, 60 + (hash(c.id) % 240), c.risk, false)),
+    ...normal.map((c) => dot(c, 30 + (hash(c.id) % 300), sc ? "none" : "pending", false)),
+  ].join("");
+  const lbl = (lv, y, txt) => `<text class="bl ${lv}" x="100" y="${y}">${txt}</text>`;
   el.innerHTML = `
     <svg class="grid" viewBox="0 0 200 200" aria-hidden="true">
-      <circle cx="100" cy="100" r="96"/><circle class="zone-yellow" cx="100" cy="100" r="79"/><circle class="zone-orange" cx="100" cy="100" r="57"/><circle class="zone-red" cx="100" cy="100" r="31"/>
-      ${lines}<g id="secHl"></g>
-      <text x="102" y="68">위험</text><text x="102" y="45">경고</text><text x="102" y="24">주의</text><text x="102" y="8">정상</text>
+      <circle class="band none" cx="100" cy="100" r="96"/><circle class="band yellow" cx="100" cy="100" r="79"/>
+      <circle class="band orange" cx="100" cy="100" r="57"/><circle class="band red" cx="100" cy="100" r="31"/>
+      ${lbl("none", 15, `정상 ${sc ? n.none : "-"}`)}${lbl("yellow", 35, `주의 ${sc ? n.yellow : "-"}`)}
+      ${lbl("orange", 57, `경고 ${sc ? n.orange : "-"}`)}${lbl("red", 84, `위험 ${sc ? n.red : "-"}`)}
     </svg>
     <div class="sweep"></div>
-    <div class="radar-center"></div>
-    ${dots.join("")}${badges}<div class="radar-tip hidden" id="radarTip"></div>`;
+    ${dots}<div class="radar-tip hidden" id="radarTip"></div>`;
   const tip = $("#radarTip");
   $$(".rdot", el).forEach((d) => {
     d.addEventListener("mouseenter", () => { tip.textContent = d.dataset.tip; tip.style.left = d.style.left; tip.style.top = d.style.top; tip.classList.remove("hidden"); });
     d.addEventListener("mouseleave", () => tip.classList.add("hidden"));
-    d.addEventListener("click", () => openCompany(d.dataset.cid));
   });
-  $$(".rsec-badge", el).forEach((b) => { b.addEventListener("mouseenter", () => focusSector(b.dataset.sec)); b.addEventListener("mouseleave", () => focusSector(null)); });
+  $$("[data-cid]", el).forEach((d) => d.addEventListener("click", () => openCompany(d.dataset.cid)));
   el.classList.toggle("scanning", !!(state.job && !state.job.done));
 }
-// 사업 목록 ↔ 레이더 구역 연동 강조
-function focusSector(key) {
-  $$("#radar .rdot").forEach((d) => d.classList.toggle("dim", !!key && d.dataset.sec !== key));
-  $$("#radar .rsec-badge").forEach((b) => b.classList.toggle("hl", b.dataset.sec === key));
-  $$("#projectMap .prow").forEach((r) => r.classList.toggle("hl", r.dataset.sec === key));
-  const s = key && state.radarSecs?.find((x) => x.key === key);
-  const g = $("#secHl");
-  if (!g) return;
-  if (!s || state.radarSecs.length < 2) { g.innerHTML = ""; return; }
-  const [x0, y0] = polar(s.a0, 96), [x1, y1] = polar(s.a1, 96);
-  g.innerHTML = `<path class="sec-hl" d="M100 100 L${x0 * 2} ${y0 * 2} A96 96 0 ${s.a1 - s.a0 > 180 ? 1 : 0} 1 ${x1 * 2} ${y1 * 2} Z"/>`;
+// 사업 목록에 마우스를 올리면 그 사업 업체만 레이더에서 강조
+function focusProject(pid) {
+  $$("#radar .rdot, #radar .rlabel").forEach((d) => d.classList.toggle("dim", !!pid && !(d.dataset.pids || "").split(" ").includes(pid)));
 }
 
+// ---------- 대시보드 ----------
+const LVINFO = { red: "제재·영업정지 등 사업 참여에 직접 장애가 되는 신호", orange: "최근 수사·담합·과징금 등 처분 신호", yellow: "과거 이력·의혹·소송 등 참고 신호" };
+const ICON_USER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>`;
+const ICON_ORG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg>`;
+let levelFilter = null;
 function renderHome() {
   const cs = scopeCompanies(), ps = scopeProjects(), s = state.status, sc = scanned();
   const ids = new Set(cs.map((c) => c.id));
   const mineN = state.companies.filter((c) => c.mine).length;
-  $("#scopeSeg").innerHTML = state.companies.length
-    ? [["mine", "진행중 사업 업체", mineN], ["all", "EDCF 주요 업체", state.companies.length]].map(([k, l, n]) => `<button data-s="${k}" class="${k === scope ? "active" : ""}" title="${k === "mine" ? "내가 담당하는 사업에 연결된 업체와 집중 감시 업체" : "명단에 등록된 전체 업체"}">${l} <span class="n">${n}</span></button>`).join("") : "";
-  $$("#scopeSeg button").forEach((b) => b.onclick = () => { scope = b.dataset.s; try { localStorage.setItem("edcf_scope2", scope); } catch {} renderHome(); });
+  document.body.dataset.scope = scope;
+
+  // 보기 범위: 내 담당 사업 / EDCF 전체
+  $("#scopeSeg").innerHTML = !state.companies.length ? "" : [
+    ["mine", "내 담당 사업", mineN, "내가 담당하는 사업에 참여한 업체", ICON_USER],
+    ["all", "EDCF 전체", state.companies.length, "등록된 모든 업체 (사업 미연결 포함)", ICON_ORG],
+  ].map(([k, l, cnt, d, ic]) => `<button data-s="${k}" class="sc-btn ${k} ${k === scope ? "active" : ""}">
+      <span class="sc-ic">${ic}</span><span class="sc-t"><b>${l}</b><small>${d}</small></span><span class="sc-n">${cnt}</span></button>`).join("");
+  $$("#scopeSeg button").forEach((b) => b.onclick = () => { scope = b.dataset.s; levelFilter = null; try { localStorage.setItem("edcf_scope2", scope); } catch {} renderHome(); });
+
   const now = new Date(Date.now() + 9 * 3600e3);
   $("#heroDate").textContent = `RISK BRIEFING · ${now.toISOString().slice(0, 10).replace(/-/g, ".")} (${weekday[now.getUTCDay()]})`;
-  $("#sumSub").textContent = `${cs.length}개 업체 · ${ps.length}개 사업 · ` + (sc
-    ? `마지막 스캔 ${s.last_scan_at.slice(5, 16)}${s.last_scan_seconds ? ` (${Math.round(s.last_scan_seconds)}초)` : ""} · 판정 ${s.analyzer === "claude" ? "AI" : "키워드 규칙"}`
-    : "아직 스캔하지 않았습니다");
+  $("#sumSub").textContent = (scope === "mine" ? `내 담당 사업 ${ps.length}개 · 업체 ${cs.length}곳` : `전체 사업 ${ps.length}개 · 업체 ${cs.length}곳`)
+    + (sc ? ` · 마지막 스캔 ${s.last_scan_at.slice(5, 16).replace("-", "/")}` : " · 아직 스캔하지 않았습니다");
 
   if (!state.companies.length) showGuide(`<b>시작하기</b> — <b>업체·사업</b> 탭에서 [일괄 등록]으로 업체를 넣고, 여기서 <b>지금 스캔</b>을 누르세요.`);
-  else if (scope === "mine" && !cs.length) showGuide(`내가 담당하는 사업에 연결된 업체가 없습니다. <b>업체·사업</b> 탭에서 업체를 사업 카드로 끌어다 놓거나, 위에서 <b>EDCF 주요 업체</b>를 보세요.`);
-  else if (!sc) showGuide(`업체 ${cs.length}개가 등록됐습니다. <b>지금 스캔</b>을 눌러 첫 스캔을 실행하세요.`);
+  else if (scope === "mine" && !cs.length) showGuide(`내가 담당하는 사업에 연결된 업체가 없습니다. <b>업체·사업</b> 탭에서 사업 카드의 [내 사업으로]를 누르거나 업체를 사업에 끌어다 놓으세요.`);
+  else if (!sc) showGuide(`업체 ${cs.length}곳이 등록됐습니다. <b>지금 스캔</b>을 눌러 첫 스캔을 실행하세요.`);
   else showGuide("");
 
+  // ① 요약 카드: 위험·경고·주의 업체 수 + 확인할 이슈 (누르면 아래 이슈를 그 등급으로 거름)
   const open = state.findings.filter((f) => f.status === "new" && ids.has(f.company_id));
-  const cnt = (lv) => cs.filter((c) => c.risk === lv).length;
-  const n = { red: cnt("red"), orange: cnt("orange"), yellow: cnt("yellow"), none: cnt("none") };
+  const n = { red: 0, orange: 0, yellow: 0, none: 0 };
+  cs.forEach((c) => n[c.risk]++);
+  $("#kboard").innerHTML = ["red", "orange", "yellow"].map((lv) => `<button class="kcard ${lv} ${sc && n[lv] ? "on" : ""} ${levelFilter === lv ? "sel" : ""}" data-lv="${lv}">
+      <div class="kc-top"><span class="dot ${lv}"></span>${LEVEL[lv]} 업체<span class="info" title="${LVINFO[lv]}">i</span></div>
+      <div class="kc-v">${sc ? n[lv] : "-"}</div></button>`).join("")
+    + `<div class="kcard note"><div class="kc-top">확인할 이슈<span class="info" title="아직 '확인했음' 또는 '관련 없음'으로 처리하지 않은 이슈">i</span></div><div class="kc-v">${open.length}<small> 건</small></div></div>`;
+  $$("#kboard [data-lv]").forEach((b) => b.onclick = () => { levelFilter = levelFilter === b.dataset.lv ? null : b.dataset.lv; renderHome(); });
 
-  renderRadar(cs, ps);
-
-  // KPI: 모니터링 업체 → 위험/경고/주의 → 확인할 이슈(비고)
-  const pct = (v) => cs.length ? (v / cs.length) * 100 : 0;
-  $("#kboard").innerHTML = `
-    <div class="kb kb-total"><div class="label">${scope === "mine" ? "진행중 사업 업체" : "EDCF 주요 업체"}</div>
-      <div class="value" data-count="${cs.length}">0</div><div class="hint">${ps.length}개 사업${sc ? ` · 정상 ${n.none}` : " · 스캔 전"}</div></div>
-    <div class="kb kb-risks">
-      <div class="kb-risks-head"><span>리스크 업체 (등급별)</span><span>${sc ? `총 ${n.red + n.orange + n.yellow}개` : "스캔 전"}</span></div>
-      <div class="kb-cells">${["red", "orange", "yellow"].map((lv) => `<div class="kb-cell ${lv} ${sc && n[lv] ? "on" : ""}">
-        <div class="lv"><span class="dot"></span>${LEVEL[lv]}</div><div class="value" ${sc ? `data-count="${n[lv]}"` : ""}>${sc ? 0 : "-"}</div><div class="hint">${LEVEL_DESC[lv]}</div></div>`).join("")}</div>
-      <div class="kb-bar" title="업체 중 등급별 비율">${sc ? ["red", "orange", "yellow", "none"].map((lv) => `<i class="${lv}" style="width:0" data-w="${pct(n[lv])}"></i>`).join("") : ""}</div>
-    </div>
-    <div class="kb kb-note"><span class="tag-note">비고</span><div class="label">확인할 이슈</div>
-      <div class="value"><span data-count="${open.length}">0</span><span class="hint" style="font-size:13px;font-weight:600"> 건</span></div><div class="hint">'확인했음/관련 없음' 처리 전</div></div>`;
-  countUp($("#kboard"));
-  requestAnimationFrame(() => $$("#kboard .kb-bar i").forEach((i) => (i.style.width = i.dataset.w + "%")));
-
-  // 검사 범위
-  const cv = coverage(cs);
-  const cvItem = (label, k, total, note) => `<span class="cv ${!total ? "na" : k === total ? "ok" : k === 0 ? "bad" : "warn"}">${label} ${total ? `${k}/${total}` : "-"}${note ? ` <span class="muted">${note}</span>` : ""}</span>`;
-  const gapCount = cs.filter((c) => c.last_check && checkGaps(c).length).length;
-  const mk = state.mdbKorea;
-  $("#coverage").innerHTML = !cv.scanned ? "" : `<span class="cv-title">검사 범위</span>
-    ${cvItem("뉴스 검색", cv.news, cv.scanned)}
-    ${cvItem("MDB 제재리스트 대조", cv.mdb, cv.scanned, cv.mdb < cv.scanned ? "(영문명 필요)" : "")}
-    ${cv.ppsConnected ? cvItem("조달청 부정당제재 조회", cv.pps, cv.ppsTotal, cv.pps < cv.ppsTotal ? "(사업자번호 필요)" : "") : `<span class="cv na">조달청 미연결</span>`}
-    <span class="cv ${state.edcf.length ? "ok" : "warn"}">EDCF 명단 ${state.edcf.length ? state.edcf.length + "건 대조" : "미등록"}</span>
-    ${mk ? `<button class="cv ${mk.count ? "warn" : "ok"}" id="btnMdbKr">MDB 한국 국적 제재 ${mk.count || 0}곳</button>` : ""}
-    ${gapCount ? `<button class="cv warn" id="btnGaps">보완할 업체 ${gapCount}곳</button>` : ""}`;
-  $("#btnGaps")?.addEventListener("click", showGaps);
-  $("#btnMdbKr")?.addEventListener("click", showMdbKorea);
-
-  // ② 이슈 + 기간
-  // 히어로 가운데: 최근 48시간 새로 감지된 신호 (등급 높은 순)
-  const fresh = open.filter((f) => f.level !== "none" && Date.now() - (f.first_seen_ms || 0) < 2 * DAY)
-    .sort((a, b) => (LV[b.level] - LV[a.level]) || (b.first_seen_ms || 0) - (a.first_seen_ms || 0));
-  $("#hfCount").textContent = fresh.length;
-  $("#heroFeed").innerHTML = fresh.slice(0, 4).map((f) => `<div class="hf-row lv-${f.level}" data-cid="${f.company_id}">
-      ${badge(f.level)}<div class="hf-txt"><div class="hf-co">${esc(f.company_name)}${f.source_type !== "news" ? ` <span class="tag official">공식 제재</span>` : ""}</div>
-      <div class="hf-sum">${esc(f.summary || f.title)}</div></div><span class="hf-age">${relTime(f.first_seen_ms)}</span></div>`).join("")
-    || `<div class="hf-empty">${sc ? "최근 48시간 동안 새로 감지된 신호가 없습니다" : "스캔 후 새로 감지된 신호가 여기에 표시됩니다"}</div>`;
-  $$("#heroFeed [data-cid]").forEach((x) => x.addEventListener("click", () => openCompany(x.dataset.cid)));
-  const lastRun = state.runs.find((r) => r.kind === "scan")?.detail || {};
-  $("#hfFoot").innerHTML = fresh.length > 4 ? `외 ${fresh.length - 4}건은 아래 이슈 목록에서 확인`
-    : sc && lastRun.fetched != null ? `마지막 스캔에서 기사 ${lastRun.fetched}건을 확인해 신규 ${lastRun.new_findings ?? 0}건 발견` : "";
+  // ② 확인이 필요한 이슈 (가장 중요한 것부터)
   const counts = Object.fromEntries(PERIODS.map(([k]) => [k, open.filter((f) => inPeriod(f, k)).length]));
-  if (!period || !counts.hasOwnProperty(period)) period = counts.today ? "today" : "7d";
+  if (!period || !counts.hasOwnProperty(period)) period = counts.today ? "today" : "all";
   $("#periodSeg").innerHTML = PERIODS.map(([k, label]) => `<button data-p="${k}" class="${k === period ? "active" : ""}">${label} <span class="n">${counts[k]}</span></button>`).join("");
   $$("#periodSeg button").forEach((b) => b.onclick = () => { period = b.dataset.p; try { localStorage.setItem("edcf_period", period); } catch {} renderHome(); });
-  const shown = open.filter((f) => inPeriod(f, period)).sort((a, b) => (LV[b.level] - LV[a.level]) || pubMs(b) - pubMs(a));
+  const shown = open.filter((f) => inPeriod(f, period) && (!levelFilter || f.level === levelFilter))
+    .sort((a, b) => (LV[b.level] - LV[a.level]) || ((b.source_type !== "news") - (a.source_type !== "news")) || pubMs(b) - pubMs(a));
   $("#issueCount").textContent = open.length;
+  $("#levelNote").innerHTML = levelFilter ? `<button class="chip-x" id="clearLv">${LEVEL[levelFilter]} 이슈만 보는 중 ✕</button>` : "";
+  $("#clearLv")?.addEventListener("click", () => { levelFilter = null; renderHome(); });
   if (shown.length) renderFeed(shown, $("#feed"));
   else $("#feed").innerHTML = !sc ? `<div class="empty">스캔 후 이곳에 이슈가 출처와 함께 표시됩니다.</div>`
-    : open.length ? `<div class="ok-box">${PERIODS.find((p) => p[0] === period)[1]} 기간에는 확인할 이슈가 없습니다 <span class="muted small">(다른 기간 ${open.length}건)</span></div>`
+    : open.length ? `<div class="ok-box">이 조건에는 확인할 이슈가 없습니다 <span class="muted small">(전체 ${open.length}건)</span></div>`
     : `<div class="ok-box">확인이 필요한 이슈가 없습니다</div>`;
   const done = state.findings.filter((f) => f.status === "reviewed" && ids.has(f.company_id)).sort(byLevelDate);
   $("#doneWrap").classList.toggle("hidden", !done.length);
   if (done.length) renderFeed(done, $("#feedDone"));
 
-  // ③ 진행중 사업 (번호 = 레이더 구역)
+  // ③ 레이더
+  $("#radarCap").textContent = `${scope === "mine" ? "내 담당" : "전체"} 업체 ${cs.length}곳`;
+  renderRadar(cs);
+
+  // ④ 사업 현황 (리스크 높은 사업 먼저, 목록 안에서 스크롤)
+  $("#projTitle").textContent = scope === "mine" ? "내 담당 사업" : "전체 사업";
   $("#projN").textContent = ps.length;
-  const secOf = Object.fromEntries((state.radarSecs || []).map((x) => [x.key, x]));
-  $("#projectMap").innerHTML = ps.map((p, i) => projectRow(p, i, secOf[p.id])).join("")
-    || `<div class="empty small">${scope === "mine" ? "내가 담당하는 사업이 없습니다. 업체·사업 탭에서 사업을 추가하거나 [내 사업으로]를 누르세요." : "등록된 사업이 없습니다."}</div>`;
-  $$("#projectMap .prow").forEach((r) => { r.addEventListener("mouseenter", () => focusSector(r.dataset.sec)); r.addEventListener("mouseleave", () => focusSector(null)); });
+  const pw = (p) => worstOf(state.companies.filter((c) => c.engagements.some((e) => e.project_id === p.id)));
+  const psSorted = [...ps].sort((a, b) => (sc ? LV[pw(b)] - LV[pw(a)] : 0) || a.name.localeCompare(b.name));
+  $("#projectMap").innerHTML = psSorted.map((p) => projectRow(p)).join("")
+    || `<div class="empty small">${scope === "mine" ? "내가 담당하는 사업이 없습니다." : "등록된 사업이 없습니다."}</div>`;
+  $$("#projectMap .prow").forEach((r) => { r.addEventListener("mouseenter", () => focusProject(r.dataset.pid)); r.addEventListener("mouseleave", () => focusProject(null)); });
   $$("#projectMap [data-cid]").forEach((x) => x.addEventListener("click", () => openCompany(x.dataset.cid)));
 
-  // ④ 등급별 업체
-  const sorted = [...cs].sort((a, b) => b.open - a.open || a.name.localeCompare(b.name));
-  const group = (lv, list) => {
-    if (lv === "none" || lv === "pending") return `<div class="rgroup ${lv}"><div class="rgroup-head">${lv === "pending" ? "스캔 전" : "정상"} <span class="desc">${lv === "pending" ? "아직 스캔하지 않음" : "확인 범위 내 발견 없음"}</span><span class="n">${list.length}</span></div>
-      <div class="rgroup-body"><div class="chipwrap" style="padding:8px 0">${list.slice(0, 80).map((c) => `<span class="nchip" data-cid="${c.id}" title="${esc(checkGaps(c).join(" / ") || "전 항목 확인")}">${esc(c.name)}</span>`).join("") || `<span class="muted small">없음</span>`}${list.length > 80 ? `<span class="muted small">외 ${list.length - 80}곳</span>` : ""}</div></div></div>`;
-    return `<div class="rgroup ${lv}"><div class="rgroup-head">${LEVEL[lv]} <span class="desc">${LEVEL_DESC[lv]}</span><span class="n">${list.length}</span></div>
-      <div class="rgroup-body">${list.map((c) => `<div class="rrow" data-cid="${c.id}"><div class="rtxt"><div class="rname">${esc(c.name)}</div>
-        <div class="rmeta">${byRole(c.engagements).map((e) => `${esc(projName(e.project_id))} · ${esc(e.role)}`).join(" / ") || "EDCF 주요 업체"}</div></div>
-        <span class="issues">${c.total}건${c.open ? ` · 미확인 ${c.open}` : ""}</span></div>`).join("") || `<div class="muted small" style="padding:8px 0">해당 업체 없음</div>`}</div></div>`;
-  };
-  $("#riskGroups").innerHTML = !cs.length ? `<div class="empty small">업체가 없습니다.</div>`
-    : !sc ? group("pending", sorted)
-    : ["red", "orange", "yellow"].map((lv) => group(lv, sorted.filter((c) => c.risk === lv))).join("") + group("none", sorted.filter((c) => c.risk === "none"));
-  $$("#riskGroups [data-cid]").forEach((x) => x.addEventListener("click", () => openCompany(x.dataset.cid)));
+  // ⑤ 데이터 점검 (검사 범위·보완 필요·MDB 한국 국적) — 한 줄로, 누르면 상세
+  const cv = coverage(cs), gapN = cs.filter((c) => c.last_check && checkGaps(c).length).length;
+  const warnN = gapN + (state.edcf.length ? 0 : 1);
+  $("#dataCheck").innerHTML = !sc ? "" : `<button class="dcheck ${warnN ? "warn" : "ok"}" id="btnDataCheck"><span class="dot ${warnN ? "orange" : "none"}"></span>데이터 점검 · ${warnN ? `보완 필요 ${warnN}` : "이상 없음"}<span class="muted"> — 무엇을 검사했는지 보기</span></button>`;
+  $("#btnDataCheck")?.addEventListener("click", () => showDataCheck(cs, cv, gapN));
   renderJob(); checkSmooth();
 }
-function projectRow(p, i, sec) {
+function projectRow(p) {
   const rows = [];
   for (const c of state.companies) c.engagements.forEach((e) => { if (e.project_id === p.id) rows.push({ c, e }); });
   rows.sort((a, b) => ROLE_ORDER.indexOf(a.e.role) - ROLE_ORDER.indexOf(b.e.role));
   const sc = scanned(), worst = sc ? worstOf(rows.map((r) => r.c)) : "pending";
-  return `<div class="prow ${worst}" data-sec="${sec ? sec.key : ""}">
-    <span class="pnum">${i + 1}</span>
+  return `<div class="prow ${worst}" data-pid="${p.id}">
     <div class="pinfo">
       <div class="ptitle"><span class="pname" title="${esc(p.name)}">${esc(p.name)}</span>${p.country ? `<span class="ctry">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}${sc && worst !== "none" && worst !== "pending" ? badge(worst) : ""}</div>
       <div class="pcos">${rows.map(({ c, e }) => `<span class="cchip ${sc ? c.risk : ""}" data-cid="${c.id}" title="${esc(e.role)}${e.stage && e.stage !== "계약" ? " · " + esc(e.stage) : ""}"><span class="dot ${sc ? c.risk : ""}"></span>${esc(c.name)}<small>${ROLE_ABBR[e.role] || esc(e.role)}${e.rank ? " " + e.rank + "순위" : ""}</small></span>`).join("") || `<span class="muted small">연결된 업체 없음</span>`}</div>
     </div></div>`;
 }
+function showDataCheck(cs, cv, gapN) {
+  const row = (ok, k, d) => `<div class="chk-row ${ok}"><span class="ic">${{ ok: "✓", warn: "!", bad: "✕", na: "–" }[ok]}</span><div><b>${k}</b><div class="d">${d}</div></div></div>`;
+  const st = (k, t) => !t ? "na" : k === t ? "ok" : k === 0 ? "bad" : "warn";
+  const mk = state.mdbKorea;
+  modal(`<h2>데이터 점검</h2>
+    <p class="muted small">마지막 스캔에서 업체별로 무엇을 확인했는지입니다. '정상'은 아래 범위에서 발견되지 않았다는 뜻입니다.</p>
+    ${row(st(cv.news, cv.scanned), "뉴스 검색", `${cv.news}/${cv.scanned}곳 — Google·네이버 뉴스에서 업체명과 제재 키워드 검색`)}
+    ${row(st(cv.mdb, cv.scanned), "MDB 제재 리스트 대조", `${cv.mdb}/${cv.scanned}곳 — World Bank·ADB·AfDB·IDB·EBRD${cv.mdb < cv.scanned ? " (영문명이 없는 업체는 대조가 불완전)" : ""}`)}
+    ${cv.ppsConnected ? row(st(cv.pps, cv.ppsTotal), "조달청 부정당제재 조회", `${cv.pps}/${cv.ppsTotal}곳 — 사업자번호로 현재 유효한 제재 조회${cv.pps < cv.ppsTotal ? " (사업자번호가 없는 업체는 조회 못 함)" : ""}`) : row("na", "조달청 부정당제재 조회", "미연결")}
+    ${row(state.edcf.length ? "ok" : "warn", "EDCF 부정당업자 명단 (EXIMIIS)", state.edcf.length ? `${state.edcf.length}건과 대조` : "아직 등록되지 않음 → 설정에서 입력")}
+    ${row(mk?.count ? "warn" : "ok", "MDB 한국 국적 제재 기업", mk ? `${mk.count || 0}곳 (우리 명단과 별개로 참고) <a href="#" id="dcMdb">목록 보기</a>` : "첫 스캔 후 표시")}
+    ${gapN ? `<div class="actions left"><button class="btn sm" id="dcGaps">보완할 업체 ${gapN}곳 보기</button></div>` : ""}`);
+  $("#dcMdb")?.addEventListener("click", (e) => { e.preventDefault(); showMdbKorea(); });
+  $("#dcGaps")?.addEventListener("click", showGaps);
+}
+
 function showMdbKorea() {
   const mk = state.mdbKorea || {};
   modal(`<h2>MDB 한국 국적 제재 기업 <span class="count">${mk.count || 0}</span></h2>
@@ -420,41 +381,39 @@ const MDB_NAME = { worldbank_debarred: "World Bank", adb_sanctions: "ADB", afdb_
 
 const ownerTag = (p) => `<span class="owner">${!p.owner ? "담당 미지정" : p.owner === me() ? "내 사업" : "담당 " + esc(p.owner.split("@")[0])}</span>`;
 
-function findingHtml(f, showCompany = true, i = 0) {
+function findingHtml(f, showCompany = true) {
   const official = f.source_type !== "news";
   const isNew = f.status === "new" && Date.now() - (f.first_seen_ms || 0) < DAY;
+  const why = [f.rationale && `판단 근거: ${f.rationale}`, f.title && `원문 제목: ${f.title}`].filter(Boolean).join("\n");
   return `<div class="item lv-${f.level} ${f.status === "reviewed" ? "reviewed" : ""}" data-fid="${esc(f.id)}">
     <div class="item-head">
       ${badge(f.level)}
       ${showCompany ? `<span class="item-company" data-cid="${f.company_id}">${esc(f.company_name)}</span>` : ""}
       ${official ? `<span class="tag official">${f.source_type === "manual" ? "수기 등록" : "공식 제재 명단"}</span>` : ""}
-      ${f.category ? `<span class="tag">${esc(f.category)}</span>` : ""}
+      ${f.category && f.category !== "기타" ? `<span class="tag">${esc(f.category)}</span>` : ""}
       ${isNew ? `<span class="new-pill">NEW</span>` : ""}
-      <span class="item-age">${f.first_seen_ms ? `감지 ${relTime(f.first_seen_ms)}` : ""}</span>
+      <span class="item-age">${f.first_seen_ms ? relTime(f.first_seen_ms) : ""}</span>
     </div>
     <div class="item-summary">${esc(f.summary || f.title)}</div>
-    <div class="source">
-      출처: <b>${esc(f.source_name || "-")}</b> · ${esc(f.published_at || "날짜 미상")}
-      ${f.url ? ` · <a href="${esc(f.url)}" target="_blank" rel="noopener">원문 보기 ↗</a>` : ""}
-      <div class="src-title">「${esc(f.title)}」</div>
-      ${f.rationale ? `<div class="muted">판단 근거: ${esc(f.rationale)}</div>` : ""}
-    </div>
-    <div class="item-actions">
-      ${f.status !== "reviewed" ? `<button class="btn sm" data-act="reviewed">확인했음</button>` : ""}
-      ${f.status !== "dismissed" ? `<button class="btn sm" data-act="dismissed">관련 없음</button>` : ""}
-      ${f.status && f.status !== "new" ? `<button class="btn sm ghost" data-act="new">되돌리기</button>` : ""}
+    <div class="item-meta">
+      <span class="src">${esc(f.source_name || "-")} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}${why ? ` · <span class="why" title="${esc(why)}">근거</span>` : ""}</span>
+      <span class="item-actions">
+        ${f.status !== "reviewed" ? `<button class="btn sm" data-act="reviewed" title="실제 이 업체의 리스크가 맞음 — 다음 AI 판정 때 참고 예시로 씁니다">확인했음</button>` : ""}
+        ${f.status !== "dismissed" ? `<button class="btn sm" data-act="dismissed" title="이 업체와 관계없음 — 다시 수집하지 않고, 다음 AI 판정 때 비슷한 기사를 걸러내는 예시로 씁니다">관련 없음</button>` : ""}
+        ${f.status && f.status !== "new" ? `<button class="btn sm ghost" data-act="new">되돌리기</button>` : ""}
+      </span>
     </div>
   </div>`;
 }
 function renderFeed(list, el, showCompany = true) {
-  el.innerHTML = list.map((f, i) => findingHtml(f, showCompany, i)).join("");
+  el.innerHTML = list.map((f) => findingHtml(f, showCompany)).join("");
   $$(".item-company", el).forEach((x) => x.addEventListener("click", () => openCompany(x.dataset.cid)));
   $$("[data-act]", el).forEach((b) => b.addEventListener("click", async () => {
     const fid = b.closest(".item").dataset.fid, st = b.dataset.act;
     const patch = { status: st, reviewed_by: auth.currentUser.email, reviewed_at: nowStr() };
     await updateDoc(doc(db, "findings", fid), patch);
     Object.assign(state.findings.find((f) => f.id === fid) || {}, patch);
-    toast(st === "dismissed" ? "관련 없는 기사로 처리했습니다 (다시 수집하지 않음)" : st === "reviewed" ? "확인 처리했습니다" : "되돌렸습니다");
+    toast(st === "dismissed" ? "관련 없음 처리 — 다시 수집하지 않고, 다음 AI 판정 때 비슷한 기사를 걸러냅니다" : st === "reviewed" ? "확인 처리했습니다 — 다음 AI 판정 때 참고합니다" : "되돌렸습니다", 4000);
     rerender();
   }));
 }
@@ -736,7 +695,7 @@ function startJob(j) {
   state.job = { ...j, status: "queued" };
   try { localStorage.setItem(JOB_KEY, JSON.stringify(j)); } catch {}
   toast(j.mode === "direct" || j.relayed ? `${j.label}을(를) 시작했습니다. 1~2분 안에 실행되고, 끝나면 자동으로 반영됩니다`
-    : `${j.label}을(를) 요청했습니다. GitHub 예약 확인 때 시작됩니다(늦어질 수 있음). 끝나면 자동으로 반영됩니다`, 5000);
+    : `${j.label}을(를) 요청했습니다. 보통 5분 안에 시작되고, 끝나면 자동으로 반영됩니다`, 5000);
   renderJob(); trackJob();
 }
 async function trackJob() {
@@ -754,6 +713,7 @@ async function trackJob() {
         j.error = d.result?.error;
         j.progress = d.progress || null;
         j.result = d.result || null;
+        j.finishedAt = d.finished_at || null;
       }
     } else {
       const r = await gh("/actions/workflows/monitor.yml/runs?event=workflow_dispatch&per_page=5");
@@ -783,35 +743,30 @@ async function trackJob() {
 function renderJob() {
   const j = state.job, el = $("#jobState");
   $("#radar")?.classList.toggle("scanning", !!(j && !j.done));
-  setTimeout(updateDashMsg, 0);
   $("#btnStop").classList.toggle("hidden", !(j && !j.done && (j.mode === "queue" || j.runId)));
   $("#btnStop").disabled = !!j?.stopping;
-  $("#btnStop").textContent = j?.stopping ? "중지하는 중…" : "스캔 중지";
+  $("#btnStop").textContent = j?.stopping ? "중지하는 중…" : "중지";
   $("#btnScan").disabled = !!(j && !j.done);
+  $("#btnScan").classList.toggle("busy", !!(j && !j.done));
   if (!el) return;
   if (!j) { el.innerHTML = ""; return; }
-  const sec = Math.round((Date.now() - j.started) / 1000), mmss = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
-  const link = j.url ? `<a href="${esc(j.url)}" target="_blank" rel="noopener">GitHub 진행 보기 ↗</a>` : j.mode === "queue" ? `<a href="${ACTIONS_URL}" target="_blank" rel="noopener">GitHub ↗</a>` : "";
+  const fmt = (ms) => { const t = Math.max(0, Math.round(ms / 1000)); return t < 60 ? `${t}초` : `${Math.floor(t / 60)}분 ${t % 60}초`; };
   if (j.done) {
+    if (!j.hideT) j.hideT = setTimeout(() => { if (state.job === j) { state.job = null; renderJob(); } }, j.conclusion === "success" ? 20000 : 60000);
+    const r = j.result || {}, at = (j.finishedAt || "").slice(11, 16);
     el.innerHTML = j.conclusion === "success"
-      ? `<div class="job ok"><div class="row1">✓ <b>${esc(j.label)} 완료</b><span class="t">${mmss}</span></div></div>`
-      : j.conclusion === "cancelled" ? `<div class="job"><div class="row1"><b>${esc(j.label)} 중지됨</b><span class="muted small">중지 전까지 검사한 업체 결과는 반영됐습니다</span><span class="t">${mmss}</span></div></div>`
-      : `<div class="job bad"><div class="row1">✕ <b>${esc(j.label)} ${j.status === "timeout" ? "확인 시간 초과" : "실패"}</b><span class="t">${link}</span></div>${j.error ? `<div class="small">${esc(j.error)}</div>` : ""}</div>`;
+      ? `<span class="jline ok">✓ ${at ? at + " " : ""}스캔 완료${r.seconds ? ` · ${Math.round(r.seconds)}초` : ""}${r.new_findings != null ? ` · 새 이슈 ${r.new_findings}건` : ""}</span>`
+      : j.conclusion === "cancelled" ? `<span class="jline">중지됨 — 그때까지 검사한 결과는 반영</span>`
+      : `<span class="jline bad">✕ ${j.status === "timeout" ? "응답 없음" : "실패"}${j.error ? `: ${esc(j.error.slice(0, 80))}` : ""} · <a href="${ACTIONS_URL}" target="_blank" rel="noopener">기록 ↗</a></span>`;
     return;
   }
-  const late = j.mode === "queue" && j.status !== "in_progress" && sec > 25 * 60;
-  if (late) {
-    el.innerHTML = `<div class="job bad"><div class="row1">⚠ <b>${esc(j.label)}</b> ${mmss}째 대기 — GitHub 예약 실행이 지연 중입니다</div><div class="small"><a href="${ACTIONS_URL}" target="_blank" rel="noopener">GitHub에서 직접 실행 ↗</a> (Run workflow → queue)</div></div>`;
-    return;
-  }
-  const p = j.progress, running = j.status === "in_progress";
-  const pct = p && p.total ? Math.round((p.done / p.total) * 100) : 0;
+  const wait = Date.now() - j.started, p = j.progress, running = j.status === "in_progress";
   const what = running
-    ? (j.stopping ? "중지 요청됨 — 진행 중인 업체까지 마치고 멈춥니다" : p && p.total ? `${p.done}/${p.total} · ${esc(p.current || "")}` : "준비 중")
-    : j.mode === "queue" ? (j.relayed ? "곧 시작 (1~2분)" : "시작 대기 · GitHub 예약 확인") : "시작 대기";
-  el.innerHTML = `<div class="job"><div class="row1"><span class="spinner"></span><b>${esc(j.label)}</b> ${what}<span class="t">${mmss}</span></div>
-    <div class="pbar ${running && p && p.total ? "" : "indet"}"><i style="width:${pct}%"></i></div>
-    ${link ? `<div class="small muted">${link}</div>` : ""}</div>`;
+    ? (j.stopping ? "중지 요청됨" : p && p.total ? `스캔 중 ${p.done}/${p.total}` : "스캔 준비 중")
+    : wait > 15 * 60e3 ? `대기 ${fmt(wait)} — 지연 중 (<a href="${ACTIONS_URL}" target="_blank" rel="noopener">GitHub에서 실행 ↗</a>)`
+    : `시작 대기 · 보통 5분 안에 시작 (${fmt(wait)})`;
+  const pct = running && p && p.total ? Math.round((p.done / p.total) * 100) : null;
+  el.innerHTML = `<span class="jline"><span class="spinner"></span>${what}</span>${pct != null ? `<span class="jbar"><i style="width:${pct}%"></i></span>` : ""}`;
 }
 setInterval(() => { if (state.job && !state.job.done) renderJob(); }, 1000);
 $("#btnScan").onclick = () => runWorkflow({ task: "scan" }, "전체 스캔");
