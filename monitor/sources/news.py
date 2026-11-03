@@ -77,7 +77,7 @@ def naver_news(query: str, display: int | None = None, sort: str = "date") -> li
     return out
 
 
-def google_news(query: str, lang: str = "ko") -> list[dict]:
+def google_news(query: str, lang: str = "ko", limit: int | None = None) -> list[dict]:
     if not config.GOOGLE_NEWS_ENABLED:
         return []
     hl, gl, ceid = _GNEWS_LOCALE.get(lang, _GNEWS_LOCALE["en"])
@@ -86,7 +86,7 @@ def google_news(query: str, lang: str = "ko") -> list[dict]:
     r.raise_for_status()
     root = ET.fromstring(r.content)
     out = []
-    for item in list(root.iter("item"))[: config.NEWS_PER_QUERY]:
+    for item in list(root.iter("item"))[: limit or config.NEWS_PER_QUERY]:
         title = item.findtext("title") or ""
         src = item.find("source")
         source_name = src.text if src is not None and src.text else ""

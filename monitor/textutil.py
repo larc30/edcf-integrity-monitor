@@ -86,7 +86,7 @@ def _word_hit(text: str, name: str) -> bool:
         after = t[m.end()] if m.end() < len(t) else " "
         if _HANGUL_ALNUM.match(before):
             continue
-        if re.match(r"[a-z0-9]", after):
+        if re.match(r"[a-z0-9&]", after) or (before == "&"):  # KTX, KT&G 같은 다른 이름 제외
             continue
         if re.match(r"[가-힣]", after) and after not in _PARTICLES:
             continue
@@ -94,7 +94,13 @@ def _word_hit(text: str, name: str) -> bool:
     return False
 
 
-def name_matches(text: str, name: str) -> bool:
+def is_short(name: str) -> bool:
+    """2자 이하 이름(예: 건우·삼안·KT) — 일반 단어·인명과 겹치기 쉬움"""
+    core = norm(name) if not (name or "").isascii() else re.sub(r"[^a-z0-9]", "", (name or "").lower())
+    return len(core) <= 2
+
+
+def name_matches(text: str, name: str, context: list[str] | None = None) -> bool:
     """업체명 1개 일치 판정
     - 영문명: 단어 경계 기준 (STraffic ≠ STrafficking)
     - 국문 4자 이상: 공백 무시 포함 여부 ('안세기술' = '안세 기술')
@@ -105,15 +111,57 @@ def name_matches(text: str, name: str) -> bool:
         return False
     if name.isascii():
         words = re.sub(r"\s+", " ", re.sub(r"(?i)\b(co|ltd|inc|corp|corporation|company|limited|pt|tbk|persero)\b\.?", " ", name)).strip(" .,")
-        return bool(words) and _word_hit(text, words)
+        if not words or not _word_hit(text, words):
+            return False
+        if len(core) <= 2 and context:
+            t = (text or "").lower()
+            return any(w.lower() in t for w in context if w)
+        return True
     if len(core) >= 4:
         return core in _flat(text) or _flat(name) in _flat(text)
-    return _word_hit(text, name)
+    if not _word_hit(text, name):
+        return False
+    if len(core) <= 2 and context:  # 2자 이하: 업종·사업 관련 단어가 함께 있어야 인정
+        t = (text or "").lower()
+        return any(w.lower() in t for w in context if w)
+    return True
 
 
-def mentions(text: str, names: list[str]) -> bool:
+# 업종별 문맥 단어: 2자 이하 이름이 기사에 나올 때 실제 그 업체 이야기인지 확인하는 데 사용
+CATEGORY_HINTS = {
+    "엔지니어링": ["엔지니어링", "설계", "감리", "건설사업관리", "CM", "용역", "기술사", "ENG"],
+    "건설": ["건설", "시공", "공사", "건설사", "현장", "토건"],
+    "제조": ["공업", "제조", "플랜트", "공장", "설비", "중공업", "조선", "전기"],
+    "IT": ["시스템", "IT", "솔루션", "통신", "SI", "소프트웨어", "정보"],
+    "상사": ["무역", "상사", "교육", "인터내셔널"],
+}
+# 제재 관련 단어(부정당·담합 등)는 넣지 않음 — 제재 키워드 기사에는 항상 들어 있어 판별에 도움이 안 됨
+GENERIC_HINTS = ["입찰", "계약", "수주", "낙찰", "용역", "공사", "발주", "시공", "설계", "건설사", "업체"]
+
+
+def category_key(category: str | None) -> str | None:
+    c = category or ""
+    for k in CATEGORY_HINTS:
+        if k.lower() in c.lower():
+            return k
+    if "건축" in c or "감리" in c or "설계" in c:
+        return "엔지니어링"
+    if "조선" in c or "플랜트" in c or "전기" in c:
+        return "제조"
+    if "통신" in c or "교통" in c or "시스템" in c:
+        return "IT"
+    return None
+
+
+def context_words(company: dict) -> list[str]:
+    words = [w.strip() for w in (company.get("context_keywords") or "").split(",") if w.strip()]
+    words += CATEGORY_HINTS.get(category_key(company.get("category")) or "", [])
+    return words + GENERIC_HINTS
+
+
+def mentions(text: str, names: list[str], context: list[str] | None = None) -> bool:
     """본문(제목+요약)에 업체명(국문·영문·별칭 중 하나)이 실제로 등장하는지"""
-    return any(name_matches(text, n) for n in names if n)
+    return any(name_matches(text, n, context) for n in names if n)
 
 
 def search_names(company: dict) -> list[str]:
@@ -123,4 +171,8 @@ def search_names(company: dict) -> list[str]:
         a = a.strip()
         if a and not a.isascii() and len(norm(a)) >= 4 and a not in out:
             out.append(a)
+    # 2자 이하 대표명은 업종 단어를 붙여 검색 (예: "건우" 엔지니어링)
+    if is_short(company["name"]):
+        hint = (CATEGORY_HINTS.get(category_key(company.get("category")) or "") or ["기업"])[0]
+        out[0] = f'{company["name"]}" "{hint}'
     return out

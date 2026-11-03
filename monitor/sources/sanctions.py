@@ -73,49 +73,66 @@ def _candidate_names(company: dict) -> list[str]:
     return [n for n in names if n and len(norm(n)) >= 3]
 
 
+_index_cache: dict = {}
+
+
+def _index(entries: list[dict]) -> tuple[dict, dict]:
+    key = id(entries)
+    if key not in _index_cache:
+        exact, by_first = {}, {}
+        for e in entries:
+            for en in e["norm_names"]:
+                if en:
+                    exact.setdefault(en, []).append(e)
+                    by_first.setdefault(en[0], []).append((en, e))
+        _index_cache.clear()
+        _index_cache[key] = (exact, by_first)
+    return _index_cache[key]
+
+
 def match_company(entries: list[dict], company: dict) -> list[dict]:
     """업체를 적재된 제재 리스트와 매칭 → findings 형태로 반환"""
     targets = {norm(n): n for n in _candidate_names(company)}
-    if not targets:
+    if not targets or not entries:
         return []
-    out = []
-    for e in entries:
-        best, best_src = 0.0, ""
-        for en in e["norm_names"]:
-            if not en:
+    exact, by_first = _index(entries)
+    best: dict[str, tuple[float, str, dict]] = {}
+    for tn, raw in targets.items():
+        for e in exact.get(tn, []):
+            best[e["entity_id"] + e["dataset"]] = (1.0, raw, e)
+        for en, e in by_first.get(tn[0], []):
+            if abs(len(en) - len(tn)) > max(3, len(tn) // 3):
                 continue
-            for tn, raw in targets.items():
-                if tn == en:
-                    score = 1.0
-                elif min(len(tn), len(en)) >= 6 and (tn in en or en in tn):
-                    score = 0.9
-                else:
-                    sm = difflib.SequenceMatcher(None, tn, en)
-                    if sm.real_quick_ratio() < 0.88 or sm.quick_ratio() < 0.88:
-                        continue
-                    score = sm.ratio()
-                if score > best:
-                    best, best_src = score, raw
-        if best < 0.88:
-            continue
-        exact = best >= 0.99
+            if min(len(tn), len(en)) >= 6 and (tn in en or en in tn):
+                score = 0.9
+            else:
+                sm = difflib.SequenceMatcher(None, tn, en)
+                if sm.real_quick_ratio() < 0.88 or sm.quick_ratio() < 0.88:
+                    continue
+                score = sm.ratio()
+            k = e["entity_id"] + e["dataset"]
+            if score >= 0.88 and score > best.get(k, (0,))[0]:
+                best[k] = (score, raw, e)
+    out = []
+    for score, best_src, e in best.values():
+        exact_hit = score >= 0.99
         ds = e["dataset"]
         out.append(
             {
                 "source_type": "official",
                 "source_name": DATASET_LABEL.get(ds, ds),
-                "title": f"[{DATASET_LABEL.get(ds, ds)}] {e['name']} — {'등재 확인' if exact else '유사명 매칭(확인 필요)'}",
+                "title": f"[{DATASET_LABEL.get(ds, ds)}] {e['name']} — {'등재 확인' if exact_hit else '유사명 매칭(확인 필요)'}",
                 "url": f"https://www.opensanctions.org/entities/{e['entity_id']}/",
                 "published_at": "",
                 "snippet": f"리스트 등재명: {e['name']} / 국가: {e['countries'] or '-'} / 제재정보: {(e['sanctions'] or '-')[:300]}"
                 f" / 원 출처: {DATASET_HOME.get(ds, '')}",
-                "matched_keywords": f"이름매칭 {best:.2f} ({best_src})",
-                "level": "red" if exact else "orange",
+                "matched_keywords": f"이름매칭 {score:.2f} ({best_src})",
+                "level": "red" if exact_hit else "orange",
                 "category": "MDB 제재",
                 "summary": (
                     f"{DATASET_LABEL.get(ds, ds)}에 '{e['name']}'(으)로 등재되어 있습니다. 교차제재(Cross-Debarment) 대상 여부 확인 필요."
-                    if exact
-                    else f"{DATASET_LABEL.get(ds, ds)} 등재 업체 '{e['name']}'와 이름이 유사합니다(유사도 {best:.2f}). 동일 법인인지 확인 필요."
+                    if exact_hit
+                    else f"{DATASET_LABEL.get(ds, ds)} 등재 업체 '{e['name']}'와 이름이 유사합니다(유사도 {score:.2f}). 동일 법인인지 확인 필요."
                 ),
                 "analyzer": "list-match",
             }

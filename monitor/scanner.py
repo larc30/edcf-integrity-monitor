@@ -13,12 +13,71 @@ from datetime import date, datetime, timedelta
 
 from . import analyzer, config, store
 from .sources import dart, news, pps, sanctions
-from .textutil import dedup_key, mentions, search_names
+from .textutil import context_words, dedup_key, mentions, search_names
 
 log = logging.getLogger(__name__)
 
 EN_RISK_QUERY = '(corruption OR fraud OR sanction OR debarment OR bribery OR collusion OR "bid rigging")'
 ID_RISK_QUERY = '(korupsi OR tersangka OR suap OR sanksi OR "daftar hitam")'
+
+
+# 제재 기사 검색어: 이 검색어로 먼저 기사를 모은 뒤, 기사마다 '전체 감시 명단'과 대조한다.
+# (업체 수가 많아도 검색 횟수가 늘지 않음)
+TOPIC_QUERIES = [
+    "부정당", "부정당업자", "부정당제재",
+    "입찰참가자격 제한", "입찰참가제한", "입찰 제한 처분",
+    "입찰 담합", "담합 과징금", "공정위 과징금 건설",
+    "영업정지 건설사", "영업정지 엔지니어링", "등록말소 건설",
+    "벌점 건설사", "제재 건설사", "제재 엔지니어링",
+    "하도급 과징금", "공공입찰 제한", "국토교통부 처분",
+]
+
+
+def topic_sweep(errors: list) -> tuple[list[dict], list[str]]:
+    """제재 키워드로 Google 뉴스(+네이버)를 검색해 기사 모음 반환"""
+    jobs = [("google", q) for q in TOPIC_QUERIES]
+    if news.naver_enabled():
+        jobs += [("naver", q) for q in TOPIC_QUERIES]
+
+    def one(job):
+        engine, q = job
+        try:
+            items = news.naver_news(q, display=100, sort="date") if engine == "naver" else news.google_news(q, "ko", limit=100)
+            return engine, items
+        except Exception as e:
+            errors.append(f"제재 키워드 검색 / {engine} '{q}': {e}")
+            return engine, None
+
+    seen, out, engines = set(), [], set()
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        for engine, items in ex.map(one, jobs):
+            if items is None:
+                continue
+            engines.add("네이버" if engine == "naver" else "Google")
+            for a in items:
+                k = dedup_key(a["title"], a["url"])
+                if k not in seen:
+                    seen.add(k)
+                    a["dedup_key"] = k
+                    a["via"] = (a.get("via") or "") + " · 제재 키워드"
+                    out.append(a)
+    return out, sorted(engines)
+
+
+def _company_names(company: dict) -> list[str]:
+    return [company["name"], company.get("name_en") or ""] + [x.strip() for x in (company.get("aliases") or "").split(",")]
+
+
+def match_sweep(articles: list[dict], companies: list[dict]) -> dict[str, list[dict]]:
+    """키워드 검색 기사 ↔ 명단 대조: {company_id: [기사, ...]}"""
+    hits: dict[str, list[dict]] = {}
+    texts = [(a, f"{a['title']} {a.get('snippet', '')}") for a in articles]
+    for c in companies:
+        names, ctx = _company_names(c), context_words(c)
+        for a, t in texts:
+            if mentions(t, names, ctx):
+                hits.setdefault(c["id"], []).append(dict(a))
+    return hits
 
 
 def _days_since(ts: str | None) -> float:
@@ -97,7 +156,9 @@ def _identify(company: dict, errors: list) -> dict:
             errors.append(f"{company['name']} / DART: {e}")
 
     bizno = patch.get("biz_no") or company.get("biz_no")
-    if pps.enabled() and bizno and (not (company.get("name_en") or patch.get("name_en")) or not (company.get("ceo") or patch.get("ceo"))):
+    if (pps.enabled() and bizno and _days_since(company.get("pps_basic_checked_at")) >= 30
+            and (not (company.get("name_en") or patch.get("name_en")) or not (company.get("ceo") or patch.get("ceo")))):
+        patch["pps_basic_checked_at"] = store.now_str()
         try:
             b = pps.basic_info(bizno)
             if b.get("engCorpNm") and not (company.get("name_en") or patch.get("name_en")):
@@ -120,7 +181,8 @@ def _identify(company: dict, errors: list) -> dict:
     return info
 
 
-def scan_company(company: dict, projects: dict, keywords: list[dict], entries: list[dict], lists_ok: int) -> dict:
+def scan_company(company: dict, projects: dict, keywords: list[dict], entries: list[dict], lists_ok: int,
+                 sweep_hits: list[dict] | None = None, sweep_engines: list[str] | None = None, sweep_total: int = 0) -> dict:
     t0 = time.time()
     errors: list[str] = []
     stats = {"fetched": 0, "candidates": 0, "new_findings": 0, "official": 0, "cleaned": 0}
@@ -128,11 +190,25 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         {**e, "project_name": projects.get(e.get("project_id"), {}).get("name", "(삭제된 사업)")}
         for e in company.get("engagements") or []
     ]
-    deep = _days_since(company.get("last_deep_at")) >= config.DEEP_EVERY_DAYS
+    # 집중 감시: 우리 사업에 연결된 업체(또는 직접 지정) → 매일 업체명 검색
+    # 기본 감시: 그 외 명단 업체 → 매일 제재 키워드 대조 + 조달청·MDB, 업체명 검색은 주 1회
+    focus = bool(engagements) or bool(company.get("watch"))
+    weekly_due = _days_since(company.get("last_deep_at")) >= config.DEEP_EVERY_DAYS
+    deep = focus and weekly_due
+    if focus:
+        queries = _queries(company, keywords, deep)
+    elif weekly_due:
+        queries = [q for q in _queries(company, keywords, False) if q[0] == "google"][:1]
+    else:
+        queries = []
 
-    # 1) 뉴스 수집
+    # 1) 뉴스 수집 (제재 키워드 검색에서 이 업체가 나온 기사 + 업체명 검색)
     cutoff = (date.today() - timedelta(days=config.NEWS_LOOKBACK_DAYS)).isoformat()
-    seen, articles, engines_ok, queries = set(), [], set(), _queries(company, keywords, deep)
+    seen, articles, engines_ok = set(), [], set(sweep_engines or [])
+    for a in sweep_hits or []:
+        if a["dedup_key"] not in seen:
+            seen.add(a["dedup_key"])
+            articles.append(a)
     for engine, lang, q, sort in queries:
         try:
             items = news.naver_news(q, sort=sort) if engine == "naver" else news.google_news(q, lang)
@@ -150,12 +226,12 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
             articles.append(a)
 
     # 2) 필터: 기간, 업체명 정확 일치, 이미 분석한 기사 제외
-    names = [company["name"], company.get("name_en") or ""] + [x.strip() for x in (company.get("aliases") or "").split(",")]
+    names, ctx = _company_names(company), context_words(company)
     existing = store.where("findings", "company_id", "==", company["id"])
     known = {f.get("dedup_key") for f in existing}
     mentioned = [
         a for a in articles
-        if (not a["published_at"] or a["published_at"] >= cutoff) and mentions(f"{a['title']} {a.get('snippet', '')}", names)
+        if (not a["published_at"] or a["published_at"] >= cutoff) and mentions(f"{a['title']} {a.get('snippet', '')}", names, ctx)
     ]
     cands = [a for a in mentioned if a["dedup_key"] not in known][:60]
     stats["candidates"] = len(cands)
@@ -166,7 +242,7 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
                   "reviewer_note": "업체명이 정확히 일치하지 않는 기사 (동명·유사 단어)"}
         for f in existing
         if f.get("source_type") == "news" and f.get("status") == "new" and f.get("relevant")
-        and not mentions(f"{f.get('title', '')} {f.get('snippet', '')}", names)
+        and not mentions(f"{f.get('title', '')} {f.get('snippet', '')}", names, ctx)
     }
     if cleanup:
         store.update_many("findings", cleanup)
@@ -214,11 +290,13 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         pps_st = {"status": "not_connected"}
     elif len(bizno) != 10:
         pps_st = {"status": "no_bizno"}
+    elif not focus and _days_since((company.get("last_check") or {}).get("pps", {}).get("checked_at")) < 3:
+        pps_st = dict(company["last_check"]["pps"])  # 기본 감시 업체는 3일마다 조회 (API 일일 한도 고려)
     else:
         try:
             hits = pps.sanctions(company)
             official += hits
-            pps_st = {"status": "ok", "bizno": bizno, "hits": len(hits)}
+            pps_st = {"status": "ok", "bizno": bizno, "hits": len(hits), "checked_at": store.now_str()}
         except Exception as e:
             errors.append(f"{company['name']} / 조달청 부정당제재: {e}")
             pps_st = {"status": "error", "bizno": bizno, "error": str(e)[:200]}
@@ -237,10 +315,11 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
     # 6) 검사 내역 기록
     patch = {"last_check": {
         "at": store.now_str(),
-        "mode": "심층" if deep else "데일리",
+        "mode": ("집중·심층" if deep else "집중·데일리") if focus else ("기본·주간검색" if queries else "기본"),
         "seconds": round(time.time() - t0, 1),
         "news": {"engines": sorted(engines_ok), "queries": len(queries), "fetched": stats["fetched"],
-                 "mentioned": len(mentioned), "new_analyzed": len(cands)},
+                 "mentioned": len(mentioned), "new_analyzed": len(cands),
+                 "sweep_total": sweep_total, "sweep_hits": len(sweep_hits or [])},
         "analyzer": used if cands else ("claude" if config.ANTHROPIC_API_KEY else "rule"),
         "mdb": mdb,
         "pps": pps_st,
@@ -248,7 +327,7 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
                      "name_en": company.get("name_en") or None, "notes": ident["notes"]},
         "errors": errors[:5],
     }}
-    if deep and engines_ok:
+    if (deep or (not focus and queries)) and engines_ok:
         patch["last_deep_at"] = store.now_str()
     store.update("companies", company["id"], patch)
     stats["errors"] = errors
@@ -274,7 +353,7 @@ def run_scan(only_names: list[str] | None = None, progress=None) -> dict:
         companies = [c for c in companies if c["name"] in wanted]
     total = len(companies)
     if progress:
-        progress(0, total, "제재리스트 준비")
+        progress(0, total, "제재 키워드 검색·제재리스트 준비")
 
     # DART 기업목록이 필요한 업체가 있으면 시작하자마자 백그라운드로 받기 시작
     needs_dart = config.DART_API_KEY and any(
@@ -283,16 +362,26 @@ def run_scan(only_names: list[str] | None = None, progress=None) -> dict:
     if needs_dart:
         threading.Thread(target=lambda: _safe(dart.load_master), daemon=True).start()
 
+    errors: list[str] = []
     t_lists = time.time()
-    entries, list_status = sanctions.load_lists()
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f_lists = ex.submit(sanctions.load_lists)
+        f_sweep = ex.submit(topic_sweep, errors)
+        entries, list_status = f_lists.result()
+        sweep_articles, sweep_engines = f_sweep.result()
     lists_ok = sum(1 for v in list_status.values() if isinstance(v, int))
     lists_sec = round(time.time() - t_lists, 1)
+    hits = match_sweep(sweep_articles, companies)
+    if progress:
+        progress(0, total, f"제재 키워드 기사 {len(sweep_articles)}건 대조 완료")
 
-    totals = {"companies": total, "fetched": 0, "candidates": 0, "new_findings": 0, "official": 0, "cleaned": 0, "deep": 0}
-    errors: list[str] = []
+    totals = {"companies": total, "fetched": 0, "candidates": 0, "new_findings": 0, "official": 0, "cleaned": 0, "deep": 0,
+              "sweep_articles": len(sweep_articles), "sweep_matched_companies": len(hits),
+              "focus": sum(1 for c in companies if c.get("engagements") or c.get("watch"))}
     lock, done = threading.Lock(), 0
     with ThreadPoolExecutor(max_workers=config.SCAN_WORKERS) as ex:
-        futs = {ex.submit(scan_company, c, projects, keywords, entries, lists_ok): c for c in companies}
+        futs = {ex.submit(scan_company, c, projects, keywords, entries, lists_ok,
+                          hits.get(c["id"], []), sweep_engines, len(sweep_articles)): c for c in companies}
         for fut in as_completed(futs):
             c = futs[fut]
             try:
