@@ -5,7 +5,7 @@ import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=16";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=17";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -62,6 +62,7 @@ onAuthStateChanged(auth, async (user) => {
   if (!user) return showLogin("허용된 Google 계정으로 로그인하세요.", false);
   if (!ALLOWED_EMAILS.includes(user.email)) return showLogin(`<b>${esc(user.email)}</b> 계정은 접근 권한이 없습니다.<br>관리자에게 허용 목록 추가를 요청하세요.`, true);
   $("#loginView").classList.add("hidden"); $("#appView").classList.remove("hidden");
+  if (window.__DEMO && !$(".demo-banner")) $("#appView").insertAdjacentHTML("afterbegin", `<div class="demo-banner">DEMO · 가상 데이터로 보는 화면입니다 (실제 업체·Firebase와 연결되지 않음) · <a href="./">실제 화면으로</a></div>`);
   $("#userEmail").textContent = user.email;
   $("#lnkActions").href = ACTIONS_URL; $("#lnkSecrets").href = SECRETS_URL;
   try {
@@ -217,95 +218,153 @@ const scopeProjects = () => scope === "mine" ? state.projects.filter(isMine) : s
 
 // ---------- 대시보드 (한 화면) ----------
 const ROLE_ABBR = { 컨설턴트: "컨", 본구매: "본", "F/S": "FS" };
-// ---------- 리스크 레이더 (가운데일수록 위험, 리스크 업체는 이름 표시) ----------
+// ---------- 리스크 레이더: 색 띠 = 등급(가운데일수록 위험), 주요 리스크 업체는 이름 표시 ----------
 function hash(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; } return h; }
 const polar = (deg, r) => { const rad = (deg * Math.PI) / 180; return [50 + (Math.sin(rad) * r) / 2, 50 - (Math.cos(rad) * r) / 2]; };
-const BANDS = { red: [8, 26], orange: [37, 52], yellow: [62, 74], none: [83, 93], pending: [70, 93] };
+const BANDS = { red: [8, 25], orange: [37, 52], yellow: [62, 74], none: [83, 93], pending: [70, 93] };
 function renderRadar(cs) {
   const el = $("#radar"), sc = scanned();
   const n = { red: 0, orange: 0, yellow: 0, none: 0 };
   cs.forEach((c) => n[sc ? c.risk : "none"]++);
-  const risky = sc ? cs.filter((c) => c.risk !== "none").sort((a, b) => (LV[b.risk] - LV[a.risk]) || a.name.localeCompare(b.name)) : [];
-  const normal = cs.filter((c) => !risky.includes(c));
+  const risky = sc ? cs.filter((c) => c.risk !== "none").sort((a, b) => (LV[b.risk] - LV[a.risk]) || b.open - a.open || a.name.localeCompare(b.name)) : [];
+  const labeled = risky.slice(0, 6); // 이름은 가장 중요한 6곳만, 나머지는 마우스를 올리면
   const dot = (c, ang, lv, label) => {
     const [r0, r1] = BANDS[lv];
     const r = label ? (r0 + r1) / 2 : r0 + ((hash(c.id + "r") % 1000) / 1000) * (r1 - r0);
-    const [x, y] = polar(ang, r);
+    const [x, y] = polar(ang, r), pids = c.engagements.map((e) => e.project_id).join(" ");
     const tip = `${c.name} · ${sc ? LEVEL[c.risk] : "스캔 전"}${c.open ? ` · 미확인 ${c.open}건` : ""}`;
-    return `<button class="rdot ${lv} ${c.open ? "open" : ""}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%" data-cid="${c.id}" data-pids="${c.engagements.map((e) => e.project_id).join(" ")}" data-tip="${esc(tip)}" aria-label="${esc(c.name)}"></button>`
-      + (label ? `<span class="rlabel ${lv} ${x >= 50 ? "r" : "l"}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%" data-cid="${c.id}" data-pids="${c.engagements.map((e) => e.project_id).join(" ")}">${esc(c.name)}</span>` : "");
+    return `<button class="rdot ${lv}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%;--d:calc(${Math.round(ang)} * var(--sweep, 6s) / 360)" data-cid="${c.id}" data-pids="${pids}" data-tip="${esc(tip)}" aria-label="${esc(tip)}"></button>`
+      + (label ? `<span class="rlabel ${lv} ${x >= 50 ? "r" : "l"}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%" data-cid="${c.id}" data-pids="${pids}">${esc(c.name)}</span>` : "");
   };
-  // 위쪽(등급 글자 자리)은 비워두고, 이름은 가장 중요한 6곳만 (나머지는 마우스 올리면)
-  const LABELS = 6, labeled = [...risky].sort((a, b) => (LV[b.risk] - LV[a.risk]) || b.open - a.open).slice(0, LABELS);
-  const span = (i, k) => 70 + (k <= 1 ? 50 : (i * 220) / (k - 1));
+  // 이름표가 겹치지 않게 좌우를 번갈아 배치 (위쪽은 등급 글자 자리라 비움)
+  const SLOTS = [100, 260, 145, 215, 62, 298];
   const dots = [
-    ...labeled.map((c, i) => dot(c, span(i, labeled.length), c.risk, true)),
-    ...risky.filter((c) => !labeled.includes(c)).map((c) => dot(c, 60 + (hash(c.id) % 240), c.risk, false)),
-    ...normal.map((c) => dot(c, 30 + (hash(c.id) % 300), sc ? "none" : "pending", false)),
+    ...labeled.map((c, i) => dot(c, SLOTS[i], c.risk, true)),
+    ...risky.slice(6).map((c) => dot(c, 62 + (hash(c.id) % 236), c.risk, false)),
+    ...cs.filter((c) => !risky.includes(c)).map((c) => dot(c, 32 + (hash(c.id) % 296), sc ? "none" : "pending", false)),
   ].join("");
-  const lbl = (lv, y, txt) => `<text class="bl ${lv}" x="100" y="${y}">${txt}</text>`;
+  const t = (lv, y, label) => `<text class="bl ${lv}" x="100" y="${y}">${label} ${sc ? n[lv] : "-"}</text>`;
   el.innerHTML = `
     <svg class="grid" viewBox="0 0 200 200" aria-hidden="true">
       <circle class="band none" cx="100" cy="100" r="96"/><circle class="band yellow" cx="100" cy="100" r="79"/>
       <circle class="band orange" cx="100" cy="100" r="57"/><circle class="band red" cx="100" cy="100" r="31"/>
-      ${lbl("none", 15, `정상 ${sc ? n.none : "-"}`)}${lbl("yellow", 35, `주의 ${sc ? n.yellow : "-"}`)}
-      ${lbl("orange", 57, `경고 ${sc ? n.orange : "-"}`)}${lbl("red", 84, `위험 ${sc ? n.red : "-"}`)}
+      <circle class="ring none" cx="100" cy="100" r="96"/><circle class="ring yellow" cx="100" cy="100" r="79"/>
+      <circle class="ring orange" cx="100" cy="100" r="57"/><circle class="ring red" cx="100" cy="100" r="31"/>
+      <line class="axis" x1="100" y1="4" x2="100" y2="196"/><line class="axis" x1="4" y1="100" x2="196" y2="100"/>
+      ${t("none", 13, "정상")}${t("yellow", 33, "주의")}${t("orange", 55, "경고")}${t("red", 82, "위험")}
     </svg>
-    <div class="sweep"></div>
+    <div class="sweep"></div><div class="radar-core"></div>
     ${dots}<div class="radar-tip hidden" id="radarTip"></div>`;
   const tip = $("#radarTip");
   $$(".rdot", el).forEach((d) => {
     d.addEventListener("mouseenter", () => { tip.textContent = d.dataset.tip; tip.style.left = d.style.left; tip.style.top = d.style.top; tip.classList.remove("hidden"); });
     d.addEventListener("mouseleave", () => tip.classList.add("hidden"));
   });
-  $$("[data-cid]", el).forEach((d) => d.addEventListener("click", () => openCompany(d.dataset.cid)));
+  $$("[data-cid]", el).forEach((d) => d.addEventListener("click", (e) => { e.stopPropagation(); openCompany(d.dataset.cid); }));
+  el.onclick = () => radarBurst();
   el.classList.toggle("scanning", !!(state.job && !state.job.done));
+  requestAnimationFrame(fixLabels);
+  if (!state.radarIntro) { state.radarIntro = true; setTimeout(radarBurst, 350); } // 처음 열 때 한 번 훑기
 }
-// 사업 목록에 마우스를 올리면 그 사업 업체만 레이더에서 강조
+// 이름표가 칸 밖으로 나가면 반대쪽으로, 다른 이름표와 겹치면 위아래로 비켜 놓기
+function fixLabels() {
+  const el = $("#radar");
+  if (!el || !el.offsetWidth) return;
+  const box = el.closest(".d-radar").getBoundingClientRect(), placed = [];
+  const hit = (a, b) => !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+  $$(".rlabel", el).forEach((lb) => {
+    lb.style.marginTop = "0px";
+    let r = lb.getBoundingClientRect();
+    if (r.right > box.right - 2 || r.left < box.left + 2) { lb.classList.toggle("r"); lb.classList.toggle("l"); r = lb.getBoundingClientRect(); }
+    const h = r.height + 3;
+    const dy = [0, h, -h, 2 * h, -2 * h, 3 * h].find((d) => {
+      const m = { left: r.left, right: r.right, top: r.top + d, bottom: r.bottom + d };
+      return m.top >= box.top && m.bottom <= box.bottom && !placed.some((p) => hit(m, p));
+    }) ?? 0;
+    lb.style.marginTop = dy + "px";
+    placed.push({ left: r.left, right: r.right, top: r.top + dy, bottom: r.bottom + dy });
+  });
+}
+let fixT = null;
+window.addEventListener("resize", () => { clearTimeout(fixT); fixT = setTimeout(fixLabels, 150); });
+function radarBurst() {
+  const el = $("#radar");
+  if (!el) return;
+  el.classList.remove("burst"); void el.offsetWidth; el.classList.add("burst");
+  clearTimeout(el._bt); el._bt = setTimeout(() => el.classList.remove("burst"), 2200);
+}
+// 사업에 마우스를 올리면 그 사업 업체만 레이더에서 강조
 function focusProject(pid) {
   $$("#radar .rdot, #radar .rlabel").forEach((d) => d.classList.toggle("dim", !!pid && !(d.dataset.pids || "").split(" ").includes(pid)));
 }
 
 // ---------- 대시보드 ----------
-const LVINFO = { red: "제재·영업정지 등 사업 참여에 직접 장애가 되는 신호", orange: "최근 수사·담합·과징금 등 처분 신호", yellow: "과거 이력·의혹·소송 등 참고 신호" };
-const ICON_USER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>`;
-const ICON_ORG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg>`;
+const LEVEL_SHORT = { red: "제재·영업정지 등 직접 장애", orange: "최근 수사·담합·처분", yellow: "과거 이력·의혹·소송" };
+const ICON_USER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>`;
+const ICON_ORG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg>`;
+const LAYOUTS = [["a", "A 브리핑"], ["b", "B 관제실"], ["c", "C 사이드"]];
+let layout = "a";
+try { layout = new URLSearchParams(location.search).get("layout") || localStorage.getItem("edcf_layout") || "a"; } catch {}
 let levelFilter = null;
 function renderHome() {
   const cs = scopeCompanies(), ps = scopeProjects(), s = state.status, sc = scanned();
   const ids = new Set(cs.map((c) => c.id));
-  const mineN = state.companies.filter((c) => c.mine).length;
+  const mineN = state.companies.filter((c) => c.mine).length, myP = state.projects.filter(isMine).length;
+  if (!LAYOUTS.some(([k]) => k === layout)) layout = "a";
+  $("#dash").dataset.layout = layout;
   document.body.dataset.scope = scope;
 
-  // 보기 범위: 내 담당 사업 / EDCF 전체
-  $("#scopeSeg").innerHTML = !state.companies.length ? "" : [
-    ["mine", "내 담당 사업", mineN, "내가 담당하는 사업에 참여한 업체", ICON_USER],
-    ["all", "EDCF 전체", state.companies.length, "등록된 모든 업체 (사업 미연결 포함)", ICON_ORG],
-  ].map(([k, l, cnt, d, ic]) => `<button data-s="${k}" class="sc-btn ${k} ${k === scope ? "active" : ""}">
-      <span class="sc-ic">${ic}</span><span class="sc-t"><b>${l}</b><small>${d}</small></span><span class="sc-n">${cnt}</span></button>`).join("");
-  $$("#scopeSeg button").forEach((b) => b.onclick = () => { scope = b.dataset.s; levelFilter = null; try { localStorage.setItem("edcf_scope2", scope); } catch {} renderHome(); });
+  // 디자인 시안 고르기
+  $("#layoutPick").innerHTML = `<span class="lp-t">디자인 시안</span>` + LAYOUTS.map(([k, l]) => `<button data-l="${k}" class="${k === layout ? "active" : ""}">${l}</button>`).join("");
+  $$("#layoutPick button").forEach((b) => b.onclick = () => { layout = b.dataset.l; try { localStorage.setItem("edcf_layout", layout); } catch {} state.radarIntro = false; renderHome(); });
 
+  // 제목 · 보기 범위
   const now = new Date(Date.now() + 9 * 3600e3);
   $("#heroDate").textContent = `RISK BRIEFING · ${now.toISOString().slice(0, 10).replace(/-/g, ".")} (${weekday[now.getUTCDay()]})`;
-  $("#sumSub").textContent = (scope === "mine" ? `내 담당 사업 ${ps.length}개 · 업체 ${cs.length}곳` : `전체 사업 ${ps.length}개 · 업체 ${cs.length}곳`)
-    + (sc ? ` · 마지막 스캔 ${s.last_scan_at.slice(5, 16).replace("-", "/")}` : " · 아직 스캔하지 않았습니다");
+  $("#sumSub").textContent = sc ? `마지막 스캔 ${s.last_scan_at.slice(5, 16).replace("-", "/")} · 매일 아침 자동 스캔` : "아직 스캔하지 않았습니다";
+  $("#scopeSeg").innerHTML = !state.companies.length ? "" : [["mine", "내 담당 사업", mineN, ICON_USER], ["all", "EDCF 전체", state.companies.length, ICON_ORG]]
+    .map(([k, l, cnt, ic]) => `<button data-s="${k}" class="sc-btn ${k} ${k === scope ? "active" : ""}"><span class="sc-ic">${ic}</span>${l}<span class="sc-n">${cnt}</span></button>`).join("");
+  $$("#scopeSeg button").forEach((b) => b.onclick = () => { scope = b.dataset.s; levelFilter = null; try { localStorage.setItem("edcf_scope2", scope); } catch {} renderHome(); });
+  $("#scopeDesc").textContent = !state.companies.length ? "" : scope === "mine"
+    ? (myP ? `내가 담당하는 사업 ${myP}개에 참여한 업체 ${cs.length}곳` : "담당 사업이 없습니다 — 업체·사업 탭에서 [내 사업으로] 지정")
+    : `등록된 업체 ${cs.length}곳 전체 (사업 ${ps.length}개 · 사업 미연결 업체 포함)`;
 
-  if (!state.companies.length) showGuide(`<b>시작하기</b> — <b>업체·사업</b> 탭에서 [일괄 등록]으로 업체를 넣고, 여기서 <b>지금 스캔</b>을 누르세요.`);
-  else if (scope === "mine" && !cs.length) showGuide(`내가 담당하는 사업에 연결된 업체가 없습니다. <b>업체·사업</b> 탭에서 사업 카드의 [내 사업으로]를 누르거나 업체를 사업에 끌어다 놓으세요.`);
+  if (!state.companies.length) showGuide(`<b>시작하기</b> — <b>업체·사업</b> 탭에서 [일괄 등록]으로 업체를 넣고 <b>지금 스캔</b>을 누르세요.`);
   else if (!sc) showGuide(`업체 ${cs.length}곳이 등록됐습니다. <b>지금 스캔</b>을 눌러 첫 스캔을 실행하세요.`);
   else showGuide("");
 
-  // ① 요약 카드: 위험·경고·주의 업체 수 + 확인할 이슈 (누르면 아래 이슈를 그 등급으로 거름)
+  // ① 요약: 숫자 + 지금 상태(업체 이름) + 등급 뜻
   const open = state.findings.filter((f) => f.status === "new" && ids.has(f.company_id));
-  const n = { red: 0, orange: 0, yellow: 0, none: 0 };
-  cs.forEach((c) => n[c.risk]++);
-  $("#kboard").innerHTML = ["red", "orange", "yellow"].map((lv) => `<button class="kcard ${lv} ${sc && n[lv] ? "on" : ""} ${levelFilter === lv ? "sel" : ""}" data-lv="${lv}">
-      <div class="kc-top"><span class="dot ${lv}"></span>${LEVEL[lv]} 업체<span class="info" title="${LVINFO[lv]}">i</span></div>
-      <div class="kc-v">${sc ? n[lv] : "-"}</div></button>`).join("")
-    + `<div class="kcard note"><div class="kc-top">확인할 이슈<span class="info" title="아직 '확인했음' 또는 '관련 없음'으로 처리하지 않은 이슈">i</span></div><div class="kc-v">${open.length}<small> 건</small></div></div>`;
-  $$("#kboard [data-lv]").forEach((b) => b.onclick = () => { levelFilter = levelFilter === b.dataset.lv ? null : b.dataset.lv; renderHome(); });
+  const byLv = { red: [], orange: [], yellow: [], none: [] };
+  cs.forEach((c) => byLv[c.risk].push(c));
+  const who = (l) => { const x = [...l].sort((a, b) => b.open - a.open || a.name.localeCompare(b.name)); return x.slice(0, 2).map((c) => c.name).join(" · ") + (x.length > 2 ? ` 외 ${x.length - 2}곳` : ""); };
+  const todayN = open.filter((f) => inPeriod(f, "today")).length;
+  $("#kboard").innerHTML = ["red", "orange", "yellow"].map((lv) => {
+    const l = byLv[lv];
+    return `<button class="kc ${lv} ${sc && l.length ? "on" : ""} ${levelFilter === lv ? "sel" : ""}" data-lv="${lv}" title="누르면 아래 이슈를 ${LEVEL[lv]}만 봅니다">
+      <div class="kc-head"><span class="dot"></span>${LEVEL[lv]} 업체</div>
+      <div class="kc-num">${sc ? `<span data-count="${l.length}">0</span>` : "-"}<small>곳</small></div>
+      <div class="kc-state ${sc && !l.length ? "zero" : ""}">${!sc ? "스캔 전" : l.length ? esc(who(l)) : "해당 업체 없음"}</div>
+      <div class="kc-desc">${LEVEL_SHORT[lv]}</div></button>`;
+  }).join("") + `<button class="kc note ${open.length ? "on" : ""}" data-lv="" title="누르면 이슈 목록으로 이동">
+      <div class="kc-head"><span class="dot"></span>확인할 이슈</div>
+      <div class="kc-num"><span data-count="${open.length}">0</span><small>건</small></div>
+      <div class="kc-state ${open.length ? "" : "zero"}">${!open.length ? "모두 확인했습니다" : todayN ? `오늘·어제 새로 ${todayN}건` : "새로 들어온 이슈 없음"}</div>
+      <div class="kc-desc">'확인했음·관련 없음' 처리 전</div></button>`;
+  if (!state.kpiAnimated) { state.kpiAnimated = true; countUp($("#kboard")); } // 숫자 올라가는 효과는 처음 한 번만
+  else $$("#kboard [data-count]").forEach((e) => (e.textContent = e.dataset.count));
+  $$("#kboard .kc").forEach((b) => b.onclick = () => {
+    const lv = b.dataset.lv;
+    levelFilter = lv && levelFilter !== lv ? lv : null;
+    renderHome();
+    if (!lv || levelFilter) $(".d-issues").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
 
-  // ② 확인이 필요한 이슈 (가장 중요한 것부터)
+  // ② 레이더
+  renderRadar(cs);
+  $("#radarCap").innerHTML = `<b>${scope === "mine" ? "내 담당" : "전체"} 업체 ${cs.length}곳</b> · 가운데로 갈수록 위험<br>점을 누르면 업체 상세, 빈 곳을 누르면 다시 훑어봅니다`;
+
+  // ③ 확인이 필요한 이슈 (위험 → 공식 제재 → 최신)
   const counts = Object.fromEntries(PERIODS.map(([k]) => [k, open.filter((f) => inPeriod(f, k)).length]));
   if (!period || !counts.hasOwnProperty(period)) period = counts.today ? "today" : "all";
   $("#periodSeg").innerHTML = PERIODS.map(([k, label]) => `<button data-p="${k}" class="${k === period ? "active" : ""}">${label} <span class="n">${counts[k]}</span></button>`).join("");
@@ -313,7 +372,7 @@ function renderHome() {
   const shown = open.filter((f) => inPeriod(f, period) && (!levelFilter || f.level === levelFilter))
     .sort((a, b) => (LV[b.level] - LV[a.level]) || ((b.source_type !== "news") - (a.source_type !== "news")) || pubMs(b) - pubMs(a));
   $("#issueCount").textContent = open.length;
-  $("#levelNote").innerHTML = levelFilter ? `<button class="chip-x" id="clearLv">${LEVEL[levelFilter]} 이슈만 보는 중 ✕</button>` : "";
+  $("#levelNote").innerHTML = levelFilter ? `<button class="chip-x" id="clearLv">${LEVEL[levelFilter]} 이슈만 보는 중 · 모두 보기 ✕</button>` : "";
   $("#clearLv")?.addEventListener("click", () => { levelFilter = null; renderHome(); });
   if (shown.length) renderFeed(shown, $("#feed"));
   else $("#feed").innerHTML = !sc ? `<div class="empty">스캔 후 이곳에 이슈가 출처와 함께 표시됩니다.</div>`
@@ -323,11 +382,7 @@ function renderHome() {
   $("#doneWrap").classList.toggle("hidden", !done.length);
   if (done.length) renderFeed(done, $("#feedDone"));
 
-  // ③ 레이더
-  $("#radarCap").textContent = `${scope === "mine" ? "내 담당" : "전체"} 업체 ${cs.length}곳`;
-  renderRadar(cs);
-
-  // ④ 사업 현황 (리스크 높은 사업 먼저, 목록 안에서 스크롤)
+  // ④ 사업 현황 (리스크 높은 사업 먼저)
   $("#projTitle").textContent = scope === "mine" ? "내 담당 사업" : "전체 사업";
   $("#projN").textContent = ps.length;
   const pw = (p) => worstOf(state.companies.filter((c) => c.engagements.some((e) => e.project_id === p.id)));
@@ -337,10 +392,10 @@ function renderHome() {
   $$("#projectMap .prow").forEach((r) => { r.addEventListener("mouseenter", () => focusProject(r.dataset.pid)); r.addEventListener("mouseleave", () => focusProject(null)); });
   $$("#projectMap [data-cid]").forEach((x) => x.addEventListener("click", () => openCompany(x.dataset.cid)));
 
-  // ⑤ 데이터 점검 (검사 범위·보완 필요·MDB 한국 국적) — 한 줄로, 누르면 상세
+  // ⑤ 데이터 점검 (검사 범위·EDCF 명단·MDB 한국 국적) — 누르면 상세
   const cv = coverage(cs), gapN = cs.filter((c) => c.last_check && checkGaps(c).length).length;
   const warnN = gapN + (state.edcf.length ? 0 : 1);
-  $("#dataCheck").innerHTML = !sc ? "" : `<button class="dcheck ${warnN ? "warn" : "ok"}" id="btnDataCheck"><span class="dot ${warnN ? "orange" : "none"}"></span>데이터 점검 · ${warnN ? `보완 필요 ${warnN}` : "이상 없음"}<span class="muted"> — 무엇을 검사했는지 보기</span></button>`;
+  $("#dataCheck").innerHTML = !sc ? "" : `<button class="dcheck" id="btnDataCheck"><span class="dot ${warnN ? "orange" : "none"}"></span>데이터 점검 · ${warnN ? `보완 필요 ${warnN}` : "이상 없음"}<span class="go">무엇을 검사했나 ›</span></button>`;
   $("#btnDataCheck")?.addEventListener("click", () => showDataCheck(cs, cv, gapN));
   renderJob(); checkSmooth();
 }
@@ -792,7 +847,7 @@ $("#btnStop").onclick = async () => {
   } catch (e) { toast("중지 요청 실패: " + e.message, 5000); }
 };
 // 새로고침 후에도 진행 중이던 작업 이어서 추적
-try { const s = JSON.parse(localStorage.getItem(JOB_KEY) || "null"); if (s && Date.now() - s.started < 90 * 60e3) { state.job = { ...s, status: "queued" }; setTimeout(trackJob, 1500); } } catch {}
+if (!window.__DEMO) try { const s = JSON.parse(localStorage.getItem(JOB_KEY) || "null"); if (s && Date.now() - s.started < 90 * 60e3) { state.job = { ...s, status: "queued" }; setTimeout(trackJob, 1500); } } catch {}
 
 // ---------- 설정 (드래그 앤 드롭) ----------
 const STAGES = ["계약", "우선협상", "입찰중"];
