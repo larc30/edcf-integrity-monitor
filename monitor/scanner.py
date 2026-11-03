@@ -388,6 +388,7 @@ def _safe(fn):
 def run_scan(only_names: list[str] | None = None, progress=None, should_stop=None) -> dict:
     """progress(done, total, current_name) 콜백으로 진행 상황을 알리고, should_stop()이 True면 남은 업체를 건너뛴다."""
     t_start = time.time()
+    analyzer.CLAUDE_ERROR = None
     projects = {p["id"]: p for p in store.all_docs("projects")}
     keywords = store.all_docs("keywords")
     companies = sorted(store.all_docs("companies"), key=lambda c: c["name"])
@@ -459,7 +460,13 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
 
     totals["seconds"] = round(time.time() - t_start, 1)
     totals["lists_seconds"] = lists_sec
-    totals["analyzer"] = "claude" if config.ANTHROPIC_API_KEY else "rule"
+    err = analyzer.CLAUDE_ERROR or ""
+    claude_error = ("크레딧 부족 — Anthropic Console > Billing에서 크레딧 충전 필요" if "credit" in err
+                    else "API 키 오류 — ANTHROPIC_API_KEY 확인 필요" if ("authentication" in err or "x-api-key" in err)
+                    else err[:200] if err else None)
+    totals["analyzer"] = "claude" if config.ANTHROPIC_API_KEY and not claude_error else "rule"
+    if claude_error:
+        totals["claude_error"] = claude_error
     totals["errors"] = errors[:50]
     totals["sanction_lists"] = list_status
     if only_names:
@@ -471,6 +478,7 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
         "sanction_lists": list_status,
         "analyzer": totals["analyzer"],
         "claude_model": config.CLAUDE_MODEL if config.ANTHROPIC_API_KEY else None,
+        "claude_error": claude_error,
         "connections": connections(),
     })
     store.log_run("scan", not errors, totals)

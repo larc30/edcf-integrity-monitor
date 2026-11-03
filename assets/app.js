@@ -1427,7 +1427,7 @@ function renderConnections() {
       ["나라장터 업체 기본정보", B(c.pps), "조달청 키로 함께 사용 · 영문명·대표자 보강"],
     ]],
     ["분석·알림", [
-      ["AI 판정 (Claude)", B(c.claude), c.claude ? `모델 ${s.claude_model || ""} — 기사별 관련성·등급 판정` : "없으면 키워드 규칙으로 판정 (키워드 없는 기사는 놓칠 수 있음)", "console.anthropic.com에서 API 키 발급 → Secret ANTHROPIC_API_KEY"],
+      ["AI 판정 (Claude)", c.claude && s.claude_error ? "warn" : B(c.claude), c.claude ? (s.claude_error ? `키는 등록됨, 호출 실패: ${s.claude_error} (지금은 키워드 규칙으로 판정)` : `모델 ${s.claude_model || ""} — 기사별 관련성·등급 판정`) : "없으면 키워드 규칙으로 판정 (키워드 없는 기사는 놓칠 수 있음)", "console.anthropic.com에서 API 키 발급 → Secret ANTHROPIC_API_KEY"],
       ["메일 발송", B(c.smtp) === "ok" && !state.recipients.length ? "warn" : B(c.smtp), c.smtp ? `수신자 ${state.recipients.length}명` : "Secret SMTP_USER / SMTP_PASSWORD", "Gmail 앱 비밀번호 발급 → SMTP_USER(주소)·SMTP_PASSWORD Secret 등록 후 수신자 추가"],
     ]],
   ];
@@ -1527,8 +1527,8 @@ function renderTasks() {
         `${L(SECRETS_URL, "GitHub Secrets")}에 <code>NAVER_APIHUB_KEY_ID</code> = Client ID, <code>NAVER_APIHUB_KEY</code> = Client Secret 등록`,
         "다음 스캔 후 연결 상태에서 '네이버 뉴스 연결됨' 확인"],
       "네이버 개발자센터의 검색 API 신규 발급이 2026-07-31에 종료되어 API HUB로 신청합니다. 예전에 받은 개발자센터 키가 있으면 NAVER_CLIENT_ID / NAVER_CLIENT_SECRET로 넣어도 됩니다."],
-    ["AI 판정 연결 (Claude)", c.claude ? "done" : "opt", "선택", "Anthropic Console · GitHub Secrets",
-      "키워드가 없는 기사도 관련성·등급을 판단해 놓치는 기사와 오탐을 줄입니다. 없으면 키워드 규칙으로 판정합니다.",
+    ["AI 판정 연결 (Claude)", c.claude && s.claude_error ? "warn" : c.claude ? "done" : "opt", "선택", "Anthropic Console · GitHub Secrets",
+      c.claude && s.claude_error ? `키는 등록됐지만 호출 실패: ${s.claude_error}` : "키워드가 없는 기사도 관련성·등급을 판단해 놓치는 기사와 오탐을 줄입니다. 없으면 키워드 규칙으로 판정합니다.",
       [`${L("https://console.anthropic.com", "Anthropic Console")} 가입 → Billing에서 결제 수단 등록`,
         "<b>API Keys → Create Key</b> → 키 복사",
         `${L(SECRETS_URL, "GitHub Secrets")}에 <code>ANTHROPIC_API_KEY</code> 등록`,

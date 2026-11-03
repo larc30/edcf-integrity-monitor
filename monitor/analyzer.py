@@ -15,6 +15,8 @@ from . import config
 
 log = logging.getLogger(__name__)
 
+CLAUDE_ERROR: str | None = None  # 이번 스캔 중 Claude 호출이 실패한 이유 (대시보드 표시용)
+
 LEVEL_ORDER = {"red": 3, "orange": 2, "yellow": 1, "none": 0, None: 0, "": 0}
 
 Category = Literal[
@@ -172,7 +174,9 @@ def analyze(company: dict, engagements: list[dict], articles: list[dict], keywor
     """returns (judgements, analyzer_used)"""
     if not articles:
         return [], "-"
-    if config.ANTHROPIC_API_KEY:
+    global CLAUDE_ERROR
+    # 크레딧 부족·키 오류는 업체마다 다시 시도해도 같으므로 바로 규칙 판정
+    if config.ANTHROPIC_API_KEY and not (CLAUDE_ERROR and any(w in CLAUDE_ERROR for w in ("credit", "authentication", "invalid x-api-key", "permission"))):
         try:
             results = []
             for start in range(0, len(articles), 25):  # 25건씩 나눠 판정
@@ -183,4 +187,5 @@ def analyze(company: dict, engagements: list[dict], articles: list[dict], keywor
             return results, "claude"
         except Exception as e:
             log.warning("Claude 분석 실패 → 규칙 기반으로 대체: %r", e)
+            CLAUDE_ERROR = str(e)
     return _rule_based(company, articles, keywords), "rule"

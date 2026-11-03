@@ -29,8 +29,11 @@ meta/status, meta/progress, meta/settings{relay_url,keywords_version}, meta/repo
 - AI 판정(Claude, ANTHROPIC_API_KEY) 없으면 키워드 규칙 판정.
 - 실측(8개 업체): 스캔 9초, Actions 전체 27초. 230개 시뮬레이션 데일리 약 6초.
 
-## Secrets (GitHub)
-필수 FIREBASE_SERVICE_ACCOUNT / 연결됨: DATA_GO_KR_KEY, DART_API_KEY / 미연결: NAVER_APIHUB_KEY_ID·NAVER_APIHUB_KEY(네이버 API HUB, 2026-07-31부터 개발자센터 신규 발급 종료), SMTP_USER·SMTP_PASSWORD, ANTHROPIC_API_KEY. Apps Script 중계(tools/relay.gs)는 사용자 설정 필요(스크립트 속성 GITHUB_TOKEN).
+## Secrets / 연결 현황 (2026-11-03 16:40 확인)
+- 연결됨: FIREBASE_SERVICE_ACCOUNT, DATA_GO_KR_KEY(조달청), DART_API_KEY, NAVER_APIHUB_KEY_ID·NAVER_APIHUB_KEY(실제 200 응답 확인), SMTP_USER·SMTP_PASSWORD(테스트 메일 회사 메일함 수신 확인, 약 50분 지연), ANTHROPIC_API_KEY(등록됨, 단 크레딧 부족으로 400 → 규칙 판정 대체 중).
+- 즉시 실행: 회사망은 script.google.com 차단 → Apps Script 시간 트리거 tick(평일 08~19시 5분마다 queue 디스패치)로 해결, 동작 확인. 웹 앱 배포(relay_url)는 없음.
+- 예약 실행: 사용자가 11:03 monitor.yml 직접 수정(첫 줄 공백). 이후 schedule 실행 1회 확인. monitor.yml은 Claude가 수정하지 말 것(마지막 수정자가 봇이 되면 예약 중단 우려). 매일 실행 시각 변경 권장(30 22 → 17 22, TASK 식 64번째 줄도 같이) — 사용자 몫.
+- 남은 일: Anthropic 크레딧 충전, EXIMIIS 명단 입력, 메일 받는 사람 등록(대시보드), 앱 비밀번호 재발급 여부 확인, 업체 일괄 등록·사업자번호 보완.
 
 ## 테스트 방법
 - Python: store/news/sanctions/dart/pps 함수를 메모리 가짜로 바꿔 scanner.run_scan 실행.
