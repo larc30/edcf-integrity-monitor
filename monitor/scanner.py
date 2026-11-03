@@ -303,6 +303,15 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
 
     for f in official:
         f.setdefault("dedup_key", "official-" + hashlib.sha1((f["url"] + f["title"]).encode()).hexdigest()[:16])
+    still = {f["dedup_key"] for f in official}
+    stale = {f["id"]: {"status": "dismissed", "reviewed_by": "자동 정리", "reviewed_at": store.now_str(),
+                       "reviewer_note": "이름만 비슷한 다른 업체로 판단 (국가 불일치·유사도 기준 강화)"}
+             for f in existing if f.get("analyzer") == "list-match" and "유사명" in (f.get("title") or "")
+             and f.get("status") == "new" and f.get("dedup_key") not in still}
+    if stale:
+        store.update_many("findings", stale)
+        stats["cleaned"] += len(stale)
+    for f in official:
         if f["dedup_key"] in known:
             continue
         f["relevant"] = 1
@@ -342,8 +351,8 @@ def _safe(fn):
         log.warning("DART 기업목록 미리 받기 실패: %s", e)
 
 
-def run_scan(only_names: list[str] | None = None, progress=None) -> dict:
-    """progress(done, total, current_name) 콜백으로 진행 상황을 알린다."""
+def run_scan(only_names: list[str] | None = None, progress=None, should_stop=None) -> dict:
+    """progress(done, total, current_name) 콜백으로 진행 상황을 알리고, should_stop()이 True면 남은 업체를 건너뛴다."""
     t_start = time.time()
     projects = {p["id"]: p for p in store.all_docs("projects")}
     keywords = store.all_docs("keywords")
@@ -396,6 +405,12 @@ def run_scan(only_names: list[str] | None = None, progress=None) -> dict:
                 errors.append(f"{c['name']}: {e}")
             done += 1
             log.info("스캔 %d/%d: %s", done, total, c["name"])
+            if should_stop and done % 3 == 0 and should_stop():
+                for f in futs:
+                    f.cancel()
+                totals["stopped"] = True
+                log.info("중지 요청으로 스캔을 멈춥니다 (%d/%d)", done, total)
+                break
             if progress:
                 try:
                     progress(done, total, c["name"])

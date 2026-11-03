@@ -51,13 +51,23 @@ def process_queue() -> int:
             store.update_many("requests", {r["id"]: data for r in scans})
             store.update("meta", "progress", {**data["progress"], "running": done < total})
 
+        def should_stop():
+            for r in scans:
+                d = store.db().collection("requests").document(r["id"]).get()
+                if d.exists and d.to_dict().get("status") == "cancel_requested":
+                    return True
+            return False
+
         try:
-            res = scanner.run_scan(names, progress=progress)
+            res = scanner.run_scan(names, progress=progress, should_stop=should_stop)
             report.save_preview()
             summary = {k: res.get(k) for k in ("companies", "fetched", "new_findings", "official", "cleaned", "seconds")}
             summary["errors"] = len(res.get("errors") or [])
             for r in scans:
-                finish(r, True, summary)
+                if res.get("stopped"):
+                    store.update("requests", r["id"], {"status": "cancelled", "finished_at": store.now_str(), "result": {**summary, "stopped": True}})
+                else:
+                    finish(r, True, summary)
         except Exception as e:
             log.exception("스캔 실패")
             for r in scans:

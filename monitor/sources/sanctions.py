@@ -97,6 +97,8 @@ def match_company(entries: list[dict], company: dict) -> list[dict]:
         return []
     exact, by_first = _index(entries)
     best: dict[str, tuple[float, str, dict]] = {}
+    # 유사명은 오탐이 많다(예: 다른 회사 'ANS Technologies'). 국가가 같고 아주 비슷할 때만 '확인 필요'로 표시
+    my_country = (company.get("country") or "KR").lower()
     for tn, raw in targets.items():
         for e in exact.get(tn, []):
             best[e["entity_id"] + e["dataset"]] = (1.0, raw, e)
@@ -111,7 +113,10 @@ def match_company(entries: list[dict], company: dict) -> list[dict]:
                     continue
                 score = sm.ratio()
             k = e["entity_id"] + e["dataset"]
-            if score >= 0.88 and score > best.get(k, (0,))[0]:
+            countries = (e.get("countries") or "").lower()
+            if score < 0.99 and (score < 0.94 or my_country not in countries):
+                continue
+            if score > best.get(k, (0,))[0]:
                 best[k] = (score, raw, e)
     out = []
     for score, best_src, e in best.values():
