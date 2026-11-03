@@ -72,8 +72,19 @@ def build() -> tuple[str, str, list[str]]:
             f'<div style="font-size:22px;font-weight:700;color:{color};">{value}</div></td>'
         )
 
+    # 최근 30일 기사·공식 기록은 자세히, 그보다 오래된 과거 이력은 짧게
+    cutoff = (store.now_kst().date() - __import__("datetime").timedelta(days=30)).isoformat()
+    recent = [f for f in new if f.get("source_type") != "news" or not f.get("published_at") or f["published_at"] >= cutoff]
+    older = [f for f in new if f not in recent]
+    older_html = "" if not older else (
+        '<tr><td style="background:#fff;padding:14px 24px 0;"><div style="font-size:13px;font-weight:700;color:#475467;">'
+        f'과거 이력 (30일 이전 기사) 신규 발견 {len(older)}건</div><ul style="margin:6px 0 0;padding-left:18px;font-size:12px;color:#475467;">'
+        + "".join(f'<li>{_badge(f["level"])} <b>{E(f["company_name"])}</b> · {E(f.get("published_at") or "")} · '
+                  f'<a href="{E(f.get("url") or "")}" style="color:#1D4ED8;">{E((f.get("title") or "")[:60])}</a></li>' for f in older[:10])
+        + (f'<li>외 {len(older) - 10}건은 대시보드에서 확인</li>' if len(older) > 10 else "") + "</ul></td></tr>")
+
     items = []
-    for f in new:
+    for f in recent:
         src_link = (
             f'<a href="{E(f["url"])}" style="color:#1D4ED8;">원문 보기</a>' if f.get("url") else ""
         )
@@ -124,6 +135,7 @@ def build() -> tuple[str, str, list[str]]:
 </td></tr>
 <tr><td style="background:#fff;padding:8px 24px 0;"><h3 style="margin:8px 0;font-size:16px;">1. 신규 리스크 신호</h3></td></tr>
 <tr><td style="background:#fff;padding:0 24px;"><table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #EAECF0;border-radius:8px;">{''.join(items)}</table></td></tr>
+{older_html}
 <tr><td style="background:#fff;padding:16px 24px 0;"><h3 style="margin:8px 0;font-size:16px;">2. 업체별 현황</h3></td></tr>
 <tr><td style="background:#fff;padding:0 24px 16px;">
 <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;border:1px solid #EAECF0;">
