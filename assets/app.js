@@ -156,7 +156,7 @@ function renderLive() {
   const s = state.status.last_scan_at, h = s ? (Date.now() - Date.parse(s.replace(" ", "T") + "+09:00")) / 3600e3 : null;
   const el = $("#liveState"), ok = h != null && h < 26;
   el.classList.toggle("warn", !ok);
-  el.lastElementChild.textContent = h == null ? "스캔 전" : ok ? "자동 감시 중 · 매일 07:30" : "자동 스캔 확인 필요";
+  el.lastElementChild.textContent = h == null ? "스캔 전" : ok ? "자동 감시 중 · 매일 아침" : "자동 스캔 확인 필요";
   el.title = s ? `마지막 스캔 ${s}` : "";
 }
 // 자동 새로고침: 창으로 돌아올 때(1분 이상 지났으면)와 5분마다. 끌기·입력 중에는 건너뜀
@@ -1444,13 +1444,14 @@ function renderTasks() {
   const noBiz = dom.filter((x) => !x.biz_no).length, noEn = state.companies.filter((x) => !x.name_en).length;
   // [제목, 상태(done/todo/warn/opt), 중요도, 어디서, 왜, 단계[], 참고]
   const T = [
-    ["매일 07:30 자동 스캔 켜기", dailyH != null && dailyH < 26 ? "done" : "todo", "필수", "GitHub 웹",
-      dailyH != null ? `마지막 예약 실행 ${s.last_daily_at.slice(5, 16)}` : "예약 실행(매일 07:30 스캔 + 메일)이 아직 한 번도 돌지 않았습니다. 워크플로 파일을 사람이 한 번 저장해야 켜질 수 있습니다.",
+    ["매일 아침 자동 스캔 켜기", dailyH != null && dailyH < 26 ? "done" : "todo", "필수", "GitHub 웹",
+      dailyH != null ? `마지막 매일 실행 ${s.last_daily_at.slice(5, 16)}` : "매일 아침 예약 실행(스캔 + 메일)이 아직 한 번도 돌지 않았습니다. 예약 시각을 사람이 직접 한 번 바꿔 저장해야 확실히 켜집니다.",
       [`${L(`${REPO_URL}/edit/main/.github/workflows/monitor.yml`, "monitor.yml 편집 화면 열기")} (GitHub 로그인 필요)`,
-        `아무 줄(예: 첫 줄 <code>name: 업체 모니터링</code>) 끝에 <b>띄어쓰기 한 칸</b>을 넣습니다 (내용은 바뀌지 않음)`,
-        `오른쪽 위 초록색 <b>Commit changes...</b> → 창에서 다시 <b>Commit changes</b>`,
-        `다음 날 07:30 이후 이 항목이 '완료'로 바뀌는지 확인 (${L(ACTIONS_URL, "Actions 실행 기록")}에서 <i>schedule</i> 실행으로도 확인 가능)`],
-      "GitHub 예약 실행은 수십 분 늦게 시작될 수 있습니다. 저장소에 60일 동안 변경이 없으면 GitHub가 예약을 멈추므로, 그때 같은 방법으로 다시 켭니다."],
+        `5번째 줄 <code>- cron: "30 22 * * *"</code>의 <b>30</b>을 <b>17</b>로 바꿈 → <code>"17 22 * * *"</code> (한국시간 07:17 = UTC 22:17)`,
+        `<b>Ctrl+F</b>로 <code>30 22</code>를 찾아 64번째 줄 <code>github.event.schedule == '30 22 * * *'</code> 안의 <b>30</b>도 <b>17</b>로 똑같이 바꿈 — 두 곳이 같아야 매일 실행이 '스캔+메일'로 동작합니다`,
+        `오른쪽 위 초록색 <b>Commit changes...</b> → 창에서 그대로 <b>Commit changes</b>`,
+        `${L(ACTIONS_URL, "Actions 실행 기록")}에서 이름 아래 <b>Scheduled</b>라고 적힌 실행이 생기는지 확인 → 다음 날 아침 이 항목이 '완료'로 바뀌면 끝`],
+      "GitHub는 매 정각·30분처럼 몰리는 시각에 예약을 늦추거나 건너뛸 수 있어(공식 안내) 어중간한 분으로 바꿉니다. 이 파일은 사람이 직접 저장해야 하므로 Claude가 수정하지 않습니다. 저장소에 60일간 변경이 없으면 GitHub가 예약을 멈추니, 그때는 Actions 화면의 [Enable workflow]를 누릅니다."],
     ["즉시 실행 중계 설정 (Google Apps Script)", st.relay_url ? "done" : "todo", "필수", "Google Apps Script · GitHub",
       "회사망은 GitHub 접속이 막혀 있어 [지금 스캔]이 GitHub 예약 확인(10분 간격, 자주 지연)까지 기다립니다. 중계기를 두면 1~2분 안에 시작합니다.",
       [`GitHub 토큰 만들기: ${L("https://github.com/settings/personal-access-tokens/new", "토큰 만들기")} → Token name <code>edcf-relay</code> → Repository access <b>Only select repositories</b> → <code>edcf-integrity-monitor</code> → Permissions → Repository permissions → <b>Actions: Read and write</b> → <b>Generate token</b> → 복사`,
@@ -1481,7 +1482,7 @@ function renderTasks() {
         "여러 곳이면 양식에 업체명+사업자번호+영문명만 채워 <b>일괄 등록</b>으로 한 번에 보완"],
       "사업자번호가 있어야 조달청(나라장터) 제재 조회와 EDCF 명단 대조가 정확하고, 영문명이 있어야 MDB 제재 리스트 대조가 정확합니다. DART에 등록된 업체는 스캔 때 자동으로 채워집니다."],
     ["메일 발송 연결 (Gmail)", c.smtp && state.recipients.length ? "done" : c.smtp ? "warn" : "todo", "필수", "Google 계정 · GitHub Secrets",
-      c.smtp ? `메일 서버 연결됨 · 받는 사람 ${state.recipients.length}명` : "매일 07:30 리포트 메일을 보내려면 발송용 계정이 필요합니다.",
+      c.smtp ? `메일 서버 연결됨 · 받는 사람 ${state.recipients.length}명` : "매일 아침 리포트 메일을 보내려면 발송용 계정이 필요합니다.",
       [`발송용 Gmail 계정으로 ${L("https://myaccount.google.com/signinoptions/twosv", "2단계 인증")} 켜기`,
         `${L("https://myaccount.google.com/apppasswords", "앱 비밀번호")} → 앱 이름 <code>EDCF</code> → 만들기 → 16자리 비밀번호 복사`,
         `${L(SECRETS_URL, "GitHub Secrets")} → <b>New repository secret</b> 두 개: <code>SMTP_USER</code> = Gmail 주소, <code>SMTP_PASSWORD</code> = 16자리(띄어쓰기 없이)`,
