@@ -37,14 +37,13 @@ meta/status, meta/progress, meta/settings{relay_url,keywords_version}, meta/repo
 - 화면: Playwright로 gstatic Firebase 모듈을 메모리 가짜(window.__DB)로 대체해 index.html 실행.
 - 실제 실행: `gh workflow run monitor.yml --repo larc30/edcf-integrity-monitor -f task=scan|queue`, 로그 `gh run view <id> --log`.
 
-## 화면 (2026-11-03 GitHub 스타일로 개편, assets ?v=11)
-- 상단 헤더 + 탭(대시보드 / 업체·사업 / 설정), 가운데 정렬(최대 1280px), 라이트 기본·다크 선택(localStorage edcf_theme2).
-- 대시보드: '오늘의 EDCF 업체 리스크', 범위 '진행중 사업 업체'(projects.owner == 로그인 사용자 또는 담당 미지정 사업에 연결 + watch) / 'EDCF 주요 업체'(전체). 오른쪽에 진행중 사업 → 등급별 업체 → MDB 한국 국적 제재(meta/mdb_korea).
-- 새로고침 버튼 없음: 창 복귀(1분 경과) 시와 5분마다 자동. [스캔 중지]: 대기 요청은 cancelled, 실행 중은 cancel_requested(스캐너가 확인 후 멈춤).
-- 업체·사업: 필터(분류·사업 연결·등급·정보 부족) + 검색(이름·별칭·영문명·사업자번호), 목록 클릭 = 상세, 끌어서 사업에 연결. [+ 업체 추가]에 사업자번호·영문명·분류·별칭·사업 연결.
-- '여러 업체 한 번에 붙여넣기' 하나로 통합: 사업명|구분|업체명 / 코랩 COMPANIES / 업체명 한 줄씩 자동 인식.
-- 설정: 추가로 연결할 것(자동 계산), EXIMIIS 엑셀 업로드(SheetJS cdnjs, DRM 파일은 표 붙여넣기) → edcf_sanctions 전체 교체, 연결 상태 5개 묶음(실행·저장/뉴스/공식 제재 명단/업체 식별/분석·알림).
-- 키워드 v3: 매뉴얼 언론보도 키워드 재해·위반 추가. 메일 리포트도 같은 GitHub 톤(리스크 업체만 표, 정상은 생략).
+## 화면 (2026-11-03 v12: 다크 글래스 + 한 화면 대시보드)
+- 사용자 평가: GitHub 스타일(v11)보다 이전 다크·레이더 디자인(v10)이 낫다 → v10 톤으로 되돌리고 구조만 개선. 다크 기본(localStorage edcf_theme3).
+- 상단 한 줄: 로고+제목 / 탭(대시보드·업체·사업·설정) / 자동 감시 상태(meta/status.last_scan_at) / 사용자.
+- 대시보드는 스크롤 없이 한 화면(1366×768 이상): 왼쪽 리스크 레이더(구역=사업 번호, 가운데일수록 위험, 미연결 업체는 '주요' 구역) + 등급 수 + 검사 범위 + MDB 한국 국적(모달) / 가운데 이슈(내부 스크롤) / 오른쪽 진행중 사업(컴팩트 행, 번호=레이더 구역, 마우스 올리면 구역 강조) + 리스크 업체. 1180px 이하에서는 세로로 쌓임.
+- 범위: '진행중 사업 업체'(projects.owner == 로그인 사용자 또는 미지정 + watch) / 'EDCF 주요 업체'(전체).
+- 업체·사업: [일괄 등록] 모달(양식 CSV 내려받기 → 엑셀·CSV 업로드 또는 표 붙여넣기, 열: 업체명·사업자번호·영문명·분류·별칭·사업명·역할), [+ 업체 추가], 필터·검색.
+- 설정: EXIMIIS 업로드, 메일 수신자, 연결 상태(5묶음), 고급 설정, 맨 아래 '연결 작업 목록'(상태 자동 판정, 단계별 방법). 예약 실행 확인용 meta/status.last_daily_at(run.py daily).
 
 ## 남은 일
 - 사용자: Apps Script 중계 설정, monitor.yml 웹에서 한 번 수정(예약 실행), EXIMIIS 엑셀 업로드, 코랩 명단 붙여넣기, (선택) 네이버 API HUB·SMTP·ANTHROPIC 키.
