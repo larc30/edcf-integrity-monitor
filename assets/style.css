@@ -803,3 +803,8 @@ label.check input { width: auto; accent-color: var(--accent); }
 .pbox-foot .pf-act { display: flex; gap: 2px; margin-left: auto; }
 .edcf-bad { padding: 12px 14px; border-radius: 12px; background: var(--red-bg); border: 1px solid color-mix(in srgb, var(--red) 35%, transparent); font-size: var(--fs-sm); line-height: 1.6; }
 .edcf-bad b { color: var(--red); }
+/* v26: 설정 오른쪽 열(메일·계정·EXIMIIS) */
+.set-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.set-side .card { margin: 0; }
+.warn-t { color: var(--orange); font-weight: 700; } .red-t { color: var(--red); }
+.acc-card .tag { margin-left: 6px; }

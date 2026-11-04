@@ -149,6 +149,24 @@ def build() -> tuple[str, str, list[str]]:
 <td style="{td}color:{MUTED};">{_eng_text(c['engagements']) if c['engagements'] else '사업 미연결'}</td>
 <td style="{td}text-align:center;">{c['unreviewed']}</td></tr>""" for c in risky) or (
         f'<tr><td colspan="4" style="padding:16px;text-align:center;color:{COLORS["none"][0]};">리스크 업체가 없습니다</td></tr>')
+    # 사업별 현황: 사업마다 참여 업체(역할 순 → 사업 안 순서, 맨 위 = 대표사)와 리스크 수
+    ROLE_C = {"F/S": "#0E7490", "컨설턴트": "#1D4ED8", "본구매": "#A21CAF"}
+    by_p: dict = {}
+    for c in overview:
+        for e in c["engagements"]:
+            by_p.setdefault(e.get("project_id"), {"name": e.get("project_name"), "rows": []})["rows"].append((c, e))
+    prow = []
+    for pid, pv in sorted(by_p.items(), key=lambda x: x[1]["name"] or ""):
+        rows = sorted(pv["rows"], key=lambda r: (ROLE_ORDER.get(r[1].get("role"), 9), r[1].get("order", 1e9), r[0]["name"]))
+        k = {lv: len({r[0]["id"] for r in rows if r[0]["risk"] == lv}) for lv in ("red", "orange", "yellow")}
+        who = "".join(f'<div><b style="color:{ROLE_C.get(e.get("role"), TEXT2)};font-size:12px;">{E(e.get("role") or "")}</b> {E(c["name"])}'
+                      + (f' <span style="color:{MUTED};">({E(e.get("stage"))})</span>' if e.get("stage") and e.get("stage") != "계약" else "")
+                      + (f" {_badge(c['risk'])}" if c["risk"] != "none" else "") + "</div>" for c, e in rows)
+        risk = " · ".join(f'<b style="color:{COLORS[lv][0]};">{COLORS[lv][2]} {k[lv]}</b>' for lv in ("red", "orange", "yellow") if k[lv]) or f'<span style="color:{COLORS["none"][0]};">이상 없음</span>'
+        prow.append(f'<tr><td style="{td}font-weight:700;color:{TEXT};">{E(pv["name"] or "")}</td><td style="{td}">{who}</td><td style="{td}text-align:center;white-space:nowrap;">{risk}</td></tr>')
+    proj_html = "" if not prow else (section("사업별 현황", f"{len(prow)}개") + f"""<tr><td style="padding:0 28px;background:{PANEL};">
+<table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid {LINE};border-radius:12px;border-collapse:separate;overflow:hidden;">
+<tr><th style="{th}">사업</th><th style="{th}">참여 업체 (역할 · 등급)</th><th style="{th}text-align:center;">리스크</th></tr>{''.join(prow)}</table></td></tr>""")
     weekday = "월화수목금토일"[store.now_kst().weekday()]
 
     body = f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -166,18 +184,19 @@ def build() -> tuple[str, str, list[str]]:
 </td></tr>
 <tr><td style="padding:20px 24px 0;background:{PANEL};">
   <table cellpadding="0" cellspacing="0" width="100%"><tr>
-    {kpi('위험', n_red, COLORS['red'][0], '곳')}{kpi('경고', n_org, COLORS['orange'][0], '곳')}{kpi('주의', n_yel, COLORS['yellow'][0], '곳')}{kpi('신규 이슈', len(groups), ACCENT, '건')}
+    {kpi('위험 업체', n_red, COLORS['red'][0], '곳')}{kpi('경고 업체', n_org, COLORS['orange'][0], '곳')}{kpi('주의 업체', n_yel, COLORS['yellow'][0], '곳')}{kpi('신규 이슈', len(groups), ACCENT, '건')}
   </tr></table>
 </td></tr>
-{section('새로 발견된 리스크 신호', f'{len(recent)}건')}
+{section('새로 발견된 이슈', f'{len(recent)}건 · 등급 높은 순')}
 {''.join(items)}
 {older_html}
-{section('리스크 업체 현황', f'정상 {len(overview) - len(risky)}곳은 생략')}
+{section('리스크 업체', f'{len(risky)}곳 · 정상 {len(overview) - len(risky)}곳은 생략')}
 <tr><td style="padding:0 28px;background:{PANEL};">
 <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid {LINE};border-radius:12px;border-collapse:separate;overflow:hidden;">
-<tr><th style="{th}">등급</th><th style="{th}">업체</th><th style="{th}">사업 · 역할 · 단계</th><th style="{th}text-align:center;">미확인</th></tr>
+<tr><th style="{th}">등급</th><th style="{th}">업체</th><th style="{th}">참여 사업 · 역할</th><th style="{th}text-align:center;">미확인</th></tr>
 {rows}
 </table></td></tr>
+{proj_html}
 <tr><td style="padding:24px 28px;background:{PANEL};">
   <a href="{E(config.DASHBOARD_URL)}" style="display:inline-block;background:{ACCENT};background-image:linear-gradient(135deg,#5B5BF0,#0891B2);color:#FFFFFF;text-decoration:none;font-size:14px;font-weight:700;padding:10px 20px;border-radius:10px;">대시보드에서 보기</a>
 </td></tr>

@@ -2,13 +2,22 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 대시보드에 접근할 수 있는 Google 계정 — 팀원 추가 시 여기에 이메일을 넣고 [게시]
+    // 대시보드에 접근할 수 있는 Google 계정 (팀원은 대시보드 설정 > 로그인 계정에서 추가)
+    // 관리자(고정) — 여기 이메일은 대시보드 설정에서 지울 수 없음
+    function owner() {
+      return request.auth.token.email in [
+          'larc30730@gmail.com'
+        ];
+    }
+    // 대시보드 설정 > 로그인 계정에서 추가한 계정 (meta/access 문서의 emails)
+    function added() {
+      return exists(/databases/$(database)/documents/meta/access)
+        && request.auth.token.email in get(/databases/$(database)/documents/meta/access).data.emails;
+    }
     function allowed() {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && request.auth.token.email in [
-          'larc30730@gmail.com'
-        ];
+        && (owner() || added());
     }
 
     match /{document=**} {

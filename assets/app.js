@@ -5,7 +5,7 @@ import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=25";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=26";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -69,7 +69,11 @@ onAuthStateChanged(auth, async (user) => {
     $("#btnLogin").classList.toggle("hidden", denied); $("#btnLogout2").classList.toggle("hidden", !denied);
   };
   if (!user) return showLogin("허용된 Google 계정으로 로그인하세요.", false);
-  if (!ALLOWED_EMAILS.includes(user.email)) return showLogin(`<b>${esc(user.email)}</b> 계정은 접근 권한이 없습니다.<br>관리자에게 허용 목록 추가를 요청하세요.`, true);
+  let allowed = ALLOWED_EMAILS.includes(user.email);
+  if (!allowed) { // 설정에서 추가한 계정 (Firestore 규칙이 허용해야 읽힘)
+    try { const a = await getDoc(doc(db, "meta", "access")); allowed = a.exists() && (a.data().emails || []).includes(String(user.email).toLowerCase()); } catch {}
+  }
+  if (!allowed) return showLogin(`<b>${esc(user.email)}</b> 계정은 접근 권한이 없습니다.<br>관리자에게 허용 목록 추가를 요청하세요.`, true);
   $("#loginView").classList.add("hidden"); $("#appView").classList.remove("hidden");
   if (window.__DEMO && !$(".demo-banner")) $("#appView").insertAdjacentHTML("afterbegin", `<div class="demo-banner">DEMO · 가상 데이터로 보는 화면입니다 (실제 업체·Firebase와 연결되지 않음) · <a href="./">실제 화면으로</a></div>`);
   $("#userEmail").textContent = user.email;
@@ -88,7 +92,7 @@ onAuthStateChanged(auth, async (user) => {
 // ---------- 데이터 ----------
 const docs = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 async function loadAll() {
-  const [p, c, f, k, r, st, runs, cfg, ed, mk] = await Promise.all([
+  const [p, c, f, k, r, st, runs, cfg, ed, mk, acc] = await Promise.all([
     getDocs(collection(db, "projects")),
     getDocs(collection(db, "companies")),
     getDocs(query(collection(db, "findings"), where("relevant", "==", true))),
@@ -99,6 +103,7 @@ async function loadAll() {
     getDoc(doc(db, "meta", "settings")),
     getDocs(collection(db, "edcf_sanctions")),
     getDoc(doc(db, "meta", "mdb_korea")),
+    getDoc(doc(db, "meta", "access")),
   ]);
   state.projects = docs(p).sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")) || a.name.localeCompare(b.name));
   state.companies = docs(c);
@@ -113,6 +118,7 @@ async function loadAll() {
   const okEdcf = new Set(edcfMatches(state.edcf).map((x) => x.c.id));
   state.findings = state.findings.filter((f) => !String(f.dedup_key || "").startsWith("edcf-") || okEdcf.has(f.company_id));
   state.mdbKorea = mk.exists() ? mk.data() : null;
+  state.access = acc.exists() ? (acc.data().emails || []) : [];
   state.loadedAt = Date.now();
   if (!state.keywords.length || (state.settings?.keywords_version || 1) < KEYWORDS_VERSION) await loadDefaultKeywords();
   compute();
@@ -662,12 +668,12 @@ tr { break-inside: avoid; }
   <h1>EDCF <span>업체 리스크 보고서</span></h1>
   <div class="meta">범위 ${esc(scopeL)} (업체 ${cs.length}곳 · 사업 ${ps.length}개) · 이슈 ${esc(periodL)}${done ? " · 확인 완료 포함" : ""} · 마지막 스캔 ${esc((state.status.last_scan_at || "-").slice(0, 16))} · 작성 ${esc(now.slice(0, 16))} ${esc(me().split("@")[0])}</div></div>
 <div class="kpi"><div><small>위험 업체</small><b style="color:${C.red[0]}">${t.red}</b> <i>곳</i></div><div><small>경고 업체</small><b style="color:${C.orange[0]}">${t.orange}</b> <i>곳</i></div><div><small>주의 업체</small><b style="color:${C.yellow[0]}">${t.yellow}</b> <i>곳</i></div><div><small>${done ? "이슈" : "확인할 이슈"}</small><b style="color:#5B5BF0">${groups.length}</b> <i>건</i></div></div>
-${ps.length ? `<h2>사업별 현황 <span class="mu">${ps.length}개</span></h2><table><tr><th style="width:32%">사업</th><th>참여 업체 (역할 · 등급)</th><th class="c" style="width:18%">리스크</th></tr>${projRows}</table>` : ""}
-<h2>리스크 업체 <span class="mu">${risky.length}곳 · 정상 ${cs.length - risky.length}곳은 생략</span></h2>
-${risky.length ? `<table><tr><th style="width:11%">등급</th><th style="width:24%">업체</th><th>참여 사업 · 역할</th><th class="c" style="width:9%">미확인</th><th class="c" style="width:15%">사업자번호</th></tr>
-${risky.map((c) => `<tr><td>${bd(c.risk)}</td><td><b>${esc(c.name)}</b>${c.name_en ? `<div class="mu">${esc(c.name_en)}</div>` : ""}</td><td>${engL(c)}</td><td class="c">${c.open}</td><td class="c">${c.country !== "KR" ? "해외" : c.biz_no ? esc(fmtBiz(c.biz_no)) : "-"}</td></tr>`).join("")}</table>` : `<div class="empty">${sc ? "리스크 업체가 없습니다" : "아직 스캔하지 않았습니다"}</div>`}
 <h2>${done ? "이슈" : "확인할 이슈"} <span class="mu">${groups.length}건 · 등급 높은 순${groups.length > MAX ? ` · 앞의 ${MAX}건` : ""}</span></h2>
 ${groups.length ? groups.slice(0, MAX).map(issue).join("") : `<div class="empty">해당 기간에 ${done ? "" : "확인할 "}이슈가 없습니다</div>`}
+<h2>리스크 업체 <span class="mu">${risky.length}곳 · 정상 ${cs.length - risky.length}곳은 생략</span></h2>
+${risky.length ? `<table><tr><th style="width:11%">등급</th><th style="width:24%">업체</th><th>참여 사업 · 역할</th><th class="c" style="width:10%">미확인</th></tr>
+${risky.map((c) => `<tr><td>${bd(c.risk)}</td><td><b>${esc(c.name)}</b>${c.name_en ? `<div class="mu">${esc(c.name_en)}</div>` : ""}</td><td>${engL(c)}</td><td class="c">${c.open}</td></tr>`).join("")}</table>` : `<div class="empty">${sc ? "리스크 업체가 없습니다" : "아직 스캔하지 않았습니다"}</div>`}
+${ps.length ? `<h2>사업별 현황 <span class="mu">${ps.length}개</span></h2><table><tr><th style="width:32%">사업</th><th>참여 업체 (역할 · 등급)</th><th class="c" style="width:18%">리스크</th></tr>${projRows}</table>` : ""}
 <div class="ft">뉴스 기반 항목은 '제재 확정'이 아니라 '검토가 필요한 신호'입니다. 원문과 공식 자료(EXIMIIS, 나라장터, 각 MDB 제재 리스트)로 확인하시기 바랍니다.<br>데이터: EDCF 부정당업자(EXIMIIS) · 조달청 나라장터 · OpenSanctions(World Bank·ADB·AfDB·IDB·EBRD) · Google 뉴스 · 네이버 뉴스 · AI 판정(Claude)</div>
 </body></html>`;
   return { title, html };
@@ -1116,8 +1122,6 @@ const TRASH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke
 function renderCompanies() {
   const sc = scanned();
   $("#coTotal").textContent = state.companies.length;
-  const en = state.edcf.length, enBad = state.edcf.some((e) => !edcfValid(e));
-  $("#edcfPill").textContent = enBad ? "확인 필요" : en ? `${en}건` : "없음"; $("#edcfPill").classList.toggle("off", !en || enBad);
   // 필터 항목 (선택값 유지)
   const keep = (id, html) => { const v = $(id).value; $(id).innerHTML = html; if ([...$(id).options].some((o) => o.value === v)) $(id).value = v; };
   keep("#fProj", `<option value="">사업 전체</option><option value="__none">사업 미연결</option>` + state.projects.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join(""));
@@ -1839,10 +1843,39 @@ const hoursSince = (t) => t ? (Date.now() - Date.parse(String(t).replace(" ", "T
 // ---------- 설정 ----------
 function renderSettings() {
   renderKeywords();
+  renderAccess();
+  // EXIMIIS 제재 명단 요약 (자주 바뀌지 않아 설정에 둠)
+  const ev = state.edcf.filter(edcfValid), bad = state.edcf.length - ev.length, gm = edcfByCompany(edcfMatches(state.edcf)), act = gm.filter((x) => x.active);
+  $("#edcfSummary").innerHTML = bad ? `<span class="warn-t">확인 필요 — 제재 기록이 아닌 행 ${bad}건</span>`
+    : !ev.length ? "아직 올리지 않았습니다 — EXIMIIS 부정당업자조회 엑셀을 올려 주세요"
+    : `${ev.length}건 · ${esc((state.settings?.edcf_sanctions_at || "").slice(0, 10))} 반영 · 우리 업체와 일치 ${gm.length}곳${act.length ? ` · <b class="red-t">제재 중 ${act.map((x) => esc(x.c.name)).join(", ")}</b>` : ""}`;
   $("#rcList").innerHTML = state.recipients.map((r) => `<div class="srow"><span>${esc(r.email)}</span><button class="xbtn" data-del-rc="${r.id}" title="삭제">✕</button></div>`).join("") || `<div class="muted small">아직 없습니다.</div>`;
   $$("[data-del-rc]").forEach((b) => b.onclick = async () => { await deleteDoc(doc(db, "recipients", b.dataset.delRc)); state.recipients = state.recipients.filter((r) => r.id !== b.dataset.delRc); renderSettings(); });
   if ($("#advCard").open) renderAdvanced();
 }
+// 로그인 계정: 관리자(고정) + 추가 계정(meta/access)
+const isAdmin = () => ALLOWED_EMAILS.includes(me());
+function renderAccess() {
+  const extra = state.access || [];
+  $("#accList").innerHTML = ALLOWED_EMAILS.map((e) => `<div class="srow"><span>${esc(e)} <span class="tag">관리자</span></span></div>`).join("")
+    + extra.map((e) => `<div class="srow"><span>${esc(e)}</span>${isAdmin() ? `<button class="xbtn" data-del-acc="${esc(e)}" title="삭제">✕</button>` : ""}</div>`).join("");
+  $("#accForm").classList.toggle("hidden", !isAdmin());
+  $$("[data-del-acc]").forEach((b) => b.onclick = async () => {
+    if (!confirm(`${b.dataset.delAcc} 계정의 접속 권한을 뺄까요?`)) return;
+    await saveAccess(extra.filter((x) => x !== b.dataset.delAcc)); toast("뺐습니다");
+  });
+}
+async function saveAccess(list) {
+  await setDoc(doc(db, "meta", "access"), { emails: list, updated_by: me(), updated_at: nowStr() });
+  state.access = list; renderAccess();
+}
+$("#accForm").onsubmit = async (ev) => {
+  ev.preventDefault();
+  const email = ev.target.email.value.trim().toLowerCase();
+  if (!email || ALLOWED_EMAILS.includes(email) || (state.access || []).includes(email)) return toast("이미 있는 계정입니다");
+  await saveAccess([...(state.access || []), email]);
+  ev.target.reset(); toast(`${email} 추가 — 그 계정으로 Google 로그인하면 들어올 수 있습니다`, 5000);
+};
 // 리스크 키워드: 등급별 3칸
 function renderKeywords() {
   $("#kwCount").textContent = state.keywords.length;
