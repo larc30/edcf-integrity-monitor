@@ -98,6 +98,10 @@ meta/status, meta/progress, meta/settings{relay_url,keywords_version}, meta/repo
 - (v24) EXIMIIS 제재 명단 202건 = 사용자가 13:47 코랩 업체 CSV를 옛 설정 화면의 명단 칸에 올린 것(파일명이 'EDCF_…'로 시작해 헷갈림). 실제 제재 명단은 EXIMIIS 13건. 대응: 상태·제재기간이 둘 다 없는 행은 제재 기록이 아님 → 스캐너 match_edcf·대시보드 edcfMatches 에서 제외(다음 스캔 때 가짜 'edcf-' 기록 자동 삭제), 명단 창에 경고 + [잘못된 명단 비우기](clearEdcf), 버튼 배지 '확인 필요'.
   - 사업 관리: 역할 칸 안 순서(engagement.order, 맨 위 = 대표사, 2곳 이상일 때 '대표' 표시), ▲ 버튼·다른 업체 줄 위에 끌어 놓기로 순서 변경(reorderZone), 카드에 [수정][삭제] 둘 다. 대시보드 사업 줄·보고서도 역할 → 순서.
 - (중요) 2026-11-04 15시경 Firestore 무료(Spark) 한도 초과 — 429 Quota exceeded(하루 읽기 5만 건). 원인: 대시보드가 5분마다 전체 다시 읽기(업체 207·관련 이슈 ~1,000·명단 202 ≈ 1,500건/회) + 스캔·진단 실행. 한도는 태평양 자정(한국 17시)에 초기화. 대응: autoRefresh 는 meta/status 1건만 읽고 last_scan_at 이 바뀐 때만 loadAll(10분 간격), run.py log_counts 는 count() 집계로. 진단용 preview/scan 을 함부로 돌리지 말 것. 데이터가 더 늘면 Blaze(종량제) 전환 권장.
+- (v26, 11-04 19시) 스캔 변경분만: 업체별 이미 본 기사 키를 seen/{업체 id} 문서에 보관, run_scan 은 관련 이슈(relevant)만 한 번에 읽어 업체별로 나눔 → 업체별 findings 전체 읽기 제거(시험 기준 데일리 읽기 3,900 → 470). 첫 스캔·다시 스캔(업체 1~3곳 지정, force)은 10년 범위, 이후 매일은 last_news_at 7일 전부터. force 는 주간 제한 없이 업체명 검색(Google+네이버)하고 예전에 관련 없다고 본 기사도 다시 판정. seen 문서가 없으면 그 업체만 한 번 전체를 읽어 만듦.
+  - 11-04 정리 스캔: 업체 216 · 사업 9 · EDCF 13건(사용자가 올바른 명단 업로드), 가짜 EDCF 기록 191건 삭제, 0 오류, 3분. 영진종합건설 다시 스캔(force) → 92건 수집·57건 판정·새 이슈 16건.
+  - 로그인 계정: 관리자 = firebase-config.js ALLOWED_EMAILS(고정), 추가 계정 = meta/access.emails(설정 > 로그인 계정). firestore.rules 가 owner() || added() — 사용자가 Firebase 콘솔에서 규칙을 다시 게시해야 추가 계정이 동작. tools/relay.gs 의 ALLOWED_EMAILS 는 웹 앱 중계(거의 안 씀)에만 해당.
+  - EXIMIIS 제재 명단은 설정 오른쪽 카드(요약 + [관리])로 이동. 메일과 대시보드 보고서 구성 통일: 요약(위험·경고·주의 업체, 이슈) → 이슈 → 리스크 업체(등급·업체·참여 사업·역할·미확인) → 사업별 현황.
 
 ## 남은 일
 - 사용자: Apps Script 중계 설정, monitor.yml 웹에서 한 번 수정(예약 실행), EXIMIIS 엑셀 업로드, 코랩 명단 붙여넣기, (선택) 네이버 API HUB·SMTP·ANTHROPIC 키.

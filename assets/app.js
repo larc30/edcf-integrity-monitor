@@ -1321,7 +1321,7 @@ function bindDnd() {
     const c = state.companies.find((x) => x.id === cid);
     c.engagements.splice(+i, 1);
     await saveEngagements(c);
-    toast(c.engagements.length ? `'${c.name}'을(를) 이 사업에서 뺐습니다` : `'${c.name}'은(는) EDCF 주요 업체(기본 감시)로 남겨뒀습니다`);
+    toast(c.engagements.length ? `'${c.name}'을(를) 이 사업에서 뺐습니다` : `'${c.name}'은(는) 사업 연결 없이 업체 관리에 남아 있습니다`);
     rerender();
   });
   // 사업 삭제 → 소속 업체는 미배정으로
