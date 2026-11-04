@@ -97,6 +97,15 @@ def update_many(name: str, patches: dict[str, dict]) -> None:
         batch.commit()
 
 
+def get_many(name: str, ids: list[str]) -> dict[str, dict | None]:
+    """문서 여러 개를 한 번에 읽기 {id: data 또는 None(없음)}"""
+    col, out = db().collection(name), {}
+    for i in range(0, len(ids), 300):
+        for snap in db().get_all([col.document(x) for x in ids[i : i + 300]]):
+            out[snap.id] = snap.to_dict() if snap.exists else None
+    return out
+
+
 def delete_many(name: str, ids: list[str]) -> None:
     col = db().collection(name)
     for i in range(0, len(ids), 400):

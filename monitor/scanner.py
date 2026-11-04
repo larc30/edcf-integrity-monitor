@@ -235,7 +235,10 @@ def _identify(company: dict, errors: list) -> dict:
 
 def scan_company(company: dict, projects: dict, keywords: list[dict], entries: list[dict], lists_ok: int,
                  sweep_hits: list[dict] | None = None, sweep_engines: list[str] | None = None, sweep_total: int = 0,
-                 edcf: list[dict] | None = None) -> dict:
+                 edcf: list[dict] | None = None, existing: list[dict] | None = None, seen_doc: dict | None = None,
+                 force: bool = False) -> dict:
+    """existing: 이 업체의 관련 이슈(relevant) 목록, seen_doc: 이미 본 기사 키 요약(seen/{업체 id}),
+    force: 업체 하나만 '다시 스캔' — 주간 제한 없이 업체명 검색, 10년 범위, 예전에 관련 없다고 본 기사도 다시 판정"""
     t0 = time.time()
     errors: list[str] = []
     stats = {"fetched": 0, "candidates": 0, "new_findings": 0, "official": 0, "cleaned": 0}
@@ -246,7 +249,7 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
     # 집중 감시: 우리 사업에 연결된 업체(또는 직접 지정) → 매일 업체명 검색
     # 기본 감시: 그 외 명단 업체 → 매일 제재 키워드 대조 + 조달청·MDB, 업체명 검색은 주 1회
     focus = bool(engagements) or bool(company.get("watch"))
-    weekly_due = _days_since(company.get("last_deep_at")) >= config.DEEP_EVERY_DAYS
+    weekly_due = force or _days_since(company.get("last_deep_at")) >= config.DEEP_EVERY_DAYS
     deep = focus and weekly_due
     if focus:
         queries = _queries(company, keywords, deep)
@@ -257,7 +260,12 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         queries = []
 
     # 1) 뉴스 수집 (제재 키워드 검색에서 이 업체가 나온 기사 + 업체명 검색)
-    cutoff = (date.today() - timedelta(days=config.NEWS_LOOKBACK_DAYS)).isoformat()
+    # 기간: 첫 스캔·다시 스캔은 10년(과거 이력 포함), 그 뒤 매일은 마지막 확인 7일 전부터 (이미 본 기사는 키로 건너뜀)
+    last_news = company.get("last_news_at")
+    if force or not last_news:
+        cutoff = (date.today() - timedelta(days=config.NEWS_LOOKBACK_DAYS)).isoformat()
+    else:
+        cutoff = (datetime.strptime(last_news[:10], "%Y-%m-%d").date() - timedelta(days=7)).isoformat()
     seen, articles, engines_ok = set(), [], set(sweep_engines or [])
     for a in sweep_hits or []:
         if a["dedup_key"] not in seen:
@@ -281,8 +289,13 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
 
     # 2) 필터: 기간, 업체명 정확 일치, 이미 분석한 기사 제외
     names, ctx = _company_names(company), context_words(company)
-    existing = store.where("findings", "company_id", "==", company["id"])
-    known = {f.get("dedup_key") for f in existing}
+    # 이미 본 기사: 요약 문서(seen)의 키 + 관련 이슈의 키. 요약이 아직 없으면 이 업체 기록을 한 번 전부 읽어서 만듦
+    seen_keys = set((seen_doc or {}).get("keys") or [])
+    if existing is None or seen_doc is None:
+        allf = store.where("findings", "company_id", "==", company["id"])
+        seen_keys |= {f.get("dedup_key") for f in allf if f.get("dedup_key")}
+        existing = [f for f in allf if f.get("relevant")]
+    known = {f.get("dedup_key") for f in existing} | (set() if force else seen_keys)
     mentioned = [
         a for a in articles
         if (not a["published_at"] or a["published_at"] >= cutoff) and mentions(f"{a['title']} {a.get('snippet', '')}", names, ctx)
@@ -421,6 +434,13 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
     }}
     if (deep or (not focus and queries)) and engines_ok:
         patch["last_deep_at"] = store.now_str()
+    if engines_ok:
+        patch["last_news_at"] = store.now_str()
+    # 이미 본 기사 키 요약 갱신 (다음 스캔 때 전체 기록을 읽지 않도록)
+    new_keys = {a["dedup_key"] for a in cands} | {f["dedup_key"] for f in official}
+    if seen_doc is None or not new_keys <= seen_keys:
+        store.update("seen", company["id"], {"keys": sorted((seen_keys | new_keys | {f.get("dedup_key") for f in existing}) - {None}),
+                                             "updated_at": store.now_str()})
     store.update("companies", company["id"], patch)
     stats["errors"] = errors
     stats["deep"] = deep
@@ -467,6 +487,16 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
     lists_sec = round(time.time() - t_lists, 1)
     hits = match_sweep(sweep_articles, companies)
     edcf = store.all_docs("edcf_sanctions")
+    # 업체별 관련 이슈는 한 번에 읽고(관련 없는 기사는 읽지 않음), 이미 본 기사 키 요약도 한 번에
+    rel_by: dict[str, list] = {}
+    for f in store.where("findings", "relevant", "==", True):
+        rel_by.setdefault(f.get("company_id"), []).append(f)
+    try:
+        seen_docs = store.get_many("seen", [c["id"] for c in companies])
+    except Exception as e:
+        log.warning("seen 요약 읽기 실패 → 업체별로 읽음: %s", e)
+        seen_docs = {}
+    force = bool(only_names) and len(companies) <= 3  # 업체 1~3곳만 다시 스캔: 꼼꼼하게
     # 매뉴얼: MDB는 영문명 조회 후 국적 대한민국으로 최종 확인 → 한국 국적 제재 기업 목록을 따로 기록
     korea = [{"name": e["name"], "dataset": e["dataset"], "sanctions": (e.get("sanctions") or "")[:200],
               "url": f"https://www.opensanctions.org/entities/{e['entity_id']}/"}
@@ -481,7 +511,9 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
     lock, done = threading.Lock(), 0
     with ThreadPoolExecutor(max_workers=config.SCAN_WORKERS) as ex:
         futs = {ex.submit(scan_company, c, projects, keywords, entries, lists_ok,
-                          hits.get(c["id"], []), sweep_engines, len(sweep_articles), edcf): c for c in companies}
+                          hits.get(c["id"], []), sweep_engines, len(sweep_articles), edcf,
+                          rel_by.get(c["id"], []) if c["id"] in seen_docs and seen_docs[c["id"]] is not None else None,
+                          seen_docs.get(c["id"]), force): c for c in companies}
         for fut in as_completed(futs):
             c = futs[fut]
             try:
