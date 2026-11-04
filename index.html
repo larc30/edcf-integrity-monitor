@@ -19,7 +19,7 @@
   }
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="assets/style.css?v=17">
+<link rel="stylesheet" href="assets/style.css?v=18">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -55,9 +55,8 @@
   <main class="main">
     <!-- ================= 대시보드 (한 화면) ================= -->
     <section id="view-home" class="view">
-      <div class="dash" id="dash" data-layout="a">
-        <div class="hero-bg" aria-hidden="true"></div>
-        <!-- 제목 · 보기 범위 · 스캔 -->
+      <div class="dash" id="dash">
+        <!-- 제목 ─ 보기 범위 · 스캔 -->
         <div class="d-title">
           <div class="d-titles">
             <div class="eyebrow" id="heroDate">RISK BRIEFING</div>
@@ -65,38 +64,40 @@
             <div class="hero-sub" id="sumSub">-</div>
           </div>
           <div class="d-ctrl">
-            <div class="scope-switch" id="scopeSeg"></div>
-            <div class="scope-desc" id="scopeDesc"></div>
-            <div class="scan-row">
+            <div class="ctrl-row">
+              <div class="scope-switch" id="scopeSeg"></div>
               <button class="btn primary glow" id="btnScan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg><span>지금 스캔</span></button>
               <button class="btn stop hidden" id="btnStop">중지</button>
-              <div id="jobState" class="job-inline"></div>
             </div>
+            <div class="scope-desc" id="scopeDesc"></div>
+            <div id="jobState" class="job-inline"></div>
           </div>
           <div id="guide" class="notice hidden"></div>
         </div>
-        <!-- 요약: 위험·경고·주의 업체, 확인할 이슈 -->
-        <div class="d-kpi" id="kboard"></div>
+        <!-- 리스크 업체(위험·경고·주의) + 확인할 이슈(비고) -->
+        <div class="d-risk">
+          <div class="card risk-card" id="kboard"></div>
+          <button class="note-card" id="noteCard"></button>
+        </div>
         <!-- 리스크 레이더 -->
         <div class="d-radar">
-          <div class="radar" id="radar" title="누르면 다시 훑어봅니다"></div>
+          <div class="radar" id="radar" title="빈 곳을 누르면 다시 훑어봅니다"></div>
           <div class="radar-cap" id="radarCap"></div>
         </div>
-        <!-- 확인이 필요한 이슈 -->
-        <div class="card d-issues">
-          <div class="card-head"><h2>확인이 필요한 이슈 <span class="count" id="issueCount">0</span></h2><div class="seg" id="periodSeg"></div></div>
-          <div id="levelNote"></div>
-          <div id="feed" class="feed"></div>
-          <details id="doneWrap" class="more hidden"><summary>확인 완료한 이슈 보기</summary><div id="feedDone" class="feed" style="margin-top:8px"></div></details>
-        </div>
-        <!-- 사업 현황 -->
+        <!-- 담당 사업 (오른쪽, 세로로 길게) -->
         <div class="card d-projects">
           <div class="card-head"><h2><span id="projTitle">내 담당 사업</span> <span class="count" id="projN">0</span></h2><span class="legend"><span class="role fs">F/S</span><span class="role consult">컨설턴트</span><span class="role buy">본구매</span></span></div>
           <div id="projectMap" class="plist"></div>
           <div id="dataCheck"></div>
         </div>
+        <!-- 확인이 필요한 이슈 -->
+        <div class="card d-issues" id="issuesCard">
+          <div class="card-head"><h2>확인이 필요한 이슈 <span class="count" id="issueCount">0</span></h2><div class="seg" id="periodSeg"></div></div>
+          <div id="levelNote"></div>
+          <div id="feed" class="feed"></div>
+          <details id="doneWrap" class="more hidden"><summary>확인 완료한 이슈 보기</summary><div id="feedDone" class="feed" style="margin-top:8px"></div></details>
+        </div>
       </div>
-      <div class="layout-pick" id="layoutPick"></div>
     </section>
 
     <!-- ================= 업체·사업 ================= -->
@@ -178,6 +179,6 @@
 <aside class="drawer" id="drawer"><div class="drawer-head"><div id="drawerTitle"></div><button class="btn sm" id="drawerClose">닫기</button></div><div id="drawerBody" class="drawer-body"></div></aside>
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div id="toast" class="toast"></div>
-<script type="module" src="assets/app.js?v=17"></script>
+<script type="module" src="assets/app.js?v=18"></script>
 </body>
 </html>

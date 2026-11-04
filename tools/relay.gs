@@ -9,6 +9,7 @@
  *  2) 배포 → 새 배포 → 유형: 웹 앱 / 실행 계정: 나 / 액세스 권한: 모든 사용자 → 배포 → 웹 앱 URL 복사
  *  3) 대시보드 → 설정 → 연결 상태 → '즉시 실행 중계'에 URL 붙여넣기
  *  (회사망에서 script.google.com이 막혀 있으면 2·3 대신) 왼쪽 ⏰ 트리거 → tick 함수를 5분마다 실행하도록 추가
+ *  4) 매일 아침 자동 스캔: 왼쪽 ⏰ 트리거 → daily 함수 / 일 단위 타이머 / 오전 7시~8시
  */
 const REPO = "larc30/edcf-integrity-monitor";
 const WORKFLOW = "monitor.yml";
@@ -36,7 +37,7 @@ function doPost(e) {
     if (cache.get("recent")) return json_({ ok: true, skipped: true });
 
     // 3) GitHub Actions 실행 (대기 중인 요청을 처리하는 queue 작업)
-    const res = dispatchQueue_();
+    const res = dispatch_({ task: "queue", companies: "", test_to: "" });
     if (res.ok) cache.put("recent", "1", 60);
     return json_(res);
   } catch (err) {
@@ -44,13 +45,13 @@ function doPost(e) {
   }
 }
 
-function dispatchQueue_() {
+function dispatch_(inputs) {
   const token = PropertiesService.getScriptProperties().getProperty("GITHUB_TOKEN");
   if (!token) return { ok: false, error: "스크립트 속성에 GITHUB_TOKEN이 없습니다" };
   const r = UrlFetchApp.fetch("https://api.github.com/repos/" + REPO + "/actions/workflows/" + WORKFLOW + "/dispatches", {
     method: "post", contentType: "application/json", muteHttpExceptions: true,
     headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json" },
-    payload: JSON.stringify({ ref: "main", inputs: { task: "queue", companies: "", test_to: "" } }),
+    payload: JSON.stringify({ ref: "main", inputs: inputs }),
   });
   const code = r.getResponseCode();
   return code === 204 || code === 200 ? { ok: true } : { ok: false, error: "GitHub " + code + ": " + r.getContentText().slice(0, 200) };
@@ -65,8 +66,18 @@ function tick() {
   const kst = new Date(Date.now() + 9 * 3600 * 1000);
   const h = kst.getUTCHours(), d = kst.getUTCDay();
   if (d === 0 || d === 6 || h < 8 || h >= 19) return;
-  const res = dispatchQueue_();
+  const res = dispatch_({ task: "queue", companies: "", test_to: "" });
   if (!res.ok) Logger.log(res.error);
+}
+
+/**
+ * 매일 아침 자동 스캔 + 메일. GitHub 자체 예약(07:30)이 자주 건너뛰어져서 Apps Script 타이머로 실행합니다.
+ * 설정: 왼쪽 ⏰ 트리거 → 트리거 추가 → 함수 daily / 시간 기반 / 일 단위 타이머 / 오전 7시~8시 → 저장
+ * (GitHub 예약과 겹쳐도 하루 한 번만 실행됩니다. 메일은 대시보드 '메일 받는 사람'에 등록된 주소로만 갑니다.)
+ */
+function daily() {
+  const res = dispatch_({ task: "daily", companies: "", test_to: "auto" });
+  Logger.log(res.ok ? "매일 스캔 시작 요청 완료" : res.error);
 }
 
 /** 처음 한 번 실행해서 권한을 승인하세요 (실행 ▶ → authorize). */

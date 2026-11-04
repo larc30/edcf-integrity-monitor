@@ -11,6 +11,7 @@ python -m monitor.run dart                  # DART 기업목록 → data/corp_ma
 import argparse
 import json
 import logging
+import os
 import sys
 
 from . import report, scanner, store
@@ -116,6 +117,15 @@ def main() -> int:
     if a.task == "dart":
         log.info("DART 기업목록 %d개 저장", sync_dart())
         return 0
+
+    if a.task == "daily":
+        # 자동 매일 실행(Apps Script 'daily' 트리거 또는 GitHub 예약)은 하루 한 번만 — 둘 다 돌아도 메일이 두 번 가지 않게
+        auto = a.test_to.strip() == "auto" or os.getenv("GITHUB_EVENT_NAME") == "schedule"
+        snap = store.db().collection("meta").document("status").get()
+        last = ((snap.to_dict() or {}) if snap.exists else {}).get("last_daily_at") or ""
+        if auto and last[:10] == store.now_kst().strftime("%Y-%m-%d"):
+            log.info("오늘 아침 자동 실행은 이미 끝났습니다 (%s) → 건너뜀", last)
+            return 0
 
     if a.task in ("daily", "scan"):
         only = [x for x in a.companies.split(",") if x.strip()] or None

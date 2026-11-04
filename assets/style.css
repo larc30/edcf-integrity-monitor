@@ -75,7 +75,7 @@ code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-si
 .main { max-width: 1680px; margin: 0 auto; padding: 18px 24px 40px; }
 @media (max-width: 1180px) { .live, .top-right .user { display: none; } }
 @media (max-width: 900px) {
-  :root { --top: auto; }
+  :root, :root[data-theme="dark"], :root[data-theme="light"] { --top: auto; }
   .topbar-in { flex-wrap: wrap; gap: 8px 12px; padding: 10px 16px; }
   .tabs { order: 3; width: 100%; overflow-x: auto; }
   .logo-t { font-size: 15px; white-space: normal; }
@@ -344,30 +344,32 @@ html.lite .rdot.red, html.lite .rdot.orange, html.lite .dot.red, html.lite .dot.
 .plist > .prow { flex-shrink: 0; }
 
 /* =====================================================================
-   대시보드 v17 — 예전 브리핑 디자인(다크 글래스 + 레이더) 기반, 배치 시안 A/B/C
-   모든 칸은 12열 격자 한 장 위에 놓여 위아래·좌우 선이 맞습니다.
+   대시보드 v18 — 관제실 배치
+   [제목 ─ 범위·스캔] / [리스크 업체 + 확인할 이슈 | 레이더 | 담당 사업(세로로 길게)] / [이슈 | (담당 사업 계속)]
+   12열 격자 한 장 위에 놓아 위아래·좌우 선이 맞습니다.
    ===================================================================== */
-.dash { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; overflow-x: clip; }
+.dash { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-template-rows: auto auto 1fr; gap: 16px; overflow-x: clip;
+  grid-template-areas:
+    "title title title title title title title title title title title title"
+    "risk risk risk radar radar radar radar proj proj proj proj proj"
+    "issues issues issues issues issues issues issues proj proj proj proj proj"; }
 .dash > * { min-width: 0; position: relative; }
-.d-title { grid-area: title; } .d-kpi { grid-area: kpi; } .d-radar { grid-area: radar; } .d-issues { grid-area: issues; } .d-projects { grid-area: proj; }
+.d-title { grid-area: title; } .d-risk { grid-area: risk; } .d-radar { grid-area: radar; } .d-issues { grid-area: issues; } .d-projects { grid-area: proj; }
 .d-issues, .d-projects { margin: 0; }
-
-/* 히어로 판 (A·C에서 제목·요약·레이더를 한 판으로 묶음) */
-.hero-bg { border-radius: 22px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); overflow: hidden; pointer-events: none; }
-.hero-bg::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; background: linear-gradient(135deg, rgba(124, 131, 255, .6), transparent 38%, transparent 62%, rgba(34, 211, 238, .5)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
-.hero-bg::after { content: ""; position: absolute; right: -10%; top: -40%; width: 60%; height: 140%; background: radial-gradient(circle, color-mix(in srgb, var(--accent-2) 12%, transparent), transparent 65%); }
+.d-issues { align-self: start; }
 
 /* 제목 + 범위 + 스캔 */
 .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; color: var(--accent-2); }
 .eyebrow::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 10px var(--accent-2); animation: livePulse 2s infinite; }
 .hero-title .grad { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .hero-sub { color: var(--text-2); font-size: 14px; }
-.d-title { display: flex; flex-direction: column; gap: 18px; }
+.d-title { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; padding: 4px 2px 0; }
 .d-titles { min-width: 0; }
 .d-title .hero-title { font-size: 32px; font-weight: 850; margin: 8px 0 6px; line-height: 1.15; letter-spacing: -0.03em; }
-.d-title .hero-sub { font-size: 13.5px; color: var(--text-2); }
-.d-ctrl { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
-.scope-switch { display: inline-flex; padding: 4px; gap: 4px; border-radius: 14px; background: var(--panel-2); border: 1px solid var(--line); }
+.d-title .hero-sub { font-size: 13.5px; }
+.d-ctrl { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.ctrl-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.scope-switch { display: inline-flex; padding: 4px; gap: 4px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); }
 .scope-switch:empty { display: none; }
 .sc-btn { --sc: var(--accent-2); display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px 7px 8px; border-radius: 10px; border: 0; background: transparent; color: var(--text-2); font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
 .sc-btn.all { --sc: var(--accent); }
@@ -376,15 +378,13 @@ html.lite .rdot.red, html.lite .rdot.orange, html.lite .dot.red, html.lite .dot.
 .sc-ic svg { width: 14px; height: 14px; }
 .sc-n { font-size: 12px; font-weight: 800; padding: 0 7px; border-radius: 999px; background: var(--panel-2); color: var(--muted); font-variant-numeric: tabular-nums; }
 .sc-btn.active { background: color-mix(in srgb, var(--sc) 16%, transparent); color: var(--text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sc) 55%, transparent); }
-.sc-btn.active .sc-ic { background: var(--sc); color: #fff; }
-.sc-btn.active .sc-n { background: var(--sc); color: #fff; }
-.scope-desc { font-size: 12px; color: var(--muted); margin-top: -4px; padding-left: 4px; }
+.sc-btn.active .sc-ic, .sc-btn.active .sc-n { background: var(--sc); color: #fff; }
+.scope-desc { font-size: 12px; color: var(--muted); }
 .scope-desc:empty { display: none; }
-.scan-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 #btnScan { padding: 11px 20px; border-radius: 13px; font-size: 14px; }
 #btnScan svg { width: 16px; height: 16px; }
 #btnScan.busy svg { animation: spin 1.1s linear infinite; }
-.job-inline { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; }
+.job-inline { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; font-size: 12.5px; }
 .job-inline:empty { display: none; }
 .jline { display: inline-flex; align-items: center; gap: 7px; color: var(--text-2); font-weight: 650; }
 .jline .spinner { width: 12px; height: 12px; }
@@ -392,29 +392,41 @@ html.lite .rdot.red, html.lite .rdot.orange, html.lite .dot.red, html.lite .dot.
 .jline a { color: inherit; text-decoration: underline; }
 .jbar { width: 200px; height: 4px; border-radius: 999px; background: var(--panel-2); overflow: hidden; }
 .jbar i { display: block; height: 100%; background: var(--grad); transition: width .5s; }
-.d-title #guide { font-size: 13px; }
+.d-title #guide { flex-basis: 100%; font-size: 13px; }
 
-/* 요약 카드: 숫자 + 지금 상태 + 등급 뜻 (i 대신 글로) */
-.d-kpi { display: grid; gap: 12px; align-content: stretch; }
-.kc { --c: var(--text-2); position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 2px; min-width: 0; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); font: inherit; text-align: left; cursor: pointer; overflow: hidden; transition: border-color .15s, transform .15s; }
-.kc:hover { border-color: color-mix(in srgb, var(--c) 55%, transparent); transform: translateY(-1px); }
-.kc.red { --c: var(--red); } .kc.orange { --c: var(--orange); } .kc.yellow { --c: var(--yellow); } .kc.note { --c: var(--accent-2); }
-.kc.on { border-color: color-mix(in srgb, var(--c) 40%, transparent); }
-.kc.on::before { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 15% 0%, color-mix(in srgb, var(--c) 24%, transparent), transparent 70%); pointer-events: none; }
-.kc.sel { border-color: var(--c); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 40%, transparent); }
-.kc-head { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 800; color: var(--c); }
-.kc-head .dot { background: var(--c); width: 7px; height: 7px; }
-.kc.note .kc-head { color: var(--text-2); }
-.kc-num { font-size: 34px; font-weight: 850; line-height: 1.1; color: var(--c); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
-.kc.note .kc-num { color: var(--text); }
-.kc-num small { font-size: 13px; font-weight: 650; color: var(--muted); margin-left: 3px; letter-spacing: 0; }
-.kc-state { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.kc-state.zero { color: var(--green); font-weight: 650; }
-.kc-desc { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 리스크 업체: 위험·경고·주의를 한 판에 */
+.d-risk { display: flex; flex-direction: column; gap: 12px; }
+.risk-card { flex: 1; display: flex; flex-direction: column; margin: 0; padding: 16px 16px 8px; }
+.risk-card .card-head { margin-bottom: 6px; }
+.risk-card .card-head h2 { font-size: 14px; }
+.rk { --c: var(--text-2); flex: 1; display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: 2px 12px; padding: 10px 6px 10px 12px; margin: 0 -6px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; position: relative; transition: background .15s; }
+.rk:first-of-type { border-top: 0; }
+.rk::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 3px; background: var(--c); opacity: .35; }
+.rk.on::before { opacity: 1; box-shadow: 0 0 10px var(--c); }
+.rk:hover { background: var(--panel-2); }
+.rk.sel { background: color-mix(in srgb, var(--c) 12%, transparent); }
+.rk.red { --c: var(--red); } .rk.orange { --c: var(--orange); } .rk.yellow { --c: var(--yellow); }
+.rk-num { grid-row: 1 / 4; font-size: 34px; font-weight: 850; line-height: 1; color: var(--c); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+.rk-num small { font-size: 12px; font-weight: 650; color: var(--muted); margin-left: 2px; letter-spacing: 0; }
+.rk:not(.on) .rk-num { opacity: .55; }
+.rk-lv { font-size: 13px; font-weight: 800; color: var(--c); }
+.rk-names { font-size: 12.5px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rk-names.zero { color: var(--muted); font-weight: 500; }
+.rk-desc { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 확인할 이슈: 리스크 등급과 다른 '비고' 카드 */
+.note-card { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 4px 14px; padding: 14px 16px; border-radius: var(--radius); border: 1.5px dashed var(--line-2); background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: border-color .15s, background .15s; }
+.note-card:hover { border-color: var(--accent-2); background: var(--panel-2); }
+.nc-tag { grid-column: 1 / -1; justify-self: start; font-size: 10.5px; font-weight: 800; letter-spacing: .08em; padding: 1px 7px; border-radius: 5px; background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); }
+.nc-num { font-size: 30px; font-weight: 850; line-height: 1; font-variant-numeric: tabular-nums; }
+.nc-num small { font-size: 12px; font-weight: 650; color: var(--muted); margin-left: 2px; }
+.nc-t b { font-size: 13.5px; } .nc-t div { font-size: 12px; color: var(--muted); }
+.nc-go { grid-column: 1 / -1; font-size: 12px; font-weight: 700; color: var(--accent-2); }
 
-/* 리스크 레이더: 색 띠 = 등급, 가운데일수록 위험. 평소 회전, 누르면 다시 훑기, 스캔 중 빠르게 */
-.d-radar { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
-.radar { position: relative; width: 100%; aspect-ratio: 1; border-radius: 50%; cursor: pointer; user-select: none; }
+/* 리스크 레이더: 색 띠 = 등급(가운데일수록 위험). 항상 천천히 회전, 빈 곳을 누르면 다시 훑기, 스캔 중 빠르게 */
+.d-radar { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 18px 22px; border-radius: 22px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); overflow: hidden; }
+.d-radar::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; background: linear-gradient(135deg, rgba(124, 131, 255, .6), transparent 40%, transparent 60%, rgba(34, 211, 238, .5)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+.d-radar::after { content: ""; position: absolute; inset: 15% 10%; background: radial-gradient(circle, color-mix(in srgb, var(--accent-2) 10%, transparent), transparent 65%); pointer-events: none; }
+.radar { position: relative; z-index: 1; width: 100%; max-width: 320px; aspect-ratio: 1; border-radius: 50%; cursor: pointer; user-select: none; }
 .radar svg.grid { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .radar svg.grid circle.band { stroke: none; }
 .radar svg.grid circle.band.none { fill: color-mix(in srgb, var(--green) 7%, transparent); }
@@ -431,11 +443,14 @@ html.lite .rdot.red, html.lite .rdot.orange, html.lite .dot.red, html.lite .dot.
 .radar svg.grid text.bl.none { fill: var(--green); } .radar svg.grid text.bl.yellow { fill: var(--yellow); }
 .radar svg.grid text.bl.orange { fill: var(--orange); } .radar svg.grid text.bl.red { fill: var(--red); }
 .sweep { position: absolute; inset: 1.5%; border-radius: 50%; pointer-events: none; will-change: transform;
-  background: conic-gradient(from 0deg, transparent 0deg, transparent 285deg, color-mix(in srgb, var(--accent-2) 8%, transparent) 320deg, color-mix(in srgb, var(--accent-2) 42%, transparent) 359deg, transparent 360deg);
-  animation: spin var(--sweep, 6s) linear infinite; }
+  background: conic-gradient(from 0deg, transparent 0deg, transparent 280deg, color-mix(in srgb, var(--accent-2) 10%, transparent) 318deg, color-mix(in srgb, var(--accent-2) 50%, transparent) 359deg, transparent 360deg);
+  animation: radarSpin var(--sweep, 6s) linear infinite; }
+:root[data-theme="light"] .sweep { background: conic-gradient(from 0deg, transparent 0deg, transparent 280deg, color-mix(in srgb, var(--accent-2) 14%, transparent) 318deg, color-mix(in srgb, var(--accent-2) 60%, transparent) 359deg, transparent 360deg); }
+@keyframes radarSpin { to { transform: rotate(360deg); } }
+@keyframes spin { to { transform: rotate(360deg); } } /* 로딩 표시·스캔 버튼 아이콘 */
 .radar.scanning { --sweep: 1.4s; }
-.radar.scanning .sweep { background: conic-gradient(from 0deg, transparent 0deg, transparent 260deg, color-mix(in srgb, var(--accent) 16%, transparent) 310deg, color-mix(in srgb, var(--accent) 62%, transparent) 359deg, transparent 360deg); }
-.radar.burst .sweep { animation: spin .55s cubic-bezier(.3, .1, .3, 1) 3; }
+.radar.scanning .sweep { background: conic-gradient(from 0deg, transparent 0deg, transparent 260deg, color-mix(in srgb, var(--accent) 18%, transparent) 310deg, color-mix(in srgb, var(--accent) 65%, transparent) 359deg, transparent 360deg); }
+.radar.burst .sweep { animation: radarSpin .55s cubic-bezier(.3, .1, .3, 1) 3; }
 .radar::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--accent-2); opacity: 0; transform: scale(.1); pointer-events: none; }
 .radar.burst::after { animation: wave 1.1s ease-out 2; }
 @keyframes wave { 0% { opacity: .9; transform: scale(.1); } 100% { opacity: 0; transform: scale(1.04); } }
@@ -457,10 +472,10 @@ html.lite .rdot.red, html.lite .rdot.orange, html.lite .dot.red, html.lite .dot.
 .rlabel.l { transform: translate(calc(-100% - 10px), -50%); }
 .rlabel.red { --c: var(--red); } .rlabel.orange { --c: var(--orange); } .rlabel.yellow { --c: var(--yellow); }
 .radar-tip { position: absolute; z-index: 6; pointer-events: none; padding: 6px 10px; border-radius: 9px; background: var(--panel-solid); border: 1px solid var(--line-2); font-size: 12px; white-space: nowrap; transform: translate(-50%, -135%); box-shadow: var(--shadow); }
-.radar-cap { font-size: 11.5px; color: var(--muted); text-align: center; line-height: 1.5; }
+.radar-cap { position: relative; z-index: 1; font-size: 11.5px; color: var(--muted); text-align: center; line-height: 1.5; }
 .radar-cap b { color: var(--text-2); font-weight: 650; }
 
-/* 이슈 목록 */
+/* 확인이 필요한 이슈 */
 .d-issues .card-head { margin-bottom: 14px; }
 .d-issues .feed { display: flex; flex-direction: column; gap: 10px; }
 .chip-x { font: inherit; font-size: 12px; font-weight: 650; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--panel-2); color: var(--text-2); cursor: pointer; margin: -4px 0 12px; }
@@ -472,87 +487,42 @@ html.lite .rdot.red, html.lite .rdot.orange, html.lite .dot.red, html.lite .dot.
 .item-meta .item-actions { margin: 0; display: flex; gap: 6px; }
 .item-meta .btn.sm { padding: 3px 11px; }
 
-/* 사업 현황 */
-.d-projects { display: flex; flex-direction: column; }
-.d-projects .plist { overflow: auto; padding-right: 2px; }
-.plist > .prow { flex-shrink: 0; }
-.prow { cursor: default; }
-.dcheck { margin-top: 12px; width: 100%; display: flex; align-items: center; gap: 8px; font: inherit; font-size: 12.5px; font-weight: 650; text-align: left; padding: 10px 12px; border-radius: 12px; border: 1px dashed var(--line-2); background: transparent; color: var(--text-2); cursor: pointer; }
+/* 담당 사업: 오른쪽에 세로로 길게(스크롤해도 따라옴). 사업마다 업체 등급 분포를 그대로 보여줌 */
+.d-projects { display: flex; flex-direction: column; align-self: start; position: sticky; top: calc(var(--top) + 16px); max-height: calc(100vh - var(--top) - 32px); }
+.d-projects .plist { flex: 1; min-height: 0; overflow: auto; padding-right: 2px; display: flex; flex-direction: column; gap: 8px; }
+.pj { flex-shrink: 0; padding: 11px 13px 12px; border: 1px solid var(--line); border-radius: 13px; background: var(--panel-2); transition: border-color .15s, background .15s; }
+.pj:hover { border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: var(--accent-soft); }
+.pj-top { display: flex; align-items: baseline; gap: 8px; }
+.pj-name { flex: 1; min-width: 0; font-weight: 750; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pj-ctry { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.pj-dist { display: flex; align-items: center; gap: 10px; margin: 8px 0 9px; }
+.pj-bar { flex: 1; display: flex; gap: 2px; height: 6px; }
+.pj-bar i { display: block; height: 100%; border-radius: 3px; }
+.pj-bar .red { background: var(--red); } .pj-bar .orange { background: var(--orange); } .pj-bar .yellow { background: var(--yellow); }
+.pj-bar .none { background: color-mix(in srgb, var(--green) 55%, transparent); } .pj-bar .pending { background: var(--line-2); }
+.pj-sum { display: flex; gap: 8px; font-size: 11.5px; font-weight: 750; white-space: nowrap; }
+.pj-sum .red { color: var(--red); } .pj-sum .orange { color: var(--orange); } .pj-sum .yellow { color: var(--yellow); }
+.pj-sum .ok { color: var(--green); font-weight: 650; } .pj-sum .tot { color: var(--muted); font-weight: 600; }
+.pcos { display: flex; flex-wrap: wrap; gap: 5px; }
+.dcheck { margin-top: 12px; width: 100%; flex-shrink: 0; display: flex; align-items: center; gap: 8px; font: inherit; font-size: 12.5px; font-weight: 650; text-align: left; padding: 10px 12px; border-radius: 12px; border: 1px dashed var(--line-2); background: transparent; color: var(--text-2); cursor: pointer; }
 .dcheck:hover { border-color: var(--accent); color: var(--text); }
 .dcheck .go { margin-left: auto; color: var(--muted); }
 
-/* ---------- 시안 A · 브리핑: [제목·범위·스캔 | 요약 2×2 | 레이더] / [이슈 | 사업] ---------- */
-.dash[data-layout="a"] { grid-template-areas:
-  "title title title title kpi kpi kpi kpi kpi radar radar radar"
-  "issues issues issues issues issues issues issues issues issues proj proj proj"; }
-.dash[data-layout="a"] .hero-bg { grid-area: 1 / 1 / 2 / -1; }
-.dash[data-layout="a"] .d-title { padding: 28px 8px 28px 30px; justify-content: center; }
-.dash[data-layout="a"] .d-kpi { padding: 24px 0; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; }
-.dash[data-layout="a"] .d-radar { padding: 20px 26px 20px 4px; }
-.dash[data-layout="a"] .radar { max-width: 262px; }
-.dash[data-layout="a"] .d-projects { align-self: start; position: sticky; top: calc(var(--top) + 16px); }
-.dash[data-layout="a"] .d-projects .plist { max-height: calc(100vh - var(--top) - 190px); }
-
-/* ---------- 시안 B · 관제실: [제목 ─ 범위·스캔] / [요약 세로 | 큰 레이더 | 사업] / [이슈] ---------- */
-.dash[data-layout="b"] { grid-template-rows: auto 540px auto; grid-template-areas:
-  "title title title title title title title title title title title title"
-  "kpi kpi kpi radar radar radar radar radar radar proj proj proj"
-  "issues issues issues issues issues issues issues issues issues issues issues issues"; }
-.dash[data-layout="b"] .hero-bg { grid-area: 2 / 4 / 3 / 10; }
-.dash[data-layout="b"] .d-title { flex-direction: row; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; padding: 4px 2px 0; }
-.dash[data-layout="b"] .d-ctrl { align-items: flex-end; }
-.dash[data-layout="b"] .d-ctrl .scope-desc { padding: 0 4px 0 0; }
-.dash[data-layout="b"] .d-kpi { grid-template-columns: 1fr; grid-auto-rows: 1fr; }
-.dash[data-layout="b"] .kc { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto auto; column-gap: 14px; align-content: center; background: var(--panel); box-shadow: var(--shadow); }
-.dash[data-layout="b"] .kc-head { grid-column: 2; grid-row: 1; }
-.dash[data-layout="b"] .kc-num { grid-column: 1; grid-row: 1 / 4; align-self: center; font-size: 40px; min-width: 64px; }
-.dash[data-layout="b"] .kc-state { grid-column: 2; grid-row: 2; }
-.dash[data-layout="b"] .kc-desc { grid-column: 2; grid-row: 3; }
-.dash[data-layout="b"] .d-radar { padding: 22px; }
-.dash[data-layout="b"] .radar { max-width: 440px; }
-.dash[data-layout="b"] .d-projects { min-height: 0; }
-.dash[data-layout="b"] .d-projects .plist { flex: 1; min-height: 0; }
-
-/* ---------- 시안 C · 사이드: 왼쪽 판 [제목·범위·스캔 / 요약 / 레이더 / 사업] | 오른쪽 이슈 ---------- */
-.dash[data-layout="c"] { grid-template-rows: auto auto auto 1fr; grid-template-areas:
-  "title title title title issues issues issues issues issues issues issues issues"
-  "kpi kpi kpi kpi issues issues issues issues issues issues issues issues"
-  "radar radar radar radar issues issues issues issues issues issues issues issues"
-  "proj proj proj proj issues issues issues issues issues issues issues issues"; }
-.dash[data-layout="c"] .hero-bg { grid-area: 1 / 1 / 4 / 5; }
-.dash[data-layout="c"] .d-title { padding: 26px 24px 0; }
-.dash[data-layout="c"] .d-title .hero-title { font-size: 28px; }
-.dash[data-layout="c"] .d-kpi { padding: 0 24px; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; }
-.dash[data-layout="c"] .d-radar { padding: 4px 24px 24px; }
-.dash[data-layout="c"] .radar { max-width: 270px; }
-.dash[data-layout="c"] .d-issues { align-self: start; }
-.dash[data-layout="c"] .d-projects { align-self: start; }
-.dash[data-layout="c"] .d-projects .plist { max-height: 420px; }
-
-/* 좁은 화면: 모든 시안이 같은 순서로 한 줄 */
+/* 좁은 화면: 제목 → 리스크 업체 → 레이더 → 이슈 → 사업 순으로 한 줄 */
 @media (max-width: 1100px) {
-  .dash[data-layout] { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: "title" "kpi" "radar" "issues" "proj"; }
-  .dash[data-layout] .hero-bg { grid-area: 1 / 1 / 4 / 2; display: block; }
-  .dash[data-layout] .d-title { flex-direction: column; align-items: stretch; padding: 22px 20px 0; }
-  .dash[data-layout] .d-ctrl { align-items: flex-start; }
-  .dash[data-layout] .d-kpi { padding: 0 20px; grid-template-columns: 1fr 1fr; }
-  .dash[data-layout] .kc { display: flex; background: var(--panel-2); box-shadow: none; }
-  .dash[data-layout] .kc-num { font-size: 30px; min-width: 0; }
-  .dash[data-layout] .d-radar { padding: 6px 20px 22px; }
-  .dash[data-layout] .radar { max-width: 300px; }
-  .dash[data-layout] .d-projects { position: static; }
-  .dash[data-layout] .d-projects .plist { max-height: 480px; }
+  .dash { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: "title" "risk" "radar" "issues" "proj"; }
+  .d-title { flex-direction: column; align-items: stretch; }
+  .d-ctrl { align-items: flex-start; } .ctrl-row { justify-content: flex-start; } .job-inline { align-items: flex-start; }
+  .d-projects { position: static; max-height: none; }
+  .d-projects .plist { max-height: 560px; }
+  .radar { max-width: 300px; }
 }
-@media (max-width: 520px) { .dash[data-layout] .radar { max-width: 220px; } .rlabel { max-width: 86px; font-size: 10.5px; } .d-title .hero-title { font-size: 26px; } .sc-btn { padding: 6px 9px 6px 6px; font-size: 12.5px; } .kc-state { font-size: 12px; } }
-
-/* 시안 고르기 (선택 후 제거 예정) */
-.layout-pick { position: fixed; right: 18px; bottom: 18px; z-index: 25; display: flex; align-items: center; gap: 4px; padding: 5px; border-radius: 14px; background: var(--panel-solid); border: 1px solid var(--line-2); box-shadow: 0 10px 30px rgba(0, 0, 0, .35); font-size: 12.5px; }
-.layout-pick .lp-t { padding: 0 8px 0 6px; color: var(--muted); font-weight: 700; }
-.layout-pick button { font: inherit; font-weight: 700; padding: 6px 11px; border-radius: 10px; border: 0; background: transparent; color: var(--text-2); cursor: pointer; }
-.layout-pick button:hover { color: var(--text); background: var(--panel-2); }
-.layout-pick button.active { background: var(--grad); color: #fff; }
-@media (max-width: 640px) { .layout-pick { left: 12px; right: 12px; bottom: 12px; justify-content: center; } .layout-pick .lp-t { display: none; } }
+@media (max-width: 520px) { .radar { max-width: 230px; } .rlabel { max-width: 86px; font-size: 10.5px; } .d-title .hero-title { font-size: 26px; } .sc-btn { padding: 6px 9px 6px 6px; font-size: 12.5px; } }
 
 /* 데모 표시 */
 .demo-banner { background: var(--grad); color: #fff; text-align: center; font-size: 12.5px; font-weight: 700; padding: 6px 12px; }
 .demo-banner a { color: #fff; text-decoration: underline; }
+
+/* 움직임 줄이기 설정(윈도우 '애니메이션 효과 끄기' 등)이어도 레이더 회전은 천천히 유지 */
+@media (prefers-reduced-motion: reduce) { .sweep { animation: radarSpin 10s linear infinite !important; } }
+html.lite .sweep { animation-duration: 10s !important; }

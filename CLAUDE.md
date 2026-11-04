@@ -60,6 +60,12 @@ meta/status, meta/progress, meta/settings{relay_url,keywords_version}, meta/repo
   - 요약 카드는 i 툴팁 대신 카드 안에 '지금 상태(업체 이름)'와 '등급 뜻'을 글로 표시. 레이더: 평소 회전, 빈 곳 클릭 시 다시 훑기(burst), 스캔 중 빠르게, 처음 열 때 한 번 훑기, 리스크 업체 점은 빛이 지날 때 반짝. 이름표는 fixLabels()로 칸 밖·겹침 자동 회피.
 - 데모: index.html?demo=1 — head 스크립트가 import map으로 Firebase 모듈을 demo/fb-*.js(메모리 가짜 + demo/data.js 가상 데이터)로 바꿔 로그인 없이 화면 확인. [지금 스캔]도 흉내(진행률·완료). 실제 업체명 사용 금지(가상 이름만).
 
+- (v18, 사용자 선택) B 관제실 확정 → 시안 A/C·시안 버튼 제거. 배치: [제목 ─ 범위·스캔] / [리스크 업체 판(위험·경고·주의) + '비고' 확인할 이슈 카드(점선) | 레이더(4열) | 담당 사업(5열, 행 2~3에 걸쳐 세로로 길게, sticky)] / [이슈(7열)].
+  - 사업 줄: '하나라도 위험이면 사업이 위험' 표시를 없애고, 업체 등급 분포 막대 + '위험 1 · 경고 1 / 3곳' 형태로. 위험 많은 사업부터 정렬.
+  - 레이더가 안 돌던 원인: v17 CSS 정리 때 @keyframes spin 을 지워버림 → radarSpin/spin 복구. 윈도우 '애니메이션 끄기'(prefers-reduced-motion)여도 레이더는 10초 회전 유지.
+  - 모바일 다크에서 상단 탭이 제목을 덮던 버그: :root[data-theme=dark] 의 --top:60px 가 미디어쿼리 :root{--top:auto} 보다 우선 → 미디어쿼리에 테마 선택자 추가.
+- 매일 아침 실행: GitHub 예약(30 22)이 이틀 연속 안 옴 → Apps Script daily() (일 단위 타이머 오전 7~8시, test_to='auto') 추가. run.py 는 자동 실행(test_to=auto 또는 GITHUB_EVENT_NAME=schedule)이면 meta/status.last_daily_at 가 오늘일 때 건너뜀(하루 한 번). 수동 Run workflow daily 는 항상 실행.
+
 ## 남은 일
 - 사용자: Apps Script 중계 설정, monitor.yml 웹에서 한 번 수정(예약 실행), EXIMIIS 엑셀 업로드, 코랩 명단 붙여넣기, (선택) 네이버 API HUB·SMTP·ANTHROPIC 키.
 - 2부(수원국 리스크 지도)는 보류.
