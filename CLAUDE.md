@@ -92,6 +92,9 @@ meta/status, meta/progress, meta/settings{relay_url,keywords_version}, meta/repo
 - (v22, 사용자 요청) 탭 이름 '업체 관리'·'사업 관리', 로고(#logoHome) 누르면 대시보드. 업체 관리 버튼 이름 'EXIMIIS 제재 명단'(사용자가 코랩 명단과 헷갈림 — 감시 업체 명단과 별개임을 창에 설명). 창(modal) 닫기 버튼은 마지막 .actions 줄에 나란히(주 버튼 오른쪽).
   - 사업 수정: 카드 제목/[수정] → 사업명·수원국·담당 변경, 사업 삭제도 이 창에서. 역할 색: F/S 청록 · 컨설턴트 파랑 · 본구매 자홍(--consult/--buy).
   - 설정: 메일 카드에 [지금 보내기](report). 'DART 기업목록 갱신' 버튼 제거(스캔 때 corp_master 자동 내려받음). 고급: Apps Script 상태 = meta/status.last_tick_at (run.py: queue + GITHUB_EVENT_NAME=workflow_dispatch 때 기록), 즉시 실행(웹 앱 주소·GitHub 토큰)은 접힌 '선택' 설정으로 설명과 함께. 최근 실행 오류는 눌러서 출처·내용별로 묶어 보기(errGroups, errHint: 시간 초과·한도·키·잔액·서버 오류).
+- (v23) 2026-11-04 실제 207곳 첫 스캔(약 6분): 외부 호출 706건 전부 200 OK (Google 223 · Claude 219 · 조달청 123 · DART 109 · 네이버 22 · OpenSanctions 10). 데모의 '네이버 429·조달청 시간 초과'는 가상 예시 — 사용자가 실제로 오해해서 '(데모 예시)' 표시.
+  - AI 같은 사건 판단: 판정 프롬프트에 그 업체의 최근 이슈 20건(E1~)을 주고 same_event_as(E번호 또는 같은 배치 idx)를 받음 → findings.same_as(다른 기록 id). grouping.py·groupFindings 가 same_as 로도 묶음(⑤). 규칙 ①~④는 그대로.
+  - 보고서(PDF): 대시보드 [보고서] → 범위(내 담당/전체)·이슈 기간·확인 완료 포함 → 숨긴 iframe 에 A4 HTML(메일과 같은 디자인) → 브라우저 인쇄 'PDF로 저장'. 사업별 현황·리스크 업체·확인할 이슈(묶음, 최대 300). 데모에서는 window.__lastReport 로 확인.
 
 ## 남은 일
 - 사용자: Apps Script 중계 설정, monitor.yml 웹에서 한 번 수정(예약 실행), EXIMIIS 엑셀 업로드, 코랩 명단 붙여넣기, (선택) 네이버 API HUB·SMTP·ANTHROPIC 키.

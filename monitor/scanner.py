@@ -309,6 +309,10 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
     feedback = {
         "dismissed": [f.get("title", "")[:120] for f in fb_src if f.get("status") == "dismissed" and f.get("reviewed_by") != "자동 정리"][:12],
         "confirmed": [f.get("title", "")[:120] for f in fb_src if f.get("status") == "reviewed"][:8],
+        # 같은 사건 판단용: 이 업체의 최근 이슈 (AI가 새 기사와 비교해 same_event_as 로 표시)
+        "recent": [{"id": f["id"], "title": f.get("title", ""), "date": f.get("published_at") or "", "summary": f.get("summary") or ""}
+                   for f in sorted((x for x in existing if x.get("relevant") and x.get("status") != "dismissed" and x.get("source_type") == "news"),
+                                   key=lambda x: x.get("published_at") or "", reverse=True)[:20]],
     }
     judgements, used = analyzer.analyze(company, engagements, cands, keywords, feedback)
     by_idx = {j["idx"]: j for j in judgements}
@@ -316,6 +320,10 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
     for i, a in enumerate(cands):
         j = by_idx.get(i, {"relevant": 0, "level": "none"})
         text = f"{a['title']} {a.get('snippet', '')}".lower()
+        same = j.get("same_as")
+        if same and str(same).startswith("idx:"):  # 이번에 함께 들어온 다른 기사 → 그 기록 id
+            n = int(str(same)[4:])
+            same = f"{company['id']}_{cands[n]['dedup_key']}".replace("/", "_")[:1400] if 0 <= n < len(cands) and n != i else None
         to_save.append({
             "source_type": "news",
             "source_name": f"{a.get('source_name') or '-'} ({a.get('via')})",
@@ -331,6 +339,7 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
             "rationale": j.get("rationale"),
             "analyzer": j.get("analyzer", used),
             "dedup_key": a["dedup_key"],
+            "same_as": same or None,
         })
         if j.get("relevant"):
             stats["new_findings"] += 1

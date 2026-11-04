@@ -5,7 +5,7 @@ import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=22";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=23";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -220,6 +220,7 @@ const pubMs = (f) => { const d = f.published_at ? Date.parse(String(f.published_
 //  ② 같은 업체 · 같은 분류(예: 입찰담합) · 보도일 3일 이내 — 여러 매체가 같은 사건을 보도한 경우
 //  ③ 같은 업체 · 제목이 거의 같음 (업체명을 뺀 제목의 글자 쌍 60% 이상 일치)
 //  ④ 같은 업체 · 같은 공식 명단의 기록 여러 건 (예: EDCF 제재 이력)
+//  ⑤ AI(Claude)가 판정할 때 '같은 사건'으로 표시한 기록 (same_as)
 const normTitle = (t) => String(t || "").replace(/\s*[-|]\s*[^-|]{1,30}$/, "").replace(/\[[^\]]{1,12}\]/g, "").replace(/[^0-9a-zA-Z가-힣]/g, "").toLowerCase();
 const bigrams = (x) => { const o = new Set(); for (let i = 0; i < x.length - 1; i++) o.add(x.slice(i, i + 2)); return o; };
 function titleSim(a, b, name) {
@@ -250,6 +251,9 @@ function groupFindings(list) {
     if (u) add(`u|${st}|${u}`, i);
     add(`c|${st}|${f.company_id}`, i);
   });
+  // ⑤ AI가 판정 때 '같은 사건'으로 표시한 기록 (same_as = 다른 기록 id)
+  const byId = new Map(list.map((f, i) => [f.id, i]));
+  list.forEach((f, i) => { const j = byId.get(f.same_as); if (j != null && (list[j].status || "new") === (f.status || "new")) join(j, i); });
   for (const [k, idx] of buckets) {
     if (k[0] !== "c") { idx.slice(1).forEach((j) => join(idx[0], j)); continue; }
     for (let x = 0; x < idx.length; x++) for (let y = x + 1; y < idx.length; y++) if (sameCompanyIssue(list[idx[x]], list[idx[y]])) join(idx[x], idx[y]);
@@ -556,6 +560,130 @@ function renderGroups(groups, el, showCompany = true) {
     rerender();
   }));
 }
+
+// ---------- 보고서 (PDF로 저장) — 대시보드에서 고른 범위 기준, 메일과 같은 디자인 ----------
+const REPORT_PERIODS = [["all", "전체 기간"], ["30", "최근 30일"], ["7", "최근 7일"]];
+function openReport() {
+  modal(`<h2>보고서 내려받기</h2>
+    <p class="muted small">고른 범위의 리스크 업체·사업 현황·확인할 이슈를 A4 보고서로 만듭니다. 인쇄 창의 <b>대상</b>에서 <b>PDF로 저장</b>을 고르세요.</p>
+    <form id="rpForm" class="form" autocomplete="off">
+      <div class="row">
+        <label>범위<select name="scope"><option value="mine" ${scope === "mine" ? "selected" : ""}>내 담당 사업</option><option value="all" ${scope === "all" ? "selected" : ""}>EDCF 전체</option></select></label>
+        <label>이슈 기간<select name="period">${REPORT_PERIODS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select></label>
+      </div>
+      <label class="check"><input type="checkbox" name="done"> 확인 완료한 이슈도 포함</label>
+      <div class="actions"><button class="btn primary">PDF로 저장</button></div>
+    </form>`);
+  $("#rpForm").onsubmit = (ev) => {
+    ev.preventDefault();
+    const fd = Object.fromEntries(new FormData(ev.target));
+    closeModal();
+    printReport(buildReport({ scope: fd.scope, period: fd.period, done: !!fd.done }));
+  };
+}
+function buildReport({ scope: sc0, period, done }) {
+  const C = { red: ["#E11D48", "#FDE8EE", "위험"], orange: ["#EA580C", "#FDEDE3", "경고"], yellow: ["#A16207", "#FBF3DC", "주의"], none: ["#0D9488", "#E2F4F2", "정상"] };
+  const bd = (lv) => { const [fg, bg, l] = C[lv || "none"] || C.none; return `<span class="bd" style="color:${fg};background:${bg}">● ${l}</span>`; };
+  const ROLE_C = { "F/S": "#0E7490", 컨설턴트: "#1D4ED8", 본구매: "#A21CAF" };
+  const role = (r) => `<span class="role" style="color:${ROLE_C[r] || "#3D4A63"}">${esc(r)}</span>`;
+  const sc = scanned();
+  const cs = sc0 === "mine" ? state.companies.filter((c) => c.mine) : state.companies;
+  const ps = sc0 === "mine" ? state.projects.filter(isMine) : state.projects;
+  const ids = new Set(cs.map((c) => c.id));
+  const days = period === "all" ? null : +period;
+  const fs = state.findings.filter((f) => ids.has(f.company_id) && (f.status === "new" || (done && f.status === "reviewed")) && (!days || Date.now() - pubMs(f) <= days * DAY));
+  const groups = groupFindings(fs), MAX = 300;
+  const t = { red: 0, orange: 0, yellow: 0 };
+  cs.forEach((c) => { if (sc && t[c.risk] != null) t[c.risk]++; });
+  const risky = cs.filter((c) => sc && c.risk !== "none").sort((a, b) => LV[b.risk] - LV[a.risk] || b.open - a.open || a.name.localeCompare(b.name));
+  const now = nowStr(), scopeL = sc0 === "mine" ? "내 담당 사업" : "EDCF 전체", periodL = REPORT_PERIODS.find(([k]) => k === period)[1];
+  const projRows = ps.map((p) => {
+    const rows = [];
+    for (const c of state.companies) c.engagements.forEach((e) => { if (e.project_id === p.id) rows.push({ c, e }); });
+    rows.sort((a, b) => ROLE_ORDER.indexOf(a.e.role) - ROLE_ORDER.indexOf(b.e.role));
+    const k = { red: 0, orange: 0, yellow: 0 }; new Set(rows.map((r) => r.c)).forEach((c) => { if (sc && k[c.risk] != null) k[c.risk]++; });
+    return `<tr><td><b>${esc(p.name)}</b>${p.country ? `<div class="mu">${esc(COUNTRY[p.country] || p.country)}</div>` : ""}</td>
+      <td>${rows.map(({ c, e }) => `<div>${role(e.role)} ${esc(c.name)}${e.stage && e.stage !== "계약" ? ` <span class="mu">(${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""})</span>` : ""} ${sc && c.risk !== "none" ? bd(c.risk) : ""}</div>`).join("") || `<span class="mu">연결된 업체 없음</span>`}</td>
+      <td class="c">${["red", "orange", "yellow"].map((lv) => k[lv] ? `<span style="color:${C[lv][0]};font-weight:700">${C[lv][2]} ${k[lv]}</span>` : "").filter(Boolean).join(" · ") || `<span style="color:${C.none[0]}">이상 없음</span>`}</td></tr>`;
+  }).join("");
+  const engL = (c) => byRole(c.engagements).map((e) => `${role(e.role)} ${esc(projName(e.project_id))}${e.stage && e.stage !== "계약" ? ` <span class="mu">(${esc(e.stage)})</span>` : ""}`).join("<br>") || `<span class="mu">사업 미연결</span>`;
+  const issue = (g) => {
+    const f = g.rep, [fg] = C[f.level] || C.none, more = g.items.slice(1);
+    return `<div class="is" style="border-left-color:${fg}">
+      <div class="is-h">${bd(f.level)} <b>${esc(g.companies.map((c) => c.name).join(" · "))}</b>${f.source_type !== "news" ? ` <span class="tg red">공식 제재 명단</span>` : ""}${f.category && f.category !== "기타" ? ` <span class="tg">${esc(f.category)}</span>` : ""}${f.status === "reviewed" ? ` <span class="tg">확인 완료</span>` : ""}</div>
+      <div class="is-s">${esc(f.summary || f.title)}</div>
+      <div class="mu">${esc(f.source_name || "-")} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}">원문</a>` : ""}</div>
+      <div class="mu">「${esc(f.title || "")}」</div>
+      ${more.length ? `<div class="dup">같은 내용 ${more.length}건 더: ${more.slice(0, 5).map((x) => esc(String(x.source_name || "").replace(/\s*\((Google News|Naver|네이버)\)$/i, "")) + (x.published_at ? " " + esc(x.published_at) : "")).join(" · ")}${more.length > 5 ? " 외" : ""}</div>` : ""}
+    </div>`;
+  };
+  const title = `EDCF_리스크보고서_${sc0 === "mine" ? "내담당" : "전체"}_${now.slice(0, 10)}`;
+  const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(title)}</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+@page { size: A4; margin: 13mm 12mm; }
+* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { margin: 0; color: #0B1220; font: 12.5px/1.55 "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+a { color: #5B5BF0; text-decoration: none; }
+.hd { background: #0A0F1E; color: #fff; border-radius: 12px; padding: 16px 20px; }
+.hd .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 13px; }
+.hd .mk { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, #7C83FF, #22D3EE); display: grid; place-items: center; font-size: 15px; }
+.hd .eb { margin-top: 14px; font-size: 10px; font-weight: 800; letter-spacing: .12em; color: #22D3EE; }
+.hd h1 { margin: 4px 0 2px; font-size: 22px; letter-spacing: -.02em; } .hd h1 span { color: #9AA3FF; }
+.hd .meta { font-size: 11.5px; color: #B3BCCD; }
+.kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0 4px; }
+.kpi div { border: 1px solid #E3E7EF; border-radius: 10px; padding: 9px 12px; }
+.kpi small { display: block; font-size: 11px; color: #6B7690; font-weight: 700; } .kpi b { font-size: 22px; } .kpi i { font-style: normal; font-size: 12px; color: #6B7690; }
+h2 { font-size: 14.5px; margin: 18px 0 8px; } h2 .mu { font-weight: 500; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th { text-align: left; font-size: 11px; color: #6B7690; font-weight: 700; background: #F3F5FA; padding: 6px 8px; border-bottom: 1px solid #E3E7EF; }
+td { padding: 7px 8px; border-bottom: 1px solid #EEF1F6; vertical-align: top; } td.c, th.c { text-align: center; white-space: nowrap; }
+tr { break-inside: avoid; }
+.mu { color: #6B7690; font-size: 11.5px; }
+.bd { display: inline-block; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 700; line-height: 17px; white-space: nowrap; }
+.role { font-weight: 700; font-size: 11px; }
+.tg { display: inline-block; padding: 0 6px; border-radius: 5px; font-size: 11px; background: #EEF1F6; color: #3D4A63; } .tg.red { background: #FDE8EE; color: #E11D48; }
+.is { border: 1px solid #E3E7EF; border-left: 4px solid; border-radius: 10px; padding: 9px 12px; margin-bottom: 7px; break-inside: avoid; }
+.is-h b { font-size: 13px; } .is-s { font-size: 13px; margin: 4px 0 3px; }
+.dup { margin-top: 5px; padding-top: 5px; border-top: 1px dashed #E3E7EF; font-size: 11px; color: #0891B2; }
+.empty { border: 1px dashed #E3E7EF; border-radius: 10px; padding: 14px; text-align: center; color: #0D9488; }
+.ft { margin-top: 18px; padding-top: 10px; border-top: 1px solid #E3E7EF; font-size: 10.5px; color: #6B7690; }
+</style></head><body>
+<div class="hd"><div class="brand"><span class="mk">◎</span>EDCF 부정당업자 자동감지 시스템</div>
+  <div class="eb">RISK REPORT · ${esc(now.slice(0, 10).replace(/-/g, "."))}</div>
+  <h1>EDCF <span>업체 리스크 보고서</span></h1>
+  <div class="meta">범위 ${esc(scopeL)} (업체 ${cs.length}곳 · 사업 ${ps.length}개) · 이슈 ${esc(periodL)}${done ? " · 확인 완료 포함" : ""} · 마지막 스캔 ${esc((state.status.last_scan_at || "-").slice(0, 16))} · 작성 ${esc(now.slice(0, 16))} ${esc(me().split("@")[0])}</div></div>
+<div class="kpi"><div><small>위험 업체</small><b style="color:${C.red[0]}">${t.red}</b> <i>곳</i></div><div><small>경고 업체</small><b style="color:${C.orange[0]}">${t.orange}</b> <i>곳</i></div><div><small>주의 업체</small><b style="color:${C.yellow[0]}">${t.yellow}</b> <i>곳</i></div><div><small>${done ? "이슈" : "확인할 이슈"}</small><b style="color:#5B5BF0">${groups.length}</b> <i>건</i></div></div>
+${ps.length ? `<h2>사업별 현황 <span class="mu">${ps.length}개</span></h2><table><tr><th style="width:32%">사업</th><th>참여 업체 (역할 · 등급)</th><th class="c" style="width:18%">리스크</th></tr>${projRows}</table>` : ""}
+<h2>리스크 업체 <span class="mu">${risky.length}곳 · 정상 ${cs.length - risky.length}곳은 생략</span></h2>
+${risky.length ? `<table><tr><th style="width:11%">등급</th><th style="width:24%">업체</th><th>참여 사업 · 역할</th><th class="c" style="width:9%">미확인</th><th class="c" style="width:15%">사업자번호</th></tr>
+${risky.map((c) => `<tr><td>${bd(c.risk)}</td><td><b>${esc(c.name)}</b>${c.name_en ? `<div class="mu">${esc(c.name_en)}</div>` : ""}</td><td>${engL(c)}</td><td class="c">${c.open}</td><td class="c">${c.country !== "KR" ? "해외" : c.biz_no ? esc(fmtBiz(c.biz_no)) : "-"}</td></tr>`).join("")}</table>` : `<div class="empty">${sc ? "리스크 업체가 없습니다" : "아직 스캔하지 않았습니다"}</div>`}
+<h2>${done ? "이슈" : "확인할 이슈"} <span class="mu">${groups.length}건 · 등급 높은 순${groups.length > MAX ? ` · 앞의 ${MAX}건` : ""}</span></h2>
+${groups.length ? groups.slice(0, MAX).map(issue).join("") : `<div class="empty">해당 기간에 ${done ? "" : "확인할 "}이슈가 없습니다</div>`}
+<div class="ft">뉴스 기반 항목은 '제재 확정'이 아니라 '검토가 필요한 신호'입니다. 원문과 공식 자료(EXIMIIS, 나라장터, 각 MDB 제재 리스트)로 확인하시기 바랍니다.<br>데이터: EDCF 부정당업자(EXIMIIS) · 조달청 나라장터 · OpenSanctions(World Bank·ADB·AfDB·IDB·EBRD) · Google 뉴스 · 네이버 뉴스 · AI 판정(Claude)</div>
+</body></html>`;
+  return { title, html };
+}
+// 숨긴 창에서 인쇄 → 'PDF로 저장' (한글 글꼴이 그대로 나오도록 브라우저 인쇄 사용)
+function printReport({ title, html }) {
+  if (window.__DEMO) window.__lastReport = html; // 데모 확인용
+  $("#printFrame")?.remove();
+  const f = document.createElement("iframe");
+  f.id = "printFrame"; f.setAttribute("aria-hidden", "true");
+  f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+  document.body.appendChild(f);
+  const d = f.contentDocument; d.open(); d.write(html); d.close();
+  const old = document.title;
+  const go = async () => {
+    try { await Promise.race([d.fonts?.ready, new Promise((r) => setTimeout(r, 1500))]); } catch {}
+    document.title = title; // 저장할 때 파일 이름
+    f.contentWindow.focus(); f.contentWindow.print();
+    setTimeout(() => { document.title = old; }, 1000);
+  };
+  setTimeout(go, 200);
+  toast("인쇄 창에서 '대상: PDF로 저장'을 고르세요", 5000);
+}
+$("#btnReport").onclick = openReport;
 
 // ---------- 검사 범위 ----------
 // 업체별로 '무엇을 확인했는지'를 해석. 이슈가 없을 때 '정상'이 어디까지 확인된 결과인지 보여주기 위함.

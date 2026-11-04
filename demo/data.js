@@ -69,8 +69,8 @@ export function seed() {
     runs: {
       run1: { kind: "scan", at: kst(now - 2 * 3600e3), at_ms: now - 2 * 3600e3, ok: true, detail: { companies: 40, fetched: 2310, new_findings: 3, seconds: 14.2 } },
       run0: { kind: "scan", at: kst(now - 26 * 3600e3), at_ms: now - 26 * 3600e3, ok: false, detail: { companies: 40, fetched: 2190, new_findings: 1, seconds: 31.5, errors: [
-        "예시업체03 / 조달청 부정당제재: Read timed out. (read timeout=20)", "예시업체04 / 조달청 부정당제재: Read timed out. (read timeout=20)",
-        "예시업체05 / Naver '예시업체05 부정당': 429 Too Many Requests"] } },
+        "예시업체03 / 조달청 부정당제재: (데모 예시) Read timed out", "예시업체04 / 조달청 부정당제재: (데모 예시) Read timed out",
+        "예시업체05 / Naver '예시업체05 부정당': (데모 예시) 429 Too Many Requests"] } },
     },
     requests: {},
     edcf_sanctions: { e1: { name: "라마바건설", status: "등록", period: "2026.01.01 ~ 2027.12.31", reason: "[예시] 허위 서류 제출", biz_no: "0000000000" } },

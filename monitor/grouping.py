@@ -5,6 +5,7 @@
  ② 같은 업체 · 같은 분류(예: 입찰담합) · 보도일 3일 이내 — 여러 매체가 같은 사건을 보도한 경우
  ③ 같은 업체 · 제목이 거의 같음 (업체명을 뺀 제목의 글자 쌍 60% 이상 일치)
  ④ 같은 업체 · 같은 공식 명단의 기록 여러 건 (예: EDCF 제재 이력)
+ ⑤ AI(Claude)가 판정할 때 '같은 사건'으로 표시한 기록 (same_as)
 처리 상태(new/reviewed/dismissed)가 다른 기록끼리는 묶지 않음.
 """
 import re
@@ -97,6 +98,12 @@ def group(findings: list[dict]) -> list[list[dict]]:
         if u:
             buckets.setdefault(("u", st, u), []).append(i)
         buckets.setdefault(("c", st, f.get("company_id")), []).append(i)
+    # AI가 '같은 사건'으로 표시한 기록끼리 (same_as = 다른 기록 id)
+    by_id = {f.get("id"): i for i, f in enumerate(findings) if f.get("id")}
+    for i, f in enumerate(findings):
+        j = by_id.get(f.get("same_as"))
+        if j is not None and (findings[j].get("status") or "new") == (f.get("status") or "new"):
+            union(j, i)
     for (kind, _, _), idx in buckets.items():
         if kind != "c":
             for j in idx[1:]:

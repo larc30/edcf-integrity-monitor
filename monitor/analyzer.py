@@ -33,6 +33,7 @@ class ArticleJudgement(BaseModel):
     summary_ko: str
     rationale: str
     event_date: str
+    same_event_as: str
 
 
 class BatchJudgement(BaseModel):
@@ -57,6 +58,9 @@ EDCF 사업에 참여 중인 업체(컨설턴트, 본구매 계약자, 입찰참
 4. summary_ko: 담당자가 바로 읽을 수 있는 한국어 1~2문장 요약 (누가, 무엇을, 언제, 어떤 처분).
 5. rationale: 등급 판단 근거 한 문장.
 6. event_date: 사건 발생/처분 일자를 알 수 있으면 YYYY-MM-DD 또는 YYYY, 모르면 빈 문자열.
+7. same_event_as: 이 기사가 [이미 수집된 이 업체 이슈]의 하나(E번호) 또는 이번 기사 목록의 다른 기사(idx 숫자)와
+   '같은 사건'(같은 처분·수사·사고·소송 건을 다른 매체가 보도했거나 그 후속 보도)이면 그 번호(예: "E3" 또는 "5"),
+   아니면 빈 문자열. 업체만 같고 다른 사건이면 빈 문자열. 확실할 때만 적으세요.
 
 주의: 뉴스는 '제재 확정'이 아니라 '검토 필요 신호'입니다. 기사에 없는 사실을 추정하지 마세요."""
 
@@ -134,11 +138,15 @@ def _claude(company: dict, engagements: list[dict], articles: list[dict], keywor
         }
         for i, a in enumerate(articles)
     ]
+    recent = (feedback or {}).get("recent") or []
+    recent_txt = ("[이미 수집된 이 업체 이슈 — 같은 사건이면 same_event_as 에 E번호]\n" + "\n".join(
+        f"- E{n + 1}: {r.get('date') or ''} {(r.get('title') or '')[:120]}" + (f" — {r['summary'][:80]}" if r.get("summary") else "")
+        for n, r in enumerate(recent)) + "\n\n") if recent else ""
     user = (
         f"오늘 날짜: {date.today().isoformat()}\n\n"
         f"[업체 프로필]\n{json.dumps(profile, ensure_ascii=False, indent=1)}\n\n"
         f"[담당자 관심 키워드]\n{', '.join(k['word'] for k in keywords)}\n\n"
-        + _feedback_text(feedback) +
+        + _feedback_text(feedback) + recent_txt +
         f"[기사 목록]\n{json.dumps(payload, ensure_ascii=False, indent=1)}\n\n"
         "모든 기사(idx)에 대해 판정 결과를 반환하세요."
     )
@@ -157,6 +165,13 @@ def _claude(company: dict, engagements: list[dict], articles: list[dict], keywor
         if not (0 <= j.idx < len(articles)):
             continue
         relevant = j.is_about_company and j.risk_level != "none"
+        # 같은 사건: 이미 수집된 이슈(E번호) → 그 기록 id, 이번 목록의 다른 기사(숫자) → "idx:N"
+        same, same_as = (j.same_event_as or "").strip().upper(), None
+        m = re.fullmatch(r"E(\d+)", same)
+        if m and 1 <= int(m.group(1)) <= len(recent):
+            same_as = recent[int(m.group(1)) - 1]["id"]
+        elif same.isdigit() and int(same) != j.idx and 0 <= int(same) < len(articles):
+            same_as = f"idx:{int(same)}"
         out.append(
             {
                 "idx": j.idx,
@@ -166,6 +181,7 @@ def _claude(company: dict, engagements: list[dict], articles: list[dict], keywor
                 "summary": j.summary_ko,
                 "rationale": j.rationale + (f" (사건일: {j.event_date})" if j.event_date else ""),
                 "analyzer": "claude",
+                "same_as": same_as,
             }
         )
     return out
@@ -212,6 +228,8 @@ def analyze(company: dict, engagements: list[dict], articles: list[dict], keywor
                 chunk = articles[start : start + 25]
                 for r in _claude(company, engagements, chunk, keywords, feedback):
                     r["idx"] += start
+                    if str(r.get("same_as") or "").startswith("idx:"):
+                        r["same_as"] = f"idx:{int(r['same_as'][4:]) + start}"
                     results.append(r)
             return results, "claude"
         except Exception as e:

@@ -789,3 +789,6 @@ label.check input { width: auto; accent-color: var(--accent); }
 .err .hint { color: var(--orange); margin-top: 2px; }
 .err .msg { color: var(--muted); margin-top: 2px; word-break: break-all; }
 .err .who { color: var(--text-2); margin-top: 4px; }
+/* v23: 보고서 버튼, 창 안 체크 줄 */
+#btnReport svg { width: 16px; height: 16px; }
+.form label.check { flex-direction: row; font-weight: 500; font-size: var(--fs-base); }
