@@ -11,7 +11,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
 
-from . import analyzer, config, store
+from . import analyzer, category, config, store
 from .sources import dart, news, pps, sanctions
 from .textutil import context_words, dedup_key, mentions, search_names
 
@@ -149,7 +149,10 @@ def _identify(company: dict, errors: list) -> dict:
     info = {"bizno_source": company.get("bizno_source") or ("직접 입력" if company.get("biz_no") else ""), "notes": []}
     patch: dict = {}
 
-    need_dart = (config.DART_API_KEY and company.get("country", "KR") in ("KR", "", None) and not company.get("biz_no"))
+    domestic = company.get("country", "KR") in ("KR", "", None)
+    # 업종 자동 분류: 비어 있거나 '이름 추정'인 경우만 (사용자가 넣은 분류는 그대로)
+    want_cat = (not company.get("category") or company.get("category_source") == "이름 추정") and _days_since(company.get("cat_checked_at")) >= 30
+    need_dart = config.DART_API_KEY and domestic and (not company.get("biz_no") or want_cat)
     if need_dart and not company.get("corp_code") and _days_since(company.get("dart_checked_at")) < 30:
         info["notes"].append(company.get("dart_note") or "DART에서 찾지 못함 — 사업자번호 직접 입력 필요")
         need_dart = False
@@ -172,9 +175,14 @@ def _identify(company: dict, errors: list) -> dict:
                     patch["dart_note"] = note
             if corp_code:
                 d = dart.company_detail(corp_code)
-                if d.get("biz_no"):
+                if d.get("biz_no") and not company.get("biz_no"):
                     patch["biz_no"] = pps.biz_digits(d["biz_no"])
                     patch["bizno_source"] = "DART 자동"
+                if want_cat:
+                    patch["cat_checked_at"] = store.now_str()
+                    cat = category.from_ksic(d.get("induty_code"))
+                    if cat:
+                        patch.update(category=cat, category_source="DART 업종", induty_code=d.get("induty_code"))
                 if d.get("name_en") and not company.get("name_en") and "name_en" not in patch:
                     patch["name_en"] = d["name_en"]
                 if d.get("ceo") and not company.get("ceo"):
@@ -196,6 +204,19 @@ def _identify(company: dict, errors: list) -> dict:
                 info["notes"].append("나라장터 미등록 업체 (사업자번호로 조회되지 않음)")
         except Exception as e:
             errors.append(f"{company['name']} / 나라장터 기본정보: {e}")
+
+    # DART 업종이 없으면 업체명으로 추정 (예: '…엔지니어링' → 엔지니어링·설계·감리)
+    if not (company.get("category") or patch.get("category")):
+        g = category.guess(company.get("name")) or category.guess(company.get("name_en")) or "기타"
+        patch.update(category=g, category_source="이름 추정")
+    elif not patch.get("category") and company.get("category") not in category.CATS:
+        # 예전 명단의 분류 이름(예: 'IT·시스템·통신·교통시스템')은 6가지 업종으로 맞춤
+        n = category.normalize(company.get("category"))
+        if n:
+            patch["category"] = n
+        else:
+            g = category.guess(company.get("name")) or category.guess(company.get("name_en")) or "기타"
+            patch.update(category=g, category_source="이름 추정")
 
     if patch.get("name_en"):
         langs = [l for l in (company.get("search_langs") or "ko").split(",") if l]

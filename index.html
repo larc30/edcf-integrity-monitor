@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache">
 <title>EDCF 부정당업자 자동감지 시스템</title>
-<script>try { document.documentElement.dataset.theme = localStorage.getItem("edcf_theme3") || "dark"; } catch (e) {}</script>
+<script>try { document.documentElement.dataset.theme = localStorage.getItem("edcf_theme3") || "dark"; var _f = localStorage.getItem("edcf_font"); if (_f) document.documentElement.dataset.font = _f; } catch (e) {}</script>
 <script>
   // ?demo — 로그인 없이 가상 데이터로 화면 보기 (Firebase 대신 demo/ 의 대체 모듈 사용)
   if (/[?&]demo\b/.test(location.search)) {
@@ -19,7 +19,7 @@
   }
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="assets/style.css?v=18">
+<link rel="stylesheet" href="assets/style.css?v=19">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -47,6 +47,7 @@
     <div class="top-right">
       <span class="live" id="liveState"><span class="live-dot"></span><span>자동 감시</span></span>
       <span class="user" id="userEmail"></span>
+      <button class="btn sm font-btn" id="btnFont" title="글자 크기">가</button>
       <button class="btn sm" id="btnTheme">라이트</button>
       <button class="btn sm" id="btnLogout">로그아웃</button>
     </div>
@@ -102,35 +103,48 @@
 
     <!-- ================= 업체·사업 ================= -->
     <section id="view-companies" class="view">
-      <div class="page-head"><div><h1>업체·사업</h1><div class="head-sub">왼쪽 업체를 끌어서 사업의 역할 칸에 놓으면 연결됩니다. 업체를 누르면 사업자번호·영문명을 입력할 수 있습니다.</div></div></div>
-      <div class="dnd-layout">
-        <div class="card pool">
-          <div class="card-head"><h2>업체 <span class="count" id="poolCount">0</span></h2>
-            <div class="add-row" style="margin:0"><button class="btn sm" id="btnBulk">일괄 등록</button><button class="btn sm primary" id="btnAddCompany">+ 업체 추가</button></div></div>
-          <input id="poolSearch" placeholder="업체명·별칭·영문명·사업자번호 검색" style="width:100%;margin-bottom:8px">
-          <div class="filters">
-            <select id="fCat"><option value="">분류: 전체</option></select>
-            <select id="fLink"><option value="">사업: 전체</option><option value="linked">진행중 사업 연결</option><option value="base">미연결 (주요 업체)</option></select>
+      <div class="page-head">
+        <div><div class="eyebrow" id="coEyebrow">COMPANIES</div><h1>업체·사업</h1><div class="head-sub">업체를 끌어서 오른쪽 사업의 역할 칸에 놓으면 연결됩니다. 업종·사업자번호·영문명은 스캔 때 DART에서 자동으로 채웁니다.</div></div>
+        <div class="add-row" style="margin:0"><button class="btn" id="btnBulk">일괄 등록</button><button class="btn primary" id="btnAddCompany">+ 업체 추가</button></div>
+      </div>
+      <div class="co-layout">
+        <div class="card co-main">
+          <div class="co-views" id="coViews"></div>
+          <div class="co-view-desc" id="coViewDesc"></div>
+          <div class="co-filters">
+            <input id="poolSearch" class="co-search" placeholder="업체명·별칭·영문명·사업자번호 검색">
+            <select id="fOwner"><option value="">담당: 전체</option><option value="mine">내 담당 사업</option></select>
+            <select id="fProj"><option value="">사업: 전체</option></select>
+            <select id="fRole"><option value="">역할: 전체</option><option>F/S</option><option>컨설턴트</option><option>본구매</option></select>
+            <select id="fStage"><option value="">단계: 전체</option><option>계약</option><option>우선협상</option><option>입찰중</option></select>
             <select id="fRisk"><option value="">등급: 전체</option><option value="red">위험</option><option value="orange">경고</option><option value="yellow">주의</option><option value="none">정상</option></select>
-            <select id="fInfo"><option value="">정보: 전체</option><option value="nobiz">사업자번호 없음</option><option value="noen">영문명 없음</option><option value="watch">집중 감시</option></select>
+            <select id="fCat"><option value="">업종: 전체</option></select>
+            <select id="fNat"><option value="">국내·해외</option><option value="KR">국내</option><option value="foreign">해외</option></select>
+            <button class="btn sm ghost hidden" id="fReset">필터 초기화</button>
           </div>
-          <div class="pool-meta"><span id="poolShown"></span><span>끌어서 사업에 놓기</span></div>
-          <div id="pool" class="pool-list"></div>
+          <div class="co-meta"><span id="poolShown"></span><span>제목을 누르면 정렬 · 행을 누르면 상세</span></div>
+          <div class="co-table-wrap">
+            <table class="co-table" id="coTable">
+              <thead><tr>
+                <th data-sort="name">업체명</th><th data-sort="cat">업종</th><th data-sort="proj">참여 사업 · 역할 · 단계</th>
+                <th data-sort="risk">등급</th><th data-sort="open">미확인</th><th>사업자번호</th><th>영문명</th>
+              </tr></thead>
+              <tbody id="pool"></tbody>
+            </table>
+          </div>
         </div>
-        <div class="card">
-          <div class="card-head">
-            <h2>사업 <span class="count" id="projCount">0</span></h2>
-            <form id="projForm" class="add-row" style="margin:0" autocomplete="off"><input name="name" placeholder="새 사업명" required><button class="btn sm">사업 추가</button></form>
-          </div>
-          <div class="legend" style="margin-bottom:10px"><span class="role fs">F/S</span><span class="role consult">컨설턴트</span><span class="role buy">본구매</span><span class="sep"></span><span>단계 표시를 누르면 계약 → 우선협상 → 입찰중</span></div>
-          <div id="projBoard" class="pgrid2"></div>
+        <div class="card co-projects">
+          <div class="card-head"><h2>사업 <span class="count" id="projCount">0</span></h2><span class="legend"><span class="role fs">F/S</span><span class="role consult">컨설턴트</span><span class="role buy">본구매</span></span></div>
+          <form id="projForm" class="add-row" autocomplete="off"><input name="name" placeholder="새 사업명" required><button class="btn sm">사업 추가</button></form>
+          <div class="muted small" style="margin:-2px 0 10px">단계 표시를 누르면 계약 → 우선협상 → 입찰중</div>
+          <div id="projBoard" class="pboard"></div>
         </div>
       </div>
     </section>
 
     <!-- ================= 설정 ================= -->
     <section id="view-settings" class="view">
-      <div class="page-head"><div><h1>설정</h1><div class="head-sub">내부 제재 명단, 메일, 데이터 연결 — 해야 할 연결 작업은 맨 아래 목록을 참고하세요</div></div></div>
+      <div class="page-head"><div><div class="eyebrow">SETTINGS · 연결 · 명단 · 메일</div><h1>설정</h1><div class="head-sub">내부 제재 명단, 메일, 데이터 연결 — 해야 할 연결 작업은 맨 아래 목록을 참고하세요</div></div></div>
       <div class="grid-2">
         <div>
           <div class="card">
@@ -179,6 +193,6 @@
 <aside class="drawer" id="drawer"><div class="drawer-head"><div id="drawerTitle"></div><button class="btn sm" id="drawerClose">닫기</button></div><div id="drawerBody" class="drawer-body"></div></aside>
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div id="toast" class="toast"></div>
-<script type="module" src="assets/app.js?v=18"></script>
+<script type="module" src="assets/app.js?v=19"></script>
 </body>
 </html>

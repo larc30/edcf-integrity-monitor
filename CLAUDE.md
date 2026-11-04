@@ -46,7 +46,7 @@ meta/status, meta/progress, meta/settings{relay_url,keywords_version}, meta/repo
 - (v14) 사용자 선호로 대시보드는 초안(v10) 구조로 복귀: 히어로(제목·범위·스캔 + 오른쪽 레이더) → KPI 3칸 → 검사 범위 → 이슈 | 진행중 사업(내부 스크롤)·등급별 업체. 탭은 상단 유지. 아래 한 화면 구성은 v12~13 기록:
 - 대시보드는 스크롤 없이 한 화면(1366×768 이상): 왼쪽 리스크 레이더(구역=사업 번호, 가운데일수록 위험, 미연결 업체는 '주요' 구역) + 등급 수 + 검사 범위 + MDB 한국 국적(모달) / 가운데 이슈(내부 스크롤) / 오른쪽 진행중 사업(컴팩트 행, 번호=레이더 구역, 마우스 올리면 구역 강조) + 리스크 업체. 1180px 이하에서는 세로로 쌓임.
 - 범위: '진행중 사업 업체'(projects.owner == 로그인 사용자 또는 미지정 + watch) / 'EDCF 주요 업체'(전체).
-- 업체·사업: [일괄 등록] 모달(양식 CSV 내려받기 → 엑셀·CSV 업로드 또는 표 붙여넣기, 열: 업체명·사업자번호·영문명·분류·별칭·사업명·역할), [+ 업체 추가], 필터·검색.
+- 업체·사업: [일괄 등록] 모달(양식 CSV 내려받기 → 엑셀·CSV 업로드 또는 표 붙여넣기, 열: 업체명·사업자번호·영문명·업종(분류)·별칭·사업명·역할, 코랩 COMPANIES 코드 그대로 붙여넣기도 가능), [+ 업체 추가], 필터·검색 (v19 구성은 아래).
 - 설정: EXIMIIS 업로드, 메일 수신자, 연결 상태(5묶음), 고급 설정, 맨 아래 '연결 작업 목록'(상태 자동 판정, 단계별 방법). 예약 실행 확인용 meta/status.last_daily_at(run.py daily).
 
 - 성능(v13): backdrop-filter(유리 흐림)가 움직이는 레이더 위에서 매 프레임 다시 그려져 매우 느렸음(소프트웨어 렌더링 8fps). 흐림 제거·배경 빛 고정·정상 업체 점 파동 제거로 60fps. 버벅이면 자동 '가벼운 모드'(html.lite, localStorage edcf_lite), 고급 설정에서 수동 전환. 다시 backdrop-filter·filter:blur 애니메이션을 넣지 말 것.
@@ -65,6 +65,15 @@ meta/status, meta/progress, meta/settings{relay_url,keywords_version}, meta/repo
   - 레이더가 안 돌던 원인: v17 CSS 정리 때 @keyframes spin 을 지워버림 → radarSpin/spin 복구. 윈도우 '애니메이션 끄기'(prefers-reduced-motion)여도 레이더는 10초 회전 유지.
   - 모바일 다크에서 상단 탭이 제목을 덮던 버그: :root[data-theme=dark] 의 --top:60px 가 미디어쿼리 :root{--top:auto} 보다 우선 → 미디어쿼리에 테마 선택자 추가.
 - 매일 아침 실행: GitHub 예약(30 22)이 이틀 연속 안 옴 → Apps Script daily() (일 단위 타이머 오전 7~8시, test_to='auto') 추가. run.py 는 자동 실행(test_to=auto 또는 GITHUB_EVENT_NAME=schedule)이면 meta/status.last_daily_at 가 오늘일 때 건너뜀(하루 한 번). 수동 Run workflow daily 는 항상 실행.
+
+- (v19) 업체·사업 탭 재구성: 자주 쓰는 보기(전체/계약 전 점검=입찰중·우선협상/리스크 업체/미확인 이슈/정보 보완 필요, 개수 표시) + 세부 필터(담당·사업·역할·단계·등급·업종·국내/해외, 필터 초기화) + 업체 표(업체명·업종·참여 사업·역할·단계·등급·미확인·사업자번호·영문명, 제목 눌러 정렬, 행 끌어서 사업 칸에 놓기, 누르면 상세) | 오른쪽 사업 카드(등급 분포 막대, sticky).
+  - 업종 6가지 고정: 건설·시공 / 엔지니어링·설계·감리 / ICT·시스템 / 제조·플랜트 / 상사·유통 / 기타 (monitor/category.py ↔ app.js CATS·CAT_RULES 같은 기준 유지).
+  - 자동 분류: 스캔(_identify) 때 DART company.json 의 induty_code(KSIC) → 업종(category_source 'DART 업종'), 없으면 업체명 규칙('이름 추정'). DART는 업종이 비었거나 '이름 추정'일 때만 덮어씀(cat_checked_at 30일). '명단'(일괄 등록)·'직접 입력'은 그대로. 예전 분류명(엔지니어링·설계·CM·감리 등)은 normalize, '상사·교육·기타'처럼 묶인 이름은 업체별로 다시 추정. 화면은 업종이 아직 없으면 이름으로 추정해 '추정' 표시(c.catGuess, 저장 안 함).
+  - 일괄 등록: 기존 업체는 빈 정보만 채움(사업자번호·영문명을 덮어쓰지 않음). CSV는 parseCSV(따옴표 안 쉼표·BOM) + readText(UTF-8 아니면 EUC-KR — 엑셀 'CSV(쉼표로 분리)' 저장본).
+  - KT·LG CNS 같은 대문자 약칭은 국내 업체(newCompany krAbbr). 그 외 영문만 이름은 해외.
+  - EDCF 명단 일치는 업체별로 묶어 표시(edcfByCompany: 제재 중/해지·건수).
+- 글자 크기 통일(v19): CSS font-size 전부 rem(본문 15 · 보조 13 · 제목 30, 레이더 SVG 7.5px만 예외). 상단 [가] 버튼으로 보통/크게(112.5%)/아주 크게(125%) — html[data-font], localStorage edcf_font. 세 탭 제목(.page-head h1, .d-title .hero-title) 1.875rem 같은 크기, 설정·업체 탭에도 eyebrow. 글자를 키우면 상단 줄 넘침 방지로 이메일·감시 상태·로고 글자를 폭에 따라 숨김.
+- 실제 업무 명단(코랩 200곳 + EXIMIIS 13건)은 저장소에 넣지 않고 CSV로 만들어 사용자가 대시보드에서 올림(일괄 등록 / 설정 → EDCF 명단).
 
 ## 남은 일
 - 사용자: Apps Script 중계 설정, monitor.yml 웹에서 한 번 수정(예약 실행), EXIMIIS 엑셀 업로드, 코랩 명단 붙여넣기, (선택) 네이버 API HUB·SMTP·ANTHROPIC 키.

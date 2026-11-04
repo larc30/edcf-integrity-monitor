@@ -57,7 +57,8 @@ def company_detail(corp_code: str) -> dict:
     d = r.json()
     if d.get("status") != "000":
         return {}
-    return {"name_en": d.get("corp_name_eng") or "", "ceo": d.get("ceo_nm") or "", "biz_no": d.get("bizr_no") or ""}
+    return {"name_en": d.get("corp_name_eng") or "", "ceo": d.get("ceo_nm") or "", "biz_no": d.get("bizr_no") or "",
+            "induty_code": d.get("induty_code") or ""}
 
 
 def load_master() -> dict:

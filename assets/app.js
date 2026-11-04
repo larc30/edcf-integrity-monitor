@@ -5,7 +5,7 @@ import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=18";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=19";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -109,6 +109,8 @@ function compute() {
   for (const c of state.companies) {
     c.engagements = c.engagements || [];
     c.focus = c.engagements.length > 0 || !!c.watch;
+    c.cat = normCat(c.category); // 업종이 아직 없으면 화면에는 이름으로 추정해 보여줌 (스캔 때 DART 업종으로 저장)
+    c.catGuess = !c.cat; if (!c.cat) c.cat = guessCat(c.name) || guessCat(c.name_en) || "기타";
     c.mine = !!c.watch || c.engagements.some((e) => { const p = state.projects.find((x) => x.id === e.project_id); return p && isMine(p); });
     const fs = state.findings.filter((f) => f.company_id === c.id && f.status !== "dismissed");
     c.risk = fs.reduce((m, f) => (LV[f.level] || 0) > (LV[m] || 0) ? f.level : m, "none");
@@ -131,6 +133,18 @@ function showView(v) {
   v === "home" ? renderHome() : v === "companies" ? renderCompanies() : renderSettings();
 }
 const rerender = () => { compute(); showView($("#tabs button.active")?.dataset.view || "home"); if (state.openCid && $("#drawer").classList.contains("open")) openCompany(state.openCid); };
+// 글자 크기: 상단 [가] 버튼으로 보통 → 크게 → 아주 크게 (모든 탭 같은 비율로)
+const FONT_STEPS = [["", "가", "글자 크기: 보통"], ["lg", "가+", "글자 크기: 크게"], ["xl", "가++", "글자 크기: 아주 크게"]];
+let fontStep = 0;
+try { fontStep = Math.max(0, FONT_STEPS.findIndex(([k]) => k === (localStorage.getItem("edcf_font") || ""))); } catch {}
+function applyFont() {
+  const [k, label, title] = FONT_STEPS[fontStep];
+  if (k) document.documentElement.dataset.font = k; else delete document.documentElement.dataset.font;
+  $("#btnFont").textContent = label; $("#btnFont").title = `${title} — 누르면 바뀝니다`;
+  requestAnimationFrame(() => { if (typeof fixLabels === "function") fixLabels(); });
+}
+$("#btnFont").onclick = () => { fontStep = (fontStep + 1) % FONT_STEPS.length; try { localStorage.setItem("edcf_font", FONT_STEPS[fontStep][0]); } catch {} applyFont(); toast(FONT_STEPS[fontStep][2]); };
+applyFont();
 // 가벼운 모드: 화면이 버벅이면(초당 30프레임 미만) 레이더 파동·발광 효과를 자동으로 줄임
 let liteSaved = null;
 try { liteSaved = localStorage.getItem("edcf_lite"); } catch {}
@@ -583,10 +597,9 @@ function openCompany(cid) {
           <label>검색 언어<input name="search_langs" value="${esc(c.search_langs || "ko")}" placeholder="ko,en,id"></label>
         </div>
         <div class="row">
-          <label>분류<input name="category" value="${esc(c.category || "")}" list="catList"></label>
+          <label>업종 <span class="muted">(${esc(c.catGuess ? "추정: " + c.cat : c.category_source || "명단")})</span><select name="category">${["", ...CATS].map((k) => `<option value="${k}" ${k === (c.catGuess ? "" : c.cat) ? "selected" : ""}>${k || "자동 분류 (DART·업체명)"}</option>`).join("")}</select></label>
           <label>메모<input name="note" value="${esc(c.note || "")}"></label>
         </div>
-        <datalist id="catList">${categories().map((k) => `<option value="${esc(k)}">`).join("")}</datalist>
         <div class="actions"><button class="btn primary">저장</button></div>
       </form>
       <p class="muted small" style="margin:6px 0 0">DART에 등록된 업체(상장사 + 공시 대상 비상장사)는 스캔 때 사업자번호·영문명이 자동으로 채워집니다. 소규모 업체·건축사사무소·대학·해외 업체는 사업자등록증을 보고 직접 입력하세요.</p>
@@ -633,8 +646,14 @@ function openCompany(cid) {
     patch.biz_no = biz || null;
     if (patch.biz_no !== (c.biz_no ? String(c.biz_no).replace(/\D/g, "") : null)) patch.bizno_source = patch.biz_no ? "직접 입력" : null;
     if (patch.name_en && !(patch.search_langs || "").includes("en")) patch.search_langs = (patch.search_langs || "ko") + ",en";
+    if ((patch.category || "") !== (c.catGuess ? "" : c.cat)) {
+      // 직접 고르면 그대로 유지, '자동'으로 되돌리면 우선 이름으로 추정하고 다음 스캔 때 DART 업종으로 다시 분류
+      if (patch.category) patch.category_source = "직접 입력";
+      else { patch.category = guessCat(c.name) || guessCat(patch.name_en) || "기타"; patch.category_source = "이름 추정"; }
+      patch.cat_checked_at = null;
+    } else delete patch.category;
     await updateDoc(doc(db, "companies", cid), patch); Object.assign(c, patch);
-    toast("저장했습니다. 다음 스캔부터 적용됩니다"); openCompany(cid);
+    toast("저장했습니다. 다음 스캔부터 적용됩니다"); rerender(); // 표와 상세를 함께 새로 그림
   };
   $("#manualForm").onsubmit = async (ev) => {
     ev.preventDefault();
@@ -858,55 +877,123 @@ if (!window.__DEMO) try { const s = JSON.parse(localStorage.getItem(JOB_KEY) || 
 const STAGES = ["계약", "우선협상", "입찰중"];
 const ROLES = ["F/S", "컨설턴트", "본구매"]; // 사업 진행 순서
 
-const categories = () => [...new Set(state.companies.map((c) => c.category).filter(Boolean))].sort();
+// ---------- 업종 분류 (monitor/category.py 와 같은 기준) ----------
+const CATS = ["건설·시공", "엔지니어링·설계·감리", "ICT·시스템", "제조·플랜트", "상사·유통", "기타"];
+const CAT_RULES = [
+  ["엔지니어링·설계·감리", /엔지니어링|건설관리|ENG|E&C|이앤씨|기술단|기술공사|기술공단|기술원|설계|건축사|종합건축|감리|씨엠|CM|측량|항측|항업|공간정보|컨설턴트/i],
+  ["건설·시공", /건설|토건|건영|종합개발|기업$|산업개발/i],
+  ["ICT·시스템", /정보통신|정보기술|시스템|소프트|SDS|CNS|텔레콤|네트웍스|네트워크|통신|데이터|솔루션|유비텍|아이티|IT$|^KT$/i],
+  ["제조·플랜트", /중공업|공업|조선|전기|전선|플랜트|기계|산전|기기|메디칼|제철|화학|자동차|로템|에너지|파워|에너빌리티|정밀/i],
+  ["상사·유통", /상사|인터내셔널|무역|트레이딩|코퍼레이션|글로벌/i],
+  ["기타", /대학교|산학협력단|연구원|연구소|교육|공사$|공단$|재단/i],
+  ["엔지니어링·설계·감리", /기술$|기술개발$/i],
+];
+const guessCat = (name) => (CAT_RULES.find(([, re]) => re.test(name || "")) || [])[0] || null;
+function normCat(cat) {
+  const c = String(cat || "").trim();
+  if (!c) return "";
+  if (CATS.includes(c)) return c;
+  if (c.includes("기타")) return ""; // '상사·교육·기타'처럼 묶인 이름은 업체별로 다시 분류
+  for (const [t, re] of [["엔지니어링·설계·감리", /엔지니어링|설계|감리|CM/i], ["건설·시공", /건설|시공|토목/], ["ICT·시스템", /IT|ICT|시스템|통신|정보/i], ["제조·플랜트", /제조|플랜트|조선|전기|장비|기계/], ["상사·유통", /상사|유통|무역/]]) if (re.test(c)) return t;
+  return "기타";
+}
+const CAT_SRC = { "DART 업종": "DART", "이름 추정": "추정", "명단": "명단", "직접 입력": "직접" };
+const categories = () => CATS;
+// 업종을 정하지 않았으면 이름으로 추정 (스캔 때 DART 업종코드가 있으면 그것으로 바꿈)
+function applyCat(c, cat, source) {
+  const n = normCat(cat);
+  if (n) { c.category = n; c.category_source = source; }
+  else if (!c.category) { c.category = guessCat(c.name) || guessCat(c.name_en) || "기타"; c.category_source = "이름 추정"; }
+}
 
 // ---------- 업체·사업 ----------
+// 자주 쓰는 보기
+const CO_VIEWS = [
+  ["all", "전체", "등록된 모든 업체"],
+  ["pre", "계약 전 점검", "입찰중·우선협상 단계 업체 — 부정당업자 확인이 가장 필요한 시점"],
+  ["risk", "리스크 업체", "위험·경고·주의 업체"],
+  ["open", "미확인 이슈", "'확인했음·관련 없음' 처리 전 이슈가 있는 업체"],
+  ["info", "정보 보완 필요", "사업자번호 또는 영문명이 없어 조회가 불완전한 업체"],
+];
+const needInfo = (c) => (c.country === "KR" && !c.biz_no) || !c.name_en;
+const inView = (c, v) => v === "all" ? true
+  : v === "pre" ? c.engagements.some((e) => e.stage === "입찰중" || e.stage === "우선협상")
+  : v === "risk" ? scanned() && c.risk !== "none"
+  : v === "open" ? c.open > 0
+  : v === "info" ? needInfo(c) : true;
+const coState = { view: "all", sort: "risk", dir: 1 };
 function poolMatches(c) {
   const q = ($("#poolSearch").value || "").trim().toLowerCase(), qd = q.replace(/\D/g, "");
   if (q && !(c.name.toLowerCase().includes(q) || (c.aliases || "").toLowerCase().includes(q) || (c.name_en || "").toLowerCase().includes(q) || (qd.length >= 3 && String(c.biz_no || "").includes(qd)))) return false;
-  const cat = $("#fCat").value, link = $("#fLink").value, risk = $("#fRisk").value, info = $("#fInfo").value;
-  if (cat && (c.category || "분류 없음") !== cat) return false;
-  if (link === "linked" && !c.engagements.length) return false;
-  if (link === "base" && c.engagements.length) return false;
-  if (risk && (scanned() ? c.risk : "none") !== risk) return false;
-  if (info === "nobiz" && (c.biz_no || c.country !== "KR")) return false;
-  if (info === "noen" && c.name_en) return false;
-  if (info === "watch" && !c.focus) return false;
+  if (!inView(c, coState.view)) return false;
+  const f = (id) => $(id).value;
+  if (f("#fOwner") === "mine" && !c.mine) return false;
+  const pj = f("#fProj");
+  if (pj === "__none" && c.engagements.length) return false;
+  if (pj && pj !== "__none" && !c.engagements.some((e) => e.project_id === pj)) return false;
+  if (f("#fRole") && !c.engagements.some((e) => e.role === f("#fRole"))) return false;
+  if (f("#fStage") && !c.engagements.some((e) => (e.stage || "계약") === f("#fStage"))) return false;
+  if (f("#fRisk") && (scanned() ? c.risk : "none") !== f("#fRisk")) return false;
+  if (f("#fCat") && (c.cat || "기타") !== f("#fCat")) return false;
+  if (f("#fNat") === "KR" && c.country !== "KR") return false;
+  if (f("#fNat") === "foreign" && c.country === "KR") return false;
   return true;
 }
+const CO_SORT = {
+  name: (a, b) => a.name.localeCompare(b.name),
+  cat: (a, b) => (a.cat || "").localeCompare(b.cat || "") || a.name.localeCompare(b.name),
+  proj: (a, b) => b.engagements.length - a.engagements.length || a.name.localeCompare(b.name),
+  risk: (a, b) => (LV[b.risk] - LV[a.risk]) || b.open - a.open || (b.engagements.length - a.engagements.length) || a.name.localeCompare(b.name),
+  open: (a, b) => b.open - a.open || (LV[b.risk] - LV[a.risk]) || a.name.localeCompare(b.name),
+};
 function renderCompanies() {
-  // 분류 필터 항목 (선택값 유지)
-  const cur = $("#fCat").value, cats = categories();
-  $("#fCat").innerHTML = `<option value="">분류: 전체</option>` + cats.map((k) => `<option ${k === cur ? "selected" : ""}>${esc(k)}</option>`).join("")
-    + (state.companies.some((c) => !c.category) ? `<option ${cur === "분류 없음" ? "selected" : ""}>분류 없음</option>` : "");
-  const list = state.companies.filter(poolMatches)
-    .sort((a, b) => (b.engagements.length ? 1 : 0) - (a.engagements.length ? 1 : 0) || a.name.localeCompare(b.name));
-  $("#poolCount").textContent = state.companies.length;
-  $("#poolShown").textContent = list.length === state.companies.length ? `전체 ${list.length}곳` : `${state.companies.length}곳 중 ${list.length}곳`;
   const sc = scanned();
-  $("#pool").innerHTML = !list.length ? `<div class="empty small">${state.companies.length ? "조건에 맞는 업체가 없습니다." : "업체가 없습니다. [+ 업체 추가] 또는 아래 '여러 업체 한 번에 붙여넣기'를 이용하세요."}</div>`
-    : list.map((c) => `<div class="pchip ${c.engagements.length ? "linked" : ""}" draggable="true" data-cid="${c.id}" title="끌어서 사업에 놓기 · 누르면 상세">
-      <span class="grip">⋮⋮</span>${sc ? `<span class="dot ${c.risk}"></span>` : ""}
-      <span class="nm">${esc(c.name)}${c.watch ? ' <span class="muted" title="집중 감시">★</span>' : ""}</span>
-      ${c.category ? `<span class="cat">${esc(c.category)}</span>` : ""}
-      ${!c.biz_no && c.country === "KR" ? `<span class="miss" title="사업자번호 없음">번호</span>` : ""}${!c.name_en ? `<span class="miss" title="영문명 없음">영문</span>` : ""}
-      <span class="n">${c.engagements.length ? `사업 ${new Set(c.engagements.map((e) => e.project_id)).size}` : ""}</span>
-    </div>`).join("");
+  $("#coEyebrow").textContent = `COMPANIES · 업체 ${state.companies.length}곳 · 사업 ${state.projects.length}개`;
+  // 필터 항목 (선택값 유지)
+  const keep = (id, html) => { const v = $(id).value; $(id).innerHTML = html; if ([...$(id).options].some((o) => o.value === v)) $(id).value = v; };
+  keep("#fProj", `<option value="">사업: 전체</option><option value="__none">사업 미연결 (EDCF 주요 업체)</option>` + state.projects.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join(""));
+  keep("#fCat", `<option value="">업종: 전체</option>` + CATS.map((k) => `<option value="${k}">${k}</option>`).join(""));
+  // 자주 쓰는 보기 (개수 표시)
+  $("#coViews").innerHTML = CO_VIEWS.map(([k, l, d]) => `<button data-v="${k}" class="cv-btn ${k} ${k === coState.view ? "active" : ""}" title="${d}">${l}<span class="n">${state.companies.filter((c) => inView(c, k)).length}</span></button>`).join("");
+  $$("#coViews button").forEach((b) => b.onclick = () => { coState.view = b.dataset.v; renderCompanies(); });
+  $("#coViewDesc").textContent = CO_VIEWS.find(([k]) => k === coState.view)[2];
 
-  // 사업 카드 (놓는 곳)
+  const list = state.companies.filter(poolMatches).sort((a, b) => CO_SORT[coState.sort](a, b) * coState.dir);
+  const anyFilter = ["#poolSearch", "#fOwner", "#fProj", "#fRole", "#fStage", "#fRisk", "#fCat", "#fNat"].some((id) => $(id).value);
+  $("#fReset").classList.toggle("hidden", !anyFilter);
+  $("#poolShown").textContent = list.length === state.companies.length ? `${list.length}곳` : `${state.companies.length}곳 중 ${list.length}곳`;
+  $$("#coTable th[data-sort]").forEach((th) => th.classList.toggle("on", th.dataset.sort === coState.sort));
+  const engChip = (e) => `<span class="ej" title="${esc(projName(e.project_id))} · ${esc(e.role)} · ${esc(e.stage || "계약")}">${roleTag(e.role)}<span class="ej-p">${esc(projName(e.project_id))}</span>${e.stage && e.stage !== "계약" ? `<span class="stage">${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""}</span>` : ""}</span>`;
+  $("#pool").innerHTML = !list.length ? `<tr><td colspan="7" class="empty">${state.companies.length ? "조건에 맞는 업체가 없습니다." : "업체가 없습니다. [일괄 등록] 또는 [+ 업체 추가]를 이용하세요."}</td></tr>`
+    : list.map((c) => `<tr draggable="true" data-cid="${c.id}" title="끌어서 오른쪽 사업 칸에 놓기 · 누르면 상세">
+      <td class="t-name"><span class="grip">⋮⋮</span><div><b>${esc(c.name)}</b>${c.watch ? ' <span class="muted" title="집중 감시">★</span>' : ""}${c.name_en ? `<div class="sub">${esc(c.name_en)}</div>` : ""}</div></td>
+      <td class="t-cat">${esc(c.cat || "-")}${c.catGuess || c.category_source === "이름 추정" ? `<span class="src guess" title="업체명으로 추정 — 스캔 때 DART 업종이 있으면 바뀜">추정</span>` : CAT_SRC[c.category_source] ? `<span class="src" title="${esc(c.category_source)}">${CAT_SRC[c.category_source]}</span>` : ""}</td>
+      <td class="t-proj">${c.engagements.length ? byRole(c.engagements).map(engChip).join("") : `<span class="muted">EDCF 주요 업체</span>`}</td>
+      <td class="t-risk">${sc ? (c.risk !== "none" ? badge(c.risk) : `<span class="ok-t">정상</span>`) : `<span class="muted">-</span>`}</td>
+      <td class="t-open">${c.open ? `<b>${c.open}</b>` : `<span class="muted">0</span>`}</td>
+      <td class="t-id">${c.country !== "KR" ? `<span class="muted">해외</span>` : c.biz_no ? `<span title="${esc(c.bizno_source || "")}">${esc(fmtBiz(c.biz_no))}</span>` : `<span class="miss">없음</span>`}</td>
+      <td class="t-id">${c.name_en ? `<span class="ok-t">✓</span>` : `<span class="miss">없음</span>`}</td>
+    </tr>`).join("");
+
+  // 사업 카드 (놓는 곳): 업체 등급 분포 + 역할 칸
   $("#projCount").textContent = state.projects.length;
   $("#projBoard").innerHTML = state.projects.map((p) => {
     const rows = [];
     for (const c of state.companies) c.engagements.forEach((e, i) => { if (e.project_id === p.id) rows.push({ c, e, i }); });
+    const t = { red: 0, orange: 0, yellow: 0, none: 0 };
+    new Set(rows.map((r) => r.c)).forEach((c) => t[c.risk]++);
+    const total = t.red + t.orange + t.yellow + t.none;
+    const dist = !total ? "" : `<div class="pj-dist"><div class="pj-bar">${sc ? ["red", "orange", "yellow", "none"].filter((lv) => t[lv]).map((lv) => `<i class="${lv}" style="flex:${t[lv]}"></i>`).join("") : `<i class="pending" style="flex:1"></i>`}</div>
+      <div class="pj-sum">${sc ? (["red", "orange", "yellow"].filter((lv) => t[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${t[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) : ""}<span class="tot">/ ${total}곳</span></div></div>`;
     return `<div class="pbox">
-      <div class="pbox-head pending"><div class="pname">${esc(p.name)}</div>${p.country ? `<span class="ctry">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</div>
-      <div class="pbox-body">
+      <div class="pbox-head"><div class="pname">${esc(p.name)}</div>${p.country ? `<span class="ctry">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</div>
+      <div class="pbox-body">${dist}
         ${ROLES.map((role) => {
           const rr = rows.filter((r) => r.e.role === role);
           return `<div class="dropzone ${rr.length ? "" : "is-empty"}" data-pid="${p.id}" data-role="${esc(role)}">
             ${roleTag(role)}
             ${rr.map(({ c, e, i }) => `<div class="corow" draggable="true" data-cid="${c.id}" data-from="${p.id}|${i}">
-              <span class="grip muted small">⋮⋮</span><span class="cn">${esc(c.name)}</span>
+              <span class="dot ${sc ? c.risk : ""}"></span><span class="cn">${esc(c.name)}</span>
               <span class="right">
                 <button class="stagebtn ${e.stage !== "계약" ? "on" : ""}" data-stage="${c.id}|${i}" title="눌러서 단계 변경">${esc(e.stage || "계약")}${e.stage === "우선협상" && e.rank ? " " + e.rank + "순위" : ""}</button>
                 <button class="xbtn" data-unlink="${c.id}|${i}" title="이 사업에서 빼기">✕</button>
@@ -915,13 +1002,19 @@ function renderCompanies() {
           </div>`;
         }).join("")}
       </div>
-      <div class="pbox-foot"><span>업체 ${rows.length}개 · ${ownerTag(p)}${p.owner !== me() ? ` <button class="btn sm ghost" data-own="${p.id}">내 사업으로</button>` : ""}</span><button class="btn sm ghost danger" data-del-proj="${p.id}">사업 삭제</button></div>
+      <div class="pbox-foot"><span>${ownerTag(p)}${p.owner !== me() ? ` <button class="btn sm ghost" data-own="${p.id}">내 사업으로</button>` : ""}</span><button class="btn sm ghost danger" data-del-proj="${p.id}">사업 삭제</button></div>
     </div>`;
   }).join("") || `<div class="empty">사업이 없습니다. 위에서 사업을 추가하세요.</div>`;
   bindDnd();
 }
-["#poolSearch"].forEach((s) => $(s).addEventListener("input", () => renderCompanies()));
-["#fCat", "#fLink", "#fRisk", "#fInfo"].forEach((s) => $(s).addEventListener("change", () => renderCompanies()));
+$("#poolSearch").addEventListener("input", () => renderCompanies());
+["#fOwner", "#fProj", "#fRole", "#fStage", "#fRisk", "#fCat", "#fNat"].forEach((s) => $(s).addEventListener("change", () => renderCompanies()));
+$("#fReset").onclick = () => { ["#poolSearch", "#fOwner", "#fProj", "#fRole", "#fStage", "#fRisk", "#fCat", "#fNat"].forEach((id) => ($(id).value = "")); renderCompanies(); };
+$$("#coTable th[data-sort]").forEach((th) => th.addEventListener("click", () => {
+  if (coState.sort === th.dataset.sort) coState.dir *= -1; else { coState.sort = th.dataset.sort; coState.dir = 1; }
+  renderCompanies();
+}));
+
 
 // ---------- 설정 ----------
 function renderSettings() {
@@ -976,7 +1069,7 @@ function bindDnd() {
     });
   });
   // 업체 목록: 누르면 상세(사업자번호·영문명 입력, 사업 연결)
-  $$("#pool .pchip").forEach((el) => el.addEventListener("click", () => openCompany(el.dataset.cid)));
+  $$("#pool tr[data-cid]").forEach((el) => el.addEventListener("click", () => openCompany(el.dataset.cid)));
   // 담당자 지정
   $$("[data-own]", root).forEach((b) => b.onclick = async () => {
     const p = state.projects.find((x) => x.id === b.dataset.own);
@@ -1036,13 +1129,15 @@ function cleanCompanyName(raw) {
 }
 const normName = (s) => s.replace(/\s+/g, "");
 function newCompany(id, name, country) {
-  const foreign = /^PT[.\s]/i.test(name) || /^[A-Za-z0-9 .,&()'-]+$/.test(name);
+  // 영문으로만 된 이름은 해외 업체로 봄. 단 KT·LG CNS 같은 대문자 약칭은 국내 업체
+  const krAbbr = /^[A-Z0-9]{2,4}( [A-Z0-9]{2,4})?$/.test(name.trim());
+  const foreign = /^PT[.\s]/i.test(name) || (/^[A-Za-z0-9 .,&()'-]+$/.test(name) && !krAbbr);
   const en = foreign ? name.replace(/^PT[.\s]+/i, "").trim() : null;
   return { id, name, name_en: en, aliases: en && en !== name ? en : null, context_keywords: null,
     country: foreign ? (country || "") : "KR", search_langs: foreign ? (country === "ID" ? "en,id" : "en") : "ko",
     corp_code: null, biz_no: null, ceo: null, note: null, engagements: [], created_at: nowStr() };
 }
-const companyData = (c) => { const { id, risk, open, total, focus, ...data } = c; return data; };
+const companyData = (c) => { const { id, risk, open, total, focus, mine, cat, catGuess, ...data } = c; return data; }; // 계산값은 저장하지 않음
 
 // 새 업체: 매뉴얼 기준 사업자등록번호·영문명을 함께 입력
 $("#btnAddCompany").onclick = () => {
@@ -1055,13 +1150,12 @@ $("#btnAddCompany").onclick = () => {
         <label>영문명<input name="name_en" placeholder="예: GANADA ENGINEERING CO., LTD."></label>
       </div>
       <div class="row">
-        <label>분류<input name="category" list="catList2" placeholder="예: 엔지니어링·설계·CM·감리"></label>
+        <label>업종<select name="category"><option value="">자동 분류 (DART·업체명)</option>${CATS.map((k) => `<option>${k}</option>`).join("")}</select></label>
         <label>별칭 (쉼표 구분)<input name="aliases" placeholder="예: 가나다ENG"></label>
       </div>
       <label style="flex-direction:row;align-items:center;gap:6px;font-weight:500"><input type="checkbox" name="foreign" style="width:auto"> 해외 업체 (조달청 조회 제외, 영문 뉴스 검색)</label>
       ${state.projects.length ? `<div class="row"><label>사업에 바로 연결 (선택)<select name="pid"><option value="">연결 안 함 — EDCF 주요 업체로 등록</option>${state.projects.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select></label>
         <label>역할<select name="role">${ROLES.map((r) => `<option>${r}</option>`).join("")}</select></label></div>` : ""}
-      <datalist id="catList2">${categories().map((k) => `<option value="${esc(k)}">`).join("")}</datalist>
       <div class="actions"><button class="btn primary">추가</button></div>
     </form>`);
   $("#addCoForm").onsubmit = async (ev) => {
@@ -1077,7 +1171,7 @@ $("#btnAddCompany").onclick = () => {
     if (fd.foreign) { c.country = ""; c.search_langs = "en"; }
     if (fd.name_en?.trim()) { c.name_en = fd.name_en.trim(); if (!c.search_langs.includes("en")) c.search_langs += ",en"; }
     if (biz) { c.biz_no = biz; c.bizno_source = "직접 입력"; }
-    if (fd.category?.trim()) c.category = fd.category.trim();
+    applyCat(c, fd.category, "직접 입력");
     if (fd.aliases?.trim()) c.aliases = fd.aliases.trim();
     if (fd.pid) c.engagements.push({ project_id: fd.pid, role: fd.role || "컨설턴트", stage: "계약", rank: null });
     await setDoc(ref, companyData(c));
@@ -1117,7 +1211,7 @@ async function registerRows(rows) {
     }
     let c = cByName[normName(r.name)];
     if (!c) {
-      c = newCompany(doc(collection(db, "companies")).id, r.name, p.country);
+      c = newCompany(doc(collection(db, "companies")).id, r.name, p.country); applyCat(c, null);
       cByName[normName(c.name)] = c; state.companies.push(c); newC++;
     }
     if (!c.engagements.some((e) => e.project_id === p.id && e.role === r.role)) {
@@ -1163,7 +1257,7 @@ function rowsToBulk(rows) {
 function parseAny(text) {
   const lines = text.split(/\r?\n/);
   const first = lines.find((l) => l.trim());
-  if (first && /(^|\t|,)\s*(업체명|회사명)\s*(\t|,|$)/.test(first)) return rowsToBulk(lines.map((l) => l.split(l.includes("\t") ? "\t" : ",")));
+  if (first && /(^|\t|,)\s*(업체명|회사명)\s*(\t|,|$)/.test(first)) return rowsToBulk(first.includes("\t") ? lines.map((l) => l.split("\t")) : parseCSV(text));
   const links = [], base = [], errors = [];
   let cat = null, last = "";
   lines.forEach((line, i) => {
@@ -1209,9 +1303,10 @@ async function registerBase(rows) {
     const al = new Set((c.aliases || "").split(",").map((x) => x.trim()).filter(Boolean));
     r.aliases.forEach((a) => al.add(a));
     c.aliases = [...al].join(", ") || null;
-    if (r.category && !c.category) c.category = r.category;
-    if (r.biz_no) { c.biz_no = r.biz_no; c.bizno_source = "일괄 등록"; }
-    if (r.name_en) { c.name_en = r.name_en; if (!(c.search_langs || "").includes("en")) c.search_langs = (c.search_langs || "ko") + ",en"; }
+    if (r.biz_no && !c.biz_no) { c.biz_no = r.biz_no; c.bizno_source = "일괄 등록"; }
+    if (r.name_en && !c.name_en) { c.name_en = r.name_en; if (!(c.search_langs || "").includes("en")) c.search_langs = (c.search_langs || "ko") + ",en"; }
+    if (r.category && (!c.category || c.category_source === "이름 추정")) applyCat(c, r.category, "명단");
+    else applyCat(c, null);
     touched.set(c.id, c);
   }
   const list = [...touched.values()];
@@ -1224,8 +1319,8 @@ async function registerBase(rows) {
 }
 // 엑셀 양식 (CSV, 엑셀에서 바로 열림) — 예시는 가상 데이터
 function downloadTemplate() {
-  const rows = [["업체명", "사업자번호", "영문명", "분류", "별칭", "사업명", "역할"],
-    ["가나다엔지니어링(예시)", "000-00-00000", "GANADA ENGINEERING CO., LTD.", "엔지니어링·설계·CM·감리", "가나다ENG, 예시", "가나국 스마트시티 구축사업(예시)", "컨설턴트"],
+  const rows = [["업체명", "사업자번호", "영문명", "업종", "별칭", "사업명", "역할"],
+    ["가나다엔지니어링(예시)", "000-00-00000", "GANADA ENGINEERING CO., LTD.", "엔지니어링·설계·감리", "가나다ENG, 예시", "가나국 스마트시티 구축사업(예시)", "컨설턴트"],
     ["라마바건설(예시)", "", "", "건설·시공", "예시", "", ""]];
   const csv = "﻿" + rows.map((r) => r.map((x) => /[",\n]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x).join(",")).join("\r\n");
   const a = document.createElement("a");
@@ -1239,7 +1334,7 @@ function bulkPreview(p) {
   const { links, base, errors } = p;
   const have = new Set(state.companies.map((c) => normName(c.name)));
   const shortN = base.filter((r) => coreLen(r.name) <= 2);
-  const cats = {}; base.forEach((r) => (cats[r.category || "분류 없음"] = (cats[r.category || "분류 없음"] || 0) + 1));
+  const cats = {}; base.forEach((r) => { const k = normCat(r.category) || "업종 자동 분류"; cats[k] = (cats[k] || 0) + 1; });
   const newN = base.filter((r) => !have.has(normName(r.name))).length;
   $("#bulkOut").innerHTML = (errors.length ? `<div class="notice">${errors.slice(0, 8).map(esc).join("<br>")}</div>` : "")
     + (base.length ? `<h3>업체 ${base.length}곳 <span class="muted small">(신규 ${newN} · 기존 업데이트 ${base.length - newN} · 사업자번호 ${base.filter((r) => r.biz_no).length} · 영문명 ${base.filter((r) => r.name_en).length})</span></h3>
@@ -1269,7 +1364,7 @@ $("#btnBulk").onclick = () => {
 
 라마바엔지니어링
 차카타정보통신"></textarea>
-    <p class="muted small">사업명·역할을 함께 적으면 사업에 바로 연결되고, 없으면 'EDCF 주요 업체'로 등록됩니다. 이미 있는 업체는 빈 정보(사업자번호·영문명·분류·별칭)만 채웁니다. 사내 보안(DRM)으로 파일이 안 열리면 표를 복사해 붙여넣으세요.</p>
+    <p class="muted small">사업명·역할을 함께 적으면 사업에 바로 연결되고, 없으면 'EDCF 주요 업체'로 등록됩니다. 이미 있는 업체는 빈 정보(사업자번호·영문명·업종·별칭)만 채웁니다. 업종을 비워두면 업체명·DART 업종코드로 자동 분류합니다. 사내 보안(DRM)으로 파일이 안 열리면 표를 복사해 붙여넣으세요.</p>
     <div class="actions left" style="margin-top:4px"><button class="btn" id="bulkPrev">미리보기</button><button class="btn primary" id="bulkRun" disabled>등록하기</button></div>
     <div id="bulkOut" class="import-preview"></div>`);
   $("#bulkTpl").onclick = downloadTemplate;
@@ -1279,7 +1374,7 @@ $("#btnBulk").onclick = () => {
     if (!f) return;
     try {
       const rows = /\.csv$/i.test(f.name)
-        ? (await f.text()).replace(/^﻿/, "").split(/\r?\n/).map((l) => (l.match(/("([^"]|"")*"|[^,]*)(,|$)/g) || []).map((x) => x.replace(/,$/, "").replace(/^"|"$/g, "").replace(/""/g, '"')))
+        ? parseCSV(await readText(f))
         : await readExcel(f);
       if (!rows.some((r) => r.some((x) => /^(업체명|회사명)$/.test(String(x ?? "").replace(/\s/g, ""))))) throw new Error("'업체명' 제목 줄을 찾지 못했습니다. 양식을 내려받아 사용하세요.");
       bulkPreview(rowsToBulk(rows));
@@ -1330,6 +1425,24 @@ function rowsToEdcf(rows) {
 function loadScript(urls) {
   return urls.reduce((p, u) => p.catch(() => new Promise((ok, no) => { const s = document.createElement("script"); s.src = u; s.onload = ok; s.onerror = no; document.head.appendChild(s); })), Promise.reject());
 }
+// CSV 한 줄씩: "따옴표, 안의 쉼표" 와 "" 처리, 앞의 BOM 제거
+function parseCSV(text) {
+  return String(text).replace(/^\uFEFF/, "").split(/\r?\n/).filter((l) => l.trim()).map((l) => {
+    const out = []; let cur = "", q = false;
+    for (let i = 0; i < l.length; i++) {
+      const ch = l[i];
+      if (q) { if (ch === '"' && l[i + 1] === '"') { cur += '"'; i++; } else if (ch === '"') q = false; else cur += ch; }
+      else if (ch === '"') q = true; else if (ch === ",") { out.push(cur); cur = ""; } else cur += ch;
+    }
+    out.push(cur);
+    return out.map((x) => x.trim());
+  });
+}
+// 파일 글자 읽기: UTF-8이 아니면(엑셀에서 저장한 CSV) EUC-KR로
+async function readText(file) {
+  const buf = await file.arrayBuffer();
+  try { return new TextDecoder("utf-8", { fatal: true }).decode(buf); } catch { return new TextDecoder("euc-kr").decode(buf); }
+}
 async function readExcel(file) {
   if (!window.XLSX) await loadScript(["https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js", "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"]);
   const wb = window.XLSX.read(await file.arrayBuffer(), { type: "array" });
@@ -1340,12 +1453,19 @@ function edcfMatches(list) {
   for (const c of state.companies) { if (c.biz_no) byBiz.set(String(c.biz_no).replace(/\D/g, ""), c); byName.set(normName(cleanCompanyName(c.name).name), c); }
   return list.map((e) => ({ e, c: (e.biz_no && byBiz.get(e.biz_no)) || byName.get(normName(cleanCompanyName(e.name).name)) })).filter((x) => x.c);
 }
+// 같은 업체의 여러 제재 기록을 업체 하나로 묶음 (현재 '등록' 상태가 하나라도 있으면 제재 중)
+function edcfByCompany(hits) {
+  const m = new Map();
+  for (const { e, c } of hits) { const x = m.get(c.id) || { c, n: 0, active: false }; x.n++; x.active = x.active || /등록/.test(e.status || ""); m.set(c.id, x); }
+  return [...m.values()].sort((a, b) => b.active - a.active || b.n - a.n || a.c.name.localeCompare(b.c.name));
+}
+const edcfHitText = (g) => g.map((x) => `${esc(x.c.name)} <span class="muted">(${x.active ? "제재 중" : "해지"}${x.n > 1 ? ` · ${x.n}건` : ""})</span>`).join(", ");
 function edcfPreview(list) {
   const active = list.filter((e) => /등록/.test(e.status || "")).length;
-  const hits = edcfMatches(list);
+  const hits = edcfMatches(list), g = edcfByCompany(hits), act = g.filter((x) => x.active);
   modal(`<h2>EDCF 부정당업자 명단 확인</h2>
     <p><b>${list.length}건</b> · 등록 ${active} · 해지 ${list.length - active} · 사업자번호 있음 ${list.filter((e) => e.biz_no).length}</p>
-    ${hits.length ? `<div class="notice">우리 명단과 일치하는 업체 <b>${hits.length}곳</b>: ${hits.slice(0, 10).map((x) => `${esc(x.c.name)} (${esc(x.e.status || "-")})`).join(", ")}${hits.length > 10 ? " …" : ""}</div>` : `<p class="muted small">현재 우리 명단과 일치하는 업체는 없습니다.</p>`}
+    ${g.length ? `<div class="notice">우리 명단과 일치하는 업체 <b>${g.length}곳</b> (기록 ${hits.length}건)${act.length ? ` — 현재 제재 중 <b style="color:var(--red)">${act.map((x) => esc(x.c.name)).join(", ")}</b>` : ""}<br>${edcfHitText(g)}</div>` : `<p class="muted small">현재 우리 명단과 일치하는 업체는 없습니다.</p>`}
     <div class="import-preview"><table class="tbl"><thead><tr><th>업체명</th><th>상태</th><th>제재기간</th><th>사업자번호</th></tr></thead><tbody>
       ${list.slice(0, 50).map((e) => `<tr><td>${esc(e.name)}</td><td>${esc(e.status || "")}</td><td class="small">${esc(e.period || "")}</td><td class="small">${esc(fmtBiz(e.biz_no))}</td></tr>`).join("")}
     </tbody></table>${list.length > 50 ? `<div class="muted small">외 ${list.length - 50}건</div>` : ""}</div>
@@ -1373,7 +1493,7 @@ $("#edcfFile").addEventListener("change", async (ev) => {
   if (!f) return;
   try {
     let rows;
-    if (/\.csv$/i.test(f.name)) rows = (await f.text()).split(/\r?\n/).map((l) => l.split(",").map((x) => x.replace(/^"|"$/g, "")));
+    if (/\.csv$/i.test(f.name)) rows = parseCSV(await readText(f));
     else rows = await readExcel(f);
     const list = rowsToEdcf(rows);
     if (!list.length) throw new Error("업체 행이 없습니다");
@@ -1403,11 +1523,11 @@ $("#edcfPasteBtn").onclick = () => {
   };
 };
 function renderEdcfInfo() {
-  const st = state.settings || {}, list = state.edcf, hits = edcfMatches(list);
+  const st = state.settings || {}, list = state.edcf, g = edcfByCompany(edcfMatches(list)), act = g.filter((x) => x.active);
   const active = list.filter((e) => /등록/.test(e.status || "")).length;
   $("#edcfInfo").innerHTML = !list.length ? "아직 등록된 명단이 없습니다."
     : `${list.length}건 (등록 ${active} · 해지 ${list.length - active}) · ${esc(st.edcf_sanctions_at || "")} 반영${st.edcf_sanctions_by ? ` (${esc(st.edcf_sanctions_by.split("@")[0])})` : ""}
-       ${hits.length ? `<div style="margin-top:6px;color:var(--red)">우리 명단과 일치 ${hits.length}곳: ${hits.slice(0, 8).map((x) => esc(x.c.name)).join(", ")}</div>` : `<div style="margin-top:6px">우리 명단과 일치하는 업체 없음</div>`}`;
+       ${g.length ? `<div style="margin-top:6px">우리 명단과 일치 <b>${g.length}곳</b>${act.length ? ` · <b style="color:var(--red)">현재 제재 중 ${act.map((x) => esc(x.c.name)).join(", ")}</b>` : ""}<br>${edcfHitText(g)}</div>` : `<div style="margin-top:6px">우리 명단과 일치하는 업체 없음</div>`}`;
 }
 
 // ---------- 연결 상태 (카테고리별) ----------
@@ -1515,7 +1635,7 @@ function renderTasks() {
     ["감시할 업체 명단 등록", state.companies.length ? "done" : "todo", "필수", "업체·사업 탭",
       state.companies.length ? `업체 ${state.companies.length}곳 · 사업 ${state.projects.length}개 등록됨` : "감시할 업체(EDCF 주요 업체)와 진행중 사업을 넣습니다.",
       ["<b>업체·사업 → 일괄 등록 → 양식 내려받기</b>",
-        "엑셀에서 열어 업체명(필수), 사업자번호·영문명·분류(있으면)를 채웁니다. 사업명·역할을 적으면 사업에 바로 연결됩니다",
+        "엑셀에서 열어 업체명(필수), 사업자번호·영문명·업종(있으면)을 채웁니다. 업종을 비우면 자동 분류되고, 사업명·역할을 적으면 사업에 바로 연결됩니다",
         "저장 후 <b>엑셀·CSV 파일 올리기</b> (또는 표를 복사해 붙여넣기) → <b>미리보기</b> → <b>등록하기</b>",
         "진행중 사업은 사업 카드를 만들고 업체를 역할 칸으로 끌어다 놓습니다. 기존 사업은 카드 아래 <b>내 사업으로</b>를 눌러 담당자를 지정합니다"],
       "이미 있는 업체를 다시 올리면 새로 만들지 않고 빈 정보만 채웁니다."],
