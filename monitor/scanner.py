@@ -30,6 +30,8 @@ TOPIC_QUERIES = [
     "영업정지 건설사", "영업정지 엔지니어링", "등록말소 건설",
     "벌점 건설사", "제재 건설사", "제재 엔지니어링",
     "하도급 과징금", "공공입찰 제한", "국토교통부 처분",
+    # 중대재해·안전사고 (팀 매뉴얼 언론보도 키워드: 재해)
+    "중대재해 건설", "중대재해처벌법 기소", "건설현장 사망사고", "산업재해 건설사", "부실시공 건설사",
 ]
 
 
@@ -248,8 +250,9 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
     deep = focus and weekly_due
     if focus:
         queries = _queries(company, keywords, deep)
-    elif weekly_due:
-        queries = [q for q in _queries(company, keywords, False) if q[0] == "google"][:1]
+    elif weekly_due:  # 기본 감시 업체도 주 1회 업체명 최신순 검색 (Google + 네이버)
+        qs = _queries(company, keywords, False)
+        queries = [q for q in qs if q[0] == "google"][:1] + [q for q in qs if q[0] == "naver"][:1]
     else:
         queries = []
 
@@ -284,6 +287,8 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         a for a in articles
         if (not a["published_at"] or a["published_at"] >= cutoff) and mentions(f"{a['title']} {a.get('snippet', '')}", names, ctx)
     ]
+    # 최근 기사부터 판정 (Google 결과는 관련도순이라, 오래된 기사에 밀려 최근 사건이 60건 밖으로 빠지지 않게)
+    mentioned.sort(key=lambda a: a.get("published_at") or "", reverse=True)
     cands = [a for a in mentioned if a["dedup_key"] not in known][:60]
     stats["candidates"] = len(cands)
 
