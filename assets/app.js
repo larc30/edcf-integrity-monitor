@@ -1780,7 +1780,8 @@ $("#edcfFile").addEventListener("change", async (ev) => {
 async function clearEdcf() {
   if (!confirm("EXIMIIS 제재 명단을 모두 지우고, 이 명단으로 생긴 'EDCF 제재' 기록도 지울까요?")) return;
   const old = await getDocs(collection(db, "edcf_sanctions"));
-  const gone = state.findings.filter((f) => String(f.dedup_key || "").startsWith("edcf-"));
+  // 화면에서 숨긴 것까지 모두: dedup_key 가 'edcf-'로 시작하는 기록
+  const gone = docs(await getDocs(query(collection(db, "findings"), where("dedup_key", ">=", "edcf-"), where("dedup_key", "<", "edcf."))));
   const ops = [...old.docs.map((d) => d.ref), ...gone.map((f) => doc(db, "findings", f.id))];
   for (let i = 0; i < ops.length; i += 400) { const b = writeBatch(db); ops.slice(i, i + 400).forEach((r) => b.delete(r)); await b.commit(); }
   const meta = { edcf_sanctions_at: nowStr(), edcf_sanctions_count: 0, edcf_sanctions_by: me() };

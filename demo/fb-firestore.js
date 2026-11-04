@@ -17,7 +17,8 @@ export const query = (c, ...cs) => ({ ...c, cs });
 const snapDoc = (col, id) => ({ id, data: () => structuredClone(coll(col)[id]), ref: { t: "doc", col, id } });
 export async function getDocs(q) {
   let ids = Object.keys(coll(q.name));
-  for (const c of q.cs || []) if (c.w) ids = ids.filter((id) => coll(q.name)[id][c.w[0]] === c.w[2]);
+  const OPS = { "==": (a, b) => a === b, ">=": (a, b) => a >= b, "<": (a, b) => a < b, ">": (a, b) => a > b, "<=": (a, b) => a <= b };
+  for (const c of q.cs || []) if (c.w) ids = ids.filter((id) => { const v = coll(q.name)[id][c.w[0]]; return v != null && OPS[c.w[1]](v, c.w[2]); });
   return { docs: ids.map((id) => snapDoc(q.name, id)) };
 }
 export async function getDoc(r) { const d = coll(r.col)[r.id]; return { exists: () => !!d, data: () => structuredClone(d) }; }
