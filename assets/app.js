@@ -5,7 +5,7 @@ import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=20";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=21";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -36,7 +36,7 @@ function toast(msg, ms = 2800) {
   const t = $("#toast"); t.textContent = msg; t.classList.add("show");
   clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), ms);
 }
-function modal(html) { $("#modal").innerHTML = html + `<div class="actions"><button class="btn" id="modalClose">닫기</button></div>`; $("#modalBg").classList.add("open"); $("#modalClose").onclick = closeModal; }
+function modal(html) { $("#modal").className = "modal"; $("#modal").innerHTML = html + `<div class="actions"><button class="btn" id="modalClose">닫기</button></div>`; $("#modalBg").classList.add("open"); $("#modalClose").onclick = closeModal; }
 function closeModal() { $("#modalBg").classList.remove("open"); }
 $("#modalBg").addEventListener("click", (e) => { if (e.target.id === "modalBg") closeModal(); });
 const projName = (pid) => state.projects.find((p) => p.id === pid)?.name || "(삭제된 사업)";
@@ -129,8 +129,8 @@ function showView(v) {
   $$(".view").forEach((x) => x.classList.toggle("active", x.id === `view-${v}`));
   try { localStorage.setItem("view3", v); } catch {}
   $("#tabCnt").textContent = state.companies.length;
-  renderLive();
-  v === "home" ? renderHome() : v === "companies" ? renderCompanies() : renderSettings();
+  $("#tabCntP").textContent = state.projects.length;
+  v === "home" ? renderHome() : v === "companies" ? renderCompanies() : v === "projects" ? renderProjects() : renderSettings();
 }
 const rerender = () => { compute(); showView($("#tabs button.active")?.dataset.view || "home"); if (state.openCid && $("#drawer").classList.contains("open")) openCompany(state.openCid); };
 // 글자 크기: 상단 [가] 버튼으로 보통 → 크게 → 아주 크게 (모든 탭 같은 비율로)
@@ -166,14 +166,6 @@ function checkSmooth() {
 }
 $("#liteToggle").checked = document.documentElement.classList.contains("lite");
 $("#liteToggle").addEventListener("change", (e) => { setLite(e.target.checked, e.target.checked ? "1" : "0"); toast(e.target.checked ? "가벼운 모드를 켰습니다" : "화면 효과를 모두 켰습니다"); });
-// 상단 '자동 감시' 표시: 마지막 스캔이 하루 넘게 지났으면 주황
-function renderLive() {
-  const s = state.status.last_scan_at, h = s ? (Date.now() - Date.parse(s.replace(" ", "T") + "+09:00")) / 3600e3 : null;
-  const el = $("#liveState"), ok = h != null && h < 26;
-  el.classList.toggle("warn", !ok);
-  el.lastElementChild.textContent = h == null ? "스캔 전" : ok ? "자동 감시 중 · 매일 아침" : "자동 스캔 확인 필요";
-  el.title = s ? `마지막 스캔 ${s}` : "";
-}
 // 자동 새로고침: 창으로 돌아올 때(1분 이상 지났으면)와 5분마다. 끌기·입력 중에는 건너뜀
 async function autoRefresh(minAge) {
   if (!auth.currentUser || $("#appView").classList.contains("hidden")) return;
@@ -375,15 +367,16 @@ function renderHome() {
   // 제목 · 보기 범위
   const now = new Date(Date.now() + 9 * 3600e3);
   $("#heroDate").textContent = `RISK BRIEFING · ${now.toISOString().slice(0, 10).replace(/-/g, ".")} (${weekday[now.getUTCDay()]})`;
-  $("#sumSub").textContent = sc ? `마지막 스캔 ${s.last_scan_at.slice(5, 16).replace("-", "/")} · 매일 아침 자동 스캔` : "아직 스캔하지 않았습니다";
+  // 마지막 스캔 시각 (하루 넘게 안 돌았으면 알림)
+  $("#sumSub").textContent = sc ? `마지막 스캔 ${s.last_scan_at.slice(5, 16).replace("-", "/")}${hoursSince(s.last_scan_at) > 26 ? " · 자동 스캔이 하루 넘게 안 돌았습니다" : ""}` : "아직 스캔하지 않았습니다";
   $("#scopeSeg").innerHTML = !state.companies.length ? "" : [["mine", "내 담당 사업", mineN, ICON_USER], ["all", "EDCF 전체", state.companies.length, ICON_ORG]]
     .map(([k, l, cnt, ic]) => `<button data-s="${k}" class="sc-btn ${k} ${k === scope ? "active" : ""}"><span class="sc-ic">${ic}</span>${l}<span class="sc-n">${cnt}</span></button>`).join("");
   $$("#scopeSeg button").forEach((b) => b.onclick = () => { scope = b.dataset.s; levelFilter = null; try { localStorage.setItem("edcf_scope2", scope); } catch {} renderHome(); });
   $("#scopeDesc").textContent = !state.companies.length ? "" : scope === "mine"
-    ? (myP ? `내가 담당하는 사업 ${myP}개에 참여한 업체 ${cs.length}곳` : "담당 사업이 없습니다 — 업체·사업 탭에서 [내 사업으로] 지정")
+    ? (myP ? `내가 담당하는 사업 ${myP}개에 참여한 업체 ${cs.length}곳` : "담당 사업이 없습니다 — 사업 탭에서 [내 사업으로] 지정")
     : `등록된 업체 ${cs.length}곳 전체 (사업 ${ps.length}개 · 사업 미연결 업체 포함)`;
 
-  if (!state.companies.length) showGuide(`<b>시작하기</b> — <b>업체·사업</b> 탭에서 [일괄 등록]으로 업체를 넣고 <b>지금 스캔</b>을 누르세요.`);
+  if (!state.companies.length) showGuide(`<b>시작하기</b> — <b>업체</b> 탭에서 [일괄 등록]으로 업체를 넣고 <b>지금 스캔</b>을 누르세요.`);
   else if (!sc) showGuide(`업체 ${cs.length}곳이 등록됐습니다. <b>지금 스캔</b>을 눌러 첫 스캔을 실행하세요.`);
   else showGuide("");
 
@@ -487,7 +480,7 @@ function showDataCheck(cs, cv, gapN) {
     ${row(st(cv.news, cv.scanned), "뉴스 검색", `${cv.news}/${cv.scanned}곳 — Google·네이버 뉴스에서 업체명과 제재 키워드 검색`)}
     ${row(st(cv.mdb, cv.scanned), "MDB 제재 리스트 대조", `${cv.mdb}/${cv.scanned}곳 — World Bank·ADB·AfDB·IDB·EBRD${cv.mdb < cv.scanned ? " (영문명이 없는 업체는 대조가 불완전)" : ""}`)}
     ${cv.ppsConnected ? row(st(cv.pps, cv.ppsTotal), "조달청 부정당제재 조회", `${cv.pps}/${cv.ppsTotal}곳 — 사업자번호로 현재 유효한 제재 조회${cv.pps < cv.ppsTotal ? " (사업자번호가 없는 업체는 조회 못 함)" : ""}`) : row("na", "조달청 부정당제재 조회", "미연결")}
-    ${row(state.edcf.length ? "ok" : "warn", "EDCF 부정당업자 명단 (EXIMIIS)", state.edcf.length ? `${state.edcf.length}건과 대조` : "아직 등록되지 않음 → 설정에서 입력")}
+    ${row(state.edcf.length ? "ok" : "warn", "EDCF 부정당업자 명단 (EXIMIIS)", state.edcf.length ? `${state.edcf.length}건과 대조` : "아직 등록되지 않음 → 업체 탭 [EDCF 부정당업자 명단]에서 올리기")}
     ${row(mk?.count ? "warn" : "ok", "MDB 한국 국적 제재 기업", mk ? `${mk.count || 0}곳 (우리 명단과 별개로 참고) <a href="#" id="dcMdb">목록 보기</a>` : "첫 스캔 후 표시")}
     ${gapN ? `<div class="actions left"><button class="btn sm" id="dcGaps">보완할 업체 ${gapN}곳 보기</button></div>` : ""}`);
   $("#dcMdb")?.addEventListener("click", (e) => { e.preventDefault(); showMdbKorea(); });
@@ -587,104 +580,86 @@ function showGaps() {
 const fmtBiz = (b) => { const d = String(b || "").replace(/\D/g, ""); return d.length === 10 ? `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}` : (b || ""); };
 
 // ---------- 업체 상세 ----------
-function checkRows(c) {
+// 검사 결과: 출처별 한 칸씩 (상태 + 한 줄)
+function checkGrid(c) {
   const lc = c.last_check;
-  if (!lc) return `<div class="muted small">아직 스캔하지 않았습니다.</div>`;
-  const row = (st, k, d) => `<div class="chk-row ${st}"><span class="ic">${{ ok: "✓", warn: "!", bad: "✕", na: "–" }[st]}</span><div><b>${k}</b><div class="d">${d}</div></div></div>`;
+  if (!lc) return `<div class="empty small">아직 스캔하지 않았습니다.</div>`;
   const n = lc.news || {}, m = lc.mdb || {}, p = lc.pps || {};
-  const ppsRow = {
-    ok: () => row("ok", "조달청 부정당제재", `사업자번호 ${esc(fmtBiz(p.bizno))}로 조회 — 현재 유효한 제재 ${p.hits ? `<b>${p.hits}건</b>` : "없음"} <span class="muted">(만료된 과거 제재는 제공되지 않음)</span>`),
-    no_bizno: () => row("warn", "조달청 부정당제재", "사업자번호가 없어 조회하지 못했습니다 → 아래 <b>사업자번호</b>를 입력하세요"),
-    not_connected: () => row("na", "조달청 부정당제재", "미연결 (GitHub Secret <code>DATA_GO_KR_KEY</code> 필요)"),
-    foreign: () => row("na", "조달청 부정당제재", "해외 업체 — 해당 없음"),
-    error: () => row("bad", "조달청 부정당제재", `조회 오류: ${esc(p.error || "")}`),
+  const cell = (st, k, d) => `<div class="ck ${st}"><span class="ic">${{ ok: "✓", warn: "!", bad: "✕", na: "–" }[st]}</span><div><b>${k}</b><div class="d">${d}</div></div></div>`;
+  const hits = edcfByCompany(edcfMatches(state.edcf)).find((x) => x.c.id === c.id);
+  const pps = {
+    ok: () => cell(p.hits ? "bad" : "ok", "조달청 부정당제재", p.hits ? `현재 제재 ${p.hits}건` : "현재 제재 없음"),
+    no_bizno: () => cell("warn", "조달청 부정당제재", "사업자번호 없음"),
+    not_connected: () => cell("na", "조달청 부정당제재", "미연결"),
+    foreign: () => cell("na", "조달청 부정당제재", "해외 업체"),
+    error: () => cell("bad", "조달청 부정당제재", "조회 오류"),
   }[p.status || "not_connected"]();
-  return `
-    ${row(n.engines?.length ? "ok" : "bad", "뉴스", n.engines?.length ? `${esc(n.engines.join("·"))} 검색어 ${n.queries}개로 기사 ${n.fetched}건 확인 (업체명 언급 ${n.mentioned}건, 이번 신규 분석 ${n.new_analyzed}건)` : "검색 실패 — 실행 기록을 확인하세요")}
-    ${row("ok", "판정 방식", lc.analyzer === "claude" ? "AI(Claude)가 기사별로 관련성·등급 판정" : "키워드 규칙 (AI 키 없음 — 키워드 없는 기사는 놓칠 수 있음)")}
-    ${m.status === "ok" ? row("ok", "MDB 제재리스트", `${m.lists}개 리스트(World Bank·ADB 등)와 '${esc((m.names || []).join(", "))}' 이름으로 대조`)
-      : m.status === "no_lists" ? row("bad", "MDB 제재리스트", "리스트를 내려받지 못했습니다")
-      : row("warn", "MDB 제재리스트", "영문명이 없어 대조가 불완전합니다 → 아래 <b>영문명</b>을 입력하세요")}
-    ${ppsRow}
-    ${(lc.identity?.notes || []).map((t) => `<div class="chk-note">ℹ ${esc(t)}</div>`).join("")}
-    <div class="muted small" style="margin-top:6px">검사 시각 ${esc(lc.at)}</div>`;
+  return `<div class="ck-grid">
+    ${cell(n.engines?.length ? "ok" : "bad", "뉴스", n.engines?.length ? `${esc(n.engines.join("·"))} 기사 ${n.fetched ?? 0}건 확인` : "검색 실패")}
+    ${cell("ok", "판정", lc.analyzer === "claude" ? "AI 판정 (Claude)" : "키워드 규칙")}
+    ${cell(m.status === "ok" ? "ok" : m.status === "no_lists" ? "bad" : "warn", "MDB 제재 리스트", m.status === "ok" ? `${m.lists}개 리스트 대조` : m.status === "no_lists" ? "리스트 오류" : "영문명 없음")}
+    ${pps}
+    ${cell(!state.edcf.length ? "na" : hits ? (hits.active ? "bad" : "warn") : "ok", "EDCF 부정당업자", !state.edcf.length ? "명단 없음" : hits ? `${hits.active ? "제재 중" : "과거 이력"} ${hits.n}건` : "일치 없음")}
+  </div>
+  ${(lc.identity?.notes || []).slice(0, 1).map((t) => `<div class="ck-note">${esc(t)}</div>`).join("")}`;
 }
-
 function openCompany(cid) {
   const c = state.companies.find((x) => x.id === cid);
   if (!c) return;
   state.openCid = cid;
-  const fs = state.findings.filter((f) => f.company_id === cid && f.status !== "dismissed").sort(byLevelDate);
+  const fs = state.findings.filter((f) => f.company_id === cid && f.status !== "dismissed");
   const dismissed = state.findings.filter((f) => f.company_id === cid && f.status === "dismissed");
-  const gaps = checkGaps(c);
-  $("#drawerTitle").innerHTML = `<div class="t">${esc(c.name)} ${scanned() ? badge(c.risk) : ""}</div>
-    <div class="muted small">${byRole(c.engagements).map((e) => `${roleTag(e.role)} ${esc(projName(e.project_id))} ${stageTag(e)}`).join(" &nbsp; ") || "사업 미배정"}</div>`;
+  const groups = groupFindings(fs), sc = scanned();
+  const hint = (t) => t ? `<em>${esc(t)}</em>` : "";
+  $("#drawerTitle").innerHTML = `<div class="d-name"><span class="nm">${esc(c.name)}</span>${sc ? badge(c.risk) : ""}</div>
+    ${c.engagements.length ? `<div class="d-engs">${byRole(c.engagements).map((e) => `<span class="d-eng">${roleTag(e.role)}<span>${esc(projName(e.project_id))}</span>${stageTag(e)}</span>`).join("")}</div>` : ""}`;
   $("#drawerBody").innerHTML = `
-    <div class="muted small" style="margin-bottom:10px">${c.cat ? `${esc(c.cat)} · ` : ""}${c.focus ? "<b>집중 감시</b> — 매일 업체명 검색 + 주 1회 심층 검색" : "<b>기본 감시</b> — 매일 제재 키워드 기사·MDB 대조, 조달청 3일마다, 업체명 검색 주 1회"}</div>
-    <div class="actions left" style="margin-top:0">
-      <button class="btn primary" id="dScan">이 업체만 다시 스캔</button>
-      ${c.engagements.length ? "" : `<button class="btn" id="dWatch">${c.watch ? "집중 감시 해제" : "집중 감시로 지정"}</button>`}
-      <a class="btn" target="_blank" rel="noopener" href="https://search.naver.com/search.naver?where=news&query=${encodeURIComponent('"' + c.name + '"')}">네이버 뉴스 ↗</a>
+    <div class="d-actions">
+      <button class="btn sm primary" id="dScan">다시 스캔</button>
+      <a class="btn sm" target="_blank" rel="noopener" href="https://search.naver.com/search.naver?where=news&query=${encodeURIComponent('"' + c.name + '"')}">네이버 뉴스 ↗</a>
+      ${c.engagements.length ? "" : `<button class="btn sm ${c.watch ? "on" : ""}" id="dWatch" title="사업에 연결되지 않은 업체도 매일 업체명으로 검색">${c.watch ? "★ 집중 감시 중" : "☆ 집중 감시"}</button>`}
     </div>
 
-    <h2 style="margin-top:18px">이슈 <span class="count">${groupFindings(fs).length}</span></h2>
-    <div id="dFeed" class="feed" style="max-height:none">${fs.length ? "" : `<div class="empty">${!c.last_check ? "아직 스캔하지 않았습니다." : gaps.length ? "확인한 범위에서는 발견되지 않았습니다. 다만 아래 '검사 내역'의 ⚠ 항목은 확인하지 못했습니다." : "확인한 범위에서 발견된 이슈가 없습니다."}</div>`}</div>
-    ${dismissed.length ? `<details class="more"><summary>관련 없음 처리한 기사 ${dismissed.length}건</summary><div id="dDismissed" class="feed" style="max-height:none"></div></details>` : ""}
+    <section class="d-sec">
+      <div class="d-sec-head"><h3>이슈</h3><span class="count">${groups.length}</span></div>
+      <div id="dFeed" class="feed">${groups.length ? "" : `<div class="empty small">${c.last_check ? "발견된 이슈가 없습니다" : "아직 스캔하지 않았습니다"}</div>`}</div>
+      ${dismissed.length ? `<details class="d-more"><summary>관련 없음 처리한 기사 ${dismissed.length}건</summary><div id="dDismissed" class="feed"></div></details>` : ""}
+    </section>
 
-    <div class="card" style="margin-top:16px">
-      <h2>검사 내역 ${gaps.length && c.last_check ? `<span class="badge yellow">확인 못 한 항목 ${gaps.length}</span>` : c.last_check ? `<span class="badge none">전 항목 확인</span>` : ""}</h2>
-      ${checkRows(c)}
-    </div>
+    <section class="d-sec">
+      <div class="d-sec-head"><h3>검사 결과</h3>${c.last_check?.at ? `<span class="d-sec-meta">${esc(String(c.last_check.at).slice(5, 16))}</span>` : ""}</div>
+      ${checkGrid(c)}
+    </section>
 
-    <div class="card">
-      <h2>사업 연결</h2>
-      ${c.engagements.length ? `<div class="simple-list">${c.engagements.map((e, i) => `<div class="srow"><span>${roleTag(e.role)} ${esc(projName(e.project_id))} ${stageTag(e)}</span><button class="xbtn" data-dunlink="${i}" title="이 사업에서 빼기">✕</button></div>`).join("")}</div>` : `<div class="muted small">연결된 사업이 없습니다 (EDCF 주요 업체로 기본 감시).</div>`}
-      ${state.projects.length ? `<form id="linkForm" class="add-row" style="margin:10px 0 0"><select name="pid">${state.projects.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select><select name="role">${ROLES.map((r) => `<option>${r}</option>`).join("")}</select><button class="btn sm">연결</button></form>` : ""}
-    </div>
+    <section class="d-sec">
+      <div class="d-sec-head"><h3>참여 사업</h3></div>
+      ${c.engagements.length ? `<div class="d-list">${c.engagements.map((e, i) => `<div class="d-row"><span>${roleTag(e.role)} ${esc(projName(e.project_id))} ${stageTag(e)}</span><button class="xbtn" data-dunlink="${i}" title="이 사업에서 빼기">✕</button></div>`).join("")}</div>` : ""}
+      ${state.projects.length ? `<form id="linkForm" class="d-link"><select name="pid">${state.projects.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select><select name="role">${ROLES.map((r) => `<option>${r}</option>`).join("")}</select><button class="btn sm">연결</button></form>` : `<div class="muted small">사업 탭에서 사업을 먼저 만드세요</div>`}
+    </section>
 
-    <div class="card">
-      <h2>식별 정보 <span class="muted small" style="font-weight:500">— 사업자번호·영문명이 있어야 조달청·MDB 조회가 정확합니다</span></h2>
-      <form id="advForm" class="form">
-        <div class="row">
-          <label>사업자등록번호 ${c.bizno_source ? `<span class="muted">(${esc(c.bizno_source)})</span>` : ""}<input name="biz_no" value="${esc(fmtBiz(c.biz_no))}" placeholder="000-00-00000"></label>
-          <label>영문명<input name="name_en" value="${esc(c.name_en || "")}" placeholder="MDB 제재리스트 대조용 (예: DOHWA ENGINEERING)"></label>
-        </div>
-        <div class="row">
-          <label>별칭 (쉼표 구분)<input name="aliases" value="${esc(c.aliases || "")}"></label>
-          <label>보조 키워드<input name="context_keywords" value="${esc(c.context_keywords || "")}" placeholder="동명 업체 구분용 (예: 감리, 대표자명)"></label>
-        </div>
-        <div class="row">
-          <label>대표자<input name="ceo" value="${esc(c.ceo || "")}"></label>
-          <label>검색 언어<input name="search_langs" value="${esc(c.search_langs || "ko")}" placeholder="ko,en,id"></label>
-        </div>
-        <div class="row">
-          <label>업종 <span class="muted">(${esc(c.catGuess ? "추정: " + c.cat : c.category_source || "명단")})</span><select name="category">${["", ...CATS].map((k) => `<option value="${k}" ${k === (c.catGuess ? "" : c.cat) ? "selected" : ""}>${k || "자동 분류 (DART·업체명)"}</option>`).join("")}</select></label>
-          <label>메모<input name="note" value="${esc(c.note || "")}"></label>
-        </div>
-        <div class="actions"><button class="btn primary">저장</button></div>
+    <section class="d-sec">
+      <div class="d-sec-head"><h3>식별 정보</h3></div>
+      <form id="advForm" class="d-form" autocomplete="off">
+        <label><span>사업자등록번호 ${hint(c.bizno_source)}</span><input name="biz_no" value="${esc(fmtBiz(c.biz_no))}" placeholder="000-00-00000"></label>
+        <label><span>영문명</span><input name="name_en" value="${esc(c.name_en || "")}" placeholder="예: GANADA ENGINEERING CO., LTD."></label>
+        <label><span>업종 ${hint(c.catGuess ? "추정" : c.category_source)}</span><select name="category">${["", ...CATS].map((k) => `<option value="${k}" ${k === (c.catGuess ? "" : c.cat) ? "selected" : ""}>${k || `자동 분류${c.catGuess ? ` (추정: ${c.cat})` : ""}`}</option>`).join("")}</select></label>
+        <label><span>대표자</span><input name="ceo" value="${esc(c.ceo || "")}"></label>
+        <label><span>별칭 ${hint("쉼표로 구분")}</span><input name="aliases" value="${esc(c.aliases || "")}"></label>
+        <label><span>보조 키워드 ${hint("동명 업체 구분")}</span><input name="context_keywords" value="${esc(c.context_keywords || "")}" placeholder="예: 감리, 대표자명"></label>
+        <label><span>검색 언어</span><input name="search_langs" value="${esc(c.search_langs || "ko")}" placeholder="ko,en,id"></label>
+        <label><span>메모</span><input name="note" value="${esc(c.note || "")}"></label>
+        <div class="d-form-foot"><span class="muted small">DART에 있는 업체는 스캔 때 자동으로 채워집니다</span><button class="btn primary">저장</button></div>
       </form>
-      <p class="muted small" style="margin:6px 0 0">DART에 등록된 업체(상장사 + 공시 대상 비상장사)는 스캔 때 사업자번호·영문명이 자동으로 채워집니다. 소규모 업체·건축사사무소·대학·해외 업체는 사업자등록증을 보고 직접 입력하세요.</p>
-    </div>
+    </section>
 
-    <details class="more">
-      <summary>직접 확인한 제재 기록 추가</summary>
-      <form id="manualForm" class="form">
-        <div class="row">
-          <select name="source_name"><option>조달청 나라장터 부정당제재</option><option>World Bank 제재기업 리스트</option><option>ADB 제재 리스트</option><option>공정거래위원회 의결</option><option>기타</option></select>
-          <select name="level"><option value="red">위험</option><option value="orange">경고</option><option value="yellow">주의</option></select>
-        </div>
-        <input name="title" placeholder="내용 (예: 입찰참가자격 제한 6개월, 2025.03~2025.09)" required>
-        <div class="row"><input name="url" placeholder="출처 URL"><input name="published_at" placeholder="처분일 YYYY-MM-DD"></div>
-        <div class="actions"><button class="btn primary">기록 추가</button></div>
-      </form>
-    </details>
-    <div class="actions left" style="margin-top:20px"><button class="btn sm danger" id="dDelete">업체 삭제</button></div>`;
-  if (fs.length) renderFeed(fs, $("#dFeed"), false);
+    <div class="d-danger"><button class="btn sm ghost danger" id="dDelete">업체 삭제</button></div>`;
+  if (fs.length) renderGroups(groups, $("#dFeed"), false);
   if (dismissed.length) renderFeed(dismissed, $("#dDismissed"), false);
+  $$("#drawerBody [data-open]").forEach((x) => x.onclick = () => openCompany(x.dataset.open));
   $("#dScan").onclick = () => runWorkflow({ task: "scan", companies: c.name }, `'${c.name}' 재스캔`);
   $("#dWatch")?.addEventListener("click", async () => {
     c.watch = !c.watch; await updateDoc(doc(db, "companies", cid), { watch: c.watch });
-    toast(c.watch ? "집중 감시로 지정했습니다 (다음 스캔부터 매일 업체명 검색)" : "기본 감시로 되돌렸습니다"); rerender();
+    toast(c.watch ? "집중 감시로 지정했습니다 (매일 업체명 검색)" : "집중 감시를 해제했습니다"); rerender();
   });
   $("#linkForm")?.addEventListener("submit", async (ev) => {
     ev.preventDefault();
@@ -694,10 +669,7 @@ function openCompany(cid) {
   $$("[data-dunlink]").forEach((b) => b.onclick = async () => {
     c.engagements.splice(+b.dataset.dunlink, 1); await saveEngagements(c); toast("사업 연결을 뺐습니다"); rerender();
   });
-  $("#dDelete").onclick = async () => {
-    if (!confirm(`'${c.name}' 업체와 수집 이력을 삭제할까요?`)) return;
-    await deleteCompany(cid); closeDrawer(); rerender();
-  };
+  $("#dDelete").onclick = () => deleteCompanies([cid]);
   $("#advForm").onsubmit = async (ev) => {
     ev.preventDefault();
     const fd = Object.fromEntries(new FormData(ev.target));
@@ -715,21 +687,6 @@ function openCompany(cid) {
     } else delete patch.category;
     await updateDoc(doc(db, "companies", cid), patch); Object.assign(c, patch);
     toast("저장했습니다. 다음 스캔부터 적용됩니다"); rerender(); // 표와 상세를 함께 새로 그림
-  };
-  $("#manualForm").onsubmit = async (ev) => {
-    ev.preventDefault();
-    const fd = Object.fromEntries(new FormData(ev.target));
-    const key = "manual-" + Date.now();
-    const data = {
-      company_id: cid, company_name: c.name, source_type: "manual", source_name: fd.source_name, title: fd.title,
-      url: fd.url || "", published_at: fd.published_at || "", level: fd.level,
-      category: /공정/.test(fd.source_name) ? "과징금·행정처분" : /Bank|ADB/.test(fd.source_name) ? "MDB 제재" : "부정당업자 제재",
-      summary: fd.title, rationale: `담당자 수기 등록 (${auth.currentUser.email})`, analyzer: "manual", relevant: true,
-      dedup_key: key, status: "new", first_seen: nowStr(), first_seen_ms: Date.now(), reported_at: null,
-    };
-    await setDoc(doc(db, "findings", `${cid}_${key}`), data);
-    state.findings.push({ id: `${cid}_${key}`, ...data });
-    toast("기록을 추가했습니다"); rerender();
   };
   $("#drawer").classList.add("open"); $("#drawerBg").classList.add("open");
 }
@@ -967,7 +924,7 @@ function applyCat(c, cat, source) {
   else if (!c.category) { c.category = guessCat(c.name) || guessCat(c.name_en) || "기타"; c.category_source = "이름 추정"; }
 }
 
-// ---------- 업체·사업 ----------
+// ---------- 업체 탭 ----------
 // 자주 쓰는 보기
 const CO_VIEWS = [
   ["all", "전체", "등록된 모든 업체"],
@@ -982,7 +939,8 @@ const inView = (c, v) => v === "all" ? true
   : v === "risk" ? scanned() && c.risk !== "none"
   : v === "open" ? c.open > 0
   : v === "info" ? needInfo(c) : true;
-const coState = { view: "all", sort: "risk", dir: 1 };
+const coState = { view: "all", sort: "risk", dir: 1, sel: new Set() };
+const CO_FILTERS = ["#poolSearch", "#fOwner", "#fProj", "#fRole", "#fStage", "#fRisk", "#fCat", "#fNat"];
 function poolMatches(c) {
   const q = ($("#poolSearch").value || "").trim().toLowerCase(), qd = q.replace(/\D/g, "");
   if (q && !(c.name.toLowerCase().includes(q) || (c.aliases || "").toLowerCase().includes(q) || (c.name_en || "").toLowerCase().includes(q) || (qd.length >= 3 && String(c.biz_no || "").includes(qd)))) return false;
@@ -1007,85 +965,119 @@ const CO_SORT = {
   risk: (a, b) => (LV[b.risk] - LV[a.risk]) || b.open - a.open || (b.engagements.length - a.engagements.length) || a.name.localeCompare(b.name),
   open: (a, b) => b.open - a.open || (LV[b.risk] - LV[a.risk]) || a.name.localeCompare(b.name),
 };
+const TRASH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>`;
 function renderCompanies() {
   const sc = scanned();
-  $("#coEyebrow").textContent = `COMPANIES · 업체 ${state.companies.length}곳 · 사업 ${state.projects.length}개`;
+  $("#coTotal").textContent = state.companies.length;
+  const en = state.edcf.length;
+  $("#edcfPill").textContent = en ? `${en}건` : "없음"; $("#edcfPill").classList.toggle("off", !en);
   // 필터 항목 (선택값 유지)
   const keep = (id, html) => { const v = $(id).value; $(id).innerHTML = html; if ([...$(id).options].some((o) => o.value === v)) $(id).value = v; };
-  keep("#fProj", `<option value="">사업: 전체</option><option value="__none">사업 미연결 (EDCF 주요 업체)</option>` + state.projects.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join(""));
-  keep("#fCat", `<option value="">업종: 전체</option>` + CATS.map((k) => `<option value="${k}">${k}</option>`).join(""));
-  // 자주 쓰는 보기 (개수 표시)
+  keep("#fProj", `<option value="">사업 전체</option><option value="__none">사업 미연결</option>` + state.projects.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join(""));
+  keep("#fCat", `<option value="">업종 전체</option>` + CATS.map((k) => `<option value="${k}">${k}</option>`).join(""));
   $("#coViews").innerHTML = CO_VIEWS.map(([k, l, d]) => `<button data-v="${k}" class="cv-btn ${k} ${k === coState.view ? "active" : ""}" title="${d}">${l}<span class="n">${state.companies.filter((c) => inView(c, k)).length}</span></button>`).join("");
   $$("#coViews button").forEach((b) => b.onclick = () => { coState.view = b.dataset.v; renderCompanies(); });
-  $("#coViewDesc").textContent = CO_VIEWS.find(([k]) => k === coState.view)[2];
 
   const list = state.companies.filter(poolMatches).sort((a, b) => CO_SORT[coState.sort](a, b) * coState.dir);
-  const anyFilter = ["#poolSearch", "#fOwner", "#fProj", "#fRole", "#fStage", "#fRisk", "#fCat", "#fNat"].some((id) => $(id).value);
-  $("#fReset").classList.toggle("hidden", !anyFilter);
+  for (const id of [...coState.sel]) if (!state.companies.some((c) => c.id === id)) coState.sel.delete(id);
+  $("#fReset").classList.toggle("hidden", !CO_FILTERS.some((id) => $(id).value));
   $("#poolShown").textContent = list.length === state.companies.length ? `${list.length}곳` : `${state.companies.length}곳 중 ${list.length}곳`;
-  $$("#coTable th[data-sort]").forEach((th) => th.classList.toggle("on", th.dataset.sort === coState.sort));
-  const engChip = (e) => `<span class="ej" title="${esc(projName(e.project_id))} · ${esc(e.role)} · ${esc(e.stage || "계약")}">${roleTag(e.role)}<span class="ej-p">${esc(projName(e.project_id))}</span>${e.stage && e.stage !== "계약" ? `<span class="stage">${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""}</span>` : ""}</span>`;
-  $("#pool").innerHTML = !list.length ? `<tr><td colspan="7" class="empty">${state.companies.length ? "조건에 맞는 업체가 없습니다." : "업체가 없습니다. [일괄 등록] 또는 [+ 업체 추가]를 이용하세요."}</td></tr>`
-    : list.map((c) => `<tr draggable="true" data-cid="${c.id}" title="끌어서 오른쪽 사업 칸에 놓기 · 누르면 상세">
-      <td class="t-name"><span class="grip">⋮⋮</span><div><b>${esc(c.name)}</b>${c.watch ? ' <span class="muted" title="집중 감시">★</span>' : ""}${c.name_en ? `<div class="sub">${esc(c.name_en)}</div>` : ""}</div></td>
-      <td class="t-cat">${esc(c.cat || "-")}${c.catGuess || c.category_source === "이름 추정" ? `<span class="src guess" title="업체명으로 추정 — 스캔 때 DART 업종이 있으면 바뀜">추정</span>` : CAT_SRC[c.category_source] ? `<span class="src" title="${esc(c.category_source)}">${CAT_SRC[c.category_source]}</span>` : ""}</td>
-      <td class="t-proj">${c.engagements.length ? byRole(c.engagements).map(engChip).join("") : `<span class="muted">EDCF 주요 업체</span>`}</td>
+  $$("#coTable th[data-sort]").forEach((th) => { th.classList.toggle("on", th.dataset.sort === coState.sort); th.classList.toggle("desc", th.dataset.sort === coState.sort && coState.dir < 0); });
+  const engChip = (e) => `<span class="ej" title="${esc(projName(e.project_id))} · ${esc(e.role)} · ${esc(e.stage || "계약")}">${roleTag(e.role)}<span class="ej-p">${esc(projName(e.project_id))}</span>${stageTag(e)}</span>`;
+  $("#pool").innerHTML = !list.length ? `<tr><td colspan="9" class="empty">${state.companies.length ? "조건에 맞는 업체가 없습니다." : "업체가 없습니다. [일괄 등록] 또는 [+ 업체 추가]를 이용하세요."}</td></tr>`
+    : list.map((c) => `<tr data-cid="${c.id}" class="${coState.sel.has(c.id) ? "sel" : ""}">
+      <td class="t-chk"><input type="checkbox" data-sel="${c.id}" ${coState.sel.has(c.id) ? "checked" : ""} aria-label="${esc(c.name)} 선택"></td>
+      <td class="t-name"><button class="co-name" data-open="${c.id}">${esc(c.name)}</button>${c.watch ? `<span class="watch" title="집중 감시">★</span>` : ""}${c.name_en ? `<div class="sub">${esc(c.name_en)}</div>` : ""}</td>
+      <td class="t-cat">${esc(c.cat || "-")}${c.catGuess || c.category_source === "이름 추정" ? `<span class="src guess" title="업체명으로 추정 — 스캔 때 DART 업종이 있으면 바뀜">추정</span>` : ""}</td>
+      <td class="t-proj">${c.engagements.length ? byRole(c.engagements).map(engChip).join("") : `<span class="muted">-</span>`}</td>
       <td class="t-risk">${sc ? (c.risk !== "none" ? badge(c.risk) : `<span class="ok-t">정상</span>`) : `<span class="muted">-</span>`}</td>
       <td class="t-open">${c.open ? `<b>${c.open}</b>` : `<span class="muted">0</span>`}</td>
-      <td class="t-id">${c.country !== "KR" ? `<span class="muted">해외</span>` : c.biz_no ? `<span title="${esc(c.bizno_source || "")}">${esc(fmtBiz(c.biz_no))}</span>` : `<span class="miss">없음</span>`}</td>
+      <td class="t-id">${c.country !== "KR" ? `<span class="muted">해외</span>` : c.biz_no ? esc(fmtBiz(c.biz_no)) : `<span class="miss">없음</span>`}</td>
       <td class="t-id">${c.name_en ? `<span class="ok-t">✓</span>` : `<span class="miss">없음</span>`}</td>
+      <td class="t-act"><button class="icon-btn danger" data-del="${c.id}" title="삭제" aria-label="${esc(c.name)} 삭제">${TRASH}</button></td>
     </tr>`).join("");
-
-  // 사업 카드 (놓는 곳): 업체 등급 분포 + 역할 칸
-  $("#projCount").textContent = state.projects.length;
-  $("#projBoard").innerHTML = state.projects.map((p) => {
-    const rows = [];
-    for (const c of state.companies) c.engagements.forEach((e, i) => { if (e.project_id === p.id) rows.push({ c, e, i }); });
-    const t = { red: 0, orange: 0, yellow: 0, none: 0 };
-    new Set(rows.map((r) => r.c)).forEach((c) => t[c.risk]++);
-    const total = t.red + t.orange + t.yellow + t.none;
-    const dist = !total ? "" : `<div class="pj-dist"><div class="pj-bar">${sc ? ["red", "orange", "yellow", "none"].filter((lv) => t[lv]).map((lv) => `<i class="${lv}" style="flex:${t[lv]}"></i>`).join("") : `<i class="pending" style="flex:1"></i>`}</div>
-      <div class="pj-sum">${sc ? (["red", "orange", "yellow"].filter((lv) => t[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${t[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) : ""}<span class="tot">/ ${total}곳</span></div></div>`;
-    return `<div class="pbox">
-      <div class="pbox-head"><div class="pname">${esc(p.name)}</div>${p.country ? `<span class="ctry">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</div>
-      <div class="pbox-body">${dist}
-        ${ROLES.map((role) => {
-          const rr = rows.filter((r) => r.e.role === role);
-          return `<div class="dropzone ${rr.length ? "" : "is-empty"}" data-pid="${p.id}" data-role="${esc(role)}">
-            ${roleTag(role)}
-            ${rr.map(({ c, e, i }) => `<div class="corow" draggable="true" data-cid="${c.id}" data-from="${p.id}|${i}">
-              <span class="dot ${sc ? c.risk : ""}"></span><span class="cn">${esc(c.name)}</span>
-              <span class="right">
-                <button class="stagebtn ${e.stage !== "계약" ? "on" : ""}" data-stage="${c.id}|${i}" title="눌러서 단계 변경">${esc(e.stage || "계약")}${e.stage === "우선협상" && e.rank ? " " + e.rank + "순위" : ""}</button>
-                <button class="xbtn" data-unlink="${c.id}|${i}" title="이 사업에서 빼기">✕</button>
-              </span></div>`).join("")}
-            <div class="drop-hint">여기로 끌어다 놓기</div>
-          </div>`;
-        }).join("")}
-      </div>
-      <div class="pbox-foot"><span>${ownerTag(p)}${p.owner !== me() ? ` <button class="btn sm ghost" data-own="${p.id}">내 사업으로</button>` : ""}</span><button class="btn sm ghost danger" data-del-proj="${p.id}">사업 삭제</button></div>
-    </div>`;
-  }).join("") || `<div class="empty">사업이 없습니다. 위에서 사업을 추가하세요.</div>`;
-  bindDnd();
+  // 선택 (일괄 삭제)
+  const visible = list.map((c) => c.id), nSel = visible.filter((id) => coState.sel.has(id)).length;
+  $("#coChkAll").checked = !!visible.length && nSel === visible.length;
+  $("#coChkAll").indeterminate = nSel > 0 && nSel < visible.length;
+  $("#coBulkbar").classList.toggle("hidden", !coState.sel.size);
+  $("#coSelN").textContent = coState.sel.size;
+  $("#coChkAll").onchange = (e) => { visible.forEach((id) => e.target.checked ? coState.sel.add(id) : coState.sel.delete(id)); renderCompanies(); };
+  $$("#pool [data-sel]").forEach((x) => x.onchange = () => { x.checked ? coState.sel.add(x.dataset.sel) : coState.sel.delete(x.dataset.sel); renderCompanies(); });
+  $$("#pool [data-open]").forEach((x) => x.onclick = () => openCompany(x.dataset.open));
+  $$("#pool [data-del]").forEach((x) => x.onclick = () => deleteCompanies([x.dataset.del]));
+}
+// 여러 업체 삭제 (수집된 이슈도 함께)
+async function deleteCompanies(ids) {
+  const names = ids.map((id) => state.companies.find((c) => c.id === id)?.name).filter(Boolean);
+  if (!names.length) return;
+  const msg = names.length === 1 ? `'${names[0]}' 업체와 수집된 이슈를 삭제할까요?`
+    : `선택한 ${names.length}곳(${names.slice(0, 3).join(", ")}${names.length > 3 ? " 등" : ""})과 수집된 이슈를 삭제할까요?`;
+  if (!confirm(msg + "\n삭제하면 되돌릴 수 없습니다.")) return;
+  if (names.length > 5) toast(`${names.length}곳 삭제 중…`, 8000);
+  for (let i = 0; i < ids.length; i += 8) await Promise.all(ids.slice(i, i + 8).map((id) => deleteCompany(id)));
+  ids.forEach((id) => coState.sel.delete(id));
+  if (state.openCid && ids.includes(state.openCid)) closeDrawer();
+  toast(`${names.length}곳을 삭제했습니다`); rerender();
 }
 $("#poolSearch").addEventListener("input", () => renderCompanies());
-["#fOwner", "#fProj", "#fRole", "#fStage", "#fRisk", "#fCat", "#fNat"].forEach((s) => $(s).addEventListener("change", () => renderCompanies()));
-$("#fReset").onclick = () => { ["#poolSearch", "#fOwner", "#fProj", "#fRole", "#fStage", "#fRisk", "#fCat", "#fNat"].forEach((id) => ($(id).value = "")); renderCompanies(); };
+CO_FILTERS.slice(1).forEach((s) => $(s).addEventListener("change", () => renderCompanies()));
+$("#fReset").onclick = () => { CO_FILTERS.forEach((id) => ($(id).value = "")); renderCompanies(); };
+$("#coDelSel").onclick = () => deleteCompanies([...coState.sel]);
+$("#coSelClear").onclick = () => { coState.sel.clear(); renderCompanies(); };
 $$("#coTable th[data-sort]").forEach((th) => th.addEventListener("click", () => {
   if (coState.sort === th.dataset.sort) coState.dir *= -1; else { coState.sort = th.dataset.sort; coState.dir = 1; }
   renderCompanies();
 }));
 
-
-// ---------- 설정 ----------
-function renderSettings() {
-  $("#rcList").innerHTML = state.recipients.map((r) => `<div class="srow"><span>${esc(r.email)}</span><button class="xbtn" data-del-rc="${r.id}" title="삭제">✕</button></div>`).join("") || `<div class="muted small">아직 없습니다.</div>`;
-  $$("[data-del-rc]").forEach((b) => b.onclick = async () => { await deleteDoc(doc(db, "recipients", b.dataset.delRc)); state.recipients = state.recipients.filter((r) => r.id !== b.dataset.delRc); renderSettings(); });
-  renderEdcfInfo();
-  renderConnections();
-  renderAdvanced();
-  renderTasks();
+// ---------- 사업 탭: 왼쪽 업체 이름을 끌어서 사업의 역할 칸에 놓기 ----------
+const pjState = { scope: "all" };
+function renderProjects() {
+  const sc = scanned();
+  $("#pjTotal").textContent = state.projects.length;
+  const q = ($("#sideSearch").value || "").trim().toLowerCase();
+  const side = state.companies.filter((c) => !q || c.name.toLowerCase().includes(q) || (c.aliases || "").toLowerCase().includes(q) || (c.name_en || "").toLowerCase().includes(q))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  $("#sideN").textContent = q ? `${side.length} / ${state.companies.length}곳` : `${state.companies.length}곳`;
+  $("#sideList").innerHTML = side.map((c) => `<div class="side-co" draggable="true" data-cid="${c.id}" title="끌어서 사업의 역할 칸에 놓기"><span class="dot ${sc ? c.risk : ""}"></span><span class="nm">${esc(c.name)}</span></div>`).join("")
+    || `<div class="empty small">${state.companies.length ? "검색 결과가 없습니다" : "업체 탭에서 업체를 먼저 등록하세요"}</div>`;
+  const mineN = state.projects.filter(isMine).length;
+  $("#pjScope").innerHTML = [["all", "전체", state.projects.length], ["mine", "내 사업", mineN]].map(([k, l, n]) => `<button data-s="${k}" class="${pjState.scope === k ? "active" : ""}">${l} <span class="n">${n}</span></button>`).join("");
+  $$("#pjScope button").forEach((b) => b.onclick = () => { pjState.scope = b.dataset.s; renderProjects(); });
+  const ps = state.projects.filter((p) => pjState.scope === "all" || isMine(p));
+  $("#projBoard").innerHTML = ps.map((p) => projectCard(p, sc)).join("")
+    || `<div class="empty">${state.projects.length ? "내 사업으로 지정한 사업이 없습니다." : "사업이 없습니다. 오른쪽 위에서 새 사업을 추가하세요."}</div>`;
+  bindDnd();
 }
+function projectCard(p, sc) {
+  const rows = [];
+  for (const c of state.companies) c.engagements.forEach((e, i) => { if (e.project_id === p.id) rows.push({ c, e, i }); });
+  const t = { red: 0, orange: 0, yellow: 0, none: 0 };
+  new Set(rows.map((r) => r.c)).forEach((c) => t[c.risk]++);
+  const total = t.red + t.orange + t.yellow + t.none;
+  const dist = !total ? "" : `<div class="pj-dist"><div class="pj-bar">${sc ? ["red", "orange", "yellow", "none"].filter((lv) => t[lv]).map((lv) => `<i class="${lv}" style="flex:${t[lv]}"></i>`).join("") : `<i class="pending" style="flex:1"></i>`}</div>
+    <div class="pj-sum">${sc ? (["red", "orange", "yellow"].filter((lv) => t[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${t[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) : ""}<span class="tot">/ ${total}곳</span></div></div>`;
+  return `<div class="pbox">
+    <div class="pbox-head"><div class="pname" title="${esc(p.name)}">${esc(p.name)}</div>${p.country ? `<span class="ctry">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</div>
+    ${dist}
+    <div class="pbox-body">${ROLES.map((role) => {
+      const rr = rows.filter((r) => r.e.role === role);
+      return `<div class="dropzone ${rr.length ? "" : "is-empty"}" data-pid="${p.id}" data-role="${esc(role)}">
+        <div class="dz-head">${roleTag(role)}</div>
+        ${rr.map(({ c, e, i }) => `<div class="corow" draggable="true" data-cid="${c.id}" data-from="${p.id}|${i}">
+          <span class="dot ${sc ? c.risk : ""}"></span><button class="cn" data-open="${c.id}">${esc(c.name)}</button>
+          <span class="right">
+            <button class="stagebtn ${e.stage && e.stage !== "계약" ? "on" : ""}" data-stage="${c.id}|${i}" title="눌러서 단계 변경">${esc(e.stage || "계약")}${e.stage === "우선협상" && e.rank ? " " + e.rank + "순위" : ""}</button>
+            <button class="xbtn" data-unlink="${c.id}|${i}" title="이 사업에서 빼기">✕</button>
+          </span></div>`).join("")}
+        <div class="drop-hint">여기로 끌어다 놓기</div>
+      </div>`;
+    }).join("")}</div>
+    <div class="pbox-foot">${ownerTag(p)}${p.owner !== me() ? `<button class="btn sm ghost" data-own="${p.id}">내 사업으로</button>` : ""}<button class="btn sm ghost danger" data-del-proj="${p.id}">삭제</button></div>
+  </div>`;
+}
+$("#sideSearch").addEventListener("input", () => renderProjects());
+
 
 async function saveEngagements(c) { await updateDoc(doc(db, "companies", c.id), { engagements: c.engagements }); }
 
@@ -1109,7 +1101,7 @@ async function placeCompany(cid, from, pid, role) {
 }
 
 function bindDnd() {
-  const root = $("#view-companies");
+  const root = $("#view-projects");
   // 끌기 시작
   $$("[draggable=true]", root).forEach((el) => {
     el.addEventListener("dragstart", (ev) => {
@@ -1129,8 +1121,6 @@ function bindDnd() {
       await placeCompany(data.cid, data.from, z.dataset.pid, z.dataset.role);
     });
   });
-  // 업체 목록: 누르면 상세(사업자번호·영문명 입력, 사업 연결)
-  $$("#pool tr[data-cid]").forEach((el) => el.addEventListener("click", () => openCompany(el.dataset.cid)));
   // 담당자 지정
   $$("[data-own]", root).forEach((b) => b.onclick = async () => {
     const p = state.projects.find((x) => x.id === b.dataset.own);
@@ -1138,7 +1128,7 @@ function bindDnd() {
     toast(`'${p.name}'을(를) 내 사업으로 지정했습니다`); rerender();
   });
   // 사업 카드 안 업체 이름: 상세 열기
-  $$("#projBoard .corow .cn").forEach((x) => x.addEventListener("click", () => openCompany(x.closest(".corow").dataset.cid)));
+  $$("#projBoard [data-open]").forEach((x) => x.addEventListener("click", () => openCompany(x.dataset.open)));
   // 단계 바꾸기
   $$("[data-stage]", root).forEach((b) => b.onclick = async () => {
     const [cid, i] = b.dataset.stage.split("|");
@@ -1238,7 +1228,7 @@ $("#btnAddCompany").onclick = () => {
     await setDoc(ref, companyData(c));
     state.companies.push(c);
     closeModal();
-    toast(`'${name}'을(를) 추가했습니다${fd.pid ? "" : ". 사업 카드로 끌어다 놓으면 연결됩니다"}`, 4000);
+    toast(`'${name}'을(를) 추가했습니다${fd.pid ? "" : " — 사업 탭에서 사업에 연결할 수 있습니다"}`, 4000);
     rerender();
   };
   setTimeout(() => $("#addCoForm input[name=name]")?.focus(), 50);
@@ -1425,7 +1415,7 @@ $("#btnBulk").onclick = () => {
 
 라마바엔지니어링
 차카타정보통신"></textarea>
-    <p class="muted small">사업명·역할을 함께 적으면 사업에 바로 연결되고, 없으면 'EDCF 주요 업체'로 등록됩니다. 이미 있는 업체는 빈 정보(사업자번호·영문명·업종·별칭)만 채웁니다. 업종을 비워두면 업체명·DART 업종코드로 자동 분류합니다. 사내 보안(DRM)으로 파일이 안 열리면 표를 복사해 붙여넣으세요.</p>
+    <p class="muted small">사업명·역할을 함께 적으면 사업에 바로 연결됩니다. 이미 있는 업체는 빈 정보(사업자번호·영문명·업종·별칭)만 채웁니다. 업종을 비워두면 업체명·DART 업종코드로 자동 분류합니다. 사내 보안(DRM)으로 파일이 안 열리면 표를 복사해 붙여넣으세요.</p>
     <div class="actions left" style="margin-top:4px"><button class="btn" id="bulkPrev">미리보기</button><button class="btn primary" id="bulkRun" disabled>등록하기</button></div>
     <div id="bulkOut" class="import-preview"></div>`);
   $("#bulkTpl").onclick = downloadTemplate;
@@ -1566,7 +1556,18 @@ $("#edcfFile").addEventListener("change", async (ev) => {
       "회사망에서 엑셀 해석 도구(cdnjs.cloudflare.com)가 막혀 있을 수 있습니다 → 붙여넣기 이용"]);
   }
 });
-$("#edcfPasteBtn").onclick = () => {
+// 업체 탭 [EDCF 부정당업자 명단]: 현재 명단 상태 + 올리기
+function openEdcf() {
+  modal(`<h2>EDCF 부정당업자 명단 <span class="count">${state.edcf.length}</span></h2>
+    <p class="muted small">EXIMIIS → 경협 → 업무지원 → 부정당업자조회 엑셀을 올리면, 스캔 때 사업자번호(없으면 업체명)로 대조합니다. 새로 올리면 기존 명단을 교체합니다.</p>
+    <div id="edcfInfo" class="edcf-info"></div>
+    <div class="actions left"><button class="btn primary" id="edcfUp">엑셀 파일 올리기</button><button class="btn" id="edcfPaste">표 붙여넣기</button></div>`);
+  renderEdcfInfo();
+  $("#edcfUp").onclick = () => $("#edcfFile").click();
+  $("#edcfPaste").onclick = openEdcfPaste;
+}
+$("#btnEdcf").onclick = openEdcf;
+function openEdcfPaste() {
   modal(`<h2>EDCF 부정당업자 명단 붙여넣기</h2>
     <p class="muted small">EXIMIIS 엑셀에서 <b>제목 줄(업체명, 상태, 제재기간 …)부터</b> 표 전체를 복사해 붙여넣으세요.</p>
     <textarea id="edcfText" placeholder="엑셀 표를 제목 줄부터 복사해 붙여넣으세요.
@@ -1582,67 +1583,65 @@ $("#edcfPasteBtn").onclick = () => {
       edcfPreview(list);
     } catch (e) { toast(e.message, 5000); }
   };
-};
+}
 function renderEdcfInfo() {
   const st = state.settings || {}, list = state.edcf, g = edcfByCompany(edcfMatches(list)), act = g.filter((x) => x.active);
   const active = list.filter((e) => /등록/.test(e.status || "")).length;
+  if (!$("#edcfInfo")) return;
   $("#edcfInfo").innerHTML = !list.length ? "아직 등록된 명단이 없습니다."
     : `${list.length}건 (등록 ${active} · 해지 ${list.length - active}) · ${esc(st.edcf_sanctions_at || "")} 반영${st.edcf_sanctions_by ? ` (${esc(st.edcf_sanctions_by.split("@")[0])})` : ""}
        ${g.length ? `<div style="margin-top:6px">우리 명단과 일치 <b>${g.length}곳</b>${act.length ? ` · <b style="color:var(--red)">현재 제재 중 ${act.map((x) => esc(x.c.name)).join(", ")}</b>` : ""}<br>${edcfHitText(g)}</div>` : `<div style="margin-top:6px">우리 명단과 일치하는 업체 없음</div>`}`;
 }
 
-// ---------- 연결 상태 (카테고리별) ----------
+const hoursSince = (t) => t ? (Date.now() - Date.parse(String(t).replace(" ", "T") + "+09:00")) / 3600e3 : null;
+// ---------- 설정 ----------
+function renderSettings() {
+  renderKeywords();
+  $("#rcList").innerHTML = state.recipients.map((r) => `<div class="srow"><span>${esc(r.email)}</span><button class="xbtn" data-del-rc="${r.id}" title="삭제">✕</button></div>`).join("") || `<div class="muted small">아직 없습니다.</div>`;
+  $$("[data-del-rc]").forEach((b) => b.onclick = async () => { await deleteDoc(doc(db, "recipients", b.dataset.delRc)); state.recipients = state.recipients.filter((r) => r.id !== b.dataset.delRc); renderSettings(); });
+  if ($("#advCard").open) renderAdvanced();
+}
+// 리스크 키워드: 등급별 3칸
+function renderKeywords() {
+  $("#kwCount").textContent = state.keywords.length;
+  const by = { red: [], orange: [], yellow: [] };
+  [...state.keywords].sort((a, b) => (b.use_in_query || 0) - (a.use_in_query || 0) || a.word.localeCompare(b.word)).forEach((k) => (by[k.level] || by.yellow).push(k));
+  $("#kwList").innerHTML = ["red", "orange", "yellow"].map((lv) => `<div class="kw-col ${lv}">
+    <div class="kw-col-head">${badge(lv)}<span class="kw-desc">${LEVEL_SHORT[lv]}</span><span class="n">${by[lv].length}</span></div>
+    <div class="kw-chips">${by[lv].map((k) => `<span class="kchip ${k.use_in_query ? "q" : ""}"><button class="kq" data-kq="${k.id}" title="${k.use_in_query ? "검색어로 쓰는 중 — 누르면 해제" : "누르면 심층 검색 때 검색어로도 사용"}">${k.use_in_query ? "★" : "☆"}</button><span class="w">${esc(k.word)}</span>${k.lang && k.lang !== "ko" ? `<small>${esc(k.lang.toUpperCase())}</small>` : ""}<button class="kx" data-del-kw="${k.id}" title="삭제">✕</button></span>`).join("") || `<span class="muted small">없음</span>`}</div>
+  </div>`).join("");
+  $$("[data-del-kw]").forEach((b) => b.onclick = async () => { await deleteDoc(doc(db, "keywords", b.dataset.delKw)); state.keywords = state.keywords.filter((k) => k.id !== b.dataset.delKw); renderKeywords(); });
+  $$("[data-kq]").forEach((b) => b.onclick = async () => {
+    const k = state.keywords.find((x) => x.id === b.dataset.kq); if (!k) return;
+    k.use_in_query = k.use_in_query ? 0 : 1;
+    await updateDoc(doc(db, "keywords", k.id), { use_in_query: k.use_in_query }); renderKeywords();
+  });
+}
+// 고급: API 연결 상태 (마지막 스캔 기준)
 function renderConnections() {
   const s = state.status, c = s.connections || {}, known = !!s.connections, st = state.settings || {};
   const lists = s.sanction_lists ? Object.entries(s.sanction_lists) : [];
   const listOk = lists.length && lists.every(([, v]) => !/오류/.test(String(v)));
-  const lastScanH = s.last_scan_at ? (Date.now() - Date.parse(s.last_scan_at.replace(" ", "T") + "+09:00")) / 3600e3 : null;
-  // [이름, 상태(ok/warn/off/unknown), 설명, 미설정 시 할 일]
+  const scanH = hoursSince(s.last_scan_at);
   const B = (v) => !known ? "unknown" : v ? "ok" : "off";
-  const groups = [
-    ["실행·저장", [
-      ["Firebase (데이터 저장·로그인)", "ok", "이 화면이 보이면 정상"],
-      ["GitHub Actions 매일 자동 스캔", lastScanH == null ? "unknown" : lastScanH < 26 ? "ok" : "warn",
-        lastScanH == null ? "아직 실행 기록 없음" : `마지막 스캔 ${s.last_scan_at.slice(5, 16)}${lastScanH >= 26 ? " — 하루 넘게 안 돌았습니다" : ""}`,
-        "GitHub 웹에서 .github/workflows/monitor.yml을 한 번 열어 수정·커밋(예약 실행 활성화)"],
-      ["즉시 실행 중계 (Google Apps Script)", st.relay_url ? "ok" : "off",
-        st.relay_url ? "[지금 스캔]이 1~2분 안에 시작됩니다" : "없으면 [지금 스캔]이 GitHub 예약 확인(10분 간격, 지연 잦음)까지 대기",
-        "tools/relay.gs를 Apps Script에 붙여넣고 웹 앱으로 배포 → 아래에 주소 저장"],
-    ]],
-    ["뉴스", [
-      ["Google 뉴스", B(c.google_news ?? true), "키 불필요"],
-      ["네이버 뉴스", B(c.naver), "Secret NAVER_APIHUB_KEY_ID / NAVER_APIHUB_KEY", "네이버 클라우드 콘솔 → NAVER API HUB → 검색(뉴스) 키 발급 → GitHub Secrets 등록"],
-    ]],
-    ["공식 제재 명단", [
-      ["EDCF 부정당업자 (EXIMIIS)", state.edcf.length ? "ok" : "off", state.edcf.length ? `${state.edcf.length}건 · ${st.edcf_sanctions_at || ""}` : "엑셀 업로드 필요", "왼쪽 'EDCF 부정당업자 명단'에 EXIMIIS 엑셀 올리기"],
-      ["조달청 나라장터 부정당제재", B(c.pps), "Secret DATA_GO_KR_KEY · 사업자번호로 현재 유효한 제재 조회", "공공데이터포털 '나라장터 사용자정보 서비스' 활용신청 → Decoding 키를 Secret 등록"],
-      ["MDB 상호제재 (WB·ADB·AfDB·IDB·EBRD)", !lists.length ? "unknown" : listOk ? "ok" : "warn", lists.length ? lists.map(([k, v]) => `${MDB_NAME[k] || k} ${v}`).join(" · ") : "스캔 때 자동으로 내려받음 (OpenSanctions)"],
-    ]],
-    ["업체 식별", [
-      ["DART 기업정보", B(c.dart), "Secret DART_API_KEY · 사업자번호·영문명 자동 채움 (상장사 + 공시 대상 비상장사)", "opendart.fss.or.kr 인증키 신청 → Secret 등록"],
-      ["나라장터 업체 기본정보", B(c.pps), "조달청 키로 함께 사용 · 영문명·대표자 보강"],
-    ]],
-    ["분석·알림", [
-      ["AI 판정 (Claude)", c.claude && s.claude_error ? "warn" : B(c.claude), c.claude ? (s.claude_error ? `키는 등록됨, 호출 실패: ${s.claude_error} (지금은 키워드 규칙으로 판정)` : `모델 ${s.claude_model || ""} — 기사별 관련성·등급 판정`) : "없으면 키워드 규칙으로 판정 (키워드 없는 기사는 놓칠 수 있음)", "console.anthropic.com에서 API 키 발급 → Secret ANTHROPIC_API_KEY"],
-      ["메일 발송", B(c.smtp) === "ok" && !state.recipients.length ? "warn" : B(c.smtp), c.smtp ? `수신자 ${state.recipients.length}명` : "Secret SMTP_USER / SMTP_PASSWORD", "Gmail 앱 비밀번호 발급 → SMTP_USER(주소)·SMTP_PASSWORD Secret 등록 후 수신자 추가"],
-    ]],
+  const rows = [
+    ["Firebase", "데이터 저장 · 로그인", "ok"],
+    ["GitHub Actions", s.last_scan_at ? `마지막 스캔 ${s.last_scan_at.slice(5, 16)}${s.last_daily_at ? ` · 매일 실행 ${s.last_daily_at.slice(5, 16)}` : ""}` : "실행 기록 없음", scanH == null ? "unknown" : scanH < 26 ? "ok" : "warn"],
+    ["Apps Script 중계", st.relay_url ? "[지금 스캔] 바로 시작" : "없으면 GitHub 예약 확인까지 대기", st.relay_url ? "ok" : "off"],
+    ["Google 뉴스", "키 필요 없음", B(c.google_news ?? true)],
+    ["네이버 뉴스 API", c.naver ? "NAVER API HUB" : "NAVER_APIHUB_KEY_ID · NAVER_APIHUB_KEY", B(c.naver)],
+    ["Claude API", c.claude ? (s.claude_error ? `호출 실패 — ${s.claude_error}` : `AI 판정 · ${s.claude_model || ""}`) : "ANTHROPIC_API_KEY (없으면 키워드 규칙)", c.claude && s.claude_error ? "warn" : B(c.claude)],
+    ["DART API", c.dart ? "사업자번호 · 영문명 · 업종 자동" : "DART_API_KEY", B(c.dart)],
+    ["조달청 API", c.pps ? "부정당제재 · 업체 기본정보" : "DATA_GO_KR_KEY", B(c.pps)],
+    ["MDB 제재 리스트", lists.length ? lists.map(([k, v]) => `${MDB_NAME[k] || k} ${v}`).join(" · ") : "OpenSanctions (키 필요 없음)", !lists.length ? "unknown" : listOk ? "ok" : "warn"],
+    ["메일 발송 (SMTP)", c.smtp ? `받는 사람 ${state.recipients.length}명` : "SMTP_USER · SMTP_PASSWORD", B(c.smtp) === "ok" && !state.recipients.length ? "warn" : B(c.smtp)],
   ];
   const BADGE = { ok: `<span class="badge none">연결됨</span>`, warn: `<span class="badge yellow">확인 필요</span>`, off: `<span class="badge orange">미연결</span>`, unknown: `<span class="badge gray">확인 전</span>` };
-  $("#connList").innerHTML = (known ? "" : `<div class="notice">아직 스캔이 실행되지 않아 GitHub 쪽 연결 상태는 첫 스캔 후 표시됩니다.</div>`)
-    + groups.map(([g, rows]) => `<div class="conn-group"><h3>${g}</h3><div class="conn-list">${rows.map(([k, stt, d]) => `<div class="conn"><div><div class="k">${k}</div><div class="d">${esc(d)}</div></div>${BADGE[stt]}</div>`).join("")}</div></div>`).join("")
-    + `<div class="conn-group"><h3>즉시 실행 중계 주소</h3>
-        <div class="add-row" style="margin:0"><input id="relayUrl" placeholder="https://script.google.com/macros/s/.../exec" value="${esc(st.relay_url || "")}"><button class="btn sm" id="relaySave">저장</button><button class="btn sm" id="relayTest">연결 테스트</button></div>
-        <div class="muted small" style="margin-top:6px">개인망에서만: ${ghToken() ? `GitHub 토큰 등록됨 <button class="btn sm ghost" id="tokClear">삭제</button>` : `GitHub 토큰을 등록하면 바로 시작 <button class="btn sm ghost" id="tokSet">등록</button>`} (회사망은 api.github.com 차단)</div></div>
-      <div class="conn-group"><h3>수동 실행</h3><div class="add-row" style="margin:0">
-        <button class="btn sm" id="runTestMail">테스트 메일 받기 (내 주소)</button>
-        <button class="btn sm" id="runMailAll">수신자 전체 발송</button>
-        <button class="btn sm" id="runDart">DART 기업목록 갱신</button></div></div>`;
-
+  $("#connList").innerHTML = rows.map(([k, d, stt]) => `<div class="conn"><div class="ct"><div class="k">${k}</div><div class="d" title="${esc(d)}">${esc(d)}</div></div>${BADGE[stt]}</div>`).join("");
+  $("#relayBox").innerHTML = `<div class="add-row" style="margin:0"><input id="relayUrl" placeholder="https://script.google.com/macros/s/.../exec" value="${esc(st.relay_url || "")}"><button class="btn sm" id="relaySave">저장</button><button class="btn sm" id="relayTest">연결 테스트</button></div>
+    <div class="muted small" style="margin-top:6px">GitHub 토큰 (개인망 전용): ${ghToken() ? `등록됨 <button class="btn sm ghost" id="tokClear">삭제</button>` : `<button class="btn sm ghost" id="tokSet">등록</button>`}</div>`;
   $("#tokSet")?.addEventListener("click", () => tokenSetup(() => renderConnections()));
   $("#tokClear")?.addEventListener("click", () => { setGhToken(""); toast("토큰을 삭제했습니다"); renderConnections(); });
-  $("#runTestMail").onclick = () => runWorkflow({ task: "report-test", test_to: me() }, "테스트 메일 발송");
-  $("#runMailAll").onclick = () => { if (confirm("등록된 수신자 전체에게 지금 리포트를 보낼까요?")) runWorkflow({ task: "report" }, "리포트 발송"); };
-  $("#runDart").onclick = () => runWorkflow({ task: "dart" }, "DART 기업목록 갱신");
   $("#relaySave").onclick = async () => {
     const url = $("#relayUrl").value.trim();
     if (url && !/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(url)) return toast("웹 앱 URL은 https://script.google.com/macros/s/…/exec 형식입니다", 5000);
@@ -1659,99 +1658,31 @@ function renderConnections() {
     } catch (e) { errorModal("중계기에 연결하지 못했습니다", e.message, ["배포 시 <b>액세스 권한: 모든 사용자</b>로 했는지 확인", "웹 앱 URL(…/exec)을 정확히 복사했는지 확인", "회사망에서 script.google.com이 막혀 있을 수 있음"]); }
   };
 }
-// ---------- 연결 작업 목록 (설정 맨 아래) ----------
-const REPO_URL = `https://github.com/${GITHUB_REPO}`;
-const hoursSince = (t) => t ? (Date.now() - Date.parse(String(t).replace(" ", "T") + "+09:00")) / 3600e3 : null;
-const L = (href, text) => `<a href="${href}" target="_blank" rel="noopener">${text} ↗</a>`;
-function renderTasks() {
-  const s = state.status, c = s.connections || {}, st = state.settings || {};
-  const dailyH = hoursSince(s.last_daily_at);
-  const dom = state.companies.filter((x) => x.country === "KR");
-  const noBiz = dom.filter((x) => !x.biz_no).length, noEn = state.companies.filter((x) => !x.name_en).length;
-  // [제목, 상태(done/todo/warn/opt), 중요도, 어디서, 왜, 단계[], 참고]
-  const T = [
-    ["매일 아침 자동 스캔 켜기", dailyH != null && dailyH < 26 ? "done" : "todo", "필수", "Google Apps Script",
-      dailyH != null ? `마지막 매일 실행 ${s.last_daily_at.slice(5, 16)}` : "GitHub 자체 예약(07:30)이 자주 건너뛰어져서, 5분 확인(tick)처럼 Apps Script 타이머로 매일 아침 실행합니다.",
-      [`Apps Script 편집기에서 기존 코드를 모두 지우고 ${L(`${REPO_URL}/raw/main/tools/relay.gs`, "최신 relay.gs")} 내용을 붙여넣기 → 💾 저장 (스크립트 속성 GITHUB_TOKEN은 그대로 유지됨)`,
-        `왼쪽 ⏰ <b>트리거 → 트리거 추가</b> → 실행할 함수 <code>daily</code> / 이벤트 소스 <b>시간 기반</b> / 트리거 유형 <b>일 단위 타이머</b> / 시간 <b>오전 7시~8시</b> → 저장`,
-        `⚙ 프로젝트 설정에서 시간대가 <b>(GMT+09:00) 서울</b>인지 확인`,
-        `다음 날 아침 이 항목이 '완료'로 바뀌는지 확인 (${L(ACTIONS_URL, "Actions 실행 기록")}에 08시 전후 daily 실행)`],
-      "GitHub 예약과 Apps Script가 같은 날 둘 다 돌아도 하루 한 번만 실행됩니다. 메일은 '메일 받는 사람'에 등록된 주소로만 가고, 비어 있으면 스캔만 합니다."],
-    ["즉시 실행 중계 설정 (Google Apps Script)", st.relay_url ? "done" : "todo", "필수", "Google Apps Script · GitHub",
-      "회사망은 GitHub 접속이 막혀 있어 [지금 스캔]이 GitHub 예약 확인(10분 간격, 자주 지연)까지 기다립니다. 중계기를 두면 1~2분 안에 시작합니다.",
-      [`GitHub 토큰 만들기: ${L("https://github.com/settings/personal-access-tokens/new", "토큰 만들기")} → Token name <code>edcf-relay</code> → Repository access <b>Only select repositories</b> → <code>edcf-integrity-monitor</code> → Permissions → Repository permissions → <b>Actions: Read and write</b> → <b>Generate token</b> → 복사`,
-        `${L("https://script.google.com/home/projects/create", "Apps Script 새 프로젝트")} → 기본 코드를 지우고 ${L(`${REPO_URL}/blob/main/tools/relay.gs`, "tools/relay.gs")} 내용을 전부 붙여넣기 → 저장(💾)`,
-        `왼쪽 <b>⚙ 프로젝트 설정</b> → 맨 아래 <b>스크립트 속성 추가</b> → 속성 <code>GITHUB_TOKEN</code>, 값 = 1번 토큰 → 저장`,
-        `편집기로 돌아와 위쪽 함수 목록에서 <code>authorize</code> 선택 → <b>▶ 실행</b> → 권한 검토 → 계정 선택 → 경고 화면에서 <b>고급 → (안전하지 않음)으로 이동</b> → 허용`,
-        `오른쪽 위 <b>배포 → 새 배포</b> → 유형 톱니 → <b>웹 앱</b> → 실행 계정 <b>나</b>, 액세스 권한 <b>모든 사용자</b> → 배포 → <b>웹 앱 URL</b>(…/exec) 복사`,
-        `이 화면 위쪽 <b>연결 상태 → 즉시 실행 중계 주소</b>에 붙여넣기 → 저장 → <b>연결 테스트</b>`],
-      "중계기는 대시보드에 로그인한 허용 이메일만 실행할 수 있습니다. 회사망에서 script.google.com이 막혀 있으면 이 방법도 안 되니, 연결 테스트로 먼저 확인하세요."],
-    ["EDCF 부정당업자 명단(EXIMIIS) 올리기", state.edcf.length ? "done" : "todo", "필수", "EXIMIIS · 이 화면",
-      state.edcf.length ? `${state.edcf.length}건 반영됨 (${st.edcf_sanctions_at || ""})` : "매뉴얼 ①번 확인(EDCF 제재 여부)을 자동으로 하기 위한 내부 명단입니다.",
-      ["EXIMIIS 로그인 → <b>경협 → 업무지원 → 부정당업자 → 부정당업자조회</b>",
-        "조건 없이 <b>조회</b> → <b>엑셀 다운로드</b>",
-        "이 화면 위쪽 <b>EDCF 부정당업자 명단 → 엑셀 파일 올리기</b> → 미리보기에서 건수·일치 업체 확인 → <b>명단 반영</b>",
-        "명단이 바뀔 때(예: 월 1회) 다시 올리면 기존 명단을 새 내용으로 교체합니다"],
-      "사내 문서보안(DRM)으로 파일이 열리지 않으면 엑셀에서 표 전체(제목 줄 포함)를 복사해 <b>표 붙여넣기로 입력</b>을 쓰세요. 명단은 로그인해야 볼 수 있는 Firebase에만 저장되고 공개 저장소에는 올라가지 않습니다."],
-    ["감시할 업체 명단 등록", state.companies.length ? "done" : "todo", "필수", "업체·사업 탭",
-      state.companies.length ? `업체 ${state.companies.length}곳 · 사업 ${state.projects.length}개 등록됨` : "감시할 업체(EDCF 주요 업체)와 진행중 사업을 넣습니다.",
-      ["<b>업체·사업 → 일괄 등록 → 양식 내려받기</b>",
-        "엑셀에서 열어 업체명(필수), 사업자번호·영문명·업종(있으면)을 채웁니다. 업종을 비우면 자동 분류되고, 사업명·역할을 적으면 사업에 바로 연결됩니다",
-        "저장 후 <b>엑셀·CSV 파일 올리기</b> (또는 표를 복사해 붙여넣기) → <b>미리보기</b> → <b>등록하기</b>",
-        "진행중 사업은 사업 카드를 만들고 업체를 역할 칸으로 끌어다 놓습니다. 기존 사업은 카드 아래 <b>내 사업으로</b>를 눌러 담당자를 지정합니다"],
-      "이미 있는 업체를 다시 올리면 새로 만들지 않고 빈 정보만 채웁니다."],
-    ["사업자번호·영문명 보완", !state.companies.length ? "opt" : noBiz || noEn ? "warn" : "done", "권장", "업체·사업 탭",
-      state.companies.length ? `사업자번호 없음 ${noBiz}곳 · 영문명 없음 ${noEn}곳 — 매뉴얼 기준 필요자료(사업자등록번호, 영문명)` : "업체 등록 후 진행",
-      ["업체·사업 탭 필터에서 <b>정보: 사업자번호 없음</b>(또는 영문명 없음) 선택",
-        "업체를 눌러 <b>식별 정보</b>에 사업자등록증 기준 번호·영문명 입력 → 저장",
-        "여러 곳이면 양식에 업체명+사업자번호+영문명만 채워 <b>일괄 등록</b>으로 한 번에 보완"],
-      "사업자번호가 있어야 조달청(나라장터) 제재 조회와 EDCF 명단 대조가 정확하고, 영문명이 있어야 MDB 제재 리스트 대조가 정확합니다. DART에 등록된 업체는 스캔 때 자동으로 채워집니다."],
-    ["메일 발송 연결 (Gmail)", c.smtp && state.recipients.length ? "done" : c.smtp ? "warn" : "todo", "필수", "Google 계정 · GitHub Secrets",
-      c.smtp ? `메일 서버 연결됨 · 받는 사람 ${state.recipients.length}명` : "매일 아침 리포트 메일을 보내려면 발송용 계정이 필요합니다.",
-      [`발송용 Gmail 계정으로 ${L("https://myaccount.google.com/signinoptions/twosv", "2단계 인증")} 켜기`,
-        `${L("https://myaccount.google.com/apppasswords", "앱 비밀번호")} → 앱 이름 <code>EDCF</code> → 만들기 → 16자리 비밀번호 복사`,
-        `${L(SECRETS_URL, "GitHub Secrets")} → <b>New repository secret</b> 두 개: <code>SMTP_USER</code> = Gmail 주소, <code>SMTP_PASSWORD</code> = 16자리(띄어쓰기 없이)`,
-        "이 화면 <b>메일 받는 사람</b>에 받을 주소 추가",
-        "연결 상태 아래 <b>테스트 메일 받기</b> → 메일함 확인 (스팸함도 확인)"],
-      "회사 메일 서버를 쓰려면 SMTP_HOST·SMTP_PORT Secret을 추가합니다(기본값 smtp.gmail.com:587)."],
-    ["네이버 뉴스 연결", c.naver ? "done" : "opt", "선택", "네이버 클라우드 · GitHub Secrets",
-      "Google 뉴스만으로도 동작하지만, 국내 지역·전문지 기사를 더 많이 잡습니다.",
-      [`${L("https://www.ncloud.com", "네이버 클라우드 플랫폼")} 가입·로그인 → 콘솔`,
-        "<b>Menu → All Services → Application Services → NAVER API HUB</b> → <b>검색(뉴스)</b> API 이용 신청(구독)",
-        "같은 메뉴에서 <b>Application 등록</b> → 인증 정보의 <b>Client ID / Client Secret</b> 확인 (계정 Access Key가 아니라 Application 키를 씁니다). 무료 한도를 넘으면 과금될 수 있으니 <b>이용 한도</b>를 설정해 두세요",
-        `${L(SECRETS_URL, "GitHub Secrets")}에 <code>NAVER_APIHUB_KEY_ID</code> = Client ID, <code>NAVER_APIHUB_KEY</code> = Client Secret 등록`,
-        "다음 스캔 후 연결 상태에서 '네이버 뉴스 연결됨' 확인"],
-      "네이버 개발자센터의 검색 API 신규 발급이 2026-07-31에 종료되어 API HUB로 신청합니다. 예전에 받은 개발자센터 키가 있으면 NAVER_CLIENT_ID / NAVER_CLIENT_SECRET로 넣어도 됩니다."],
-    ["AI 판정 연결 (Claude)", c.claude && s.claude_error ? "warn" : c.claude ? "done" : "opt", "선택", "Anthropic Console · GitHub Secrets",
-      c.claude && s.claude_error ? `키는 등록됐지만 호출 실패: ${s.claude_error}` : "키워드가 없는 기사도 관련성·등급을 판단해 놓치는 기사와 오탐을 줄입니다. 없으면 키워드 규칙으로 판정합니다.",
-      [`${L("https://console.anthropic.com", "Anthropic Console")} 가입 → Billing에서 결제 수단 등록`,
-        "<b>API Keys → Create Key</b> → 키 복사",
-        `${L(SECRETS_URL, "GitHub Secrets")}에 <code>ANTHROPIC_API_KEY</code> 등록`,
-        "다음 스캔부터 대시보드 위 '판정 AI'로 표시됩니다"],
-      "새로 수집된 기사만 판정하므로 매일 호출량은 많지 않습니다. 사용량은 Console에서 확인·한도 설정할 수 있습니다."],
-    ["팀원 계정 추가", ALLOWED_EMAILS.length > 1 ? "done" : "opt", "선택", "Firebase · GitHub · Apps Script",
-      `현재 접속 허용 ${ALLOWED_EMAILS.length}명. 팀원이 대시보드를 보려면 세 곳에 이메일을 넣어야 합니다.`,
-      [`Firebase 콘솔 → Firestore Database → <b>규칙</b> → 이메일 목록에 추가 → <b>게시</b>`,
-        `${L(`${REPO_URL}/edit/main/assets/firebase-config.js`, "firebase-config.js")}의 <code>ALLOWED_EMAILS</code>에 추가 → Commit`,
-        "Apps Script 중계기 코드의 <code>ALLOWED_EMAILS</code>에 추가 → <b>배포 관리 → 수정 → 새 버전</b>"],
-      "이메일 목록을 알려주시면 1·2번은 대신 수정해 드릴 수 있습니다."],
-  ];
-  const ST = { done: `<span class="badge none">완료</span>`, todo: `<span class="badge orange">해야 함</span>`, warn: `<span class="badge yellow">보완 필요</span>`, opt: `<span class="badge gray">선택</span>` };
-  const rank = { todo: 0, warn: 1, opt: 2, done: 3 };
-  const list = T.map((t, i) => ({ t, i })).sort((a, b) => rank[a.t[1]] - rank[b.t[1]] || a.i - b.i);
-  const left = T.filter((t) => t[1] === "todo" || t[1] === "warn").length;
-  $("#taskCount").textContent = left ? `남은 일 ${left}` : "모두 완료";
-  let opened = false;
-  $("#tasks").innerHTML = list.map(({ t: [title, stt, imp, where, why, steps, note] }, k) => {
-    const open = !opened && stt === "todo"; if (open) opened = true;
-    return `<details class="task ${stt === "done" ? "done" : ""}" ${open ? "open" : ""}>
-      <summary><span class="tno">${stt === "done" ? "✓" : k + 1}</span>
-        <div class="tt"><b>${title}</b><div class="why">${why}</div></div>
-        <div class="tmeta"><span class="twhere">${imp} · ${where}</span>${ST[stt]}</div></summary>
-      <div class="tbody"><ol>${steps.map((x) => `<li>${x}</li>`).join("")}</ol>${note ? `<div class="note">${note}</div>` : ""}</div>
-    </details>`;
-  }).join("");
+// 실행 기록: 사람이 읽는 한 줄 요약
+function runSummary(r) {
+  const d = r.detail || {}, errs = Array.isArray(d.errors) ? d.errors.length : d.errors || 0;
+  const parts = r.kind === "scan" ? [d.companies != null && `업체 ${d.companies}곳`, d.fetched != null && `기사 ${Number(d.fetched).toLocaleString()}건`, d.new_findings != null && `새 이슈 ${d.new_findings}건`, d.seconds != null && `${Math.round(d.seconds)}초`]
+    : r.kind === "report" ? [d.error ? "발송 실패" : d.items != null && `이슈 ${d.items}건`, d.to && `받는 사람 ${[].concat(d.to).length}명`, d.test && "테스트"]
+    : r.kind === "dart" ? [d.count != null && `기업 ${Number(d.count).toLocaleString()}곳`] : [];
+  return [...parts.filter(Boolean), errs ? `오류 ${errs}건` : ""].filter(Boolean).join(" · ");
 }
+function renderAdvanced() {
+  const KIND = { scan: "스캔", report: "메일 발송", dart: "DART 갱신" };
+  renderConnections();
+  $("#runList").innerHTML = state.runs.slice(0, 8).map((r) => {
+    const d = r.detail || {}, first = Array.isArray(d.errors) && d.errors[0] ? String(d.errors[0]) : d.error ? String(d.error) : "";
+    return `<div class="run" ${first ? `title="${esc(first.slice(0, 300))}"` : ""}><span class="badge ${r.ok ? "none" : "orange"}">${r.ok ? "정상" : "오류"}</span><b>${esc(KIND[r.kind] || r.kind)}</b><span class="t">${esc(String(r.at || "").slice(5, 16))}</span><span class="s">${esc(runSummary(r))}</span></div>`;
+  }).join("") || `<div class="muted small">아직 실행 기록이 없습니다.</div>`;
+}
+$("#advCard").addEventListener("toggle", (e) => { if (e.target.open) renderAdvanced(); });
+$("#runTestMail").onclick = () => runWorkflow({ task: "report-test", test_to: me() }, "테스트 메일 발송");
+$("#runMailAll").onclick = () => { if (confirm("등록된 수신자 전체에게 지금 리포트를 보낼까요?")) runWorkflow({ task: "report" }, "리포트 발송"); };
+$("#runDart").onclick = () => runWorkflow({ task: "dart" }, "DART 기업목록 갱신");
+$("#btnPreview").onclick = async () => {
+  modal(`<h2>메일 미리보기</h2><p class="muted small" id="reportMeta">불러오는 중…</p><iframe id="reportFrame" class="report-frame" sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe>`);
+  $("#modal").classList.add("wide");
+  await loadReportPreview();
+};
 
 const DEFAULT_KEYWORDS = [
   ["부정당", "red", "ko", 1], ["입찰참가자격", "red", "ko", 0], ["참가자격제한", "red", "ko", 0], ["입찰참가제한", "red", "ko", 0], ["입찰제한", "red", "ko", 0],
@@ -1786,18 +1717,8 @@ $("#kwForm").onsubmit = async (ev) => {
   const data = { word, level: fd.get("level"), lang: fd.get("lang"), use_in_query: 0 };
   const ref = await addDoc(collection(db, "keywords"), data);
   state.keywords.push({ id: ref.id, ...data });
-  ev.target.reset(); renderAdvanced();
+  ev.target.reset(); renderKeywords();
 };
-function renderAdvanced() {
-  const KIND = { scan: "스캔", report: "메일 발송", dart: "DART" };
-  if (!$("#view-settings details.more-card")?.open) return; // 고급 설정을 펼쳤을 때만 그림
-  $("#runList").innerHTML = state.runs.map((r) => `<div class="run"><b>${esc(KIND[r.kind] || r.kind)}</b> · ${esc(r.at)} ${r.ok ? `<span class="badge none">정상</span>` : `<span class="badge orange">일부 오류</span>`}<pre>${esc(JSON.stringify(r.detail, null, 1)).slice(0, 1200)}</pre></div>`).join("") || `<div class="muted small">아직 실행 기록이 없습니다.</div>`;
-  $("#kwList").innerHTML = [...state.keywords].sort((a, b) => (LV[b.level] - LV[a.level]) || a.word.localeCompare(b.word))
-    .map((k) => `<span class="kchip">${badge(k.level)} ${esc(k.word)}<button data-del-kw="${k.id}" title="삭제">✕</button></span>`).join("");
-  $$("[data-del-kw]").forEach((b) => b.onclick = async () => { await deleteDoc(doc(db, "keywords", b.dataset.delKw)); state.keywords = state.keywords.filter((k) => k.id !== b.dataset.delKw); renderAdvanced(); });
-  loadReportPreview();
-}
-$("#view-settings details.more-card").addEventListener("toggle", (e) => { if (e.target.open) renderAdvanced(); });
 async function loadReportPreview() {
   const snap = await getDoc(doc(db, "meta", "report_preview"));
   const d = snap.exists() ? snap.data() : null;

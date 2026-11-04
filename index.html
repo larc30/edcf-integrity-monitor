@@ -19,7 +19,7 @@
   }
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="assets/style.css?v=20">
+<link rel="stylesheet" href="assets/style.css?v=21">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -41,11 +41,11 @@
       <div class="logo-t">EDCF 부정당업자 자동감지 시스템</div></div>
     <nav class="tabs" id="tabs">
       <button data-view="home" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>대시보드</button>
-      <button data-view="companies"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg>업체·사업 <span class="cnt" id="tabCnt">0</span></button>
+      <button data-view="companies"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg>업체 <span class="cnt" id="tabCnt">0</span></button>
+      <button data-view="projects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></svg>사업 <span class="cnt" id="tabCntP">0</span></button>
       <button data-view="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>설정</button>
     </nav>
     <div class="top-right">
-      <span class="live" id="liveState"><span class="live-dot"></span><span>자동 감시</span></span>
       <span class="user" id="userEmail"></span>
       <button class="btn sm font-btn" id="btnFont" title="글자 크기">가</button>
       <button class="btn sm" id="btnTheme">라이트</button>
@@ -101,90 +101,106 @@
       </div>
     </section>
 
-    <!-- ================= 업체·사업 ================= -->
+    <!-- ================= 업체 · 사업 ================= -->
     <section id="view-companies" class="view">
       <div class="page-head">
-        <div><div class="eyebrow" id="coEyebrow">COMPANIES</div><h1>업체·사업</h1><div class="head-sub">업체를 끌어서 오른쪽 사업의 역할 칸에 놓으면 연결됩니다. 업종·사업자번호·영문명은 스캔 때 DART에서 자동으로 채웁니다.</div></div>
-        <div class="add-row" style="margin:0"><button class="btn" id="btnBulk">일괄 등록</button><button class="btn primary" id="btnAddCompany">+ 업체 추가</button></div>
-      </div>
-      <div class="co-layout">
-        <div class="card co-main">
-          <div class="co-views" id="coViews"></div>
-          <div class="co-view-desc" id="coViewDesc"></div>
-          <div class="co-filters">
-            <input id="poolSearch" class="co-search" placeholder="업체명·별칭·영문명·사업자번호 검색">
-            <select id="fOwner"><option value="">담당: 전체</option><option value="mine">내 담당 사업</option></select>
-            <select id="fProj"><option value="">사업: 전체</option></select>
-            <select id="fRole"><option value="">역할: 전체</option><option>F/S</option><option>컨설턴트</option><option>본구매</option></select>
-            <select id="fStage"><option value="">단계: 전체</option><option>계약</option><option>우선협상</option><option>입찰중</option></select>
-            <select id="fRisk"><option value="">등급: 전체</option><option value="red">위험</option><option value="orange">경고</option><option value="yellow">주의</option><option value="none">정상</option></select>
-            <select id="fCat"><option value="">업종: 전체</option></select>
-            <select id="fNat"><option value="">국내·해외</option><option value="KR">국내</option><option value="foreign">해외</option></select>
-            <button class="btn sm ghost hidden" id="fReset">필터 초기화</button>
-          </div>
-          <div class="co-meta"><span id="poolShown"></span><span>제목을 누르면 정렬 · 행을 누르면 상세</span></div>
-          <div class="co-table-wrap">
-            <table class="co-table" id="coTable">
-              <thead><tr>
-                <th data-sort="name">업체명</th><th data-sort="cat">업종</th><th data-sort="proj">참여 사업 · 역할 · 단계</th>
-                <th data-sort="risk">등급</th><th data-sort="open">미확인</th><th>사업자번호</th><th>영문명</th>
-              </tr></thead>
-              <tbody id="pool"></tbody>
-            </table>
-          </div>
+        <h1>업체 <span class="h-count" id="coTotal">0</span></h1>
+        <div class="head-actions">
+          <button class="btn" id="btnEdcf">EDCF 부정당업자 명단 <span class="pill" id="edcfPill">-</span></button>
+          <button class="btn" id="btnBulk">일괄 등록</button>
+          <button class="btn primary" id="btnAddCompany">+ 업체 추가</button>
+          <input type="file" id="edcfFile" accept=".xlsx,.xls,.csv" hidden>
         </div>
-        <div class="card co-projects">
-          <div class="card-head"><h2>사업 <span class="count" id="projCount">0</span></h2><span class="legend"><span class="role fs">F/S</span><span class="role consult">컨설턴트</span><span class="role buy">본구매</span></span></div>
-          <form id="projForm" class="add-row" autocomplete="off"><input name="name" placeholder="새 사업명" required><button class="btn sm">사업 추가</button></form>
-          <div class="muted small" style="margin:-2px 0 10px">단계 표시를 누르면 계약 → 우선협상 → 입찰중</div>
-          <div id="projBoard" class="pboard"></div>
+      </div>
+      <div class="card co-card">
+        <div class="co-top">
+          <div class="co-views" id="coViews"></div>
+          <span class="co-shown" id="poolShown"></span>
+        </div>
+        <div class="co-filters">
+          <input id="poolSearch" class="co-search" placeholder="업체명·별칭·영문명·사업자번호 검색">
+          <select id="fOwner"><option value="">담당 전체</option><option value="mine">내 담당 사업</option></select>
+          <select id="fProj"><option value="">사업 전체</option></select>
+          <select id="fRole"><option value="">역할 전체</option><option>F/S</option><option>컨설턴트</option><option>본구매</option></select>
+          <select id="fStage"><option value="">단계 전체</option><option>계약</option><option>우선협상</option><option>입찰중</option></select>
+          <select id="fRisk"><option value="">등급 전체</option><option value="red">위험</option><option value="orange">경고</option><option value="yellow">주의</option><option value="none">정상</option></select>
+          <select id="fCat"><option value="">업종 전체</option></select>
+          <select id="fNat"><option value="">국내·해외</option><option value="KR">국내</option><option value="foreign">해외</option></select>
+          <button class="btn sm ghost hidden" id="fReset">초기화</button>
+        </div>
+        <div class="co-bulkbar hidden" id="coBulkbar"><span><b id="coSelN">0</b>곳 선택</span><button class="btn sm danger" id="coDelSel">선택 삭제</button><button class="btn sm ghost" id="coSelClear">선택 해제</button></div>
+        <div class="co-table-wrap">
+          <table class="co-table" id="coTable">
+            <thead><tr>
+              <th class="t-chk"><input type="checkbox" id="coChkAll" aria-label="보이는 업체 전체 선택"></th>
+              <th data-sort="name">업체명</th><th data-sort="cat">업종</th><th data-sort="proj">참여 사업</th>
+              <th data-sort="risk">등급</th><th data-sort="open">미확인</th><th>사업자번호</th><th>영문명</th><th class="t-act"></th>
+            </tr></thead>
+            <tbody id="pool"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-projects" class="view">
+      <div class="page-head">
+        <h1>사업 <span class="h-count" id="pjTotal">0</span></h1>
+        <form id="projForm" class="head-actions" autocomplete="off"><input name="name" placeholder="새 사업명" required><button class="btn primary">+ 사업 추가</button></form>
+      </div>
+      <div class="pj-layout">
+        <aside class="card pj-side">
+          <div class="card-head"><h2>업체</h2><span class="muted small" id="sideN"></span></div>
+          <input id="sideSearch" placeholder="업체 검색" autocomplete="off">
+          <div class="side-list" id="sideList"></div>
+          <div class="side-hint">업체를 끌어서 사업의 역할 칸에 놓으세요</div>
+        </aside>
+        <div class="pj-main">
+          <div class="pj-toolbar"><div class="seg" id="pjScope"></div><span class="legend"><span class="role fs">F/S</span><span class="role consult">컨설턴트</span><span class="role buy">본구매</span><span class="muted small">단계 표시를 누르면 계약 → 우선협상 → 입찰중</span></span></div>
+          <div id="projBoard" class="pj-grid"></div>
         </div>
       </div>
     </section>
 
     <!-- ================= 설정 ================= -->
     <section id="view-settings" class="view">
-      <div class="page-head"><div><div class="eyebrow">SETTINGS · 연결 · 명단 · 메일</div><h1>설정</h1><div class="head-sub">내부 제재 명단, 메일, 데이터 연결 — 해야 할 연결 작업은 맨 아래 목록을 참고하세요</div></div></div>
-      <div class="grid-2">
-        <div>
-          <div class="card">
-            <h2>EDCF 부정당업자 명단 (EXIMIIS)</h2>
-            <p class="section-desc">EXIMIIS – 경협 – 업무지원 – 부정당업자조회에서 내려받은 엑셀을 올리면, 스캔 때 사업자번호(없으면 업체명)로 대조합니다. 상태 '등록'은 위험, '해지'는 과거 이력으로 표시합니다.</p>
-            <div class="add-row"><label class="btn primary">엑셀 파일 올리기<input type="file" id="edcfFile" accept=".xlsx,.xls,.csv" hidden></label><button class="btn" id="edcfPasteBtn">표 붙여넣기로 입력</button></div>
-            <div id="edcfInfo" class="small muted"></div>
-          </div>
-          <div class="card">
-            <h2>메일 받는 사람</h2>
-            <p class="section-desc">매일 아침(7시경), 새로 발견된 이슈를 메일로 보냅니다.</p>
-            <form id="rcForm" class="add-row"><input name="email" type="email" placeholder="email@example.com" required><button class="btn primary">추가</button></form>
-            <div id="rcList" class="simple-list"></div>
-          </div>
+      <div class="page-head"><h1>설정</h1></div>
+      <div class="set-grid">
+        <div class="card kw-card">
+          <div class="card-head"><h2>리스크 키워드 <span class="count" id="kwCount">0</span></h2></div>
+          <p class="card-desc">기사에 이 단어가 나오면 해당 등급으로 판단합니다. ★는 업체 심층 검색 때 검색어로도 씁니다.</p>
+          <form id="kwForm" class="kw-form" autocomplete="off"><input name="word" placeholder="새 키워드" required>
+            <select name="level"><option value="red">위험</option><option value="orange" selected>경고</option><option value="yellow">주의</option></select>
+            <select name="lang"><option value="ko">한국어</option><option value="en">영어</option><option value="id">인니어</option></select>
+            <button class="btn primary">추가</button></form>
+          <div id="kwList" class="kw-cols"></div>
         </div>
-        <div class="card">
-          <h2>연결 상태</h2>
-          <p class="section-desc">마지막 스캔 기준입니다. 키는 GitHub Secrets에서 관리합니다.</p>
-          <div id="connList"></div>
-          <div class="actions left"><a class="btn sm" id="lnkActions" target="_blank" rel="noopener">GitHub Actions ↗</a><a class="btn sm" id="lnkSecrets" target="_blank" rel="noopener">Secrets 설정 ↗</a></div>
+        <div class="card mail-card">
+          <div class="card-head"><h2>메일</h2><div class="head-actions"><button class="btn sm" id="btnPreview">미리보기</button><button class="btn sm" id="runTestMail">테스트 메일</button></div></div>
+          <p class="card-desc">매일 아침 새로 발견된 이슈를 아래 주소로 보냅니다.</p>
+          <form id="rcForm" class="add-row"><input name="email" type="email" placeholder="받는 사람 이메일" required><button class="btn primary">추가</button></form>
+          <div id="rcList" class="simple-list"></div>
         </div>
       </div>
-      <details class="card more-card">
-        <summary>고급 설정 <span class="muted small">— 실행 기록, 리스크 키워드, 메일 미리보기</span></summary>
-        <h3>화면 효과</h3>
-        <label class="small" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="liteToggle" style="width:auto"> 가벼운 모드 — 레이더 파동·발광 효과를 줄입니다 (화면이 버벅이면 자동으로 켜짐)</label>
-        <h3>최근 실행 기록</h3><div id="runList" class="run-list"></div>
-        <h3>리스크 키워드 <span class="muted small">(위험·경고·주의 구분은 기본값이며 수정할 수 있습니다)</span></h3>
-        <form id="kwForm" class="add-row"><input name="word" placeholder="키워드" required>
-          <select name="level"><option value="red">위험</option><option value="orange" selected>경고</option><option value="yellow">주의</option></select>
-          <select name="lang"><option value="ko">한국어</option><option value="en">영어</option><option value="id">인니어</option></select>
-          <button class="btn primary">추가</button></form>
-        <div id="kwList" class="chips"></div>
-        <h3>메일 미리보기</h3><p class="muted small" id="reportMeta"></p>
-        <iframe id="reportFrame" class="report-frame" sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe>
+      <details class="card adv-card" id="advCard">
+        <summary><h2>고급</h2><span class="muted small">API 연결 · 실행 기록 · 화면</span></summary>
+        <div class="adv-grid">
+          <div>
+            <h3>API 연결</h3>
+            <div id="connList" class="conn-list"></div>
+            <div class="actions left"><a class="btn sm" id="lnkActions" target="_blank" rel="noopener">GitHub Actions ↗</a><a class="btn sm" id="lnkSecrets" target="_blank" rel="noopener">키 관리 (Secrets) ↗</a></div>
+          </div>
+          <div>
+            <h3>최근 실행</h3>
+            <div id="runList" class="run-list"></div>
+            <h3>즉시 실행 중계</h3>
+            <div id="relayBox"></div>
+            <h3>수동 실행</h3>
+            <div class="add-row" style="margin:0"><button class="btn sm" id="runMailAll">수신자 전체 발송</button><button class="btn sm" id="runDart">DART 기업목록 갱신</button></div>
+            <h3>화면</h3>
+            <label class="check"><input type="checkbox" id="liteToggle"> 가벼운 모드 (레이더 효과 줄이기)</label>
+          </div>
+        </div>
       </details>
-      <div class="card">
-        <div class="card-head"><h2>연결 작업 목록 <span class="count" id="taskCount">0</span></h2><span class="muted small">누르면 단계별 방법이 펼쳐집니다 · 상태는 자동으로 확인됩니다</span></div>
-        <div id="tasks" class="tasks"></div>
-      </div>
     </section>
   </main>
 </div>
@@ -193,6 +209,6 @@
 <aside class="drawer" id="drawer"><div class="drawer-head"><div id="drawerTitle"></div><button class="btn sm" id="drawerClose">닫기</button></div><div id="drawerBody" class="drawer-body"></div></aside>
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div id="toast" class="toast"></div>
-<script type="module" src="assets/app.js?v=20"></script>
+<script type="module" src="assets/app.js?v=21"></script>
 </body>
 </html>
