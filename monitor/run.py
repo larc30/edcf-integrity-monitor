@@ -182,5 +182,17 @@ def main() -> int:
     return 0
 
 
+def _quota_exceeded(e: Exception) -> bool:
+    return type(e).__name__ == "ResourceExhausted" or "Quota exceeded" in str(e)
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Exception as e:
+        # Firestore 무료 한도(하루 읽기 5만 건)를 넘으면 한국시간 17시(태평양 자정)에 초기화될 때까지 읽기가 막힘
+        # → 실패(빨간 X)로 쌓이지 않게 안내만 남기고 정상 종료. 대기 중인 요청은 초기화 뒤 다음 확인 때 처리됨
+        if _quota_exceeded(e):
+            log.warning("Firestore 오늘 사용 한도 초과 — 한국시간 17시에 초기화된 뒤 자동으로 다시 처리합니다")
+            sys.exit(0)
+        raise
