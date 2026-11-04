@@ -78,6 +78,7 @@ def process_queue() -> int:
             report.save_preview()
             summary = {k: res.get(k) for k in ("companies", "fetched", "new_findings", "official", "cleaned", "seconds")}
             summary["errors"] = len(res.get("errors") or [])
+            log.info("스캔 결과(요청): %s", json.dumps(summary, ensure_ascii=False))  # 업체 이름 없이 건수만
             for r in scans:
                 if res.get("stopped"):
                     store.update("requests", r["id"], {"status": "cancelled", "finished_at": store.now_str(), "result": {**summary, "stopped": True}})
@@ -126,6 +127,12 @@ def main() -> int:
     a = p.parse_args()
 
     if a.task == "queue":
+        # Apps Script 5분 확인(tick)이 살아 있는지 대시보드에서 보이도록 (GitHub 자체 예약은 schedule 이벤트)
+        if os.getenv("GITHUB_EVENT_NAME") == "workflow_dispatch":
+            try:
+                store.update("meta", "status", {"last_tick_at": store.now_str()})
+            except Exception as e:
+                log.warning("tick 기록 실패: %s", e)
         return process_queue()
 
     if a.task == "dart":

@@ -19,7 +19,7 @@
   }
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="assets/style.css?v=21">
+<link rel="stylesheet" href="assets/style.css?v=22">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -37,12 +37,12 @@
 
 <div id="appView" class="hidden">
   <header class="topbar"><div class="topbar-in">
-    <div class="logo"><div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9" opacity=".45"/><circle cx="12" cy="12" r="5" opacity=".7"/><path d="M12 12 L19 6"/><circle cx="12" cy="12" r="1.6" fill="#fff"/></svg></div>
+    <div class="logo" id="logoHome" role="button" tabindex="0" title="대시보드로"><div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9" opacity=".45"/><circle cx="12" cy="12" r="5" opacity=".7"/><path d="M12 12 L19 6"/><circle cx="12" cy="12" r="1.6" fill="#fff"/></svg></div>
       <div class="logo-t">EDCF 부정당업자 자동감지 시스템</div></div>
     <nav class="tabs" id="tabs">
       <button data-view="home" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>대시보드</button>
-      <button data-view="companies"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg>업체 <span class="cnt" id="tabCnt">0</span></button>
-      <button data-view="projects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></svg>사업 <span class="cnt" id="tabCntP">0</span></button>
+      <button data-view="companies"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg>업체 관리 <span class="cnt" id="tabCnt">0</span></button>
+      <button data-view="projects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></svg>사업 관리 <span class="cnt" id="tabCntP">0</span></button>
       <button data-view="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>설정</button>
     </nav>
     <div class="top-right">
@@ -104,9 +104,9 @@
     <!-- ================= 업체 · 사업 ================= -->
     <section id="view-companies" class="view">
       <div class="page-head">
-        <h1>업체 <span class="h-count" id="coTotal">0</span></h1>
+        <h1>업체 관리 <span class="h-count" id="coTotal">0</span></h1>
         <div class="head-actions">
-          <button class="btn" id="btnEdcf">EDCF 부정당업자 명단 <span class="pill" id="edcfPill">-</span></button>
+          <button class="btn" id="btnEdcf" title="EXIMIIS에서 내려받은 EDCF 부정당업자(제재) 명단 — 업체 명단과 별개">EXIMIIS 제재 명단 <span class="pill" id="edcfPill">-</span></button>
           <button class="btn" id="btnBulk">일괄 등록</button>
           <button class="btn primary" id="btnAddCompany">+ 업체 추가</button>
           <input type="file" id="edcfFile" accept=".xlsx,.xls,.csv" hidden>
@@ -144,7 +144,7 @@
 
     <section id="view-projects" class="view">
       <div class="page-head">
-        <h1>사업 <span class="h-count" id="pjTotal">0</span></h1>
+        <h1>사업 관리 <span class="h-count" id="pjTotal">0</span></h1>
         <form id="projForm" class="head-actions" autocomplete="off"><input name="name" placeholder="새 사업명" required><button class="btn primary">+ 사업 추가</button></form>
       </div>
       <div class="pj-layout">
@@ -175,7 +175,7 @@
           <div id="kwList" class="kw-cols"></div>
         </div>
         <div class="card mail-card">
-          <div class="card-head"><h2>메일</h2><div class="head-actions"><button class="btn sm" id="btnPreview">미리보기</button><button class="btn sm" id="runTestMail">테스트 메일</button></div></div>
+          <div class="card-head"><h2>메일</h2><div class="head-actions"><button class="btn sm" id="btnPreview">미리보기</button><button class="btn sm" id="runTestMail" title="내 주소로 1통">테스트 메일</button><button class="btn sm" id="runMailAll" title="지금 기준 리포트를 받는 사람 전체에게">지금 보내기</button></div></div>
           <p class="card-desc">매일 아침 새로 발견된 이슈를 아래 주소로 보냅니다.</p>
           <form id="rcForm" class="add-row"><input name="email" type="email" placeholder="받는 사람 이메일" required><button class="btn primary">추가</button></form>
           <div id="rcList" class="simple-list"></div>
@@ -192,10 +192,9 @@
           <div>
             <h3>최근 실행</h3>
             <div id="runList" class="run-list"></div>
-            <h3>즉시 실행 중계</h3>
-            <div id="relayBox"></div>
-            <h3>수동 실행</h3>
-            <div class="add-row" style="margin:0"><button class="btn sm" id="runMailAll">수신자 전체 발송</button><button class="btn sm" id="runDart">DART 기업목록 갱신</button></div>
+            <h3>실행 요청 방식</h3>
+            <p class="adv-note" id="runModeNote">[지금 스캔]·테스트 메일을 누르면 요청이 저장되고, Apps Script가 5분마다 확인해 GitHub에서 실행합니다. 매일 아침 스캔·메일도 Apps Script가 시작합니다.</p>
+            <details class="adv-more"><summary>즉시 실행 설정 (선택 — 회사망에서는 쓰지 않음)</summary><div id="relayBox"></div></details>
             <h3>화면</h3>
             <label class="check"><input type="checkbox" id="liteToggle"> 가벼운 모드 (레이더 효과 줄이기)</label>
           </div>
@@ -209,6 +208,6 @@
 <aside class="drawer" id="drawer"><div class="drawer-head"><div id="drawerTitle"></div><button class="btn sm" id="drawerClose">닫기</button></div><div id="drawerBody" class="drawer-body"></div></aside>
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div id="toast" class="toast"></div>
-<script type="module" src="assets/app.js?v=21"></script>
+<script type="module" src="assets/app.js?v=22"></script>
 </body>
 </html>

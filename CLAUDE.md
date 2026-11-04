@@ -89,6 +89,9 @@ meta/status, meta/progress, meta/settings{relay_url,keywords_version}, meta/repo
   - 명단 반영 때: 새 명단과 맞는 업체가 아닌 EDCF 기록(dedup_key 'edcf-')은 바로 삭제. 스캐너도 매 스캔 업체별로 현재 명단과 맞지 않는 'edcf-' 기록을 삭제(store.delete_many) — 자동 대조 결과라 삭제해도 됨.
   - 메일: 자세한 카드는 등급순 30건까지(MAX_ITEMS), 나머지는 '대시보드에서 확인' 한 줄.
   - 사용자가 올바른 EXIMIIS CSV(13건)를 업체 탭 [EDCF 부정당업자 명단]으로 다시 올려야 함.
+- (v22, 사용자 요청) 탭 이름 '업체 관리'·'사업 관리', 로고(#logoHome) 누르면 대시보드. 업체 관리 버튼 이름 'EXIMIIS 제재 명단'(사용자가 코랩 명단과 헷갈림 — 감시 업체 명단과 별개임을 창에 설명). 창(modal) 닫기 버튼은 마지막 .actions 줄에 나란히(주 버튼 오른쪽).
+  - 사업 수정: 카드 제목/[수정] → 사업명·수원국·담당 변경, 사업 삭제도 이 창에서. 역할 색: F/S 청록 · 컨설턴트 파랑 · 본구매 자홍(--consult/--buy).
+  - 설정: 메일 카드에 [지금 보내기](report). 'DART 기업목록 갱신' 버튼 제거(스캔 때 corp_master 자동 내려받음). 고급: Apps Script 상태 = meta/status.last_tick_at (run.py: queue + GITHUB_EVENT_NAME=workflow_dispatch 때 기록), 즉시 실행(웹 앱 주소·GitHub 토큰)은 접힌 '선택' 설정으로 설명과 함께. 최근 실행 오류는 눌러서 출처·내용별로 묶어 보기(errGroups, errHint: 시간 초과·한도·키·잔액·서버 오류).
 
 ## 남은 일
 - 사용자: Apps Script 중계 설정, monitor.yml 웹에서 한 번 수정(예약 실행), EXIMIIS 엑셀 업로드, 코랩 명단 붙여넣기, (선택) 네이버 API HUB·SMTP·ANTHROPIC 키.
