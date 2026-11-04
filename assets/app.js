@@ -178,14 +178,19 @@ function checkSmooth() {
 $("#liteToggle").checked = document.documentElement.classList.contains("lite");
 $("#liteToggle").addEventListener("change", (e) => { setLite(e.target.checked, e.target.checked ? "1" : "0"); toast(e.target.checked ? "가벼운 모드를 켰습니다" : "화면 효과를 모두 켰습니다"); });
 // 자동 새로고침: 창으로 돌아올 때(1분 이상 지났으면)와 5분마다. 끌기·입력 중에는 건너뜀
+// Firestore 무료 한도(하루 읽기 5만 건)를 아끼려고: 평소엔 상태 문서 1건만 확인하고, 새 스캔이 끝났을 때만 전체를 다시 읽음
 async function autoRefresh(minAge) {
   if (!auth.currentUser || $("#appView").classList.contains("hidden")) return;
   if (Date.now() - state.loadedAt < minAge || document.body.classList.contains("dnd-active") || $("#modalBg").classList.contains("open")) return;
   const a = document.activeElement; if (a && /INPUT|TEXTAREA|SELECT/.test(a.tagName)) return;
-  try { await loadAll(); rerender(); } catch (e) { console.warn("auto refresh", e); }
+  try {
+    const snap = await getDoc(doc(db, "meta", "status")), s = snap.exists() ? snap.data() : {};
+    if ((s.last_scan_at || "") === (state.status.last_scan_at || "")) { state.status = s; state.loadedAt = Date.now(); return; }
+    await loadAll(); rerender();
+  } catch (e) { console.warn("auto refresh", e); }
 }
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") autoRefresh(60e3); });
-setInterval(() => { if (document.visibilityState === "visible") autoRefresh(5 * 60e3); }, 60e3);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") autoRefresh(5 * 60e3); });
+setInterval(() => { if (document.visibilityState === "visible") autoRefresh(10 * 60e3); }, 60e3);
 function showGuide(html) { const g = $("#guide"); g.innerHTML = html; g.classList.toggle("hidden", !html); }
 
 // 테마 (다크 기본 / 라이트)

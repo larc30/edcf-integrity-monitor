@@ -97,6 +97,7 @@ meta/status, meta/progress, meta/settings{relay_url,keywords_version}, meta/repo
   - 보고서(PDF): 대시보드 [보고서] → 범위(내 담당/전체)·이슈 기간·확인 완료 포함 → 숨긴 iframe 에 A4 HTML(메일과 같은 디자인) → 브라우저 인쇄 'PDF로 저장'. 사업별 현황·리스크 업체·확인할 이슈(묶음, 최대 300). 데모에서는 window.__lastReport 로 확인.
 - (v24) EXIMIIS 제재 명단 202건 = 사용자가 13:47 코랩 업체 CSV를 옛 설정 화면의 명단 칸에 올린 것(파일명이 'EDCF_…'로 시작해 헷갈림). 실제 제재 명단은 EXIMIIS 13건. 대응: 상태·제재기간이 둘 다 없는 행은 제재 기록이 아님 → 스캐너 match_edcf·대시보드 edcfMatches 에서 제외(다음 스캔 때 가짜 'edcf-' 기록 자동 삭제), 명단 창에 경고 + [잘못된 명단 비우기](clearEdcf), 버튼 배지 '확인 필요'.
   - 사업 관리: 역할 칸 안 순서(engagement.order, 맨 위 = 대표사, 2곳 이상일 때 '대표' 표시), ▲ 버튼·다른 업체 줄 위에 끌어 놓기로 순서 변경(reorderZone), 카드에 [수정][삭제] 둘 다. 대시보드 사업 줄·보고서도 역할 → 순서.
+- (중요) 2026-11-04 15시경 Firestore 무료(Spark) 한도 초과 — 429 Quota exceeded(하루 읽기 5만 건). 원인: 대시보드가 5분마다 전체 다시 읽기(업체 207·관련 이슈 ~1,000·명단 202 ≈ 1,500건/회) + 스캔·진단 실행. 한도는 태평양 자정(한국 17시)에 초기화. 대응: autoRefresh 는 meta/status 1건만 읽고 last_scan_at 이 바뀐 때만 loadAll(10분 간격), run.py log_counts 는 count() 집계로. 진단용 preview/scan 을 함부로 돌리지 말 것. 데이터가 더 늘면 Blaze(종량제) 전환 권장.
 
 ## 남은 일
 - 사용자: Apps Script 중계 설정, monitor.yml 웹에서 한 번 수정(예약 실행), EXIMIIS 엑셀 업로드, 코랩 명단 붙여넣기, (선택) 네이버 API HUB·SMTP·ANTHROPIC 키.

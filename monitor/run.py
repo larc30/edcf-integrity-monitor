@@ -31,13 +31,10 @@ def sync_dart() -> int:
 def log_counts() -> None:
     """데이터 건수만 기록 (Actions 로그는 공개라 업체 이름은 남기지 않음)"""
     try:
-        from .textutil import norm
-        cs = store.all_docs("companies")
-        linked = sum(1 for c in cs if c.get("engagements"))
-        dup = len(cs) - len({norm(c.get("name") or "") for c in cs})
-        log.info("데이터: 업체 %d곳 (사업 연결 %d · 미연결 %d · 이름 중복 %d) · 사업 %d개 · EDCF 명단 %d건 · 이슈 %d건",
-                 len(cs), linked, len(cs) - linked, dup, len(store.all_docs("projects")),
-                 len(store.all_docs("edcf_sanctions")), len(store.all_docs("findings")))
+        # 건수 세기(count)는 문서 1,000건당 읽기 1건 — 전체를 읽지 않아 Firestore 무료 한도를 아낌
+        cnt = lambda n: store.db().collection(n).count().get()[0][0].value
+        log.info("데이터: 업체 %d곳 · 사업 %d개 · EDCF 명단 %d건 · 이슈 %d건",
+                 cnt("companies"), cnt("projects"), cnt("edcf_sanctions"), cnt("findings"))
     except Exception as e:
         log.warning("건수 확인 실패: %s", e)
 
