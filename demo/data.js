@@ -73,7 +73,7 @@ export function seed() {
         "예시업체05 / Naver '예시업체05 부정당': (데모 예시) 429 Too Many Requests"] } },
     },
     requests: {},
-    edcf_sanctions: { e1: { name: "라마바건설", status: "등록", period: "2026.01.01 ~ 2027.12.31", reason: "[예시] 허위 서류 제출", biz_no: "0000000000" } },
+    edcf_sanctions: { e1: { name: "라마바건설", status: "등록", period: "2026.01.01 ~ 2027.12.31", reason: "[예시] 허위 서류 제출", biz_no: "" } },
     meta: {
       status: {
         last_scan_at: kst(now - 2 * 3600e3), last_scan_seconds: 14.2, last_tick_at: kst(now - 4 * 60e3), last_daily_at: kst(now - 2 * 3600e3), analyzer: "claude", claude_model: "claude-haiku-5-5", claude_error: null,
