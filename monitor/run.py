@@ -28,6 +28,20 @@ def sync_dart() -> int:
     return n
 
 
+def log_counts() -> None:
+    """데이터 건수만 기록 (Actions 로그는 공개라 업체 이름은 남기지 않음)"""
+    try:
+        from .textutil import norm
+        cs = store.all_docs("companies")
+        linked = sum(1 for c in cs if c.get("engagements"))
+        dup = len(cs) - len({norm(c.get("name") or "") for c in cs})
+        log.info("데이터: 업체 %d곳 (사업 연결 %d · 미연결 %d · 이름 중복 %d) · 사업 %d개 · EDCF 명단 %d건 · 이슈 %d건",
+                 len(cs), linked, len(cs) - linked, dup, len(store.all_docs("projects")),
+                 len(store.all_docs("edcf_sanctions")), len(store.all_docs("findings")))
+    except Exception as e:
+        log.warning("건수 확인 실패: %s", e)
+
+
 def process_queue() -> int:
     """대시보드 [지금 스캔] 등이 Firestore 'requests'에 남긴 요청을 처리한다.
     회사망에서 api.github.com이 막혀도 Firebase만 되면 실행할 수 있게 하기 위함."""
@@ -117,6 +131,9 @@ def main() -> int:
     if a.task == "dart":
         log.info("DART 기업목록 %d개 저장", sync_dart())
         return 0
+
+    if a.task in ("daily", "scan", "preview"):
+        log_counts()
 
     if a.task == "daily":
         # 자동 매일 실행(Apps Script 'daily' 트리거 또는 GitHub 예약)은 하루 한 번만 — 둘 다 돌아도 메일이 두 번 가지 않게
