@@ -5,7 +5,7 @@ import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=23";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=24";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -471,7 +471,7 @@ function renderHome() {
 function projectRow(p) {
   const rows = [];
   for (const c of state.companies) c.engagements.forEach((e) => { if (e.project_id === p.id) rows.push({ c, e }); });
-  rows.sort((a, b) => ROLE_ORDER.indexOf(a.e.role) - ROLE_ORDER.indexOf(b.e.role));
+  rows.sort((a, b) => ROLE_ORDER.indexOf(a.e.role) - ROLE_ORDER.indexOf(b.e.role) || byOrder(a, b));
   const sc = scanned(), t = { red: 0, orange: 0, yellow: 0, none: 0 };
   new Set(rows.map((r) => r.c)).forEach((c) => t[c.risk]++);
   const total = t.red + t.orange + t.yellow + t.none;
@@ -600,7 +600,7 @@ function buildReport({ scope: sc0, period, done }) {
   const projRows = ps.map((p) => {
     const rows = [];
     for (const c of state.companies) c.engagements.forEach((e) => { if (e.project_id === p.id) rows.push({ c, e }); });
-    rows.sort((a, b) => ROLE_ORDER.indexOf(a.e.role) - ROLE_ORDER.indexOf(b.e.role));
+    rows.sort((a, b) => ROLE_ORDER.indexOf(a.e.role) - ROLE_ORDER.indexOf(b.e.role) || byOrder(a, b));
     const k = { red: 0, orange: 0, yellow: 0 }; new Set(rows.map((r) => r.c)).forEach((c) => { if (sc && k[c.risk] != null) k[c.risk]++; });
     return `<tr><td><b>${esc(p.name)}</b>${p.country ? `<div class="mu">${esc(COUNTRY[p.country] || p.country)}</div>` : ""}</td>
       <td>${rows.map(({ c, e }) => `<div>${role(e.role)} ${esc(c.name)}${e.stage && e.stage !== "계약" ? ` <span class="mu">(${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""})</span>` : ""} ${sc && c.risk !== "none" ? bd(c.risk) : ""}</div>`).join("") || `<span class="mu">연결된 업체 없음</span>`}</td>
@@ -1108,8 +1108,8 @@ const TRASH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke
 function renderCompanies() {
   const sc = scanned();
   $("#coTotal").textContent = state.companies.length;
-  const en = state.edcf.length;
-  $("#edcfPill").textContent = en ? `${en}건` : "없음"; $("#edcfPill").classList.toggle("off", !en);
+  const en = state.edcf.length, enBad = state.edcf.some((e) => !edcfValid(e));
+  $("#edcfPill").textContent = enBad ? "확인 필요" : en ? `${en}건` : "없음"; $("#edcfPill").classList.toggle("off", !en || enBad);
   // 필터 항목 (선택값 유지)
   const keep = (id, html) => { const v = $(id).value; $(id).innerHTML = html; if ([...$(id).options].some((o) => o.value === v)) $(id).value = v; };
   keep("#fProj", `<option value="">사업 전체</option><option value="__none">사업 미연결</option>` + state.projects.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join(""));
@@ -1188,6 +1188,28 @@ function renderProjects() {
     || `<div class="empty">${state.projects.length ? "내 사업으로 지정한 사업이 없습니다." : "사업이 없습니다. 오른쪽 위에서 새 사업을 추가하세요."}</div>`;
   bindDnd();
 }
+// 사업·역할 칸 안의 업체 순서 (맨 위가 대표사). 순서 없는 업체는 이름순으로 뒤에
+const byOrder = (a, b) => (a.e.order ?? 1e9) - (b.e.order ?? 1e9) || a.c.name.localeCompare(b.c.name);
+function zoneRows(pid, role) {
+  const rr = [];
+  for (const c of state.companies) c.engagements.forEach((e, i) => { if (e.project_id === pid && e.role === role) rr.push({ c, e, i }); });
+  return rr.sort(byOrder);
+}
+// cid 업체를 beforeCid 업체 앞으로 (없으면 맨 뒤로) 옮기고 순서 저장
+async function reorderZone(pid, role, cid, beforeCid) {
+  const all = zoneRows(pid, role), mv = all.find((r) => r.c.id === cid);
+  if (!mv) return;
+  const rr = all.filter((r) => r !== mv);
+  let at = beforeCid ? rr.findIndex((r) => r.c.id === beforeCid) : rr.length;
+  if (at < 0) at = rr.length;
+  rr.splice(at, 0, mv);
+  const touched = new Set();
+  rr.forEach((r, k) => { if (r.e.order !== k) { r.e.order = k; touched.add(r.c); } });
+  if (!touched.size) return;
+  const b = writeBatch(db);
+  touched.forEach((c) => b.update(doc(db, "companies", c.id), { engagements: c.engagements }));
+  await b.commit(); rerender();
+}
 function projectCard(p, sc) {
   const rows = [];
   for (const c of state.companies) c.engagements.forEach((e, i) => { if (e.project_id === p.id) rows.push({ c, e, i }); });
@@ -1200,19 +1222,20 @@ function projectCard(p, sc) {
     <div class="pbox-head"><button class="pname" data-edit-proj="${p.id}" title="눌러서 사업명·수원국·담당 수정">${esc(p.name)}</button>${p.country ? `<span class="ctry">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</div>
     ${dist}
     <div class="pbox-body">${ROLES.map((role) => {
-      const rr = rows.filter((r) => r.e.role === role);
+      const rr = rows.filter((r) => r.e.role === role).sort(byOrder);
       return `<div class="dropzone ${rr.length ? "" : "is-empty"}" data-pid="${p.id}" data-role="${esc(role)}">
-        <div class="dz-head">${roleTag(role)}</div>
-        ${rr.map(({ c, e, i }) => `<div class="corow" draggable="true" data-cid="${c.id}" data-from="${p.id}|${i}">
-          <span class="dot ${sc ? c.risk : ""}"></span><button class="cn" data-open="${c.id}">${esc(c.name)}</button>
+        <div class="dz-head">${roleTag(role)}${rr.length > 1 ? `<span class="dz-note">맨 위가 대표사 · 끌거나 ▲로 순서 변경</span>` : ""}</div>
+        ${rr.map(({ c, e, i }, k) => `<div class="corow" draggable="true" data-cid="${c.id}" data-from="${p.id}|${i}">
+          <span class="dot ${sc ? c.risk : ""}"></span>${rr.length > 1 && k === 0 ? `<span class="lead" title="대표사">대표</span>` : ""}<button class="cn" data-open="${c.id}">${esc(c.name)}</button>
           <span class="right">
+            ${k > 0 ? `<button class="upbtn" data-up="${p.id}|${esc(role)}|${c.id}|${rr[k - 1].c.id}" title="위로 (맨 위 = 대표사)">▲</button>` : ""}
             <button class="stagebtn ${e.stage && e.stage !== "계약" ? "on" : ""}" data-stage="${c.id}|${i}" title="눌러서 단계 변경">${esc(e.stage || "계약")}${e.stage === "우선협상" && e.rank ? " " + e.rank + "순위" : ""}</button>
             <button class="xbtn" data-unlink="${c.id}|${i}" title="이 사업에서 빼기">✕</button>
           </span></div>`).join("")}
         <div class="drop-hint">여기로 끌어다 놓기</div>
       </div>`;
     }).join("")}</div>
-    <div class="pbox-foot">${ownerTag(p)}${p.owner !== me() ? `<button class="btn sm ghost" data-own="${p.id}">내 사업으로</button>` : ""}<button class="btn sm ghost" data-edit-proj="${p.id}">수정</button></div>
+    <div class="pbox-foot">${ownerTag(p)}${p.owner !== me() ? `<button class="btn sm ghost" data-own="${p.id}">내 사업으로</button>` : ""}<span class="pf-act"><button class="btn sm ghost" data-edit-proj="${p.id}">수정</button><button class="btn sm ghost danger" data-del-proj="${p.id}">삭제</button></span></div>
   </div>`;
 }
 $("#sideSearch").addEventListener("input", () => renderProjects());
@@ -1257,7 +1280,11 @@ function bindDnd() {
     z.addEventListener("drop", async (ev) => {
       ev.preventDefault(); z.classList.remove("over"); document.body.classList.remove("dnd-active");
       let data; try { data = JSON.parse(ev.dataTransfer.getData("text/plain")); } catch { return; }
-      await placeCompany(data.cid, data.from, z.dataset.pid, z.dataset.role);
+      const target = ev.target.closest?.(".corow"), before = target && target.dataset.cid !== data.cid ? target.dataset.cid : null;
+      const [fpid] = String(data.from || "").split("|");
+      const c = state.companies.find((x) => x.id === data.cid), same = data.from && fpid === z.dataset.pid && c?.engagements[+String(data.from).split("|")[1]]?.role === z.dataset.role;
+      if (!same) await placeCompany(data.cid, data.from, z.dataset.pid, z.dataset.role);
+      if (before || same) await reorderZone(z.dataset.pid, z.dataset.role, data.cid, before);
     });
   });
   // 담당자 지정
@@ -1287,6 +1314,8 @@ function bindDnd() {
   });
   // 사업 삭제 → 소속 업체는 미배정으로
   $$("[data-edit-proj]", root).forEach((b) => b.onclick = () => openProjectEdit(b.dataset.editProj));
+  $$("[data-del-proj]", root).forEach((b) => b.onclick = () => deleteProject(b.dataset.delProj));
+  $$("[data-up]", root).forEach((b) => b.onclick = () => { const [pid, role, cid, prev] = b.dataset.up.split("|"); reorderZone(pid, role, cid, prev); });
 }
 // 사업 수정 (사업명·수원국·담당) / 삭제
 function openProjectEdit(pid) {
@@ -1313,17 +1342,19 @@ function openProjectEdit(pid) {
     await updateDoc(doc(db, "projects", pid), patch); Object.assign(p, patch);
     closeModal(); toast("사업을 수정했습니다"); rerender();
   };
-  $("#pjDelete").onclick = async () => {
-    if (!confirm(`'${p.name}' 사업을 삭제할까요?\n(참여 업체는 삭제되지 않고 업체 관리에 그대로 남습니다)`)) return;
-    for (const c of state.companies) {
-      if (!c.engagements.some((e) => e.project_id === pid)) continue;
-      c.engagements = c.engagements.filter((e) => e.project_id !== pid);
-      await saveEngagements(c);
-    }
-    await deleteDoc(doc(db, "projects", pid));
-    state.projects = state.projects.filter((x) => x.id !== pid);
-    closeModal(); toast("사업을 삭제했습니다"); rerender();
-  };
+  $("#pjDelete").onclick = () => deleteProject(pid);
+}
+async function deleteProject(pid) {
+  const p = state.projects.find((x) => x.id === pid);
+  if (!p || !confirm(`'${p.name}' 사업을 삭제할까요?\n(참여 업체는 삭제되지 않고 업체 관리에 그대로 남습니다)`)) return;
+  for (const c of state.companies) {
+    if (!c.engagements.some((e) => e.project_id === pid)) continue;
+    c.engagements = c.engagements.filter((e) => e.project_id !== pid);
+    await saveEngagements(c);
+  }
+  await deleteDoc(doc(db, "projects", pid));
+  state.projects = state.projects.filter((x) => x.id !== pid);
+  closeModal(); toast("사업을 삭제했습니다"); rerender();
 }
 
 async function deleteCompany(cid) {
@@ -1668,7 +1699,10 @@ async function readExcel(file) {
   const wb = window.XLSX.read(await file.arrayBuffer(), { type: "array" });
   return window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: "" });
 }
+// 상태·제재기간이 없는 행은 제재 기록이 아님 (업체 명단을 잘못 올린 경우 등) → 대조에서 제외
+const edcfValid = (e) => !!(String(e.status || "").trim() || String(e.period || "").trim());
 function edcfMatches(list) {
+  list = list.filter(edcfValid);
   const byBiz = new Map(), byName = new Map();
   for (const c of state.companies) { if (c.biz_no) byBiz.set(String(c.biz_no).replace(/\D/g, ""), c); byName.set(normName(cleanCompanyName(c.name).name), c); }
   return list.map((e) => ({ e, c: (e.biz_no && byBiz.get(e.biz_no)) || byName.get(normName(cleanCompanyName(e.name).name)) })).filter((x) => x.c);
@@ -1734,6 +1768,20 @@ $("#edcfFile").addEventListener("change", async (ev) => {
       "회사망에서 엑셀 해석 도구(cdnjs.cloudflare.com)가 막혀 있을 수 있습니다 → 붙여넣기 이용"]);
   }
 });
+// 잘못 올라간 명단 비우기: 명단과 그 때문에 생긴 EDCF 기록 삭제
+async function clearEdcf() {
+  if (!confirm("EXIMIIS 제재 명단을 모두 지우고, 이 명단으로 생긴 'EDCF 제재' 기록도 지울까요?")) return;
+  const old = await getDocs(collection(db, "edcf_sanctions"));
+  const gone = state.findings.filter((f) => String(f.dedup_key || "").startsWith("edcf-"));
+  const ops = [...old.docs.map((d) => d.ref), ...gone.map((f) => doc(db, "findings", f.id))];
+  for (let i = 0; i < ops.length; i += 400) { const b = writeBatch(db); ops.slice(i, i + 400).forEach((r) => b.delete(r)); await b.commit(); }
+  const meta = { edcf_sanctions_at: nowStr(), edcf_sanctions_count: 0, edcf_sanctions_by: me() };
+  await setDoc(doc(db, "meta", "settings"), meta, { merge: true });
+  Object.assign(state.settings, meta); state.edcf = [];
+  const ids = new Set(gone.map((f) => f.id)); state.findings = state.findings.filter((f) => !ids.has(f.id));
+  toast(`명단을 비웠습니다 · EDCF 기록 ${gone.length}건 삭제. EXIMIIS 엑셀을 올려 주세요`, 6000);
+  openEdcf(); rerender();
+}
 // 업체 탭 [EDCF 부정당업자 명단]: 현재 명단 상태 + 올리기
 function openEdcf() {
   modal(`<h2>EXIMIIS 제재 명단 <span class="count">${state.edcf.length}</span></h2>
@@ -1764,8 +1812,15 @@ function openEdcfPaste() {
 }
 function renderEdcfInfo() {
   const st = state.settings || {}, list = state.edcf, g = edcfByCompany(edcfMatches(list)), act = g.filter((x) => x.active);
-  const active = list.filter((e) => /등록/.test(e.status || "")).length;
+  const active = list.filter((e) => /등록/.test(e.status || "")).length, bad = list.filter((e) => !edcfValid(e)).length;
   if (!$("#edcfInfo")) return;
+  if (bad) {
+    $("#edcfInfo").innerHTML = `<div class="edcf-bad"><b>지금 명단 ${list.length}건 중 ${bad}건은 상태·제재기간이 없어 제재 기록이 아닙니다</b>${bad === list.length ? " — 감시 업체 명단이 잘못 올라간 것으로 보입니다" : ""}.
+      이 행들은 대조에 쓰지 않으며, 다음 스캔 때 이 때문에 생긴 'EDCF 제재 이력'도 자동으로 지워집니다.<br>EXIMIIS 부정당업자조회 엑셀(예: 13건)을 다시 올리거나 비워 주세요.
+      <div class="actions left" style="margin-top:8px"><button class="btn sm danger" id="edcfClear">잘못된 명단 비우기</button></div></div>`;
+    $("#edcfClear").onclick = clearEdcf;
+    return;
+  }
   $("#edcfInfo").innerHTML = !list.length ? "아직 등록된 명단이 없습니다."
     : `${list.length}건 (등록 ${active} · 해지 ${list.length - active}) · ${esc(st.edcf_sanctions_at || "")} 반영${st.edcf_sanctions_by ? ` (${esc(st.edcf_sanctions_by.split("@")[0])})` : ""}
        ${g.length ? `<div style="margin-top:6px">우리 명단과 일치 <b>${g.length}곳</b>${act.length ? ` · <b style="color:var(--red)">현재 제재 중 ${act.map((x) => esc(x.c.name)).join(", ")}</b>` : ""}<br>${edcfHitText(g)}</div>` : `<div style="margin-top:6px">우리 명단과 일치하는 업체 없음</div>`}`;

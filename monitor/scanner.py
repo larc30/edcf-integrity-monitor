@@ -87,6 +87,8 @@ def match_edcf(edcf: list[dict], company: dict) -> list[dict]:
     names = {_n(x) for x in _company_names(company) if x and len(_n(x)) >= 3}
     out = []
     for e in edcf:
+        if not (str(e.get("status") or "").strip() or str(e.get("period") or "").strip()):
+            continue  # 상태·제재기간이 없는 행은 제재 기록이 아님 (예: 업체 명단을 잘못 올린 경우)
         eb = pps.biz_digits(e.get("biz_no"))
         hit = (biz and eb and biz == eb) or ((not biz or not eb) and _n(e.get("name", "")) in names)
         if not hit:

@@ -95,6 +95,8 @@ meta/status, meta/progress, meta/settings{relay_url,keywords_version}, meta/repo
 - (v23) 2026-11-04 실제 207곳 첫 스캔(약 6분): 외부 호출 706건 전부 200 OK (Google 223 · Claude 219 · 조달청 123 · DART 109 · 네이버 22 · OpenSanctions 10). 데모의 '네이버 429·조달청 시간 초과'는 가상 예시 — 사용자가 실제로 오해해서 '(데모 예시)' 표시.
   - AI 같은 사건 판단: 판정 프롬프트에 그 업체의 최근 이슈 20건(E1~)을 주고 same_event_as(E번호 또는 같은 배치 idx)를 받음 → findings.same_as(다른 기록 id). grouping.py·groupFindings 가 same_as 로도 묶음(⑤). 규칙 ①~④는 그대로.
   - 보고서(PDF): 대시보드 [보고서] → 범위(내 담당/전체)·이슈 기간·확인 완료 포함 → 숨긴 iframe 에 A4 HTML(메일과 같은 디자인) → 브라우저 인쇄 'PDF로 저장'. 사업별 현황·리스크 업체·확인할 이슈(묶음, 최대 300). 데모에서는 window.__lastReport 로 확인.
+- (v24) EXIMIIS 제재 명단 202건 = 사용자가 13:47 코랩 업체 CSV를 옛 설정 화면의 명단 칸에 올린 것(파일명이 'EDCF_…'로 시작해 헷갈림). 실제 제재 명단은 EXIMIIS 13건. 대응: 상태·제재기간이 둘 다 없는 행은 제재 기록이 아님 → 스캐너 match_edcf·대시보드 edcfMatches 에서 제외(다음 스캔 때 가짜 'edcf-' 기록 자동 삭제), 명단 창에 경고 + [잘못된 명단 비우기](clearEdcf), 버튼 배지 '확인 필요'.
+  - 사업 관리: 역할 칸 안 순서(engagement.order, 맨 위 = 대표사, 2곳 이상일 때 '대표' 표시), ▲ 버튼·다른 업체 줄 위에 끌어 놓기로 순서 변경(reorderZone), 카드에 [수정][삭제] 둘 다. 대시보드 사업 줄·보고서도 역할 → 순서.
 
 ## 남은 일
 - 사용자: Apps Script 중계 설정, monitor.yml 웹에서 한 번 수정(예약 실행), EXIMIIS 엑셀 업로드, 코랩 명단 붙여넣기, (선택) 네이버 API HUB·SMTP·ANTHROPIC 키.

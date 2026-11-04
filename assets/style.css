@@ -792,3 +792,14 @@ label.check input { width: auto; accent-color: var(--accent); }
 /* v23: 보고서 버튼, 창 안 체크 줄 */
 #btnReport svg { width: 16px; height: 16px; }
 .form label.check { flex-direction: row; font-weight: 500; font-size: var(--fs-base); }
+/* v24: 대표사·순서, 잘못된 EDCF 명단 안내 */
+.dz-head { display: flex; align-items: center; gap: 8px; }
+.dz-note { font-size: var(--fs-xs); color: var(--muted); }
+.corow .lead { font-size: var(--fs-xs); font-weight: 800; padding: 0 6px; border-radius: 5px; background: var(--accent-soft); color: var(--accent-2); white-space: nowrap; }
+.upbtn { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: var(--fs-xs); width: 22px; height: 22px; border-radius: 6px; opacity: 0; transition: opacity .12s; }
+.corow:hover .upbtn, .upbtn:focus-visible { opacity: 1; }
+.upbtn:hover { background: var(--accent-soft); color: var(--accent-2); }
+@media (hover: none) { .upbtn { opacity: .7; } }
+.pbox-foot .pf-act { display: flex; gap: 2px; margin-left: auto; }
+.edcf-bad { padding: 12px 14px; border-radius: 12px; background: var(--red-bg); border: 1px solid color-mix(in srgb, var(--red) 35%, transparent); font-size: var(--fs-sm); line-height: 1.6; }
+.edcf-bad b { color: var(--red); }
