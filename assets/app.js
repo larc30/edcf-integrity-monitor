@@ -1463,6 +1463,10 @@ function rowsToEdcf(rows) {
   const hi = rows.findIndex((r) => r.some((x) => String(x ?? "").replace(/\s/g, "") === "업체명"));
   if (hi < 0) throw new Error("'업체명' 열 제목을 찾지 못했습니다. EXIMIIS에서 내려받은 엑셀 그대로 올려주세요.");
   const head = rows[hi].map((x) => EDCF_COLS[String(x ?? "").replace(/\s/g, "")] || null);
+  // 업체 명단(일괄 등록 양식)을 잘못 올리는 경우 막기: EXIMIIS 엑셀에는 '상태'·'제재기간' 열이 있음
+  const raw = rows[hi].map((x) => String(x ?? "").replace(/\s/g, ""));
+  if (!head.includes("status") || !head.includes("period") || raw.some((x) => ["업종", "분류", "별칭", "역할", "영문명"].includes(x)))
+    throw new Error("EXIMIIS 부정당업자 엑셀이 아닌 것 같습니다 ('상태'·'제재기간' 열이 없음). 업체 명단은 업체 탭의 [일괄 등록]으로 올리세요.");
   const out = [];
   for (const r of rows.slice(hi + 1)) {
     const e = {};
@@ -1535,7 +1539,16 @@ function edcfPreview(list) {
       const meta = { edcf_sanctions_at: nowStr(), edcf_sanctions_count: list.length, edcf_sanctions_by: me() };
       await setDoc(doc(db, "meta", "settings"), meta, { merge: true });
       Object.assign(state.settings, meta); state.edcf = list;
-      closeModal(); toast(`EDCF 명단 ${list.length}건을 반영했습니다. 다음 스캔부터 대조합니다`, 5000); rerender();
+      // 새 명단과 더는 맞지 않는 업체의 EDCF 기록은 바로 지움 (기간이 바뀐 기록은 다음 스캔 때 정리)
+      const still = new Set(edcfMatches(list).map((x) => x.c.id));
+      const gone = state.findings.filter((f) => String(f.dedup_key || "").startsWith("edcf-") && !still.has(f.company_id));
+      for (let i = 0; i < gone.length; i += 400) {
+        const b = writeBatch(db);
+        gone.slice(i, i + 400).forEach((f) => b.delete(doc(db, "findings", f.id)));
+        await b.commit();
+      }
+      if (gone.length) { const ids = new Set(gone.map((f) => f.id)); state.findings = state.findings.filter((f) => !ids.has(f.id)); }
+      closeModal(); toast(`EDCF 명단 ${list.length}건을 반영했습니다${gone.length ? ` · 맞지 않는 예전 EDCF 기록 ${gone.length}건 삭제` : ""}. 다음 스캔부터 대조합니다`, 6000); rerender();
     } catch (e) { toast("저장 실패: " + e.message, 6000); $("#edcfSave").disabled = false; }
   };
 }

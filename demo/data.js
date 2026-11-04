@@ -44,11 +44,12 @@ export function seed() {
   const F = (cid, level, daysAgo, o) => ({
     company_id: cid, company_name: companies[cid].name, source_type: o.src || "news", source_name: o.sn || "example.com (Google News)",
     title: o.title, url: o.url || "https://example.com/", published_at: ymd(now - daysAgo * DAY), level, category: o.cat,
-    summary: o.sum, rationale: o.why || "AI 판정 (예시)", analyzer: "claude", relevant: true, status: o.status || "new",
+    summary: o.sum, rationale: o.why || "AI 판정 (예시)", analyzer: o.src === "official" ? "list-match" : "claude", relevant: true, status: o.status || "new",
+    dedup_key: o.key || `demo-${cid}-${daysAgo}-${level}`,
     first_seen_ms: now - (o.seen ?? Math.min(daysAgo, 1)) * DAY - 3 * 3600e3,
   });
   const findings = {
-    f1: F("c2", "red", 3, { src: "official", sn: "EDCF 부정당업자 (EXIMIIS)", title: "[EDCF 제재 등록] 라마바건설 · 2026.01.01 ~ 2027.12.31", cat: "부정당업자 제재", sum: "[예시] EDCF 부정당업자로 현재 등록되어 있습니다 (제재기간 2026.01.01 ~ 2027.12.31, 사유: 허위 서류 제출).", why: "EXIMIIS 부정당업자 명단과 사업자번호 일치" }),
+    f1: F("c2", "red", 3, { src: "official", key: "edcf-demo-1", sn: "EDCF 부정당업자 (EXIMIIS)", title: "[EDCF 제재 등록] 라마바건설 · 2026.01.01 ~ 2027.12.31", cat: "부정당업자 제재", sum: "[예시] EDCF 부정당업자로 현재 등록되어 있습니다 (제재기간 2026.01.01 ~ 2027.12.31, 사유: 허위 서류 제출).", why: "EXIMIIS 부정당업자 명단과 사업자번호 일치" }),
     f2: F("c4", "red", 1, { src: "official", sn: "조달청 나라장터 부정당제재", title: "[조달청 부정당제재] 차카타정보통신 — 입찰참가자격 제한 6개월", cat: "부정당업자 제재", sum: "[예시] 수요기관이 통보한 입찰참가자격 제한(6개월)이 현재 유효합니다.", why: "나라장터 공식 데이터 (조회 시점 유효 제재)" }),
     f3: F("c7", "orange", 0, { title: "[예시 기사] 공정위, 교통 설계 용역 담합 업체에 과징금", cat: "입찰담합", sum: "[예시] 다라교통이 설계 용역 입찰 담합으로 과징금 처분을 받았다는 보도입니다.", seen: 0.1 }),
     f4: F("c5", "orange", 1, { title: "[예시 기사] 경찰, 공공 시스템 납품 비리 관련 압수수색", cat: "수사·기소", sum: "[예시] 파하시스템 본사가 납품 비리 의혹으로 압수수색을 받았습니다.", sn: "example.co.kr (네이버 뉴스)" }),
@@ -59,7 +60,7 @@ export function seed() {
     // 같은 사건을 다른 매체가 보도 / 같은 기사가 두 업체에 걸림 / 같은 명단의 과거 기록 → 대시보드에서 한 건으로 묶임
     f10: F("c7", "orange", 0, { title: "[예시 기사] 다라교통 등 3개사, 교통 설계 입찰 담합 과징금 부과", cat: "입찰담합", sum: "[예시] 같은 담합 사건을 다른 매체가 보도했습니다.", sn: "example.net (Naver)", url: "https://example.net/news/1002", seen: 0.3 }),
     f11: F("c9", "orange", 0, { title: "[예시 기사] 공정위, 교통 설계 용역 담합 업체에 과징금", cat: "입찰담합", sum: "[예시] 같은 기사에 아자설계도 함께 언급됐습니다.", url: "https://example.org/a/2001", seen: 0.3 }),
-    f12: F("c2", "yellow", 900, { src: "official", sn: "EDCF 부정당업자 (EXIMIIS)", title: "[EDCF 제재 해지] 라마바건설 · 2023.01.01 ~ 2023.06.30", cat: "부정당업자 제재", sum: "[예시] 과거 EDCF 부정당업자 제재 이력이 있습니다 (해지).", seen: 3 }),
+    f12: F("c2", "yellow", 900, { src: "official", key: "edcf-demo-2", sn: "EDCF 부정당업자 (EXIMIIS)", title: "[EDCF 제재 해지] 라마바건설 · 2023.01.01 ~ 2023.06.30", cat: "부정당업자 제재", sum: "[예시] 과거 EDCF 부정당업자 제재 이력이 있습니다 (해지).", seen: 3 }),
     f9: F("c11", "orange", 2, { title: "[예시 기사] 해외사업 뇌물 공여 혐의 구속", cat: "뇌물·부패", sum: "[예시] 타파컨설팅 전 임원이 해외사업 뇌물 공여 혐의로 구속됐습니다." }),
   };
   return {

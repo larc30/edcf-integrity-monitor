@@ -97,6 +97,15 @@ def update_many(name: str, patches: dict[str, dict]) -> None:
         batch.commit()
 
 
+def delete_many(name: str, ids: list[str]) -> None:
+    col = db().collection(name)
+    for i in range(0, len(ids), 400):
+        batch = db().batch()
+        for doc_id in ids[i : i + 400]:
+            batch.delete(col.document(doc_id))
+        batch.commit()
+
+
 def update(name: str, doc_id: str, data: dict) -> None:
     db().collection(name).document(doc_id).set(data, merge=True)
 

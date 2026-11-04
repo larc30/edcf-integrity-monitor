@@ -372,6 +372,12 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
     if stale:
         store.update_many("findings", stale)
         stats["cleaned"] += len(stale)
+    # EDCF 명단을 새로 올려서 더는 맞지 않는 기록(예: 잘못 올린 명단)은 지움 — 자동 대조 결과라 사용자 판단과 무관
+    gone = [f["id"] for f in existing if str(f.get("dedup_key") or "").startswith("edcf-") and f.get("dedup_key") not in still]
+    if gone:
+        store.delete_many("findings", gone)
+        existing = [f for f in existing if f["id"] not in set(gone)]
+        stats["cleaned"] += len(gone)
     for f in official:
         if f["dedup_key"] in known:
             continue

@@ -105,8 +105,9 @@ def build() -> tuple[str, str, list[str]]:
         return (f'<div style="font-size:12px;color:{MUTED};margin-top:8px;padding-top:8px;border-top:1px dashed {LINE};">'
                 f'<b style="color:{ACCENT2};">같은 내용 {len(g) - 1}건 더</b> · {links}' + (f" 외 {len(g) - 6}건" if len(g) > 6 else "") + "</div>")
 
+    MAX_ITEMS = 30  # 메일이 너무 길어지지 않게 — 나머지는 대시보드에서
     items = []
-    for g in recent:
+    for g in recent[:MAX_ITEMS]:
         f = g[0]
         fg = COLORS.get(f.get("level"), COLORS["none"])[0]
         official = f.get("source_type") != "news"
@@ -124,6 +125,10 @@ def build() -> tuple[str, str, list[str]]:
     {dup_html(g)}
   </td></tr></table>
 </td></tr>""")
+    if len(recent) > MAX_ITEMS:
+        items.append(f'<tr><td style="padding:2px 28px 10px;background:{PANEL};"><div style="background:{BG};border-radius:12px;padding:12px 16px;font-size:13px;color:{TEXT2};">'
+                     f'등급이 높은 {MAX_ITEMS}건만 보여드렸습니다. 나머지 <b>{len(recent) - MAX_ITEMS}건</b>은 '
+                     f'<a href="{E(config.DASHBOARD_URL)}" style="color:{LINK};text-decoration:none;font-weight:700;">대시보드</a>에서 확인하세요.</div></td></tr>')
     if not items:
         items.append(f'<tr><td style="padding:0 28px 10px;background:{PANEL};"><div style="border:1px dashed {LINE};border-radius:12px;padding:18px;text-align:center;color:{COLORS["none"][0]};font-size:14px;">새로 확인된 리스크 신호가 없습니다</div></td></tr>')
     older_html = "" if not older else (

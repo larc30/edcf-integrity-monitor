@@ -84,6 +84,11 @@ meta/status, meta/progress, meta/settings{relay_url,keywords_version}, meta/repo
   - 글자: font-size 는 토큰 5단계만(--fs-xs 12 · sm 13 · base 15 · md 16 · lg 20 · xl 30, 큰 숫자 2rem 예외). 새 CSS도 var(--fs-*)만 쓸 것. button/input/select/summary 글꼴 상속.
   - 메일(report.py): 대시보드 밝은 화면과 같은 색·글꼴(남색 머리 + 레이더 마크, 등급 카드 4칸, 왼쪽 색 막대 카드, 점 배지, 그라데이션 버튼).
   - run.py: daily/scan/preview 실행 때 '데이터: 업체 N곳 …' 건수만 로그(이름은 공개 로그에 남기지 않음). 2026-11-04 확인: 실제 Firebase에는 업체 9곳·사업 4개·EDCF 명단 0건 — 코랩 202곳·EXIMIIS 13건 CSV는 아직 업로드 전.
+- (v21 보완) 2026-11-04 사용자가 코랩 업체 CSV(202행)를 EDCF 명단 칸에 잘못 올림 → EDCF 명단 202건, 모든 업체에 가짜 'EDCF 제재 해지' 기록. 대응:
+  - 대시보드 rowsToEdcf: '상태'·'제재기간' 열이 없거나 업종·별칭·역할·영문명 열이 있으면 거부(업체 명단은 일괄 등록으로 안내).
+  - 명단 반영 때: 새 명단과 맞는 업체가 아닌 EDCF 기록(dedup_key 'edcf-')은 바로 삭제. 스캐너도 매 스캔 업체별로 현재 명단과 맞지 않는 'edcf-' 기록을 삭제(store.delete_many) — 자동 대조 결과라 삭제해도 됨.
+  - 메일: 자세한 카드는 등급순 30건까지(MAX_ITEMS), 나머지는 '대시보드에서 확인' 한 줄.
+  - 사용자가 올바른 EXIMIIS CSV(13건)를 업체 탭 [EDCF 부정당업자 명단]으로 다시 올려야 함.
 
 ## 남은 일
 - 사용자: Apps Script 중계 설정, monitor.yml 웹에서 한 번 수정(예약 실행), EXIMIIS 엑셀 업로드, 코랩 명단 붙여넣기, (선택) 네이버 API HUB·SMTP·ANTHROPIC 키.
