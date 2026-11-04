@@ -5,7 +5,7 @@ import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=19";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=20";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -114,7 +114,7 @@ function compute() {
     c.mine = !!c.watch || c.engagements.some((e) => { const p = state.projects.find((x) => x.id === e.project_id); return p && isMine(p); });
     const fs = state.findings.filter((f) => f.company_id === c.id && f.status !== "dismissed");
     c.risk = fs.reduce((m, f) => (LV[f.level] || 0) > (LV[m] || 0) ? f.level : m, "none");
-    c.open = fs.filter((f) => f.status === "new").length;
+    c.open = groupFindings(fs.filter((f) => f.status === "new")).length; // 같은 이슈는 1건
     c.total = fs.length;
   }
 }
@@ -211,6 +211,55 @@ const weekday = ["일", "월", "화", "수", "목", "금", "토"];
 // ---------- 기간 ----------
 const PERIODS = [["all", "전체"], ["today", "오늘·어제"], ["7d", "7일"], ["30d", "30일"], ["old", "과거 이력"]];
 const pubMs = (f) => { const d = f.published_at ? Date.parse(String(f.published_at).slice(0, 10) + "T00:00:00+09:00") : NaN; return Number.isFinite(d) ? d : (f.first_seen_ms || Date.now()); };
+// ---------- 같은 이슈 묶기 (monitor/grouping.py 와 같은 기준) ----------
+// 같은 기사·같은 사건이 여러 건으로 보이지 않게 한 줄로 묶음. 묶인 기사는 펼쳐서 보고, 처리 버튼은 묶음 전체에 적용
+//  ① 제목이 같거나(매체 꼬리·[단독] 같은 머리표 제외) 원문 주소가 같은 기사 — 업체가 달라도 하나로 (업체 이름을 함께 표시)
+//  ② 같은 업체 · 같은 분류(예: 입찰담합) · 보도일 3일 이내 — 여러 매체가 같은 사건을 보도한 경우
+//  ③ 같은 업체 · 제목이 거의 같음 (업체명을 뺀 제목의 글자 쌍 60% 이상 일치)
+//  ④ 같은 업체 · 같은 공식 명단의 기록 여러 건 (예: EDCF 제재 이력)
+const normTitle = (t) => String(t || "").replace(/\s*[-|]\s*[^-|]{1,30}$/, "").replace(/\[[^\]]{1,12}\]/g, "").replace(/[^0-9a-zA-Z가-힣]/g, "").toLowerCase();
+const bigrams = (x) => { const o = new Set(); for (let i = 0; i < x.length - 1; i++) o.add(x.slice(i, i + 2)); return o; };
+function titleSim(a, b, name) {
+  const n = String(name || "").replace(/[^0-9a-zA-Z가-힣]/g, "").toLowerCase();
+  let x = normTitle(a), y = normTitle(b);
+  if (n) { x = x.split(n).join(""); y = y.split(n).join(""); }
+  const A = bigrams(x), B = bigrams(y);
+  if (!A.size || !B.size) return 0;
+  let k = 0; A.forEach((g) => { if (B.has(g)) k++; });
+  return 2 * k / (A.size + B.size);
+}
+const urlKey = (u) => { try { const x = new URL(u); return x.pathname.replace(/\//g, "") ? u : null; } catch { return null; } };
+const isOfficial = (f) => (f.source_type || "news") !== "news";
+function sameCompanyIssue(a, b) {
+  if (isOfficial(a) || isOfficial(b)) return isOfficial(a) && isOfficial(b) && a.source_name === b.source_name;
+  if (a.category && a.category !== "기타" && a.category === b.category && Math.abs(pubMs(a) - pubMs(b)) <= 3 * DAY + 3600e3) return true;
+  return titleSim(a.title, b.title, a.company_name) >= 0.6;
+}
+const issueRank = (a, b) => (LV[b.level] - LV[a.level]) || (isOfficial(b) - isOfficial(a)) || pubMs(b) - pubMs(a);
+function groupFindings(list) {
+  const parent = list.map((_, i) => i);
+  const find = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+  const join = (i, j) => { i = find(i); j = find(j); if (i !== j) parent[j] = i; };
+  const buckets = new Map(), add = (k, i) => { if (!buckets.has(k)) buckets.set(k, []); buckets.get(k).push(i); };
+  list.forEach((f, i) => {
+    const st = f.status || "new", t = normTitle(f.title), u = urlKey(f.url);
+    if (t.length >= 8) add(`t|${st}|${t}`, i);
+    if (u) add(`u|${st}|${u}`, i);
+    add(`c|${st}|${f.company_id}`, i);
+  });
+  for (const [k, idx] of buckets) {
+    if (k[0] !== "c") { idx.slice(1).forEach((j) => join(idx[0], j)); continue; }
+    for (let x = 0; x < idx.length; x++) for (let y = x + 1; y < idx.length; y++) if (sameCompanyIssue(list[idx[x]], list[idx[y]])) join(idx[x], idx[y]);
+  }
+  const m = new Map();
+  list.forEach((f, i) => { const r = find(i); if (!m.has(r)) m.set(r, []); m.get(r).push(f); });
+  return [...m.values()].map((items) => {
+    items.sort(issueRank);
+    const companies = []; items.forEach((f) => { if (!companies.some((c) => c.id === f.company_id)) companies.push({ id: f.company_id, name: f.company_name }); });
+    return { rep: items[0], items, ids: items.map((f) => f.id), companies, newest: Math.max(0, ...items.map((f) => f.first_seen_ms || 0)) };
+  }).sort((a, b) => issueRank(a.rep, b.rep));
+}
+const groupIn = (g, p) => g.items.some((f) => inPeriod(f, p));
 function inPeriod(f, p) {
   const age = Date.now() - pubMs(f), official = f.source_type !== "news";
   if (p === "all") return true;
@@ -340,6 +389,7 @@ function renderHome() {
 
   // ① 리스크 업체: 위험·경고·주의를 한 판에 (숫자 · 해당 업체 · 등급 뜻)
   const open = state.findings.filter((f) => f.status === "new" && ids.has(f.company_id));
+  const openG = groupFindings(open); // 같은 기사·같은 사건은 한 건으로
   const byLv = { red: [], orange: [], yellow: [], none: [] };
   cs.forEach((c) => byLv[c.risk].push(c));
   const riskyN = byLv.red.length + byLv.orange.length + byLv.yellow.length;
@@ -354,10 +404,10 @@ function renderHome() {
         <div class="rk-desc">${LEVEL_SHORT[lv]}</div></button>`;
     }).join("");
   // ② 확인할 이슈: 등급과 다른 '비고' 카드 (누르면 이슈 목록으로)
-  const todayN = open.filter((f) => inPeriod(f, "today")).length;
+  const todayN = openG.filter((g) => groupIn(g, "today")).length;
   $("#noteCard").innerHTML = `<span class="nc-tag">비고</span>
-    <div class="nc-num"><span data-count="${open.length}">0</span><small>건</small></div>
-    <div class="nc-t"><b>확인할 이슈</b><div>${!open.length ? "모두 확인했습니다" : todayN ? `오늘·어제 새로 ${todayN}건` : "새로 들어온 이슈 없음"} · '확인했음·관련 없음' 처리 전</div></div>
+    <div class="nc-num"><span data-count="${openG.length}">0</span><small>건</small></div>
+    <div class="nc-t"><b>확인할 이슈</b><div>${!openG.length ? "모두 확인했습니다" : todayN ? `오늘·어제 새로 ${todayN}건` : "새로 들어온 이슈 없음"} · '확인했음·관련 없음' 처리 전</div></div>
     <span class="nc-go">이슈 목록 보기 ↓</span>`;
   const nums = [$("#kboard"), $("#noteCard")];
   if (!state.kpiAnimated) { state.kpiAnimated = true; nums.forEach(countUp); } // 숫자 올라가는 효과는 처음 한 번만
@@ -374,18 +424,17 @@ function renderHome() {
   $("#radarCap").innerHTML = `<b>${scope === "mine" ? "내 담당" : "전체"} 업체 ${cs.length}곳</b> · 가운데로 갈수록 위험<br>점을 누르면 업체 상세, 빈 곳을 누르면 다시 훑어봅니다`;
 
   // ④ 확인이 필요한 이슈 (위험 → 공식 제재 → 최신)
-  const counts = Object.fromEntries(PERIODS.map(([k]) => [k, open.filter((f) => inPeriod(f, k)).length]));
+  const counts = Object.fromEntries(PERIODS.map(([k]) => [k, openG.filter((g) => groupIn(g, k)).length]));
   if (!period || !counts.hasOwnProperty(period)) period = counts.today ? "today" : "all";
   $("#periodSeg").innerHTML = PERIODS.map(([k, label]) => `<button data-p="${k}" class="${k === period ? "active" : ""}">${label} <span class="n">${counts[k]}</span></button>`).join("");
   $$("#periodSeg button").forEach((b) => b.onclick = () => { period = b.dataset.p; try { localStorage.setItem("edcf_period", period); } catch {} renderHome(); });
-  const shown = open.filter((f) => inPeriod(f, period) && (!levelFilter || f.level === levelFilter))
-    .sort((a, b) => (LV[b.level] - LV[a.level]) || ((b.source_type !== "news") - (a.source_type !== "news")) || pubMs(b) - pubMs(a));
-  $("#issueCount").textContent = open.length;
+  const shown = openG.filter((g) => groupIn(g, period) && (!levelFilter || g.rep.level === levelFilter));
+  $("#issueCount").textContent = openG.length;
   $("#levelNote").innerHTML = levelFilter ? `<button class="chip-x" id="clearLv">${LEVEL[levelFilter]} 이슈만 보는 중 · 모두 보기 ✕</button>` : "";
   $("#clearLv")?.addEventListener("click", () => { levelFilter = null; renderHome(); });
-  if (shown.length) renderFeed(shown, $("#feed"));
+  if (shown.length) renderGroups(shown, $("#feed"));
   else $("#feed").innerHTML = !sc ? `<div class="empty">스캔 후 이곳에 이슈가 출처와 함께 표시됩니다.</div>`
-    : open.length ? `<div class="ok-box">이 조건에는 확인할 이슈가 없습니다 <span class="muted small">(전체 ${open.length}건)</span></div>`
+    : openG.length ? `<div class="ok-box">이 조건에는 확인할 이슈가 없습니다 <span class="muted small">(전체 ${openG.length}건)</span></div>`
     : `<div class="ok-box">확인이 필요한 이슈가 없습니다</div>`;
   const done = state.findings.filter((f) => f.status === "reviewed" && ids.has(f.company_id)).sort(byLevelDate);
   $("#doneWrap").classList.toggle("hidden", !done.length);
@@ -455,39 +504,51 @@ const MDB_NAME = { worldbank_debarred: "World Bank", adb_sanctions: "ADB", afdb_
 
 const ownerTag = (p) => `<span class="owner">${!p.owner ? "담당 미지정" : p.owner === me() ? "내 사업" : "담당 " + esc(p.owner.split("@")[0])}</span>`;
 
-function findingHtml(f, showCompany = true) {
-  const official = f.source_type !== "news";
-  const isNew = f.status === "new" && Date.now() - (f.first_seen_ms || 0) < DAY;
+function findingHtml(g, showCompany = true) {
+  const f = g.rep, more = g.items.slice(1);
+  const official = isOfficial(f);
+  const isNew = f.status === "new" && Date.now() - (g.newest || 0) < DAY;
   const why = [f.rationale && `판단 근거: ${f.rationale}`, f.title && `원문 제목: ${f.title}`].filter(Boolean).join("\n");
-  return `<div class="item lv-${f.level} ${f.status === "reviewed" ? "reviewed" : ""}" data-fid="${esc(f.id)}">
+  const srcs = [...new Set(more.map((x) => String(x.source_name || "").replace(/\s*\((Google News|Naver|네이버)\)$/i, "")).filter(Boolean))];
+  return `<div class="item lv-${f.level} ${f.status === "reviewed" ? "reviewed" : ""}" data-fid="${esc(f.id)}" data-fids="${esc(g.ids.join(","))}">
     <div class="item-head">
       ${badge(f.level)}
-      ${showCompany ? `<span class="item-company" data-cid="${f.company_id}">${esc(f.company_name)}</span>` : ""}
+      ${showCompany ? g.companies.map((c) => `<span class="item-company" data-cid="${c.id}">${esc(c.name)}</span>`).join('<span class="co-sep">·</span>') : ""}
       ${official ? `<span class="tag official">${f.source_type === "manual" ? "수기 등록" : "공식 제재 명단"}</span>` : ""}
       ${f.category && f.category !== "기타" ? `<span class="tag">${esc(f.category)}</span>` : ""}
       ${isNew ? `<span class="new-pill">NEW</span>` : ""}
-      <span class="item-age">${f.first_seen_ms ? relTime(f.first_seen_ms) : ""}</span>
+      <span class="item-age">${g.newest ? relTime(g.newest) : ""}</span>
     </div>
     <div class="item-summary">${esc(f.summary || f.title)}</div>
     <div class="item-meta">
       <span class="src">${esc(f.source_name || "-")} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}${why ? ` · <span class="why" title="${esc(why)}">근거</span>` : ""}</span>
       <span class="item-actions">
-        ${f.status !== "reviewed" ? `<button class="btn sm" data-act="reviewed" title="실제 이 업체의 리스크가 맞음 — 다음 AI 판정 때 참고 예시로 씁니다">확인했음</button>` : ""}
-        ${f.status !== "dismissed" ? `<button class="btn sm" data-act="dismissed" title="이 업체와 관계없음 — 다시 수집하지 않고, 다음 AI 판정 때 비슷한 기사를 걸러내는 예시로 씁니다">관련 없음</button>` : ""}
+        ${f.status !== "reviewed" ? `<button class="btn sm" data-act="reviewed" title="실제 이 업체의 리스크가 맞음 — 다음 AI 판정 때 참고 예시로 씁니다${more.length ? ` (같은 내용 ${g.items.length}건 함께)` : ""}">확인했음</button>` : ""}
+        ${f.status !== "dismissed" ? `<button class="btn sm" data-act="dismissed" title="이 업체와 관계없음 — 다시 수집하지 않고, 다음 AI 판정 때 비슷한 기사를 걸러내는 예시로 씁니다${more.length ? ` (같은 내용 ${g.items.length}건 함께)` : ""}">관련 없음</button>` : ""}
         ${f.status && f.status !== "new" ? `<button class="btn sm ghost" data-act="new">되돌리기</button>` : ""}
       </span>
     </div>
+    ${more.length ? `<details class="dup"><summary>같은 내용 ${more.length}건 더${srcs.length ? ` <span class="dup-src">${esc(srcs.slice(0, 3).join(" · "))}${srcs.length > 3 ? " 외" : ""}</span>` : ""}</summary>
+      <div class="dup-list">${more.map((x) => `<div class="dup-row">${badge(x.level)}${showCompany && x.company_id !== f.company_id ? `<b>${esc(x.company_name)}</b>` : ""}
+        ${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener" title="${esc(x.summary || "")}">${esc(x.title || x.summary || "-")}</a>` : `<span title="${esc(x.summary || "")}">${esc(x.title || x.summary || "-")}</span>`}
+        <span class="muted">${esc(x.source_name || "")}${x.published_at ? " · " + esc(x.published_at) : ""}</span></div>`).join("")}</div></details>` : ""}
   </div>`;
 }
-function renderFeed(list, el, showCompany = true) {
-  el.innerHTML = list.map((f) => findingHtml(f, showCompany)).join("");
+// 이슈 목록: 같은 내용은 한 줄로 묶어서 표시
+function renderFeed(list, el, showCompany = true) { renderGroups(groupFindings(list), el, showCompany); }
+function renderGroups(groups, el, showCompany = true) {
+  el.innerHTML = groups.map((g) => findingHtml(g, showCompany)).join("");
   $$(".item-company", el).forEach((x) => x.addEventListener("click", () => openCompany(x.dataset.cid)));
   $$("[data-act]", el).forEach((b) => b.addEventListener("click", async () => {
-    const fid = b.closest(".item").dataset.fid, st = b.dataset.act;
+    const ids = b.closest(".item").dataset.fids.split(",").filter(Boolean), st = b.dataset.act;
     const patch = { status: st, reviewed_by: auth.currentUser.email, reviewed_at: nowStr() };
-    await updateDoc(doc(db, "findings", fid), patch);
-    Object.assign(state.findings.find((f) => f.id === fid) || {}, patch);
-    toast(st === "dismissed" ? "관련 없음 처리 — 다시 수집하지 않고, 다음 AI 판정 때 비슷한 기사를 걸러냅니다" : st === "reviewed" ? "확인 처리했습니다 — 다음 AI 판정 때 참고합니다" : "되돌렸습니다", 4000);
+    b.disabled = true;
+    const batch = writeBatch(db);
+    ids.forEach((id) => batch.update(doc(db, "findings", id), patch));
+    await batch.commit();
+    ids.forEach((id) => Object.assign(state.findings.find((f) => f.id === id) || {}, patch));
+    const both = ids.length > 1 ? ` (같은 내용 ${ids.length}건 함께)` : "";
+    toast((st === "dismissed" ? "관련 없음 처리 — 다시 수집하지 않고, 다음 AI 판정 때 비슷한 기사를 걸러냅니다" : st === "reviewed" ? "확인 처리했습니다 — 다음 AI 판정 때 참고합니다" : "되돌렸습니다") + both, 4000);
     rerender();
   }));
 }
@@ -559,14 +620,14 @@ function openCompany(cid) {
   $("#drawerTitle").innerHTML = `<div class="t">${esc(c.name)} ${scanned() ? badge(c.risk) : ""}</div>
     <div class="muted small">${byRole(c.engagements).map((e) => `${roleTag(e.role)} ${esc(projName(e.project_id))} ${stageTag(e)}`).join(" &nbsp; ") || "사업 미배정"}</div>`;
   $("#drawerBody").innerHTML = `
-    <div class="muted small" style="margin-bottom:10px">${c.category ? `${esc(c.category)} · ` : ""}${c.focus ? "<b>집중 감시</b> — 매일 업체명 검색 + 주 1회 심층 검색" : "<b>기본 감시</b> — 매일 제재 키워드 기사·MDB 대조, 조달청 3일마다, 업체명 검색 주 1회"}</div>
+    <div class="muted small" style="margin-bottom:10px">${c.cat ? `${esc(c.cat)} · ` : ""}${c.focus ? "<b>집중 감시</b> — 매일 업체명 검색 + 주 1회 심층 검색" : "<b>기본 감시</b> — 매일 제재 키워드 기사·MDB 대조, 조달청 3일마다, 업체명 검색 주 1회"}</div>
     <div class="actions left" style="margin-top:0">
       <button class="btn primary" id="dScan">이 업체만 다시 스캔</button>
       ${c.engagements.length ? "" : `<button class="btn" id="dWatch">${c.watch ? "집중 감시 해제" : "집중 감시로 지정"}</button>`}
       <a class="btn" target="_blank" rel="noopener" href="https://search.naver.com/search.naver?where=news&query=${encodeURIComponent('"' + c.name + '"')}">네이버 뉴스 ↗</a>
     </div>
 
-    <h2 style="margin-top:18px">이슈 <span class="count">${fs.length}</span></h2>
+    <h2 style="margin-top:18px">이슈 <span class="count">${groupFindings(fs).length}</span></h2>
     <div id="dFeed" class="feed" style="max-height:none">${fs.length ? "" : `<div class="empty">${!c.last_check ? "아직 스캔하지 않았습니다." : gaps.length ? "확인한 범위에서는 발견되지 않았습니다. 다만 아래 '검사 내역'의 ⚠ 항목은 확인하지 못했습니다." : "확인한 범위에서 발견된 이슈가 없습니다."}</div>`}</div>
     ${dismissed.length ? `<details class="more"><summary>관련 없음 처리한 기사 ${dismissed.length}건</summary><div id="dDismissed" class="feed" style="max-height:none"></div></details>` : ""}
 

@@ -74,6 +74,9 @@ meta/status, meta/progress, meta/settings{relay_url,keywords_version}, meta/repo
   - EDCF 명단 일치는 업체별로 묶어 표시(edcfByCompany: 제재 중/해지·건수).
 - 글자 크기 통일(v19): CSS font-size 전부 rem(본문 15 · 보조 13 · 제목 30, 레이더 SVG 7.5px만 예외). 상단 [가] 버튼으로 보통/크게(112.5%)/아주 크게(125%) — html[data-font], localStorage edcf_font. 세 탭 제목(.page-head h1, .d-title .hero-title) 1.875rem 같은 크기, 설정·업체 탭에도 eyebrow. 글자를 키우면 상단 줄 넘침 방지로 이메일·감시 상태·로고 글자를 폭에 따라 숨김.
 - 실제 업무 명단(코랩 200곳 + EXIMIIS 13건)은 저장소에 넣지 않고 CSV로 만들어 사용자가 대시보드에서 올림(일괄 등록 / 설정 → EDCF 명단).
+- (v20, 사용자 요청) 확인할 이슈 중복을 한 건으로: 저장은 그대로 두고 보여줄 때만 묶음(monitor/grouping.py ↔ app.js groupFindings 같은 기준). ① 제목(매체 꼬리·[단독] 제외, 8자 이상)이나 원문 주소가 같으면 업체가 달라도 하나(업체 이름 함께 표시) ② 같은 업체·같은 분류(기타 제외)·보도일 3일 이내 ③ 같은 업체·업체명 뺀 제목 글자쌍 일치율 0.6 이상 ④ 같은 업체·같은 공식 명단 기록 여러 건. 처리 상태가 다르면 묶지 않음. 대표는 등급 → 공식 → 최신.
+  - 대시보드: 확인할 이슈 수·기간별 수·업체별 미확인 수(c.open)·상세의 이슈 수 모두 묶음 기준. '확인했음·관련 없음·되돌리기'는 묶음 전체(writeBatch). 묶인 기사는 '같은 내용 N건 더'(details)로 펼쳐 봄.
+  - 메일: 신규 N건·KPI·목록을 묶음 기준으로, 대표 아래 '같은 내용 N건 더: 매체 링크'. 묶음 안 기록은 모두 reported_at 처리.
 
 ## 남은 일
 - 사용자: Apps Script 중계 설정, monitor.yml 웹에서 한 번 수정(예약 실행), EXIMIIS 엑셀 업로드, 코랩 명단 붙여넣기, (선택) 네이버 API HUB·SMTP·ANTHROPIC 키.

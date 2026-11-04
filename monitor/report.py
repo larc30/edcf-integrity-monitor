@@ -4,7 +4,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from . import config, store
+from . import config, grouping, store
 from .analyzer import LEVEL_ORDER
 
 # GitHub(Primer) 색상 — 대시보드와 같은 톤
@@ -33,7 +33,7 @@ def load_overview() -> tuple[list[dict], list[dict], dict]:
         engs[c["id"]] = c["engagements"]
         fs = [f for f in finds if f["company_id"] == c["id"]]
         c["counts"] = {lv: sum(1 for f in fs if f.get("level") == lv) for lv in ("red", "orange", "yellow")}
-        c["unreviewed"] = sum(1 for f in fs if f.get("status") == "new")
+        c["unreviewed"] = len(grouping.group([f for f in fs if f.get("status") == "new"]))  # 같은 이슈는 1건으로
         top = max((f.get("level") for f in fs), key=lambda l: LEVEL_ORDER.get(l, 0), default="none")
         c["risk"] = top if LEVEL_ORDER.get(top, 0) > 0 else "none"
     companies.sort(key=lambda c: (-LEVEL_ORDER.get(c["risk"], 0), -c["unreviewed"], c["name"]))
@@ -60,13 +60,14 @@ def build() -> tuple[str, str, list[str]]:
     today = store.now_kst().strftime("%Y-%m-%d")
     overview, finds, engs = load_overview()
     new = [f for f in finds if not f.get("reported_at") and f.get("level") in ("red", "orange", "yellow")]
-    new.sort(key=lambda f: (-LEVEL_ORDER.get(f.get("level"), 0), f.get("company_name", "")))
+    # 같은 기사·같은 사건은 한 묶음으로 (대표 1건 + '같은 내용 N건'), 묶음 안 기록은 모두 '보고됨' 처리
+    groups = grouping.group(new)
 
     n_red = sum(1 for c in overview if c["risk"] == "red")
     n_org = sum(1 for c in overview if c["risk"] == "orange")
     n_yel = sum(1 for c in overview if c["risk"] == "yellow")
-    new_red = sum(1 for f in new if f["level"] == "red")
-    subject = f"[EDCF 부정당업자 자동감지] {today} 신규 {len(new)}건" + (f" (위험 {new_red}건)" if new_red else "")
+    new_red = sum(1 for g in groups if g[0]["level"] == "red")
+    subject = f"[EDCF 부정당업자 자동감지] {today} 신규 {len(groups)}건" + (f" (위험 {new_red}건)" if new_red else "")
 
     def kpi(label, value, color=TEXT, last=False):
         return (
@@ -81,30 +82,50 @@ def build() -> tuple[str, str, list[str]]:
 
     # 최근 30일 기사·공식 기록은 자세히, 그보다 오래된 과거 이력은 짧게
     cutoff = (store.now_kst().date() - __import__("datetime").timedelta(days=30)).isoformat()
-    recent = [f for f in new if f.get("source_type") != "news" or not f.get("published_at") or f["published_at"] >= cutoff]
-    older = [f for f in new if f not in recent]
+    is_recent = lambda f: f.get("source_type") != "news" or not f.get("published_at") or f["published_at"] >= cutoff
+    recent = [g for g in groups if any(is_recent(f) for f in g)]
+    older = [g for g in groups if g not in recent]
+
+    def eng_lines(g):
+        names = grouping.companies_of(g)
+        if len(names) == 1:
+            return _eng_text(engs.get(g[0]["company_id"], []))
+        ids = list(dict.fromkeys(f["company_id"] for f in g))
+        return " / ".join(f"{E(n)}: {_eng_text(engs.get(i, []))}" for n, i in zip(names, ids))
+
+    def dup_html(g):
+        if len(g) < 2:
+            return ""
+        links = " · ".join(
+            (f'<a href="{E(x["url"])}" style="color:{LINK};text-decoration:none;">{E(x.get("source_name") or "원문")}</a>' if x.get("url") else E(x.get("source_name") or "-"))
+            + (f' {E(x.get("published_at") or "")}' if x.get("published_at") else "") for x in g[1:6])
+        return (f'<div style="font-size:12px;color:{MUTED};margin-top:4px;">같은 내용 {len(g) - 1}건 더: {links}'
+                + (f" 외 {len(g) - 6}건" if len(g) > 6 else "") + "</div>")
 
     items = []
-    for f in recent:
+    for g in recent:
+        f = g[0]
         fg = COLORS.get(f.get("level"), COLORS["none"])[0]
         official = f.get("source_type") != "news"
         src_link = f' · <a href="{E(f["url"])}" style="color:{LINK};text-decoration:none;">원문 보기</a>' if f.get("url") else ""
         items.append(f"""
 <tr><td style="padding:14px 16px;border-top:1px solid {SOFT};border-left:3px solid {fg};">
-  <div>{_badge(f['level'])} <b style="font-size:14px;color:{TEXT};">{E(f['company_name'])}</b>
+  <div>{_badge(f['level'])} <b style="font-size:14px;color:{TEXT};">{E(' · '.join(grouping.companies_of(g)))}</b>
     {f'<span style="font-size:12px;color:{COLORS["red"][0]};border:1px solid {COLORS["red"][0]}55;border-radius:999px;padding:0 7px;">공식 제재 명단</span>' if official else ''}
     <span style="color:{MUTED};font-size:12px;"> {E(f.get('category') or '')}</span></div>
   <div style="font-size:14px;margin:6px 0 4px;color:{TEXT};">{E(f.get('summary') or f.get('title') or '')}</div>
-  <div style="font-size:12px;color:{MUTED};">관련 사업: {_eng_text(engs.get(f['company_id'], []))}</div>
+  <div style="font-size:12px;color:{MUTED};">관련 사업: {eng_lines(g)}</div>
   <div style="font-size:12px;color:{MUTED};margin-top:4px;">출처: <b>{E(f.get('source_name') or '-')}</b> · {E(f.get('published_at') or '날짜 미상')}{src_link}<br>「{E(f.get('title') or '')}」</div>
+  {dup_html(g)}
 </td></tr>""")
     if not items:
         items.append(f'<tr><td style="padding:16px;color:{COLORS["none"][0]};text-align:center;">새로 확인된 리스크 신호가 없습니다</td></tr>')
     older_html = "" if not older else (
         f'<tr><td style="padding:12px 24px 0;"><div style="font-size:13px;font-weight:600;color:{MUTED};">과거 이력 (30일 이전 기사) {len(older)}건</div>'
         f'<ul style="margin:6px 0 0;padding-left:18px;font-size:12px;color:{MUTED};line-height:1.8;">'
-        + "".join(f'<li>{_badge(f["level"])} <b style="color:{TEXT};">{E(f["company_name"])}</b> · {E(f.get("published_at") or "")} · '
-                  f'<a href="{E(f.get("url") or "")}" style="color:{LINK};text-decoration:none;">{E((f.get("title") or "")[:60])}</a></li>' for f in older[:10])
+        + "".join(f'<li>{_badge(g[0]["level"])} <b style="color:{TEXT};">{E(" · ".join(grouping.companies_of(g)))}</b> · {E(g[0].get("published_at") or "")} · '
+                  f'<a href="{E(g[0].get("url") or "")}" style="color:{LINK};text-decoration:none;">{E((g[0].get("title") or "")[:60])}</a>'
+                  + (f' <span style="color:{MUTED};">(같은 내용 {len(g) - 1}건 더)</span>' if len(g) > 1 else "") + "</li>" for g in older[:10])
         + (f'<li>외 {len(older) - 10}건은 대시보드에서 확인</li>' if len(older) > 10 else "") + "</ul></td></tr>")
 
     risky = [c for c in overview if c["risk"] != "none"]
@@ -138,7 +159,7 @@ def build() -> tuple[str, str, list[str]]:
     {kpi('위험', n_red, COLORS['red'][0])}
     {kpi('경고', n_org, COLORS['orange'][0])}
     {kpi('주의', n_yel, COLORS['yellow'][0])}
-    {kpi('신규 이슈', len(new), TEXT, True)}
+    {kpi('신규 이슈', len(groups), TEXT, True)}
   </tr></table>
 </td></tr>
 {section('새로 발견된 리스크 신호', f'{len(recent)}건')}

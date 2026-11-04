@@ -43,7 +43,7 @@ export function seed() {
 
   const F = (cid, level, daysAgo, o) => ({
     company_id: cid, company_name: companies[cid].name, source_type: o.src || "news", source_name: o.sn || "example.com (Google News)",
-    title: o.title, url: "https://example.com/", published_at: ymd(now - daysAgo * DAY), level, category: o.cat,
+    title: o.title, url: o.url || "https://example.com/", published_at: ymd(now - daysAgo * DAY), level, category: o.cat,
     summary: o.sum, rationale: o.why || "AI 판정 (예시)", analyzer: "claude", relevant: true, status: o.status || "new",
     first_seen_ms: now - (o.seen ?? Math.min(daysAgo, 1)) * DAY - 3 * 3600e3,
   });
@@ -56,6 +56,10 @@ export function seed() {
     f6: F("c9", "yellow", 12, { title: "[예시 기사] 설계 하자 둘러싼 손해배상 소송", cat: "소송·분쟁", sum: "[예시] 아자설계가 발주처와 설계 하자 관련 손해배상 소송 중입니다." }),
     f7: F("c1", "yellow", 2200, { title: "[예시 기사] 2020년 감리 부실 의혹 보도", cat: "중대재해·부실시공", sum: "[예시] 가나다엔지니어링의 2020년 감리 부실 의혹 (과거 이력).", why: "AI 판정 (예시) · 2020년 기사 → 과거 이력", seen: 1 }),
     f8: F("b15", "yellow", 20, { title: "[예시 기사] 대표 배임 의혹 제기", cat: "횡령·배임", sum: "[예시] 예시업체15 대표의 배임 의혹이 제기됐습니다 (수사 착수 전)." }),
+    // 같은 사건을 다른 매체가 보도 / 같은 기사가 두 업체에 걸림 / 같은 명단의 과거 기록 → 대시보드에서 한 건으로 묶임
+    f10: F("c7", "orange", 0, { title: "[예시 기사] 다라교통 등 3개사, 교통 설계 입찰 담합 과징금 부과", cat: "입찰담합", sum: "[예시] 같은 담합 사건을 다른 매체가 보도했습니다.", sn: "example.net (Naver)", url: "https://example.net/news/1002", seen: 0.3 }),
+    f11: F("c9", "orange", 0, { title: "[예시 기사] 공정위, 교통 설계 용역 담합 업체에 과징금", cat: "입찰담합", sum: "[예시] 같은 기사에 아자설계도 함께 언급됐습니다.", url: "https://example.org/a/2001", seen: 0.3 }),
+    f12: F("c2", "yellow", 900, { src: "official", sn: "EDCF 부정당업자 (EXIMIIS)", title: "[EDCF 제재 해지] 라마바건설 · 2023.01.01 ~ 2023.06.30", cat: "부정당업자 제재", sum: "[예시] 과거 EDCF 부정당업자 제재 이력이 있습니다 (해지).", seen: 3 }),
     f9: F("c11", "orange", 2, { title: "[예시 기사] 해외사업 뇌물 공여 혐의 구속", cat: "뇌물·부패", sum: "[예시] 타파컨설팅 전 임원이 해외사업 뇌물 공여 혐의로 구속됐습니다." }),
   };
   return {
