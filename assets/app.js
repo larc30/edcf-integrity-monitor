@@ -5,7 +5,7 @@ import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=24";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=25";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -109,6 +109,9 @@ async function loadAll() {
   state.runs = docs(runs);
   state.settings = cfg.exists() ? cfg.data() : {};
   state.edcf = docs(ed);
+  // 잘못된 명단(상태·제재기간 없음) 때문에 생긴 EDCF 기록은 바로 숨김 — 실제 삭제는 다음 스캔 또는 [잘못된 명단 비우기]
+  const okEdcf = new Set(edcfMatches(state.edcf).map((x) => x.c.id));
+  state.findings = state.findings.filter((f) => !String(f.dedup_key || "").startsWith("edcf-") || okEdcf.has(f.company_id));
   state.mdbKorea = mk.exists() ? mk.data() : null;
   state.loadedAt = Date.now();
   if (!state.keywords.length || (state.settings?.keywords_version || 1) < KEYWORDS_VERSION) await loadDefaultKeywords();
