@@ -19,7 +19,7 @@
   }
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="assets/style.css?v=26">
+<link rel="stylesheet" href="assets/style.css?v=27">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -47,7 +47,7 @@
     </nav>
     <div class="top-right">
       <span class="user" id="userEmail"></span>
-      <button class="btn sm font-btn" id="btnFont" title="글자 크기">가</button>
+      <div class="font-ctl" role="group" aria-label="글자 크기"><button class="btn sm" id="fontDown" title="글자 작게">가−</button><button class="btn sm" id="fontUp" title="글자 크게">가+</button></div>
       <button class="btn sm" id="btnTheme">라이트</button>
       <button class="btn sm" id="btnLogout">로그아웃</button>
     </div>
@@ -66,12 +66,11 @@
           </div>
           <div class="d-ctrl">
             <div class="ctrl-row">
-              <div class="scope-switch" id="scopeSeg"></div>
+              <div class="scope-switch" id="scopeSeg"></div><span id="scopeInfo"></span>
               <button class="btn" id="btnReport" title="지금 고른 범위로 보고서(PDF) 만들기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg><span>보고서</span></button>
               <button class="btn primary glow" id="btnScan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg><span>지금 스캔</span></button>
               <button class="btn stop hidden" id="btnStop">중지</button>
             </div>
-            <div class="scope-desc" id="scopeDesc"></div>
             <div id="jobState" class="job-inline"></div>
           </div>
           <div id="guide" class="notice hidden"></div>
@@ -79,18 +78,18 @@
         <!-- 리스크 업체(위험·경고·주의) + 확인할 이슈(비고) -->
         <div class="d-risk">
           <div class="card risk-card" id="kboard"></div>
-          <button class="note-card" id="noteCard"></button>
+          <div class="note-card off-card" id="noteCard" role="button" tabindex="0"></div>
+          <input type="file" id="edcfFile" accept=".xlsx,.xls,.csv" hidden>
         </div>
         <!-- 리스크 레이더 -->
         <div class="d-radar">
           <div class="radar" id="radar" title="빈 곳을 누르면 다시 훑어봅니다"></div>
-          <div class="radar-cap" id="radarCap"></div>
+          <span class="radar-info" id="radarInfo"></span>
         </div>
         <!-- 담당 사업 (오른쪽, 세로로 길게) -->
         <div class="card d-projects">
           <div class="card-head"><h2><span id="projTitle">내 담당 사업</span> <span class="count" id="projN">0</span></h2><span class="legend"><span class="role fs">F/S</span><span class="role consult">컨설턴트</span><span class="role buy">본구매</span></span></div>
           <div id="projectMap" class="plist"></div>
-          <div id="dataCheck"></div>
         </div>
         <!-- 확인이 필요한 이슈 -->
         <div class="card d-issues" id="issuesCard">
@@ -149,12 +148,12 @@
       <div class="pj-layout">
         <aside class="card pj-side">
           <div class="card-head"><h2>업체</h2><span class="muted small" id="sideN"></span></div>
+          <div class="side-hint">업체를 끌어서 오른쪽 사업의 역할 칸에 놓으세요</div>
           <input id="sideSearch" placeholder="업체 검색" autocomplete="off">
           <div class="side-list" id="sideList"></div>
-          <div class="side-hint">업체를 끌어서 사업의 역할 칸에 놓으세요</div>
         </aside>
         <div class="pj-main">
-          <div class="pj-toolbar"><div class="seg" id="pjScope"></div><span class="legend"><span class="role fs">F/S</span><span class="role consult">컨설턴트</span><span class="role buy">본구매</span><span class="muted small">단계 표시를 누르면 계약 → 우선협상 → 입찰중</span></span></div>
+          <div class="pj-toolbar"><div class="seg" id="pjScope"></div></div>
           <div id="projBoard" class="pj-grid"></div>
         </div>
       </div>
@@ -166,7 +165,7 @@
       <div class="set-grid">
         <div class="card kw-card">
           <div class="card-head"><h2>리스크 키워드 <span class="count" id="kwCount">0</span></h2></div>
-          <p class="card-desc">기사에 이 단어가 나오면 해당 등급으로 판단합니다. ★는 업체 심층 검색 때 검색어로도 씁니다.</p>
+          <p class="card-desc">AI·규칙 판정의 기준 단어입니다. ★ 단어는 <b>매일 뉴스 검색어</b>로도 쓰고, 집중 감시 업체(사업 참여 업체)는 주 1회 '업체명 + ★ 단어'로 과거 기사까지 한 번 더 찾습니다.</p>
           <form id="kwForm" class="kw-form" autocomplete="off"><input name="word" placeholder="새 키워드" required>
             <select name="level"><option value="red">위험</option><option value="orange" selected>경고</option><option value="yellow">주의</option></select>
             <select name="lang"><option value="ko">한국어</option><option value="en">영어</option><option value="id">인니어</option></select>
@@ -186,11 +185,6 @@
           <form id="accForm" class="add-row"><input name="email" type="email" placeholder="추가할 Google 계정" required><button class="btn primary">추가</button></form>
           <div id="accList" class="simple-list"></div>
         </div>
-        <div class="card edcf-card">
-          <div class="card-head"><h2>EXIMIIS 제재 명단</h2><button class="btn sm" id="btnEdcf">관리</button></div>
-          <div id="edcfSummary" class="muted small"></div>
-          <input type="file" id="edcfFile" accept=".xlsx,.xls,.csv" hidden>
-        </div>
         </div>
       </div>
       <details class="card adv-card" id="advCard">
@@ -205,8 +199,7 @@
             <h3>최근 실행</h3>
             <div id="runList" class="run-list"></div>
             <h3>실행 요청 방식</h3>
-            <p class="adv-note" id="runModeNote">[지금 스캔]·테스트 메일을 누르면 요청이 저장되고, Apps Script가 5분마다 확인해 GitHub에서 실행합니다. 매일 아침 스캔·메일도 Apps Script가 시작합니다.</p>
-            <details class="adv-more"><summary>즉시 실행 설정 (선택 — 회사망에서는 쓰지 않음)</summary><div id="relayBox"></div></details>
+            <p class="adv-note" id="runModeNote">[지금 스캔]·테스트 메일을 누르면 요청이 저장되고, Apps Script가 5분마다 확인해 실행합니다(평일 08~19시). 매일 아침 스캔·메일도 Apps Script가 시작합니다.</p>
             <h3>화면</h3>
             <label class="check"><input type="checkbox" id="liteToggle"> 가벼운 모드 (레이더 효과 줄이기)</label>
           </div>
@@ -220,6 +213,6 @@
 <aside class="drawer" id="drawer"><div class="drawer-head"><div id="drawerTitle"></div><button class="btn sm" id="drawerClose">닫기</button></div><div id="drawerBody" class="drawer-body"></div></aside>
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div id="toast" class="toast"></div>
-<script type="module" src="assets/app.js?v=26"></script>
+<script type="module" src="assets/app.js?v=27"></script>
 </body>
 </html>

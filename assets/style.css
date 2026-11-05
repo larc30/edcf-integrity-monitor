@@ -808,3 +808,41 @@ label.check input { width: auto; accent-color: var(--accent); }
 .set-side .card { margin: 0; }
 .warn-t { color: var(--orange); font-weight: 700; } .red-t { color: var(--red); }
 .acc-card .tag { margin-left: 6px; }
+/* v27: i 설명, 공식 제재 명단 카드, 단계 선택, 글자 −/+ */
+.info { position: relative; display: inline-grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; border: 1px solid var(--line-2); color: var(--muted); font: italic 700 11px/1 Georgia, serif; cursor: help; vertical-align: middle; margin-left: 4px; flex: 0 0 auto; }
+.info:hover, .info:focus { color: var(--accent-2); border-color: var(--accent-2); outline: none; }
+.info .tip { display: none; position: absolute; z-index: 30; top: calc(100% + 8px); left: -8px; width: 300px; padding: 10px 12px; border-radius: 10px; background: var(--panel-solid); border: 1px solid var(--line-2); box-shadow: var(--shadow); color: var(--text-2); font: 400 var(--fs-sm)/1.55 "Pretendard Variable", Pretendard, "Malgun Gothic", sans-serif; letter-spacing: -0.01em; text-align: left; white-space: normal; cursor: default; }
+.info.r .tip { left: auto; right: -8px; }
+.info:hover .tip, .info:focus .tip, .info:focus-within .tip { display: block; }
+.info .tip b { color: var(--text); }
+.tip-row { display: flex; gap: 8px; align-items: flex-start; } .tip-row + .tip-row { margin-top: 6px; } .tip-row .badge { flex: 0 0 auto; margin-top: 1px; }
+.ctrl-row #scopeInfo { display: inline-flex; align-items: center; }
+.d-radar { position: relative; }
+.radar-info { position: absolute; top: 12px; right: 12px; z-index: 5; }
+.off-card { display: flex; flex-direction: column; gap: 8px; cursor: pointer; }
+.off-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.oc-head { display: flex; align-items: center; gap: 6px; }
+.oc-rows { display: flex; flex-direction: column; gap: 6px; }
+.oc-row { display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; align-items: center; gap: 8px; font-size: var(--fs-sm); }
+.oc-k { font-weight: 700; color: var(--text-2); } .oc-v { min-width: 0; } .oc-x { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
+.off-card .nc-go { margin-top: 2px; }
+.oc-h3 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 18px 0 8px; font-size: var(--fs-md); }
+.oc-h3 .oc-btns { margin-left: auto; display: flex; gap: 6px; }
+.tbl-wrap { max-height: 320px; overflow: auto; border: 1px solid var(--line); border-radius: 12px; }
+.oc-tbl { width: 100%; font-size: var(--fs-sm); }
+.oc-tbl th { position: sticky; top: 0; background: var(--panel-solid); }
+.oc-tbl td, .oc-tbl th { padding: 7px 10px; }
+.nowrap { white-space: nowrap; }
+.stage-sel { font-size: var(--fs-xs); font-weight: 700; padding: 2px 22px 2px 8px; border-radius: 7px; height: 26px; color: var(--muted); background-color: transparent; max-width: 132px; }
+.stage-sel.on { color: var(--orange); border-color: color-mix(in srgb, var(--orange) 55%, transparent); }
+.font-ctl { display: inline-flex; gap: 2px; }
+.font-ctl .btn { min-width: 40px; justify-content: center; font-weight: 800; padding: 4px 8px; }
+html[data-font="sm"] { font-size: 93.75%; }
+.pj-side .side-hint { margin: -4px 0 10px; padding: 0; border: 0; }
+.off-card { border: 1px solid var(--line); border-style: solid; background: var(--panel); box-shadow: var(--shadow); padding: 16px 18px; }
+.off-card:hover { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.off-card .oc-head { justify-content: space-between; }
+.off-card .oc-head h2 { font-size: var(--fs-md); display: flex; align-items: center; gap: 2px; }
+.off-card .oc-row { grid-template-columns: 104px minmax(0, 1fr); }
+.off-card { align-items: stretch; text-align: left; }
+.off-card .oc-head h2 { margin: 0; }
