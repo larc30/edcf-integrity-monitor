@@ -1,9 +1,12 @@
 // 데모용 가상 데이터 — 실제 업체·실제 제재와 무관합니다 (업체명은 모두 가상)
 import { ALLOWED_EMAILS } from "../assets/firebase-config.js";
+import { MAIL_HTML, MAIL_SUBJECT } from "./mail.js";
 
 const DAY = 86400e3;
 const kst = (ms) => new Date(ms + 9 * 3600e3).toISOString().replace("T", " ").slice(0, 19);
 const ymd = (ms) => new Date(ms + 9 * 3600e3).toISOString().slice(0, 10);
+// 메일 미리보기의 날짜 자리표시({{D0}} = 오늘, {{D3}} = 3일 전, {{WD}} = 요일)를 데모를 여는 날 기준으로
+const fillDates = (s, now) => s.replace(/\{\{D(\d+)\}\}/g, (_, k) => ymd(now - k * DAY)).replace(/\{\{WD\}\}/g, "일월화수목금토"[new Date(now + 9 * 3600e3).getUTCDay()]);
 
 export function seed() {
   const now = Date.now(), ME = ALLOWED_EMAILS[0], OTHER = "colleague@example.com";
@@ -85,7 +88,7 @@ export function seed() {
         { name: "SAMPLE KOREA CO., LTD. (예시)", dataset: "worldbank_debarred", url: "https://www.opensanctions.org/", sanctions: "예시" },
         { name: "EXAMPLE KR CONSTRUCTION (예시)", dataset: "iadb_sanctions", url: "https://www.opensanctions.org/", sanctions: "예시" },
       ] },
-      report_preview: { html: "<p style='font-family:sans-serif;padding:24px;color:#667085'>데모에서는 메일 미리보기를 제공하지 않습니다.</p>", generated_at: kst(now), items: 0 },
+      report_preview: { html: fillDates(MAIL_HTML, now), subject: fillDates(MAIL_SUBJECT, now), generated_at: kst(now), items: 12 },
     },
   };
 }
