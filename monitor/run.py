@@ -19,6 +19,14 @@ from .sources import dart
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("monitor")
+# 공개 로그: 요청 주소에 검색어(업체 이름)·사업자번호가 들어가므로 HTTP 요청 줄은 남기지 않음
+for _name in ("httpx", "httpcore", "urllib3", "anthropic"):
+    logging.getLogger(_name).setLevel(logging.WARNING)
+
+
+def _pub(res: dict) -> dict:
+    """메일 결과를 공개 로그용으로: 받는 사람 주소 대신 인원수만"""
+    return {"subject": res.get("subject"), "items": res.get("items"), "test": res.get("test"), "recipients": len(res.get("to") or [])}
 
 
 def sync_dart() -> int:
@@ -166,16 +174,20 @@ def main() -> int:
 
     if a.task in ("daily", "scan", "preview"):
         log.info("리포트 미리보기: %s", report.save_preview())
+    if a.task == "preview":  # 데이터 점검 (건수만)
+        from . import health
+        for k, v in health.check().items():
+            log.info("점검 %s: %s", k, json.dumps(v, ensure_ascii=False))
 
     if a.task == "report-test":
         if not a.test_to.strip():
             log.error("report-test 에는 test_to(받을 이메일)가 필요합니다.")
             return 1
-        log.info("테스트 발송: %s", report.send(a.test_to.strip()))
+        log.info("테스트 발송: %s", _pub(report.send(a.test_to.strip())))
 
     if a.task in ("daily", "report"):
         try:
-            log.info("리포트 발송: %s", report.send())
+            log.info("리포트 발송: %s", _pub(report.send()))
         except Exception as e:
             store.log_run("report", False, {"error": str(e)})
             log.error("리포트 발송 실패: %s", e)

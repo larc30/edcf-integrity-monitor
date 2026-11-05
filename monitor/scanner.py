@@ -116,7 +116,8 @@ def _days_since(ts: str | None) -> float:
     if not ts:
         return 1e9
     try:
-        return (datetime.now() - datetime.strptime(ts[:19], "%Y-%m-%d %H:%M:%S")).total_seconds() / 86400
+        now = store.now_kst().replace(tzinfo=None)  # 저장 시각은 한국시간 (실행 서버는 UTC)
+        return (now - datetime.strptime(ts[:19], "%Y-%m-%d %H:%M:%S")).total_seconds() / 86400
     except ValueError:
         return 1e9
 
