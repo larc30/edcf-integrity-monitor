@@ -5,7 +5,7 @@ import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=28";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=29";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -161,7 +161,12 @@ function showView(v) {
   $("#tabCntP").textContent = state.projects.length;
   v === "home" ? renderHome() : v === "companies" ? renderCompanies() : v === "projects" ? renderProjects() : renderSettings();
 }
-const rerender = () => { compute(); showView($("#tabs button.active")?.dataset.view || "home"); if (state.openCid && $("#drawer").classList.contains("open")) openCompany(state.openCid); };
+const rerender = () => {
+  compute(); showView($("#tabs button.active")?.dataset.view || "home");
+  if (!$("#drawer").classList.contains("open")) return;
+  if (state.openCid) openCompany(state.openCid, state.drawerBack);
+  else if (state.riskList) openRiskList(state.riskList, "keep");
+};
 // 글자 크기: 상단 [가] 버튼으로 보통 → 크게 → 아주 크게 (모든 탭 같은 비율로)
 const FONT_STEPS = [["sm", "작게"], ["", "보통"], ["lg", "크게"], ["xl", "아주 크게"]];
 let fontStep = 1;
@@ -401,7 +406,6 @@ function focusProject(pid) {
 const LEVEL_SHORT = { red: "지금 제재 중 (입찰제한·MDB·영업정지)", orange: "수사·기소·과징금·처분 예고·부도", yellow: "과거 이력·의혹·소송·재해" };
 const ICON_USER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>`;
 const ICON_ORG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg>`;
-let levelFilter = null;
 function renderHome() {
   const cs = scopeCompanies(), ps = scopeProjects(), s = state.status, sc = scanned();
   const ids = new Set(cs.map((c) => c.id));
@@ -415,7 +419,7 @@ function renderHome() {
   $("#sumSub").textContent = sc ? `마지막 스캔 ${s.last_scan_at.slice(5, 16).replace("-", "/")}${hoursSince(s.last_scan_at) > 26 ? " · 자동 스캔이 하루 넘게 안 돌았습니다" : ""}` : "아직 스캔하지 않았습니다";
   $("#scopeSeg").innerHTML = !state.companies.length ? "" : [["mine", "내 담당 사업", mineN, ICON_USER], ["all", "EDCF 전체", state.companies.length, ICON_ORG]]
     .map(([k, l, cnt, ic]) => `<button data-s="${k}" class="sc-btn ${k} ${k === scope ? "active" : ""}"><span class="sc-ic">${ic}</span>${l}<span class="sc-n">${cnt}</span></button>`).join("");
-  $$("#scopeSeg button").forEach((b) => b.onclick = () => { scope = b.dataset.s; levelFilter = null; try { localStorage.setItem("edcf_scope2", scope); } catch {} renderHome(); });
+  $$("#scopeSeg button").forEach((b) => b.onclick = () => { scope = b.dataset.s; try { localStorage.setItem("edcf_scope2", scope); } catch {} renderHome(); });
   $("#scopeInfo").innerHTML = !state.companies.length ? "" : info(`<b>내 담당 사업</b> — ${myP ? `내가 담당하는 사업 ${myP}개에 참여한 업체 ${mineN}곳` : "담당 사업이 없습니다 (사업 관리에서 [내 사업으로] 지정)"}<br><b>EDCF 전체</b> — 등록된 업체 ${state.companies.length}곳 전체 (사업 미연결 업체 포함)`, "r");
 
   if (!state.companies.length) showGuide(`<b>시작하기</b> — <b>업체 관리</b>에서 [일괄 등록]으로 업체를 넣고 <b>지금 스캔</b>을 누르세요.`);
@@ -432,7 +436,7 @@ function renderHome() {
   $("#kboard").innerHTML = `<div class="card-head"><h2>리스크 업체 ${info(levelTip())}</h2><span class="muted small">${sc ? `${cs.length}곳 중 ${riskyN}곳` : "스캔 전"}</span></div>`
     + ["red", "orange", "yellow"].map((lv) => {
       const l = byLv[lv];
-      return `<button class="rk ${lv} ${sc && l.length ? "on" : ""} ${levelFilter === lv ? "sel" : ""}" data-lv="${lv}" title="누르면 아래 이슈를 ${LEVEL[lv]}만 봅니다">
+      return `<button class="rk ${lv} ${sc && l.length ? "on" : ""}" data-lv="${lv}" ${sc && l.length ? `title="누르면 ${LEVEL[lv]} 업체 ${l.length}곳을 봅니다"` : "disabled"}>
         <div class="rk-num">${sc ? `<span data-count="${l.length}">0</span>` : "-"}<small>곳</small></div>
         <div class="rk-lv">${LEVEL[lv]}</div>
         <div class="rk-names ${sc && l.length ? "" : "zero"}">${!sc ? "스캔 전" : l.length ? esc(who(l)) : "해당 업체 없음"}</div></button>`;
@@ -443,17 +447,13 @@ function renderHome() {
   off.forEach((f) => oc[officialSrc(f)][f.level === "red" ? 0 : 1].add(f.company_id));
   const evN = state.edcf.filter(edcfValid).length;
   const ocRow = (name, k, other, extra) => `<div class="oc-row"><span class="oc-k">${name}</span><span class="oc-v">${oc[k][0].size ? `<b class="red-t">제재 중 ${oc[k][0].size}곳</b>` : `<span class="muted">제재 중 0</span>`}${oc[k][1].size ? ` <span class="muted">· ${other} ${oc[k][1].size}곳</span>` : ""}</span>${extra || ""}</div>`;
-  $("#noteCard").innerHTML = `<div class="oc-head"><h2>공식 제재 명단 ${info("우리 업체를 공식 제재 명단과 대조한 결과입니다.<br><b>EDCF</b> EXIMIIS 부정당업자 명단 · <b>조달청</b> 나라장터 현재 제재 · <b>MDB</b> World Bank·ADB·AfDB·IDB·EBRD<br>'제재 중'은 지금 유효한 제재(= 위험)입니다.")}</h2><span class="oc-x">${evN ? `EXIMIIS ${evN}건` : `<span class="warn-t">EXIMIIS 명단 없음</span>`}</span></div>
+  $("#noteCard").innerHTML = `<div class="oc-head"><h2>공식 제재 명단 ${info("우리 업체를 공식 제재 명단과 대조한 결과입니다.<br><b>EDCF</b> EXIMIIS 부정당업자 명단 · <b>조달청</b> 나라장터 현재 제재 · <b>MDB</b> World Bank·ADB·AfDB·IDB·EBRD<br>'제재 중'은 지금 유효한 제재(= 위험)입니다.")}</h2>${evN ? "" : `<span class="oc-x"><span class="warn-t">EXIMIIS 명단 없음</span></span>`}</div>
     <div class="oc-rows">${ocRow("EDCF (EXIMIIS)", "edcf", "과거")}${ocRow("조달청", "pps", "집행정지")}${ocRow("MDB", "mdb", "이름 유사")}</div>
     <span class="nc-go">명단·검사 내역 보기 →</span>`;
   const nums = [$("#kboard"), $("#noteCard")];
   if (!state.kpiAnimated) { state.kpiAnimated = true; nums.forEach(countUp); } // 숫자 올라가는 효과는 처음 한 번만
   else nums.forEach((el) => $$("[data-count]", el).forEach((e) => (e.textContent = e.dataset.count)));
-  $$("#kboard .rk").forEach((b) => b.onclick = () => {
-    levelFilter = levelFilter === b.dataset.lv ? null : b.dataset.lv;
-    renderHome();
-    if (levelFilter) $("#issuesCard").scrollIntoView({ behavior: "smooth", block: "start" });
-  });
+  $$("#kboard .rk:not(:disabled)").forEach((b) => b.onclick = () => openRiskList(b.dataset.lv));
   $("#noteCard").onclick = (e) => { if (!e.target.closest(".itip")) openOfficial(cs); };
   $("#noteCard").onkeydown = (e) => { if (e.key === "Enter") openOfficial(cs); };
 
@@ -466,10 +466,8 @@ function renderHome() {
   if (!period || !counts.hasOwnProperty(period)) period = counts.today ? "today" : "all";
   $("#periodSeg").innerHTML = PERIODS.map(([k, label]) => `<button data-p="${k}" class="${k === period ? "active" : ""}">${label} <span class="n">${counts[k]}</span></button>`).join("");
   $$("#periodSeg button").forEach((b) => b.onclick = () => { period = b.dataset.p; try { localStorage.setItem("edcf_period", period); } catch {} renderHome(); });
-  const shown = openG.filter((g) => groupIn(g, period) && (!levelFilter || g.rep.level === levelFilter));
+  const shown = openG.filter((g) => groupIn(g, period));
   $("#issueCount").textContent = openG.length;
-  $("#levelNote").innerHTML = levelFilter ? `<button class="chip-x" id="clearLv">${LEVEL[levelFilter]} 이슈만 보는 중 · 모두 보기 ✕</button>` : "";
-  $("#clearLv")?.addEventListener("click", () => { levelFilter = null; renderHome(); });
   if (shown.length) renderGroups(shown, $("#feed"));
   else $("#feed").innerHTML = !sc ? `<div class="empty">스캔 후 이곳에 이슈가 출처와 함께 표시됩니다.</div>`
     : openG.length ? `<div class="ok-box">이 조건에는 확인할 이슈가 없습니다 <span class="muted small">(전체 ${openG.length}건)</span></div>`
@@ -805,15 +803,43 @@ function checkGrid(c) {
   </div>
   ${(lc.identity?.notes || []).slice(0, 1).map((t) => `<div class="ck-note">${esc(t)}</div>`).join("")}`;
 }
-function openCompany(cid) {
+// 리스크 업체 목록: 대시보드의 위험·경고·주의를 누르면 오른쪽 창에 그 등급 업체들 (업체를 누르면 상세, ← 로 목록)
+// scroll: "top" 처음 열 때 / "back" 상세에서 돌아올 때(보던 위치) / "keep" 다시 그릴 때
+function openRiskList(lv, scroll = "top") {
+  const list = scopeCompanies().filter((c) => c.risk === lv).sort((a, b) => b.open - a.open || a.name.localeCompare(b.name));
+  state.openCid = null; state.drawerBack = null; state.riskList = lv;
+  $("#drawerTitle").innerHTML = `<div class="d-name"><span class="nm">${LEVEL[lv]} 업체</span><span class="cnt">${list.length}곳</span><span class="tag">${scope === "mine" ? "내 담당 사업" : "EDCF 전체"}</span></div>
+    <div class="d-sub">${LEVEL_DEF[lv]}</div>`;
+  const body = $("#drawerBody");
+  body.innerHTML = list.length ? `<div class="rl">${list.map(riskRow).join("")}</div>` : `<div class="empty small">해당 업체가 없습니다</div>`;
+  $$("[data-rl]", body).forEach((x) => {
+    const go = () => { state.rlScroll = body.scrollTop; openCompany(x.dataset.rl, lv); };
+    x.onclick = go; x.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } };
+  });
+  if (scroll === "top") body.scrollTop = 0; else if (scroll === "back") body.scrollTop = state.rlScroll || 0;
+  $("#drawer").classList.add("open"); $("#drawerBg").classList.add("open");
+}
+// 목록 한 줄: 업체명 · 업종 · 미확인 건수 / 참여 사업 / 이 등급이 된 대표 이슈
+function riskRow(c) {
+  const groups = groupFindings(state.findings.filter((f) => f.company_id === c.id && f.status !== "dismissed"));
+  const top = groups[0]?.rep, engs = byRole(c.engagements);
+  return `<div class="rl-row ${c.risk}" data-rl="${c.id}" role="button" tabindex="0">
+    <div class="rl-top"><b class="rl-name">${esc(c.name)}</b><span class="rl-cat">${esc(c.cat || "")}</span>${c.open ? `<span class="rl-open">미확인 ${c.open}</span>` : `<span class="rl-done">확인 완료</span>`}<span class="rl-arr">›</span></div>
+    ${engs.length ? `<div class="rl-engs">${engs.slice(0, 3).map((e) => `<span class="d-eng">${roleTag(e.role)}<span>${esc(projName(e.project_id))}</span>${stageTag(e)}</span>`).join("")}${engs.length > 3 ? `<span class="muted small">외 ${engs.length - 3}</span>` : ""}</div>` : ""}
+    ${top ? `<div class="rl-why">${esc(top.summary || top.title || "")}</div>
+    <div class="rl-src">${esc(top.source_name || "-")} · ${esc(top.published_at || "날짜 미상")}${groups.length > 1 ? ` · 이슈 ${groups.length}건` : ""}</div>` : ""}
+  </div>`;
+}
+function openCompany(cid, back = null) {
   const c = state.companies.find((x) => x.id === cid);
   if (!c) return;
-  state.openCid = cid;
+  const switching = state.openCid !== cid; // 다른 업체로 바꿀 때만 맨 위로 (다시 그릴 때는 보던 위치 유지)
+  state.openCid = cid; state.drawerBack = back; if (!back) state.riskList = null;
   const fs = state.findings.filter((f) => f.company_id === cid && f.status !== "dismissed");
   const dismissed = state.findings.filter((f) => f.company_id === cid && f.status === "dismissed");
   const groups = groupFindings(fs), sc = scanned();
   const hint = (t) => t ? `<em>${esc(t)}</em>` : "";
-  $("#drawerTitle").innerHTML = `<div class="d-name"><span class="nm">${esc(c.name)}</span>${sc ? badge(c.risk) : ""}</div>
+  $("#drawerTitle").innerHTML = `${back ? `<button type="button" class="d-back" id="dBack">← ${LEVEL[back]} 업체 목록</button>` : ""}<div class="d-name"><span class="nm">${esc(c.name)}</span>${sc ? badge(c.risk) : ""}</div>
     ${c.engagements.length ? `<div class="d-engs">${byRole(c.engagements).map((e) => `<span class="d-eng">${roleTag(e.role)}<span>${esc(projName(e.project_id))}</span>${stageTag(e)}</span>`).join("")}</div>` : ""}`;
   $("#drawerBody").innerHTML = `
     <div class="d-actions">
@@ -872,6 +898,8 @@ function openCompany(cid) {
     c.engagements.splice(+b.dataset.dunlink, 1); await saveEngagements(c); toast("사업 연결을 뺐습니다"); rerender();
   });
   $("#dDelete").onclick = () => deleteCompanies([cid]);
+  $("#dBack")?.addEventListener("click", () => openRiskList(back, "back"));
+  if (switching) $("#drawerBody").scrollTop = 0;
   $("#advForm").onsubmit = async (ev) => {
     ev.preventDefault();
     const fd = Object.fromEntries(new FormData(ev.target));
@@ -892,7 +920,7 @@ function openCompany(cid) {
   };
   $("#drawer").classList.add("open"); $("#drawerBg").classList.add("open");
 }
-function closeDrawer() { $("#drawer").classList.remove("open"); $("#drawerBg").classList.remove("open"); state.openCid = null; }
+function closeDrawer() { $("#drawer").classList.remove("open"); $("#drawerBg").classList.remove("open"); state.openCid = null; state.riskList = null; state.drawerBack = null; }
 $("#drawerClose").onclick = closeDrawer; $("#drawerBg").onclick = closeDrawer;
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeDrawer(); closeModal(); } });
 
