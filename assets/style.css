@@ -877,3 +877,29 @@ html[data-font="sm"] { font-size: 93.75%; }
 .rl-engs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
 .rl-why { margin-top: 10px; padding-left: 10px; border-left: 3px solid var(--c); font-size: var(--fs-sm); line-height: 1.55; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .rl-src { margin-top: 4px; padding-left: 13px; font-size: var(--fs-xs); color: var(--muted); }
+/* v30: 등급 색 구분 강화 — 색상(빨강·주황·노랑)을 더 벌리고, 배지는 위험=꽉 찬 빨강 / 경고=주황 / 주의=노랑 바탕으로 모양도 다르게
+   (라이트 모드의 노랑 글자는 대비 때문에 진하게, 점·막대·레이더는 밝은 노랑 --yellow-fill) */
+:root, :root[data-theme="dark"] {
+  --red: #FF5A5F; --orange: #FF8A1F; --yellow: #FACC15; --yellow-fill: #FACC15;
+  --red-bg: rgba(255, 90, 95, .16); --orange-bg: rgba(255, 138, 31, .16); --yellow-bg: rgba(250, 204, 21, .14);
+}
+:root[data-theme="light"] {
+  --red: #DC2626; --orange: #EA580C; --yellow: #A16207; --yellow-fill: #EAB308;
+  --red-bg: rgba(220, 38, 38, .1); --orange-bg: rgba(234, 88, 12, .12); --yellow-bg: rgba(234, 179, 8, .2);
+}
+.badge.red { background: var(--red); color: #fff; }
+.badge.red::before { background: #fff; box-shadow: none; }
+:root[data-theme="dark"] .badge.red, :root:not([data-theme]) .badge.red { color: #1A0507; }
+:root[data-theme="dark"] .badge.red::before, :root:not([data-theme]) .badge.red::before { background: #1A0507; }
+.badge.orange { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--orange) 45%, transparent); }
+.dot.yellow, .rdot.yellow, .pj-bar .yellow { background: var(--yellow-fill); }
+.rdot.yellow { color: var(--yellow-fill); }
+.item.lv-yellow { --c: var(--yellow-fill); }
+.rl-row.yellow .rl-why { border-left-color: var(--yellow-fill); }
+.radar svg.grid circle.band.yellow { fill: color-mix(in srgb, var(--yellow-fill) 12%, transparent); }
+.radar svg.grid circle.ring.yellow { stroke: color-mix(in srgb, var(--yellow-fill) 55%, transparent); }
+.rk.yellow::before { background: var(--yellow-fill); }
+/* 사업 관리: 단계 선택은 글자 폭만큼, 기본값(계약)은 테두리 없이 흐리게, 입찰중·우선협상만 주황으로 */
+.stage-sel { width: auto; field-sizing: content; min-width: 0; height: 24px; padding: 0 2px 0 6px; border-color: transparent; background-color: transparent; color: var(--muted); font-weight: 650; }
+.stage-sel:hover, .stage-sel:focus { border-color: var(--line-2); }
+.stage-sel.on { color: var(--orange); font-weight: 750; background-color: var(--orange-bg); border-color: transparent; }
