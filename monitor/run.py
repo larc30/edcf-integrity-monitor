@@ -20,7 +20,7 @@ from .sources import dart
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("monitor")
 # 공개 로그: 요청 주소에 검색어(업체 이름)·사업자번호가 들어가므로 HTTP 요청 줄은 남기지 않음
-for _name in ("httpx", "httpcore", "urllib3", "anthropic"):
+for _name in ("httpx", "httpx2", "httpcore", "urllib3", "anthropic"):
     logging.getLogger(_name).setLevel(logging.WARNING)
 
 
