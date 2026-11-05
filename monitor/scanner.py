@@ -35,11 +35,12 @@ TOPIC_QUERIES = [
 ]
 
 
-def topic_sweep(errors: list) -> tuple[list[dict], list[str]]:
-    """제재 키워드로 Google 뉴스(+네이버)를 검색해 기사 모음 반환"""
-    jobs = [("google", q) for q in TOPIC_QUERIES]
+def topic_sweep(errors: list, extra: list[str] | None = None) -> tuple[list[dict], list[str]]:
+    """제재 키워드로 Google 뉴스(+네이버)를 검색해 기사 모음 반환. extra: 설정에서 ★ 표시한 리스크 키워드"""
+    qs = TOPIC_QUERIES + [q for q in dict.fromkeys(extra or []) if q and q not in TOPIC_QUERIES]
+    jobs = [("google", q) for q in qs]
     if news.naver_enabled():
-        jobs += [("naver", q) for q in TOPIC_QUERIES]
+        jobs += [("naver", q) for q in qs]
 
     def one(job):
         engine, q = job
@@ -480,7 +481,8 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
     t_lists = time.time()
     with ThreadPoolExecutor(max_workers=2) as ex:
         f_lists = ex.submit(sanctions.load_lists)
-        f_sweep = ex.submit(topic_sweep, errors)
+        stars = [k["word"] for k in keywords if k.get("use_in_query") and k.get("lang") == "ko"][:12]  # ★ 키워드도 매일 검색
+        f_sweep = ex.submit(topic_sweep, errors, stars)
         entries, list_status = f_lists.result()
         sweep_articles, sweep_engines = f_sweep.result()
     lists_ok = sum(1 for v in list_status.values() if isinstance(v, int))

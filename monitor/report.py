@@ -1,5 +1,6 @@
 """일일 리포트 (HTML 메일) 생성 및 발송 — Firestore 기반"""
 import html
+import re
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -72,7 +73,9 @@ def build() -> tuple[str, str, list[str]]:
     n_org = sum(1 for c in overview if c["risk"] == "orange")
     n_yel = sum(1 for c in overview if c["risk"] == "yellow")
     new_red = sum(1 for g in groups if g[0]["level"] == "red")
-    subject = f"[EDCF 부정당업자 자동감지] {today} 신규 {len(groups)}건" + (f" (위험 {new_red}건)" if new_red else "")
+    new_org = sum(1 for g in groups if g[0]["level"] == "orange")
+    lv_txt = " · ".join(t for t in (f"위험 {new_red}" if new_red else "", f"경고 {new_org}" if new_org else "") if t)
+    subject = f"[EDCF 부정당업자 자동감지] {today} 신규 {len(groups)}건" + (f" ({lv_txt})" if lv_txt else "")
 
     def kpi(label, value, color, unit):
         return (f'<td width="25%" style="padding:0 4px;vertical-align:top;"><div style="border:1px solid {LINE};border-radius:12px;padding:12px 14px;">'
@@ -105,50 +108,51 @@ def build() -> tuple[str, str, list[str]]:
         return (f'<div style="font-size:12px;color:{MUTED};margin-top:8px;padding-top:8px;border-top:1px dashed {LINE};">'
                 f'<b style="color:{ACCENT2};">같은 내용 {len(g) - 1}건 더</b> · {links}' + (f" 외 {len(g) - 6}건" if len(g) > 6 else "") + "</div>")
 
-    MAX_ITEMS = 30  # 메일이 너무 길어지지 않게 — 나머지는 대시보드에서
+    # 메일은 핵심만 (메일이 너무 크면 회사 메일에서 뒷부분이 잘려 코드로 보임): 위험·경고만 카드로, 주의는 한 줄 목록, 과거 이력은 건수만
+    MAX_HOT, MAX_MILD = 10, 10
+    hot = [g for g in recent if g[0].get("level") in ("red", "orange")]
+    mild = [g for g in recent if g[0].get("level") not in ("red", "orange")]
+    dash = f'<a href="{E(config.DASHBOARD_URL)}" style="color:{LINK};text-decoration:none;font-weight:700;">대시보드</a>'
+    note = lambda txt: f'<tr><td style="padding:2px 28px 10px;background:{PANEL};"><div style="background:{BG};border-radius:12px;padding:11px 16px;font-size:13px;color:{TEXT2};">{txt}</div></td></tr>'
     items = []
-    for g in recent[:MAX_ITEMS]:
+    for g in hot[:MAX_HOT]:
         f = g[0]
         fg = COLORS.get(f.get("level"), COLORS["none"])[0]
         official = f.get("source_type") != "news"
-        src_link = f' · <a href="{E(f["url"])}" style="color:{LINK};text-decoration:none;">원문 보기</a>' if f.get("url") else ""
+        src_link = f' · <a href="{E(f["url"])}" style="color:{LINK};text-decoration:none;">원문</a>' if f.get("url") else ""
         tags = (" " + _pill("공식 제재 명단", COLORS["red"][0], COLORS["red"][1]) if official else "") + (" " + _pill(f["category"]) if f.get("category") and f.get("category") != "기타" else "")
-        items.append(f"""
-<tr><td style="padding:0 28px 10px;background:{PANEL};">
-  <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid {LINE};border-left:4px solid {fg};border-radius:12px;">
-  <tr><td style="padding:14px 16px;">
-    <div>{_badge(f['level'])} <b style="font-size:15px;color:{TEXT};">{E(' · '.join(grouping.companies_of(g)))}</b>{tags}</div>
-    <div style="font-size:15px;line-height:1.55;color:{TEXT};margin:8px 0 6px;">{E(f.get('summary') or f.get('title') or '')}</div>
-    <div style="font-size:13px;color:{MUTED};line-height:1.6;">관련 사업: {eng_lines(g)}</div>
-    <div style="font-size:13px;color:{MUTED};line-height:1.6;">{E(f.get('source_name') or '-')} · {E(f.get('published_at') or '날짜 미상')}{src_link}</div>
-    <div style="font-size:12px;color:{MUTED};line-height:1.6;">「{E(f.get('title') or '')}」</div>
-    {dup_html(g)}
-  </td></tr></table>
-</td></tr>""")
-    if len(recent) > MAX_ITEMS:
-        items.append(f'<tr><td style="padding:2px 28px 10px;background:{PANEL};"><div style="background:{BG};border-radius:12px;padding:12px 16px;font-size:13px;color:{TEXT2};">'
-                     f'등급이 높은 {MAX_ITEMS}건만 보여드렸습니다. 나머지 <b>{len(recent) - MAX_ITEMS}건</b>은 '
-                     f'<a href="{E(config.DASHBOARD_URL)}" style="color:{LINK};text-decoration:none;font-weight:700;">대시보드</a>에서 확인하세요.</div></td></tr>')
-    if not items:
-        items.append(f'<tr><td style="padding:0 28px 10px;background:{PANEL};"><div style="border:1px dashed {LINE};border-radius:12px;padding:18px;text-align:center;color:{COLORS["none"][0]};font-size:14px;">새로 확인된 리스크 신호가 없습니다</div></td></tr>')
-    older_html = "" if not older else (
-        f'<tr><td style="padding:6px 28px 0;background:{PANEL};"><div style="background:{BG};border-radius:12px;padding:12px 16px;">'
-        f'<div style="font-size:13px;font-weight:700;color:{TEXT2};">과거 이력 (30일 이전 기사) {len(older)}건</div>'
-        f'<ul style="margin:6px 0 0;padding-left:18px;font-size:13px;color:{MUTED};line-height:1.8;">'
-        + "".join(f'<li>{_badge(g[0]["level"])} <b style="color:{TEXT};">{E(" · ".join(grouping.companies_of(g)))}</b> · {E(g[0].get("published_at") or "")} · '
-                  f'<a href="{E(g[0].get("url") or "")}" style="color:{LINK};text-decoration:none;">{E((g[0].get("title") or "")[:60])}</a>'
-                  + (f' <span style="color:{MUTED};">(같은 내용 {len(g) - 1}건 더)</span>' if len(g) > 1 else "") + "</li>" for g in older[:10])
-        + (f'<li>외 {len(older) - 10}건은 대시보드에서 확인</li>' if len(older) > 10 else "") + "</ul></div></td></tr>")
+        items.append(f"""<tr><td style="padding:0 28px 10px;background:{PANEL};">
+<table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid {LINE};border-left:4px solid {fg};border-radius:12px;"><tr><td style="padding:12px 16px;">
+<div>{_badge(f['level'])} <b style="font-size:15px;color:{TEXT};">{E(' · '.join(grouping.companies_of(g)))}</b>{tags}</div>
+<div style="font-size:14px;line-height:1.55;color:{TEXT};margin:6px 0 4px;">{E(f.get('summary') or f.get('title') or '')}</div>
+<div style="font-size:12px;color:{MUTED};line-height:1.6;">{eng_lines(g)} · {E(f.get('source_name') or '-')} · {E(f.get('published_at') or '날짜 미상')}{src_link}</div>
+{dup_html(g)}</td></tr></table></td></tr>""")
+    if len(hot) > MAX_HOT:
+        items.append(note(f"위험·경고 이슈 <b>{len(hot) - MAX_HOT}건</b>이 더 있습니다 → {dash}에서 확인"))
+    if not hot:
+        items.append(f'<tr><td style="padding:0 28px 10px;background:{PANEL};"><div style="border:1px dashed {LINE};border-radius:12px;padding:16px;text-align:center;color:{COLORS["none"][0]};font-size:14px;">새로 확인된 위험·경고 이슈가 없습니다</div></td></tr>')
+    if mild:
+        items.append(f'<tr><td style="padding:6px 28px 0;background:{PANEL};"><div style="background:{BG};border-radius:12px;padding:12px 16px;">'
+                     f'<div style="font-size:13px;font-weight:700;color:{TEXT2};">주의 {len(mild)}건</div>'
+                     f'<ul style="margin:6px 0 0;padding-left:18px;font-size:13px;color:{MUTED};line-height:1.8;">'
+                     + "".join(f'<li><b style="color:{TEXT};">{E(" · ".join(grouping.companies_of(g)))}</b> · '
+                               + (f'<a href="{E(g[0]["url"])}" style="color:{LINK};text-decoration:none;">{E((g[0].get("summary") or g[0].get("title") or "")[:70])}</a>' if g[0].get("url") else E((g[0].get("summary") or g[0].get("title") or "")[:70]))
+                               + "</li>" for g in mild[:MAX_MILD])
+                     + (f"<li>외 {len(mild) - MAX_MILD}건 → {dash}</li>" if len(mild) > MAX_MILD else "") + "</ul></div></td></tr>")
+    older_html = note(f"30일 이전 기사(과거 이력) <b>{len(older)}건</b>은 메일에서 생략했습니다 → {dash} '과거 이력'에서 확인") if older else ""
 
-    risky = [c for c in overview if c["risk"] != "none"]
+    # 리스크 업체 표는 위험·경고만 (주의는 건수만)
+    risky = [c for c in overview if c["risk"] in ("red", "orange")]
+    MAX_RISKY = 15
     th = f'padding:9px 12px;text-align:left;font-weight:700;color:{MUTED};font-size:12px;border-bottom:1px solid {LINE};background:{BG};'
     td = f'padding:9px 12px;border-bottom:1px solid {SOFT};vertical-align:top;font-size:13px;color:{TEXT2};'
     rows = "".join(f"""<tr>
 <td style="{td}">{_badge(c['risk'])}</td>
 <td style="{td}font-weight:700;color:{TEXT};">{E(c['name'])}</td>
 <td style="{td}color:{MUTED};">{_eng_text(c['engagements']) if c['engagements'] else '사업 미연결'}</td>
-<td style="{td}text-align:center;">{c['unreviewed']}</td></tr>""" for c in risky) or (
-        f'<tr><td colspan="4" style="padding:16px;text-align:center;color:{COLORS["none"][0]};">리스크 업체가 없습니다</td></tr>')
+<td style="{td}text-align:center;">{c['unreviewed']}</td></tr>""" for c in risky[:MAX_RISKY]) + (
+        f'<tr><td colspan="4" style="padding:10px 12px;font-size:13px;color:{TEXT2};">외 {len(risky) - MAX_RISKY}곳 → {dash}</td></tr>' if len(risky) > MAX_RISKY else "") or (
+        f'<tr><td colspan="4" style="padding:16px;text-align:center;color:{COLORS["none"][0]};">위험·경고 업체가 없습니다</td></tr>')
     # 사업별 현황: 사업마다 참여 업체(역할 순 → 사업 안 순서, 맨 위 = 대표사)와 리스크 수
     ROLE_C = {"F/S": "#0E7490", "컨설턴트": "#1D4ED8", "본구매": "#A21CAF"}
     by_p: dict = {}
@@ -157,11 +161,11 @@ def build() -> tuple[str, str, list[str]]:
             by_p.setdefault(e.get("project_id"), {"name": e.get("project_name"), "rows": []})["rows"].append((c, e))
     prow = []
     for pid, pv in sorted(by_p.items(), key=lambda x: x[1]["name"] or ""):
-        rows = sorted(pv["rows"], key=lambda r: (ROLE_ORDER.get(r[1].get("role"), 9), r[1].get("order", 1e9), r[0]["name"]))
-        k = {lv: len({r[0]["id"] for r in rows if r[0]["risk"] == lv}) for lv in ("red", "orange", "yellow")}
+        prs = sorted(pv["rows"], key=lambda r: (ROLE_ORDER.get(r[1].get("role"), 9), r[1].get("order", 1e9), r[0]["name"]))  # (주의: 'rows'는 리스크 업체 표 — 덮어쓰지 말 것)
+        k = {lv: len({r[0]["id"] for r in prs if r[0]["risk"] == lv}) for lv in ("red", "orange", "yellow")}
         who = "".join(f'<div><b style="color:{ROLE_C.get(e.get("role"), TEXT2)};font-size:12px;">{E(e.get("role") or "")}</b> {E(c["name"])}'
                       + (f' <span style="color:{MUTED};">({E(e.get("stage"))})</span>' if e.get("stage") and e.get("stage") != "계약" else "")
-                      + (f" {_badge(c['risk'])}" if c["risk"] != "none" else "") + "</div>" for c, e in rows)
+                      + (f" {_badge(c['risk'])}" if c["risk"] != "none" else "") + "</div>" for c, e in prs)
         risk = " · ".join(f'<b style="color:{COLORS[lv][0]};">{COLORS[lv][2]} {k[lv]}</b>' for lv in ("red", "orange", "yellow") if k[lv]) or f'<span style="color:{COLORS["none"][0]};">이상 없음</span>'
         prow.append(f'<tr><td style="{td}font-weight:700;color:{TEXT};">{E(pv["name"] or "")}</td><td style="{td}">{who}</td><td style="{td}text-align:center;white-space:nowrap;">{risk}</td></tr>')
     proj_html = "" if not prow else (section("사업별 현황", f"{len(prow)}개") + f"""<tr><td style="padding:0 28px;background:{PANEL};">
@@ -187,10 +191,10 @@ def build() -> tuple[str, str, list[str]]:
     {kpi('위험 업체', n_red, COLORS['red'][0], '곳')}{kpi('경고 업체', n_org, COLORS['orange'][0], '곳')}{kpi('주의 업체', n_yel, COLORS['yellow'][0], '곳')}{kpi('신규 이슈', len(groups), ACCENT, '건')}
   </tr></table>
 </td></tr>
-{section('새로 발견된 이슈', f'{len(recent)}건 · 등급 높은 순')}
+{section('새로 발견된 이슈', f'위험·경고 {len(hot)}건 · 주의 {len(mild)}건')}
 {''.join(items)}
 {older_html}
-{section('리스크 업체', f'{len(risky)}곳 · 정상 {len(overview) - len(risky)}곳은 생략')}
+{section('리스크 업체', f'위험·경고 {len(risky)}곳 · 주의 {n_yel}곳은 대시보드에서')}
 <tr><td style="padding:0 28px;background:{PANEL};">
 <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid {LINE};border-radius:12px;border-collapse:separate;overflow:hidden;">
 <tr><th style="{th}">등급</th><th style="{th}">업체</th><th style="{th}">참여 사업 · 역할</th><th style="{th}text-align:center;">미확인</th></tr>
@@ -205,6 +209,7 @@ def build() -> tuple[str, str, list[str]]:
   데이터: EDCF 부정당업자(EXIMIIS) · 조달청 나라장터 · OpenSanctions(World Bank·ADB·AfDB·IDB·EBRD) · Google 뉴스 · 네이버 뉴스
 </td></tr>
 </table></td></tr></table></body></html>"""
+    body = re.sub(r">\s+<", "><", body)  # 태그 사이 공백 제거 (메일 크기 줄이기)
     return subject, body, [f["id"] for f in new]
 
 
