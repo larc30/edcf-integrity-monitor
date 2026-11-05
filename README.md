@@ -10,6 +10,8 @@ EDCF 사업 참여 업체(컨설턴트·본구매·입찰·우선협상)의 부�
 [GitHub Pages: 대시보드·관리자]  ⇄  [Firestore]  ⇄  [GitHub Actions: monitor/ (Python, 매일 07:30)]
 ```
 
+> 해커톤 등에서 새로 세우려면 [docs/HACKATHON.md](docs/HACKATHON.md) (단계별 프롬프트)를 보세요.
+
 ## 처음 설정 (한 번만)
 
 ### 1. Firestore 보안 규칙 게시
