@@ -809,12 +809,12 @@ label.check input { width: auto; accent-color: var(--accent); }
 .warn-t { color: var(--orange); font-weight: 700; } .red-t { color: var(--red); }
 .acc-card .tag { margin-left: 6px; }
 /* v27: i 설명, 공식 제재 명단 카드, 단계 선택, 글자 −/+ */
-.info { position: relative; display: inline-grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; border: 1px solid var(--line-2); color: var(--muted); font: italic 700 11px/1 Georgia, serif; cursor: help; vertical-align: middle; margin-left: 4px; flex: 0 0 auto; }
-.info:hover, .info:focus { color: var(--accent-2); border-color: var(--accent-2); outline: none; }
-.info .tip { display: none; position: absolute; z-index: 30; top: calc(100% + 8px); left: -8px; width: 300px; padding: 10px 12px; border-radius: 10px; background: var(--panel-solid); border: 1px solid var(--line-2); box-shadow: var(--shadow); color: var(--text-2); font: 400 var(--fs-sm)/1.55 "Pretendard Variable", Pretendard, "Malgun Gothic", sans-serif; letter-spacing: -0.01em; text-align: left; white-space: normal; cursor: default; }
-.info.r .tip { left: auto; right: -8px; }
-.info:hover .tip, .info:focus .tip, .info:focus-within .tip { display: block; }
-.info .tip b { color: var(--text); }
+.itip { position: relative; display: inline-grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; border: 1px solid var(--line-2); color: var(--muted); font: italic 700 11px/1 Georgia, serif; cursor: help; vertical-align: middle; margin-left: 4px; flex: 0 0 auto; }
+.itip:hover, .itip:focus { color: var(--accent-2); border-color: var(--accent-2); outline: none; }
+.itip .tip { display: none; position: absolute; z-index: 30; top: calc(100% + 8px); left: -8px; width: 300px; padding: 10px 12px; border-radius: 10px; background: var(--panel-solid); border: 1px solid var(--line-2); box-shadow: var(--shadow); color: var(--text-2); font: 400 var(--fs-sm)/1.55 "Pretendard Variable", Pretendard, "Malgun Gothic", sans-serif; letter-spacing: -0.01em; text-align: left; white-space: normal; cursor: default; }
+.itip.r .tip { left: auto; right: -8px; }
+.itip:hover .tip, .itip:focus .tip, .itip:focus-within .tip { display: block; }
+.itip .tip b { color: var(--text); }
 .tip-row { display: flex; gap: 8px; align-items: flex-start; } .tip-row + .tip-row { margin-top: 6px; } .tip-row .badge { flex: 0 0 auto; margin-top: 1px; }
 .ctrl-row #scopeInfo { display: inline-flex; align-items: center; }
 .d-radar { position: relative; }
@@ -846,3 +846,13 @@ html[data-font="sm"] { font-size: 93.75%; }
 .off-card .oc-row { grid-template-columns: 104px minmax(0, 1fr); }
 .off-card { align-items: stretch; text-align: left; }
 .off-card .oc-head h2 { margin: 0; }
+/* v28: 사업 카드 줄 — 업체명은 한 줄(넘치면 …), 단계 상자는 좁게 / 안내 한 줄 / 글자 크기 가운데 표시 */
+.pj-grid .corow { gap: 6px; }
+.pj-grid .corow .cn { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pj-grid .corow .right { flex: 0 0 auto; }
+.stage-sel { max-width: none; width: 82px; padding-right: 18px; }
+.pj-side .side-hint { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.font-ctl .fsize { min-width: 64px; font-weight: 700; color: var(--text-2); }
+.font-ctl .fsize.def { color: var(--muted); }
+.pj-side .side-hint, .pj-side > input, .pj-side .card-head { flex-shrink: 0; }
+.stage-sel { width: 98px; }

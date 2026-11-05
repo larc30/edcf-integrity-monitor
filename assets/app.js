@@ -5,7 +5,7 @@ import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=27";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=28";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -27,7 +27,7 @@ const LEVEL_DEF = {
 };
 const levelTip = () => ["red", "orange", "yellow"].map((lv) => `<div class="tip-row">${badge(lv)}<span>${LEVEL_DEF[lv]}</span></div>`).join("");
 // i 버튼: 마우스를 올리거나 누르면 설명 (cls 'r' = 오른쪽 맞춤)
-const info = (html, cls = "") => `<span class="info ${cls}" tabindex="0" role="note" aria-label="설명">i<span class="tip">${html}</span></span>`;
+const info = (html, cls = "") => `<span class="itip ${cls}" tabindex="0" role="note" aria-label="설명">i<span class="tip">${html}</span></span>`;
 const LV = { red: 3, orange: 2, yellow: 1, none: 0 };
 const ROLE_CLS = { 컨설턴트: "consult", 본구매: "buy", "F/S": "fs" };
 const ROLE_ORDER = ["F/S", "컨설턴트", "본구매"];
@@ -171,10 +171,13 @@ function applyFont() {
   if (k) document.documentElement.dataset.font = k; else delete document.documentElement.dataset.font;
   $("#fontDown").disabled = fontStep === 0; $("#fontUp").disabled = fontStep === FONT_STEPS.length - 1;
   $("#fontDown").title = $("#fontUp").title = `글자 크기: ${label}`;
+  $("#fontReset").textContent = label + (k ? "" : " (기본)"); $("#fontReset").classList.toggle("def", !k);
+  $("#fontReset").title = k ? "누르면 기본 크기(보통)로" : "기본 글자 크기";
   requestAnimationFrame(() => { if (typeof fixLabels === "function") fixLabels(); });
 }
 const stepFont = (d) => { fontStep = Math.min(FONT_STEPS.length - 1, Math.max(0, fontStep + d)); try { localStorage.setItem("edcf_font", FONT_STEPS[fontStep][0]); } catch {} applyFont(); toast(`글자 크기: ${FONT_STEPS[fontStep][1]}`, 1500); };
 $("#fontDown").onclick = () => stepFont(-1); $("#fontUp").onclick = () => stepFont(1);
+$("#fontReset").onclick = () => stepFont(1 - fontStep); // 기본(보통)으로
 applyFont();
 // 가벼운 모드: 화면이 버벅이면(초당 30프레임 미만) 레이더 파동·발광 효과를 자동으로 줄임
 let liteSaved = null;
@@ -451,7 +454,7 @@ function renderHome() {
     renderHome();
     if (levelFilter) $("#issuesCard").scrollIntoView({ behavior: "smooth", block: "start" });
   });
-  $("#noteCard").onclick = (e) => { if (!e.target.closest(".info")) openOfficial(cs); };
+  $("#noteCard").onclick = (e) => { if (!e.target.closest(".itip")) openOfficial(cs); };
   $("#noteCard").onkeydown = (e) => { if (e.key === "Enter") openOfficial(cs); };
 
   // ③ 레이더
@@ -1247,8 +1250,8 @@ function renderProjects() {
   bindDnd();
 }
 // 단계 선택 상자 (진행 순서: 입찰중 → 우선협상 → 계약)
-const STAGE_OPTS = [["입찰중", "입찰중"], ["우선협상", "우선협상"], ["우선협상|1", "우선협상 1순위"], ["우선협상|2", "우선협상 2순위"], ["우선협상|3", "우선협상 3순위"], ["계약", "계약"]];
-const stageVal = (e) => e.stage === "우선협상" && e.rank ? `우선협상|${e.rank}` : (e.stage || "계약");
+const STAGE_OPTS = [["입찰중", "입찰중"], ["우선협상", "우선협상"], ["계약", "계약"]];
+const stageVal = (e) => e.stage || "계약";
 // 사업·역할 칸 안의 업체 순서 (맨 위가 대표사). 순서 없는 업체는 이름순으로 뒤에
 const byOrder = (a, b) => (a.e.order ?? 1e9) - (b.e.order ?? 1e9) || a.c.name.localeCompare(b.c.name);
 function zoneRows(pid, role) {
@@ -1290,7 +1293,7 @@ function projectCard(p, sc) {
           <span class="dot ${sc ? c.risk : ""}"></span>${rr.length > 1 && k === 0 ? `<span class="lead" title="대표사">대표</span>` : ""}<button class="cn" data-open="${c.id}">${esc(c.name)}</button>
           <span class="right">
             ${k > 0 ? `<button class="upbtn" data-up="${p.id}|${esc(role)}|${c.id}|${rr[k - 1].c.id}" title="위로 (맨 위 = 대표사)">▲</button>` : ""}
-            <select class="stage-sel ${e.stage && e.stage !== "계약" ? "on" : ""}" data-stage-sel="${c.id}|${i}" title="단계" aria-label="단계">${STAGE_OPTS.map(([v, l]) => `<option value="${v}" ${v === stageVal(e) ? "selected" : ""}>${l}</option>`).join("")}</select>
+            <select class="stage-sel ${e.stage && e.stage !== "계약" ? "on" : ""}" data-stage-sel="${c.id}|${i}" title="단계${e.stage === "우선협상" && e.rank ? ` · ${e.rank}순위` : ""}" aria-label="단계">${STAGE_OPTS.map(([v, l]) => `<option value="${v}" ${v === stageVal(e) ? "selected" : ""}>${l}</option>`).join("")}</select>
             <button class="xbtn" data-unlink="${c.id}|${i}" title="이 사업에서 빼기">✕</button>
           </span></div>`).join("")}
         <div class="drop-hint">여기로 끌어다 놓기</div>
@@ -1380,10 +1383,10 @@ function bindDnd() {
   $$("[data-stage-sel]", root).forEach((sel) => {
     sel.addEventListener("mousedown", (e) => e.stopPropagation());
     sel.onchange = async () => {
-      const [cid, i] = sel.dataset.stageSel.split("|"), [stg, rk] = sel.value.split("|");
+      const [cid, i] = sel.dataset.stageSel.split("|"), stg = sel.value;
       const c = state.companies.find((x) => x.id === cid), e = c?.engagements[+i];
       if (!e) return;
-      e.stage = stg; e.rank = rk ? +rk : null;
+      e.stage = stg; if (stg !== "우선협상") e.rank = null; // 우선협상 순위는 우선협상일 때만 유지
       await saveEngagements(c); rerender();
     };
   });

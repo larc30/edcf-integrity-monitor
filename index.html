@@ -19,7 +19,7 @@
   }
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="assets/style.css?v=27">
+<link rel="stylesheet" href="assets/style.css?v=28">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -47,7 +47,7 @@
     </nav>
     <div class="top-right">
       <span class="user" id="userEmail"></span>
-      <div class="font-ctl" role="group" aria-label="글자 크기"><button class="btn sm" id="fontDown" title="글자 작게">가−</button><button class="btn sm" id="fontUp" title="글자 크게">가+</button></div>
+      <div class="font-ctl" role="group" aria-label="글자 크기"><button class="btn sm" id="fontDown" title="글자 작게">가−</button><button class="btn sm ghost fsize" id="fontReset">보통</button><button class="btn sm" id="fontUp" title="글자 크게">가+</button></div>
       <button class="btn sm" id="btnTheme">라이트</button>
       <button class="btn sm" id="btnLogout">로그아웃</button>
     </div>
@@ -148,7 +148,7 @@
       <div class="pj-layout">
         <aside class="card pj-side">
           <div class="card-head"><h2>업체</h2><span class="muted small" id="sideN"></span></div>
-          <div class="side-hint">업체를 끌어서 오른쪽 사업의 역할 칸에 놓으세요</div>
+          <div class="side-hint">업체를 끌어 사업의 역할 칸에 놓으세요</div>
           <input id="sideSearch" placeholder="업체 검색" autocomplete="off">
           <div class="side-list" id="sideList"></div>
         </aside>
@@ -198,8 +198,6 @@
           <div>
             <h3>최근 실행</h3>
             <div id="runList" class="run-list"></div>
-            <h3>실행 요청 방식</h3>
-            <p class="adv-note" id="runModeNote">[지금 스캔]·테스트 메일을 누르면 요청이 저장되고, Apps Script가 5분마다 확인해 실행합니다(평일 08~19시). 매일 아침 스캔·메일도 Apps Script가 시작합니다.</p>
             <h3>화면</h3>
             <label class="check"><input type="checkbox" id="liteToggle"> 가벼운 모드 (레이더 효과 줄이기)</label>
           </div>
@@ -213,6 +211,6 @@
 <aside class="drawer" id="drawer"><div class="drawer-head"><div id="drawerTitle"></div><button class="btn sm" id="drawerClose">닫기</button></div><div id="drawerBody" class="drawer-body"></div></aside>
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div id="toast" class="toast"></div>
-<script type="module" src="assets/app.js?v=27"></script>
+<script type="module" src="assets/app.js?v=28"></script>
 </body>
 </html>
