@@ -56,7 +56,7 @@ def _pill(text: str, fg: str = TEXT2, bg: str = SOFT) -> str:
 
 def _eng_text(engs: list[dict]) -> str:
     return "<br>".join(
-        f"{E(e['project_name'])} · {E(e['role'])} · {E(e['stage'])}{' ' + str(e['rank']) + '순위' if e.get('rank') else ''}"
+        f"{E(e.get('project_name') or '-')} · {E(e.get('role') or '-')} · {E(e.get('stage') or '계약')}{' ' + str(e['rank']) + '순위' if e.get('rank') else ''}"
         for e in sorted(engs, key=lambda e: ROLE_ORDER.get(e.get("role"), 9))
     ) or "사업 미연결"
 

@@ -127,7 +127,7 @@ def _claude(company: dict, engagements: list[dict], articles: list[dict], keywor
         "보조키워드(업종·대표자 등)": company.get("context_keywords") or "",
         "대표자": company.get("ceo") or "",
         "국가": company.get("country") or "",
-        "참여사업": [f"{e['project_name']} / {e['role']} / {e['stage']}" for e in engagements],
+        "참여사업": [f"{e.get('project_name') or '-'} / {e.get('role') or '-'} / {e.get('stage') or '계약'}" for e in engagements],
     }
     payload = [
         {

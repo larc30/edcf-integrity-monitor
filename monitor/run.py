@@ -157,6 +157,15 @@ def main() -> int:
             return 0
 
     if a.task in ("daily", "scan"):
+        try:  # 등급 기준을 바꾼 뒤 한 번만: 예전 판정 다시 (건수만 로그)
+            from . import rejudge
+            rj = rejudge.run_once()
+            if rj:
+                log.info("재판정(새 등급 기준): %s", json.dumps(rj, ensure_ascii=False))
+        except Exception as e:
+            if _quota_exceeded(e):
+                raise
+            log.warning("재판정 실패: %s", type(e).__name__)
         only = [x for x in a.companies.split(",") if x.strip()] or None
         res = scanner.run_scan(only, progress=lambda d, t, c: store.update("meta", "progress", {"done": d, "total": t, "current": c, "running": d < t, "at": store.now_str()}))
         # 공개 로그: 건수만 (오류 내용·업체 이름은 Firestore 실행 기록에만 — 대시보드 설정 > 고급에서 확인)
