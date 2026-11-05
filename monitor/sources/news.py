@@ -58,7 +58,8 @@ def naver_news(query: str, display: int | None = None, sort: str = "date") -> li
         r = httpx.get(url, params={"query": query, "display": display or config.NEWS_PER_QUERY, "sort": sort}, headers=headers, timeout=_TIMEOUT)
         r.raise_for_status()
     except httpx.HTTPError as e:
-        log.warning("naver news error (%s): %s", query, e)
+        # 공개 로그라 검색어(업체 이름)·주소는 남기지 않음 — 자세한 내용은 실행 기록(Firestore)에
+        log.warning("naver news error: %s %s", type(e).__name__, getattr(getattr(e, "response", None), "status_code", ""))
         raise
     out = []
     for it in r.json().get("items", []):

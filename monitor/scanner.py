@@ -526,10 +526,11 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
                     totals["deep"] += 1 if s["deep"] else 0
                     errors += s["errors"]
             except Exception as e:
-                log.exception("scan failed for %s", c["name"])
+                log.warning("업체 스캔 실패 (%d번째): %s", done + 1, type(e).__name__)  # 이름·내용은 실행 기록에만
                 errors.append(f"{c['name']}: {e}")
             done += 1
-            log.info("스캔 %d/%d: %s", done, total, c["name"])
+            if done % 25 == 0 or done == total:  # 공개 로그라 업체 이름은 남기지 않음 (진행 상황은 대시보드에 표시)
+                log.info("스캔 %d/%d", done, total)
             if should_stop and done % 3 == 0 and should_stop():
                 for f in futs:
                     f.cancel()
