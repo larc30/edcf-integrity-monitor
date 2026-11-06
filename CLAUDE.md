@@ -21,7 +21,7 @@ meta/status, meta/progress, meta/settings{relay_url,keywords_version}, meta/repo
 
 ## 스캔 로직 (monitor/scanner.py)
 - 제재 키워드 검색(TOPIC_QUERIES 18개, 인턴 코랩 QUERIES 기반) → 기사를 전체 명단과 대조(match_sweep).
-- 집중 감시(사업 연결 또는 watch=true): 매일 업체명 검색 + 7일마다 '업체명+리스크키워드' 심층. 기본 감시(명단만): 키워드 대조·MDB 매일, 조달청 3일, 업체명 검색 주 1회.
+- 집중 감시(사업 연결 또는 watch=true): 매일 업체명 검색 + 7일마다 '업체명+리스크키워드' 심층. 기본 감시(명단만): 키워드 대조·MDB·조달청 매일(v32, 조달청 3일 → 매일), 업체명 검색 주 1회.
 - 업체명 일치(textutil.name_matches): 4자 이상 포함 일치, 3자 이하 독립 단어만, 2자 이하는 업종 문맥 단어 필요, KTX/KT&G 제외. 오탐 기사 자동 '관련 없음' 정리.
 - 조달청: 나라장터 사용자정보 서비스(data.go.kr 15129466) getUnptRsttCorpInfo02, 사업자번호(inqryDiv=1)로 '현재 유효' 제재만. 업체명→사업자번호 조회 없음.
 - 사업자번호·영문명: DART corpCode(약 10만 개, 비상장 포함·공시대상 위주) 정확 일치 1건일 때만 자동, 나라장터 기본정보로 영문명 보강. 없으면 수기 입력.
@@ -111,6 +111,7 @@ meta/status, meta/progress, meta/settings{relay_url,keywords_version}, meta/repo
 - (v30, 11-05 오후) 공개 로그 추가 정리: httpx 등 HTTP 요청 줄(검색 주소에 업체명·사업자번호) 끔, 메일 발송 로그는 받는 사람 주소 대신 인원수. scanner._days_since 가 한국시간 문자열을 UTC 서버 시계로 빼서 9시간 짧게 계산 → '주 1회'가 8일마다·조달청 3일이 4일마다 돌던 버그 수정. monitor/health.py: preview 작업 때 건수만 로그(데이터·스캔 커버리지·식별·이슈 등급·EXIMIIS 대조·중복·자동 실행). 등급 색 강화(위험 배지 꽉 찬 빨강, 경고 주황 테두리, 주의 노랑 바탕, 라이트 모드 점·막대는 --yellow-fill), 사업 단계 선택은 글자 폭(field-sizing).
   - 11-05 점검 결과: 업체 216 전부 26시간 내 검사·오류 0·Google/네이버/Claude 정상, 집중 27곳 매일 업체명 검색, seen 216, EXIMIIS 13건 대조 누락 0, 중복 0. 사업자번호 128/216(88곳 없음 → 조달청 조회 불가, DART 직접 입력 필요 89), 영문명 129. 이슈(관련·미처리) 위험 93·경고 79·주의 523, 그중 뉴스 판정 위험 88건(1년 지난 기사 21) — v27 이전 기준으로 판정된 것이 섞여 업체 등급 위험 18곳으로 과대 → 새 기준 재판정 제안(사용자 확인 대기). 규칙 판정 34건.
 - (v31, 11-05 14시) 재판정 실행(monitor/rejudge.py, meta/settings.rejudge_version=1 이면 끝): 대상 180건·28곳 → 161건 갱신(위험→경고 63, 위험→주의·관련없음 9, 위험 유지 4), 19건은 AI 응답 누락으로 다음 daily/scan 때 자동 재시도(rejudged_at 있는 건 제외). 결과 업체 등급 위험 18→7·경고 12→16·주의 51→58, 규칙 판정 0. 같이 고친 것: analyzer 프로필에서 사업 연결 stage 없으면 KeyError → 규칙 판정으로 넘어가던 버그, report._eng_text 도 같은 KeyError(메일 중단 위험), Claude SDK 로그(httpx2) 끔. 사업자번호 88곳은 사용자가 실제 운영 때 채우기로 함. 해커톤 방식은 규칙을 들은 뒤 결정.
+- (v32, 11-06) 조달청 조회를 기본 감시 업체도 매일로(3일 건너뛰기 제거, 사용자 요청). 시스템 이름 'EDCF RADAR'(Risk Alert & Debarment Auto-Reporter)로 결정 — 발표 자료(https://claude.ai/artifact/P8sKcUGGNPhx8tiRM22g61)와 대시보드(탭 제목·로그인·로고)·메일 제목/머리·PDF 보고서·데모 메일·README 모두 'EDCF RADAR'로 변경. 11/5 이전 공개 실행 로그 삭제는 다음 주로 미룸.
 - 해커톤 재구현 키트: docs/HACKATHON.md (A안 코드 가져가기 프롬프트 / B안 마스터 프롬프트 + 단계별 9개 + 시행착오 결정 표).
 - 설계도(사용자용 비공개 Artifact): https://claude.ai/artifact/JtxkBSsA5KA4Z2b57Nd8tU — 전체 구조·하루 일정·검사 순서·등급 기준·결과 흐름·노동법 같은 새 검사 붙이는 방법. 구조가 바뀌면 Artifact read 로 원본을 받아 고친 뒤 같은 URL 로 다시 게시.
 

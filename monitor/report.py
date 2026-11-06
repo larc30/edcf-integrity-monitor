@@ -75,7 +75,7 @@ def build() -> tuple[str, str, list[str]]:
     new_red = sum(1 for g in groups if g[0]["level"] == "red")
     new_org = sum(1 for g in groups if g[0]["level"] == "orange")
     lv_txt = " · ".join(t for t in (f"위험 {new_red}" if new_red else "", f"경고 {new_org}" if new_org else "") if t)
-    subject = f"[EDCF 부정당업자 자동감지] {today} 신규 {len(groups)}건" + (f" ({lv_txt})" if lv_txt else "")
+    subject = f"[EDCF RADAR] {today} 신규 {len(groups)}건" + (f" ({lv_txt})" if lv_txt else "")
 
     def kpi(label, value, color, unit):
         return (f'<td width="25%" style="padding:0 4px;vertical-align:top;"><div style="border:1px solid {LINE};border-radius:12px;padding:12px 14px;">'
@@ -180,7 +180,7 @@ def build() -> tuple[str, str, list[str]]:
 <tr><td style="background:{NAVY};padding:22px 28px 24px;border-radius:15px 15px 0 0;">
   <table cellpadding="0" cellspacing="0"><tr>
     <td style="width:36px;height:36px;background:{ACCENT};background-image:linear-gradient(135deg,#7C83FF,#22D3EE);border-radius:10px;color:#fff;text-align:center;font-size:17px;font-weight:800;">◎</td>
-    <td style="padding-left:12px;font-size:15px;font-weight:800;color:#FFFFFF;">EDCF 부정당업자 자동감지 시스템</td>
+    <td style="padding-left:12px;font-size:15px;font-weight:800;color:#FFFFFF;">EDCF RADAR · 업체 리스크 자동감지</td>
   </tr></table>
   <div style="margin-top:18px;font-size:11px;font-weight:800;letter-spacing:.12em;color:#22D3EE;">RISK BRIEFING · {today} ({weekday})</div>
   <div style="margin-top:6px;font-size:26px;font-weight:800;color:#FFFFFF;letter-spacing:-.02em;line-height:1.25;">오늘의 <span style="color:#9AA3FF;">EDCF 업체 리스크</span></div>

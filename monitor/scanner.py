@@ -382,8 +382,6 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         pps_st = {"status": "not_connected"}
     elif len(bizno) != 10:
         pps_st = {"status": "no_bizno"}
-    elif not focus and _days_since((company.get("last_check") or {}).get("pps", {}).get("checked_at")) < 3:
-        pps_st = dict(company["last_check"]["pps"])  # 기본 감시 업체는 3일마다 조회 (API 일일 한도 고려)
     else:
         try:
             hits = pps.sanctions(company)

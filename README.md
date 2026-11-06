@@ -1,4 +1,6 @@
-# EDCF 부정당업자 자동감지 시스템
+# EDCF RADAR — 업체 리스크 자동감지 시스템
+
+> RADAR = Risk Alert & Debarment Auto-Reporter (EDCF 부정당업자 자동감지)
 
 EDCF 사업 참여 업체(컨설턴트·본구매·입찰·우선협상)의 부정 이슈를 매일 자동으로 점검하고, 대시보드와 일일 메일로 알려주는 시스템입니다.
 

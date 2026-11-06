@@ -1,5 +1,5 @@
 /**
- * EDCF 부정당업자 자동감지 — 즉시 실행 중계 (Google Apps Script)
+ * EDCF RADAR — 즉시 실행 중계 (Google Apps Script)
  *
  * 회사망에서 api.github.com이 막혀도, 대시보드 → (Google) 이 스크립트 → GitHub 로
  * 스캔을 바로 시작시키기 위한 중계기입니다. 대시보드 로그인(Firebase) 사용자만 실행할 수 있습니다.
