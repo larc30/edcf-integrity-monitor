@@ -735,6 +735,9 @@ button { font-size: inherit; }
 .kw-col-head .kw-desc { font-size: var(--fs-xs); color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kw-col-head .n { margin-left: auto; font-size: var(--fs-xs); font-weight: 750; color: var(--muted); font-variant-numeric: tabular-nums; }
 .kw-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.kw-fixed { border: 1px dashed var(--line); border-radius: 14px; padding: 12px; margin-bottom: 12px; background: var(--panel-2); }
+.kw-fixed-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; font-size: var(--fs-sm); }
+.kchip.kfix { padding: 2px 8px; }
 .kchip { gap: 2px; padding: 2px 4px; font-size: var(--fs-sm); background: var(--panel); }
 .kchip .w { padding: 0 2px; font-weight: 650; }
 .kchip small { font-size: var(--fs-xs); color: var(--muted); margin-left: 2px; }
