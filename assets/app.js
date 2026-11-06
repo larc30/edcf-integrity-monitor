@@ -1493,14 +1493,14 @@ $("#btnAddCompany").onclick = () => {
   modal(`<h2>업체 추가</h2>
     <p class="muted small">사업자등록번호와 영문명(사업자등록증 영문)이 있으면 조달청·MDB 제재 조회가 정확해집니다. 모르면 비워두세요. DART에 있는 업체는 스캔 때 자동으로 채워집니다.</p>
     <form id="addCoForm" class="form" autocomplete="off">
-      <label>업체명 *<input name="name" required placeholder="예: 가나다엔지니어링"></label>
+      <label>업체명 *<input name="name" required placeholder="예: 서마루엔지니어링"></label>
       <div class="row">
         <label>사업자등록번호<input name="biz_no" placeholder="000-00-00000"></label>
         <label>영문명<input name="name_en" placeholder="예: GANADA ENGINEERING CO., LTD."></label>
       </div>
       <div class="row">
         <label>업종<select name="category"><option value="">자동 분류 (DART·업체명)</option>${CATS.map((k) => `<option>${k}</option>`).join("")}</select></label>
-        <label>별칭 (쉼표 구분)<input name="aliases" placeholder="예: 가나다ENG"></label>
+        <label>별칭 (쉼표 구분)<input name="aliases" placeholder="예: 서마루ENG"></label>
       </div>
       <label style="flex-direction:row;align-items:center;gap:6px;font-weight:500"><input type="checkbox" name="foreign" style="width:auto"> 해외 업체 (조달청 조회 제외, 영문 뉴스 검색)</label>
       ${state.projects.length ? `<div class="row"><label>사업에 바로 연결 (선택)<select name="pid"><option value="">연결 안 함</option>${state.projects.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select></label>
@@ -1669,8 +1669,8 @@ async function registerBase(rows) {
 // 엑셀 양식 (CSV, 엑셀에서 바로 열림) — 예시는 가상 데이터
 function downloadTemplate() {
   const rows = [["업체명", "사업자번호", "영문명", "업종", "별칭", "사업명", "역할"],
-    ["가나다엔지니어링(예시)", "000-00-00000", "GANADA ENGINEERING CO., LTD.", "엔지니어링·설계·감리", "가나다ENG, 예시", "가나국 스마트시티 구축사업(예시)", "컨설턴트"],
-    ["라마바건설(예시)", "", "", "건설·시공", "예시", "", ""]];
+    ["서마루엔지니어링(예시)", "000-00-00000", "SEOMARU ENGINEERING CO., LTD.", "엔지니어링·설계·감리", "서마루ENG", "케냐 스마트시티 구축사업(예시)", "컨설턴트"],
+    ["도레온건설(예시)", "", "", "건설·시공", "", "", ""]];
   const csv = "﻿" + rows.map((r) => r.map((x) => /[",\n]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x).join(",")).join("\r\n");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
@@ -1708,11 +1708,11 @@ $("#btnBulk").onclick = () => {
     <div class="add-row"><button class="btn" id="bulkTpl">양식 내려받기</button><label class="btn primary">엑셀·CSV 파일 올리기<input type="file" id="bulkFile" accept=".xlsx,.xls,.csv" hidden></label></div>
     <textarea id="bulkText" placeholder="엑셀 표를 그대로 복사해 붙여넣거나(제목 줄 포함), 아래처럼 입력하세요. 예시는 가상 데이터입니다.
 
-가나국 스마트시티 구축사업 | 컨설턴트 | 가나다엔지니어링
- | 본구매 | 사아자건설(1순위)
+케냐 스마트시티 구축사업 | 컨설턴트 | 서마루엔지니어링
+ | 본구매 | 도레온건설(1순위)
 
-라마바엔지니어링
-차카타정보통신"></textarea>
+휘담기술
+청누리시스템"></textarea>
     <p class="muted small">사업명·역할을 함께 적으면 사업에 바로 연결됩니다. 이미 있는 업체는 빈 정보(사업자번호·영문명·업종·별칭)만 채웁니다. 업종을 비워두면 업체명·DART 업종코드로 자동 분류합니다. 사내 보안(DRM)으로 파일이 안 열리면 표를 복사해 붙여넣으세요.</p>
     <div class="actions left" style="margin-top:4px"><button class="btn" id="bulkPrev">미리보기</button><button class="btn primary" id="bulkRun" disabled>등록하기</button></div>
     <div id="bulkOut" class="import-preview"></div>`);
@@ -1903,7 +1903,7 @@ function openEdcfPaste() {
 복사가 막히면 쉼표로 직접 입력해도 됩니다 (제목 줄 필수, 예시는 가상 데이터):
 
 업체명, 상태, 제재기간, 사업자번호
-가나다건설, 등록, 2026.01.01 ~ 2027.12.31, 000-00-00000"></textarea>
+도레온건설, 등록, 2026.01.01 ~ 2027.12.31, 000-00-00000"></textarea>
     <div class="actions"><button class="btn primary" id="edcfParse">확인</button></div>`);
   $("#edcfParse").onclick = () => {
     try {
@@ -1962,14 +1962,23 @@ $("#accForm").onsubmit = async (ev) => {
   await saveAccess([...(state.access || []), email]);
   ev.target.reset(); toast(`${email} 추가 — 그 계정으로 Google 로그인하면 들어올 수 있습니다`, 5000);
 };
+// 기본 검색어: monitor/scanner.py TOPIC_QUERIES 와 같은 목록 유지 (매일 Google·네이버 검색, 화면에서는 보기만)
+const TOPIC_QUERIES = [
+  "부정당", "부정당업자", "부정당제재", "입찰참가자격 제한", "입찰참가제한", "입찰 제한 처분",
+  "입찰 담합", "담합 과징금", "공정위 과징금 건설", "영업정지 건설사", "영업정지 엔지니어링", "등록말소 건설",
+  "벌점 건설사", "제재 건설사", "제재 엔지니어링", "하도급 과징금", "공공입찰 제한", "국토교통부 처분",
+  "중대재해 건설", "중대재해처벌법 기소", "건설현장 사망사고", "산업재해 건설사", "부실시공 건설사",
+];
 // 리스크 키워드: 등급별 3칸
 function renderKeywords() {
+  $("#kwFixedN").textContent = TOPIC_QUERIES.length;
+  $("#kwFixed").innerHTML = TOPIC_QUERIES.map((q) => `<span class="kchip kfix">${esc(q)}</span>`).join("");
   $("#kwCount").textContent = state.keywords.length;
   const by = { red: [], orange: [], yellow: [] };
   [...state.keywords].sort((a, b) => (b.use_in_query || 0) - (a.use_in_query || 0) || a.word.localeCompare(b.word)).forEach((k) => (by[k.level] || by.yellow).push(k));
   $("#kwList").innerHTML = ["red", "orange", "yellow"].map((lv) => `<div class="kw-col ${lv}">
     <div class="kw-col-head">${badge(lv)}<span class="kw-desc">${LEVEL_SHORT[lv]}</span><span class="n">${by[lv].length}</span></div>
-    <div class="kw-chips">${by[lv].map((k) => `<span class="kchip ${k.use_in_query ? "q" : ""}"><button class="kq" data-kq="${k.id}" title="${k.use_in_query ? "검색어로 쓰는 중 — 누르면 해제" : "누르면 심층 검색 때 검색어로도 사용"}">${k.use_in_query ? "★" : "☆"}</button><span class="w">${esc(k.word)}</span>${k.lang && k.lang !== "ko" ? `<small>${esc(k.lang.toUpperCase())}</small>` : ""}<button class="kx" data-del-kw="${k.id}" title="삭제">✕</button></span>`).join("") || `<span class="muted small">없음</span>`}</div>
+    <div class="kw-chips">${by[lv].map((k) => `<span class="kchip ${k.use_in_query ? "q" : ""}"><button class="kq" data-kq="${k.id}" title="${k.use_in_query ? "매일 검색어로 쓰는 중 — 누르면 판정 기준으로만" : "누르면 매일 뉴스 검색어로도 사용 (★)"}">${k.use_in_query ? "★" : "☆"}</button><span class="w">${esc(k.word)}</span>${k.lang && k.lang !== "ko" ? `<small>${esc(k.lang.toUpperCase())}</small>` : ""}<button class="kx" data-del-kw="${k.id}" title="삭제">✕</button></span>`).join("") || `<span class="muted small">없음</span>`}</div>
   </div>`).join("");
   $$("[data-del-kw]").forEach((b) => b.onclick = async () => { await deleteDoc(doc(db, "keywords", b.dataset.delKw)); state.keywords = state.keywords.filter((k) => k.id !== b.dataset.delKw); renderKeywords(); });
   $$("[data-kq]").forEach((b) => b.onclick = async () => {

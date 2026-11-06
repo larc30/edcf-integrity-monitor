@@ -23,7 +23,7 @@ ID_RISK_QUERY = '(korupsi OR tersangka OR suap OR sanksi OR "daftar hitam")'
 
 # 제재 기사 검색어: 이 검색어로 먼저 기사를 모은 뒤, 기사마다 '전체 감시 명단'과 대조한다.
 # (업체 수가 많아도 검색 횟수가 늘지 않음)
-TOPIC_QUERIES = [
+TOPIC_QUERIES = [  # assets/app.js TOPIC_QUERIES(설정 화면 '기본 검색어')와 같은 목록 유지
     "부정당", "부정당업자", "부정당제재",
     "입찰참가자격 제한", "입찰참가제한", "입찰 제한 처분",
     "입찰 담합", "담합 과징금", "공정위 과징금 건설",
