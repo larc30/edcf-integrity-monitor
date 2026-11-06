@@ -407,6 +407,22 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         store.delete_many("findings", gone)
         existing = [f for f in existing if f["id"] not in set(gone)]
         stats["cleaned"] += len(gone)
+    # 조달청 제재는 상태가 바뀔 수 있음 (집행정지·해제·기간 만료) → 이미 저장된 기록도 오늘 조회 결과에 맞춰 고침
+    if pps_st.get("status") == "ok":
+        now_pps = {f["dedup_key"]: f for f in official if str(f.get("dedup_key", "")).startswith("pps-")}
+        fix = {}
+        for e in existing:
+            k = str(e.get("dedup_key") or "")
+            if not k.startswith("pps-"):
+                continue
+            n = now_pps.get(k)
+            if n and (n["level"] != e.get("level") or n["summary"] != e.get("summary")):
+                fix[e["id"]] = {"level": n["level"], "summary": n["summary"], "snippet": n["snippet"], "pps_updated_at": store.now_str()}
+            elif not n and e.get("level") in ("red", "orange"):  # 오늘은 '현재 유효 제재'로 조회되지 않음 → 지난 이력
+                fix[e["id"]] = {"level": "yellow", "pps_updated_at": store.now_str(),
+                                "summary": (e.get("summary") or "") + " (이후 나라장터에서 현재 유효 제재로 조회되지 않음 — 만료·해제된 지난 이력)"}
+        if fix:
+            store.update_many("findings", fix)
     for f in official:
         if f["dedup_key"] in known:
             continue

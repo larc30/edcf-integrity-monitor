@@ -63,18 +63,44 @@ def basic_info(bizno: str) -> dict:
     return items[0] if items else {}
 
 
+_STOP_WORDS = ("정지", "해제", "취소", "집행정지", "효력정지")
+_RSTT_NO = re.compile(r"[A-Z]\d{2}[A-Z]{2}\d{6,}")  # 부정당번호 예: R26UF00002196 (/차수 는 뗌)
+
+
+def _is_stopped(it: dict) -> bool:
+    txt = " ".join(str(it.get(k) or "") for k in ("rsttProgrsNm", "rsttDivNm", "rsttSeNm", "rsttRsn", "rmrk"))
+    return any(w in txt for w in _STOP_WORDS)
+
+
+def _group_key(it: dict) -> str:
+    for v in it.values():
+        m = _RSTT_NO.search(str(v or ""))
+        if m:
+            return m.group(0)
+    return it.get("insttNm") or "-"
+
+
 def sanctions(company: dict) -> list[dict]:
     """현재 유효한 부정당제재 → findings 형식"""
     bizno = biz_digits(company.get("biz_no"))
+    items = _call("getUnptRsttCorpInfo02", {"inqryDiv": "1", "bizno": bizno})
+    # 같은 제재가 차수별로 여러 줄일 수 있음 (예: 1차 '제재' → 2차 '제재정지'(법원 집행정지)).
+    # 같은 제재 번호(없으면 같은 통보기관) 안에 정지·해제·취소 줄이 하나라도 있으면 그 제재 전체를 '확인 필요'로 봄
+    groups_stop = {}
+    for it in items:
+        g = _group_key(it)
+        groups_stop[g] = groups_stop.get(g, False) or _is_stopped(it)
     out = []
-    for it in _call("getUnptRsttCorpInfo02", {"inqryDiv": "1", "bizno": bizno}):
+    for it in items:
         corp = it.get("corpNm") or company["name"]
         bgn, end = it.get("rsttBgnDate", ""), it.get("rsttEndDate", "")
         instt = it.get("insttNm", "")
         law = " ".join(x for x in [it.get("lawordNm", ""), it.get("lawordArtclClause", "")] if x)
         status = it.get("rsttProgrsNm", "")
         # 매뉴얼: 조회돼도 '제재정지(집행정지)' 상태일 수 있음 → 위험이 아니라 확인 필요
-        suspended = any(w in status for w in ("정지", "해제", "취소"))
+        suspended = groups_stop.get(_group_key(it), False)
+        if suspended and not _is_stopped(it):
+            status = (status + " → 이후 차수에서 정지·해제" if status else "이후 차수에서 정지·해제")
         out.append(
             {
                 "source_type": "official",
@@ -87,7 +113,7 @@ def sanctions(company: dict) -> list[dict]:
                 "level": "orange" if suspended else "red",
                 "category": "부정당업자 제재",
                 "summary": (f"나라장터에 부정당업자 제재가 조회되나 상태가 '{status}'입니다(집행정지 등). 상세정보·집행정지 조회로 현황 확인 필요. 기간 {bgn} ~ {end}." if suspended
-                            else f"{instt or '수요기관'}이(가) 통보한 부정당업자 제재(입찰참가자격 제한)가 현재 유효합니다. 기간 {bgn} ~ {end}. 근거: {law or '-'}."),
+                            else "※ 법원 집행정지가 나면 나라장터 '부정당제재 이력'에 '제재정지' 줄이 생깁니다 — 계약 전 한 번 확인. " + f"{instt or '수요기관'}이(가) 통보한 부정당업자 제재(입찰참가자격 제한)가 현재 유효합니다. 기간 {bgn} ~ {end}. 근거: {law or '-'}."),
                 "rationale": "조달청 나라장터 공식 데이터 (조회 시점 유효 제재)",
                 "analyzer": "list-match",
                 "dedup_key": "pps-" + hashlib.sha1(f"{bizno}|{bgn}|{end}|{instt}".encode()).hexdigest()[:16],
