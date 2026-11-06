@@ -82,6 +82,36 @@ _KW_CATEGORY = [
 _FALSE_COMPOUNDS = re.compile("정부도|부도덕|부도체|부도심|재해석|구속력|불기소|무혐의|위반하지 않|제재를 피|제재 대상이 아니")
 
 
+# AI를 쓸 수 없을 때만 쓰는 예비 등급 기준 (화면에는 안 보임). 설정의 '추가 키워드'는 여기 없으면 주의로 봄
+RULE_KEYWORDS = [
+    ("부정당", "red"), ("입찰참가자격", "red"), ("참가자격제한", "red"), ("입찰참가제한", "red"), ("입찰제한", "red"),
+    ("입찰 참가 제한", "red"), ("영업정지", "red"), ("debar", "red"),
+    ("회생절차", "orange"), ("법정관리", "orange"), ("부도", "orange"), ("담합", "orange"), ("과징금", "orange"),
+    ("압수수색", "orange"), ("기소", "orange"), ("구속", "orange"), ("뇌물", "orange"), ("횡령", "orange"),
+    ("배임", "orange"), ("허위", "orange"), ("공정위", "orange"), ("제재", "orange"), ("등록말소", "orange"),
+    ("sanction", "orange"), ("bribery", "orange"), ("corruption", "orange"), ("fraud", "orange"), ("collusion", "orange"),
+    ("bid rigging", "orange"), ("korupsi", "orange"), ("tersangka", "orange"), ("suap", "orange"),
+    ("의혹", "yellow"), ("고발", "yellow"), ("벌점", "yellow"), ("시정명령", "yellow"), ("중대재해", "yellow"),
+    ("부실시공", "yellow"), ("소송", "yellow"), ("재해", "yellow"), ("위반", "yellow"),
+]
+
+
+def build_keywords(docs: list[dict]) -> list[dict]:
+    """설정의 추가 키워드(docs) + 예비 등급 기준을 합친 목록. user=True 는 매일 검색어로 쓰는 추가 키워드."""
+    rule = {w: lv for w, lv in RULE_KEYWORDS}
+    out, seen = [], set()
+    for d in docs or []:
+        w = (d.get("word") or "").strip()
+        if not w or w in seen:
+            continue
+        seen.add(w)
+        lang = d.get("lang") or ("ko" if any("\uac00" <= ch <= "\ud7a3" for ch in w) else "en")
+        out.append({"word": w, "level": rule.get(w, "yellow"), "lang": lang, "user": True})
+    out += [{"word": w, "level": lv, "lang": "ko" if any("\uac00" <= ch <= "\ud7a3" for ch in w) else "en", "user": False}
+            for w, lv in RULE_KEYWORDS if w not in seen]
+    return out
+
+
 def kw_hits(text: str, keywords: list[dict]) -> list[dict]:
     t = _FALSE_COMPOUNDS.sub(" ", text.lower())
     return [k for k in keywords if k["word"].lower() in t]

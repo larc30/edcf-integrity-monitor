@@ -165,13 +165,11 @@
       <div class="set-grid">
         <div class="card kw-card">
           <div class="card-head"><h2>리스크 키워드 <span class="count" id="kwCount">0</span></h2></div>
-          <p class="card-desc"><b>매일 뉴스 검색어 = 기본 검색어(고정) + ★ 단어</b>입니다. ★가 없는 단어는 검색하지 않고, 찾은 기사를 AI가 판정할 때 기준으로만 씁니다. 집중 감시 업체(사업 참여 업체)는 주 1회 '업체명 + ★ 단어'로 과거 기사까지 한 번 더 찾습니다.</p>
-          <div class="kw-fixed"><div class="kw-fixed-head"><b>기본 검색어</b><span class="muted small">매일 검색 · 고정 <span id="kwFixedN">0</span>개 (화면에서 바꿀 수 없음)</span></div><div class="kw-chips" id="kwFixed"></div></div>
-          <form id="kwForm" class="kw-form" autocomplete="off"><input name="word" placeholder="새 키워드" required>
-            <select name="level"><option value="red">위험</option><option value="orange" selected>경고</option><option value="yellow">주의</option></select>
-            <select name="lang"><option value="ko">한국어</option><option value="en">영어</option><option value="id">인니어</option></select>
-            <button class="btn primary">추가</button></form>
-          <div id="kwList" class="kw-cols"></div>
+          <p class="card-desc">매일 아침 이 단어들로 뉴스를 찾고, 찾은 기사를 AI가 판정할 때도 모두 참고합니다. 등급(위험·경고·주의)은 단어가 아니라 <b>기사 내용</b>으로 AI가 정합니다. 사업에 연결된 업체는 매일 '업체명 + 추가 키워드'로도 찾습니다.</p>
+          <div class="kw-fixed"><div class="kw-fixed-head"><b>기본 키워드</b><span class="muted small">고정 <span id="kwFixedN">0</span>개 · 화면에서 바꿀 수 없음</span></div><div class="kw-chips" id="kwFixed"></div></div>
+          <div class="kw-fixed kw-user"><div class="kw-fixed-head"><b>추가 키워드</b><span class="muted small">직접 넣고 뺄 수 있음 · <span id="kwCount2">0</span>개</span></div>
+            <div class="kw-chips" id="kwList"></div>
+            <form id="kwForm" class="kw-form" autocomplete="off"><input name="word" placeholder="추가할 단어 (예: 임금체불)" required><button class="btn primary">추가</button></form></div>
         </div>
         <div class="set-side">
         <div class="card mail-card">

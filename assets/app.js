@@ -129,7 +129,7 @@ async function loadAll() {
   state.mdbKorea = mk.exists() ? mk.data() : null;
   state.access = acc.exists() ? (acc.data().emails || []) : [];
   state.loadedAt = Date.now();
-  if (!state.keywords.length || (state.settings?.keywords_version || 1) < KEYWORDS_VERSION) await loadDefaultKeywords();
+  if ((state.settings?.keywords_version || 0) < KEYWORDS_VERSION) await loadDefaultKeywords(); // 키워드를 모두 지워도 되살리지 않음
   compute();
 }
 function compute() {
@@ -1969,23 +1969,15 @@ const TOPIC_QUERIES = [
   "벌점 건설사", "제재 건설사", "제재 엔지니어링", "하도급 과징금", "공공입찰 제한", "국토교통부 처분",
   "중대재해 건설", "중대재해처벌법 기소", "건설현장 사망사고", "산업재해 건설사", "부실시공 건설사",
 ];
-// 리스크 키워드: 등급별 3칸
+// 리스크 키워드: 기본(고정) + 추가(직접 입력). 둘 다 매일 검색, AI 판정 참고. 등급은 AI가 기사 내용으로 정함
 function renderKeywords() {
   $("#kwFixedN").textContent = TOPIC_QUERIES.length;
   $("#kwFixed").innerHTML = TOPIC_QUERIES.map((q) => `<span class="kchip kfix">${esc(q)}</span>`).join("");
-  $("#kwCount").textContent = state.keywords.length;
-  const by = { red: [], orange: [], yellow: [] };
-  [...state.keywords].sort((a, b) => (b.use_in_query || 0) - (a.use_in_query || 0) || a.word.localeCompare(b.word)).forEach((k) => (by[k.level] || by.yellow).push(k));
-  $("#kwList").innerHTML = ["red", "orange", "yellow"].map((lv) => `<div class="kw-col ${lv}">
-    <div class="kw-col-head">${badge(lv)}<span class="kw-desc">${LEVEL_SHORT[lv]}</span><span class="n">${by[lv].length}</span></div>
-    <div class="kw-chips">${by[lv].map((k) => `<span class="kchip ${k.use_in_query ? "q" : ""}"><button class="kq" data-kq="${k.id}" title="${k.use_in_query ? "매일 검색어로 쓰는 중 — 누르면 판정 기준으로만" : "누르면 매일 뉴스 검색어로도 사용 (★)"}">${k.use_in_query ? "★" : "☆"}</button><span class="w">${esc(k.word)}</span>${k.lang && k.lang !== "ko" ? `<small>${esc(k.lang.toUpperCase())}</small>` : ""}<button class="kx" data-del-kw="${k.id}" title="삭제">✕</button></span>`).join("") || `<span class="muted small">없음</span>`}</div>
-  </div>`).join("");
+  const user = [...state.keywords].sort((a, b) => a.word.localeCompare(b.word));
+  $("#kwCount").textContent = TOPIC_QUERIES.length + user.length;
+  $("#kwCount2").textContent = user.length;
+  $("#kwList").innerHTML = user.map((k) => `<span class="kchip"><span class="w">${esc(k.word)}</span><button class="kx" data-del-kw="${k.id}" title="삭제">✕</button></span>`).join("") || `<span class="muted small">없음</span>`;
   $$("[data-del-kw]").forEach((b) => b.onclick = async () => { await deleteDoc(doc(db, "keywords", b.dataset.delKw)); state.keywords = state.keywords.filter((k) => k.id !== b.dataset.delKw); renderKeywords(); });
-  $$("[data-kq]").forEach((b) => b.onclick = async () => {
-    const k = state.keywords.find((x) => x.id === b.dataset.kq); if (!k) return;
-    k.use_in_query = k.use_in_query ? 0 : 1;
-    await updateDoc(doc(db, "keywords", k.id), { use_in_query: k.use_in_query }); renderKeywords();
-  });
 }
 // 고급: API 연결 상태 (마지막 스캔 기준)
 function renderConnections() {
@@ -2059,30 +2051,22 @@ $("#btnPreview").onclick = async () => {
   await loadReportPreview();
 };
 
-const DEFAULT_KEYWORDS = [
-  ["부정당", "red", "ko", 1], ["입찰참가자격", "red", "ko", 0], ["참가자격제한", "red", "ko", 0], ["입찰참가제한", "red", "ko", 0], ["입찰제한", "red", "ko", 0],
-  ["입찰 참가 제한", "red", "ko", 0], ["영업정지", "red", "ko", 0], ["회생절차", "orange", "ko", 0], ["법정관리", "orange", "ko", 0], ["부도", "orange", "ko", 0],
-  ["담합", "orange", "ko", 1], ["과징금", "orange", "ko", 1], ["압수수색", "orange", "ko", 1], ["기소", "orange", "ko", 0], ["구속", "orange", "ko", 0],
-  ["뇌물", "orange", "ko", 1], ["횡령", "orange", "ko", 1], ["배임", "orange", "ko", 0], ["허위", "orange", "ko", 0], ["공정위", "orange", "ko", 0], ["제재", "orange", "ko", 1],
-  ["등록말소", "orange", "ko", 0],
-  ["의혹", "yellow", "ko", 0], ["고발", "yellow", "ko", 0], ["벌점", "yellow", "ko", 0], ["시정명령", "yellow", "ko", 0], ["중대재해", "yellow", "ko", 0], ["부실시공", "yellow", "ko", 0], ["소송", "yellow", "ko", 0], ["재해", "yellow", "ko", 0], ["위반", "yellow", "ko", 0],
-  ["debar", "red", "en", 0], ["sanction", "orange", "en", 0], ["bribery", "orange", "en", 0], ["corruption", "orange", "en", 0], ["fraud", "orange", "en", 0],
-  ["collusion", "orange", "en", 0], ["bid rigging", "orange", "en", 0], ["korupsi", "orange", "id", 0], ["tersangka", "orange", "id", 0], ["suap", "orange", "id", 0],
-];
-const KEYWORDS_VERSION = 4; // 3: 팀 매뉴얼 언론보도 키워드(재해·위반) 추가, 4: 부도·회생절차·법정관리 → 경고
+// 추가 키워드 기본값 (v5: ★·등급 칸 없앰 — 기본 키워드와 겹치거나 너무 일반적인 단어·영문 단어는 정리)
+const DEFAULT_KEYWORDS = ["압수수색", "뇌물", "횡령", "배임", "기소", "회생절차", "법정관리", "시정명령"];
+// v4 까지의 기본 키워드 (v5 정리 때 이 단어들만 지우고, 사용자가 직접 넣은 단어는 남김)
+const OLD_DEFAULT_WORDS = new Set(["부정당", "입찰참가자격", "참가자격제한", "입찰참가제한", "입찰제한", "입찰 참가 제한", "영업정지", "회생절차", "법정관리", "부도", "담합", "과징금", "압수수색", "기소", "구속", "뇌물", "횡령", "배임", "허위", "공정위", "제재", "등록말소", "의혹", "고발", "벌점", "시정명령", "중대재해", "부실시공", "소송", "재해", "위반", "debar", "sanction", "bribery", "corruption", "fraud", "collusion", "bid rigging", "korupsi", "tersangka", "suap"]);
+const KEYWORDS_VERSION = 5;
 async function loadDefaultKeywords() {
-  // 처음이면 전체, 이미 있으면 새로 추가된 기본 키워드만 1회 보탬 (사용자가 지운 키워드는 되살리지 않음)
-  const have = new Set(state.keywords.map((k) => k.word));
-  const batch = writeBatch(db);
-  for (const [word, level, lang, q] of DEFAULT_KEYWORDS) {
-    if (have.has(word)) continue;
-    const ref = doc(collection(db, "keywords"));
-    const data = { word, level, lang, use_in_query: q };
-    batch.set(ref, data); state.keywords.push({ id: ref.id, ...data });
+  const batch = writeBatch(db), ver = state.settings?.keywords_version || 0;
+  if (ver > 0 && ver < 5) { // 예전 기본 키워드 정리 (직접 넣은 단어는 남김)
+    for (const k of state.keywords) if (OLD_DEFAULT_WORDS.has(k.word) && !DEFAULT_KEYWORDS.includes(k.word)) batch.delete(doc(db, "keywords", k.id));
+    state.keywords = state.keywords.filter((k) => !OLD_DEFAULT_WORDS.has(k.word) || DEFAULT_KEYWORDS.includes(k.word));
   }
-  // v4: 등급 기준 정비 — 부도·회생절차·법정관리는 제재가 아니므로 '위험' → '경고'
-  if ((state.settings?.keywords_version || 1) < 4) for (const k of state.keywords) {
-    if (["부도", "회생절차", "법정관리"].includes(k.word) && k.level === "red") { k.level = "orange"; batch.update(doc(db, "keywords", k.id), { level: "orange" }); }
+  const have = new Set(state.keywords.map((k) => k.word));
+  for (const word of DEFAULT_KEYWORDS) {
+    if (have.has(word)) continue;
+    const ref = doc(collection(db, "keywords")), data = { word, lang: "ko", level: "yellow", use_in_query: 1 };
+    batch.set(ref, data); state.keywords.push({ id: ref.id, ...data });
   }
   batch.set(doc(db, "meta", "settings"), { keywords_version: KEYWORDS_VERSION }, { merge: true });
   await batch.commit();
@@ -2093,7 +2077,8 @@ $("#kwForm").onsubmit = async (ev) => {
   const fd = new FormData(ev.target);
   const word = String(fd.get("word")).trim();
   if (!word || state.keywords.some((k) => k.word === word)) return toast("이미 있는 키워드입니다");
-  const data = { word, level: fd.get("level"), lang: fd.get("lang"), use_in_query: 0 };
+  if (TOPIC_QUERIES.includes(word)) return toast("기본 키워드에 이미 있습니다");
+  const data = { word, level: "yellow", lang: /[가-힣]/.test(word) ? "ko" : "en", use_in_query: 1 };
   const ref = await addDoc(collection(db, "keywords"), data);
   state.keywords.push({ id: ref.id, ...data });
   ev.target.reset(); renderKeywords();

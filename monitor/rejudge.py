@@ -30,7 +30,7 @@ def run_once() -> dict | None:
     targets = _targets(rel)
     companies = {c["id"]: c for c in store.all_docs("companies")}
     projects = {p["id"]: p for p in store.all_docs("projects")}
-    keywords = store.all_docs("keywords")
+    keywords = analyzer.build_keywords(store.all_docs("keywords"))
     by_co = defaultdict(list)
     for f in targets:
         if f.get("company_id") in companies:
