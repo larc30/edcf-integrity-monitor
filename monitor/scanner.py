@@ -129,7 +129,7 @@ def _queries(company: dict, keywords: list[dict], deep: bool) -> list[tuple[str,
     names = search_names(company)
     qs = []
     if "ko" in langs:
-        boosters = [k["word"] for k in keywords if k.get("use_in_query") and k.get("lang") == "ko"][:6] if deep else []
+        boosters = [k["word"] for k in keywords if k.get("user") and k.get("lang") == "ko"][:6] if deep else []
         for n in names[:2]:
             qs.append(("naver", "ko", f'"{n}"', "date"))
             qs.append(("google", "ko", f'"{n}"', "date"))
@@ -248,11 +248,11 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         {**e, "project_name": projects.get(e.get("project_id"), {}).get("name", "(삭제된 사업)")}
         for e in company.get("engagements") or []
     ]
-    # 집중 감시: 우리 사업에 연결된 업체(또는 직접 지정) → 매일 업체명 검색
-    # 기본 감시: 그 외 명단 업체 → 매일 제재 키워드 대조 + 조달청·MDB, 업체명 검색은 주 1회
+    # 집중 감시: 우리 사업에 연결된 업체(또는 직접 지정) → 매일 업체명 검색 + '업체명 + 추가 키워드' 검색
+    # 기본 감시: 그 외 명단 업체 → 매일 키워드 기사 대조 + 조달청·MDB, 업체명 검색은 주 1회
     focus = bool(engagements) or bool(company.get("watch"))
     weekly_due = force or _days_since(company.get("last_deep_at")) >= config.DEEP_EVERY_DAYS
-    deep = focus and weekly_due
+    deep = focus  # v33: 심층 검색을 주 1회 → 매일 (이미 본 기사는 건너뛰어 AI 비용은 거의 그대로)
     if focus:
         queries = _queries(company, keywords, deep)
     elif weekly_due:  # 기본 감시 업체도 주 1회 업체명 최신순 검색 (Google + 네이버)
@@ -460,7 +460,7 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
     analyzer.CLAUDE_ERROR = None
     analyzer.check()
     projects = {p["id"]: p for p in store.all_docs("projects")}
-    keywords = store.all_docs("keywords")
+    keywords = analyzer.build_keywords(store.all_docs("keywords"))  # 추가 키워드 + 예비 등급 기준
     companies = sorted(store.all_docs("companies"), key=lambda c: c["name"])
     if only_names:
         wanted = {n.strip() for n in only_names if n.strip()}
@@ -480,7 +480,7 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
     t_lists = time.time()
     with ThreadPoolExecutor(max_workers=2) as ex:
         f_lists = ex.submit(sanctions.load_lists)
-        stars = [k["word"] for k in keywords if k.get("use_in_query") and k.get("lang") == "ko"][:12]  # ★ 키워드도 매일 검색
+        stars = [k["word"] for k in keywords if k.get("user") and k.get("lang") == "ko"][:12]  # 추가 키워드도 매일 검색
         f_sweep = ex.submit(topic_sweep, errors, stars)
         entries, list_status = f_lists.result()
         sweep_articles, sweep_engines = f_sweep.result()

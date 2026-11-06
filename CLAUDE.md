@@ -20,8 +20,8 @@ keywords{word,level,lang,use_in_query} / recipients{email} / requests{task,compa
 meta/status, meta/progress, meta/settings{relay_url,keywords_version}, meta/report_preview / runs
 
 ## 스캔 로직 (monitor/scanner.py)
-- 제재 키워드 검색(TOPIC_QUERIES 18개, 인턴 코랩 QUERIES 기반) → 기사를 전체 명단과 대조(match_sweep).
-- 집중 감시(사업 연결 또는 watch=true): 매일 업체명 검색 + 7일마다 '업체명+리스크키워드' 심층. 기본 감시(명단만): 키워드 대조·MDB·조달청 매일(v32, 조달청 3일 → 매일), 업체명 검색 주 1회.
+- 제재 키워드 검색(TOPIC_QUERIES 23개 + 설정의 추가 키워드, 인턴 코랩 QUERIES 기반) → 기사를 전체 명단과 대조(match_sweep).
+- 집중 감시(사업 연결 또는 watch=true): 매일 업체명 검색 + 매일 '업체명+추가 키워드' 심층(v34, 7일 → 매일). 기본 감시(명단만): 키워드 대조·MDB·조달청 매일(v32, 조달청 3일 → 매일), 업체명 검색 주 1회.
 - 업체명 일치(textutil.name_matches): 4자 이상 포함 일치, 3자 이하 독립 단어만, 2자 이하는 업종 문맥 단어 필요, KTX/KT&G 제외. 오탐 기사 자동 '관련 없음' 정리.
 - 조달청: 나라장터 사용자정보 서비스(data.go.kr 15129466) getUnptRsttCorpInfo02, 사업자번호(inqryDiv=1)로 '현재 유효' 제재만. 업체명→사업자번호 조회 없음.
 - 사업자번호·영문명: DART corpCode(약 10만 개, 비상장 포함·공시대상 위주) 정확 일치 1건일 때만 자동, 나라장터 기본정보로 영문명 보강. 없으면 수기 입력.
@@ -113,6 +113,7 @@ meta/status, meta/progress, meta/settings{relay_url,keywords_version}, meta/repo
 - (v31, 11-05 14시) 재판정 실행(monitor/rejudge.py, meta/settings.rejudge_version=1 이면 끝): 대상 180건·28곳 → 161건 갱신(위험→경고 63, 위험→주의·관련없음 9, 위험 유지 4), 19건은 AI 응답 누락으로 다음 daily/scan 때 자동 재시도(rejudged_at 있는 건 제외). 결과 업체 등급 위험 18→7·경고 12→16·주의 51→58, 규칙 판정 0. 같이 고친 것: analyzer 프로필에서 사업 연결 stage 없으면 KeyError → 규칙 판정으로 넘어가던 버그, report._eng_text 도 같은 KeyError(메일 중단 위험), Claude SDK 로그(httpx2) 끔. 사업자번호 88곳은 사용자가 실제 운영 때 채우기로 함. 해커톤 방식은 규칙을 들은 뒤 결정.
 - (v32, 11-06) 조달청 조회를 기본 감시 업체도 매일로(3일 건너뛰기 제거, 사용자 요청). 시스템 이름 'EDCF RADAR'(Risk Alert & Debarment Auto-Reporter)로 결정 — 발표 자료(https://claude.ai/artifact/P8sKcUGGNPhx8tiRM22g61)와 대시보드(탭 제목·로그인·로고)·메일 제목/머리·PDF 보고서·데모 메일·README 모두 'EDCF RADAR'로 변경. 11/5 이전 공개 실행 로그 삭제는 다음 주로 미룸.
 - (v33, 11-06) 설정 리스크 키워드 카드에 '기본 검색어'(고정 23개, 보기만) 표시 — assets/app.js TOPIC_QUERIES ↔ monitor/scanner.py TOPIC_QUERIES 같은 목록 유지. 설명: 매일 뉴스 검색어 = 기본 검색어 + ★, ★ 없는 단어는 판정 기준만. 데모 데이터(demo/data.js)를 실제 운영 규모로: 업체 216 · 사업 9(실제 수원국 + 지어낸 사업명) · 업체 등급 위험 7 · 경고 16 · 주의 57 · EXIMIIS 13건, 업체명은 '가나건설' 대신 실제처럼 보이는 지어낸 이름(서마루엔지니어링·도레온건설 등, 실존 업체와 우연히 같을 가능성은 확인 못 함). 어제 이전 기록은 reported_at 처리(메일 신규 6건). demo/mail.js 는 tools/demo 스크립트로 다시 만듦(firebase-admin 필요). 사용자 결정: 발표 때는 실제 대시보드를 잠깐 보여주고(B), 데모는 가상 이름 + 실제 규모(C).
+- (v34, 11-06 사용자 결정) 키워드 구조 단순화: 설정 = 기본 키워드(고정 TOPIC_QUERIES 23, 보기만) + 추가 키워드(직접 입력·삭제). ★·위험/경고/주의 칸 제거 — 등급은 AI가 기사 내용으로 판정, 키워드는 검색어 + AI 참고용. 추가 키워드는 모두 매일 검색(topic_sweep extra, 최대 12)·집중 감시 업체 '업체명+추가 키워드'(앞 6개). AI를 못 쓸 때의 예비 등급 기준은 analyzer.RULE_KEYWORDS(코드, 화면에 없음), 추가 키워드가 거기 없으면 주의. analyzer.build_keywords(docs) 가 추가 키워드(user=True)+예비 기준을 합쳐 scanner·rejudge 에 전달. app.js KEYWORDS_VERSION 5: 첫 로그인 때 예전 기본 키워드 41개 중 새 기본 8개(압수수색·뇌물·횡령·배임·기소·회생절차·법정관리·시정명령) 외는 삭제(사용자가 직접 넣은 단어는 남김), 키워드를 다 지워도 되살리지 않음. 집중 감시 심층 검색을 매일로(업체당 검색 약 9회).
 - 해커톤 재구현 키트: docs/HACKATHON.md (A안 코드 가져가기 프롬프트 / B안 마스터 프롬프트 + 단계별 9개 + 시행착오 결정 표).
 - 설계도(사용자용 비공개 Artifact): https://claude.ai/artifact/JtxkBSsA5KA4Z2b57Nd8tU — 전체 구조·하루 일정·검사 순서·등급 기준·결과 흐름·노동법 같은 새 검사 붙이는 방법. 구조가 바뀌면 Artifact read 로 원본을 받아 고친 뒤 같은 URL 로 다시 게시.
 
