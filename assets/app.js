@@ -710,7 +710,7 @@ tr { break-inside: avoid; }
 .empty { border: 1px dashed #E3E7EF; border-radius: 10px; padding: 14px; text-align: center; color: #0D9488; }
 .ft { margin-top: 18px; padding-top: 10px; border-top: 1px solid #E3E7EF; font-size: 10.5px; color: #6B7690; }
 </style></head><body>
-<div class="hd"><div class="brand"><span class="mk">◎</span>EDCF 부정당업자 자동감지 시스템</div>
+<div class="hd"><div class="brand"><span class="mk">◎</span>EDCF RADAR · 업체 리스크 자동감지</div>
   <div class="eb">RISK REPORT · ${esc(now.slice(0, 10).replace(/-/g, "."))}</div>
   <h1>EDCF <span>업체 리스크 보고서</span></h1>
   <div class="meta">범위 ${esc(scopeL)} (업체 ${cs.length}곳 · 사업 ${ps.length}개) · 이슈 ${esc(periodL)}${done ? " · 확인 완료 포함" : ""} · 마지막 스캔 ${esc((state.status.last_scan_at || "-").slice(0, 16))} · 작성 ${esc(now.slice(0, 16))} ${esc(me().split("@")[0])}</div></div>
