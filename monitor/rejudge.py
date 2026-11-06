@@ -36,7 +36,7 @@ def run_once() -> dict | None:
         if f.get("company_id") in companies:
             by_co[f["company_id"]].append(f)
 
-    moves, patches, failed = Counter(), {}, 0
+    moves, patches, failed, errors = Counter(), {}, 0, []
     for cid, items in by_co.items():
         c = companies[cid]
         engs = [{**e, "project_name": projects.get(e.get("project_id"), {}).get("name", "(삭제된 사업)")} for e in c.get("engagements") or []]
@@ -50,8 +50,19 @@ def run_once() -> dict | None:
         judged, used = analyzer.analyze(c, engs, arts, keywords, feedback)
         if used != "claude":  # 규칙 판정으로 덮어쓰지 않음 → 다음 실행 때 다시 시도
             failed += len(items)
+            errors.append(f"{c.get('name')} / AI 재판정: {(analyzer.CLAUDE_ERROR or 'AI 응답 오류')[:150]} ({len(items)}건)")
             continue
         by_idx = {j["idx"]: j for j in judged}
+        miss = [i for i in range(len(items)) if i not in by_idx]
+        if miss:  # AI가 일부 기사에 답을 빠뜨리면 그 기사만 한 번 더 물어봄
+            again, used2 = analyzer.analyze(c, engs, [arts[i] for i in miss], keywords, feedback)
+            if used2 == "claude":
+                for j in again:
+                    if 0 <= j["idx"] < len(miss):
+                        by_idx[miss[j["idx"]]] = {**j, "idx": miss[j["idx"]]}
+            left = sum(1 for i in miss if i not in by_idx)
+            if left:
+                errors.append(f"{c.get('name')} / AI 재판정: AI가 일부 기사에 판정을 주지 않음 — 예전 등급 유지")
         for i, f in enumerate(items):
             j = by_idx.get(i)
             if not j:
@@ -68,8 +79,14 @@ def run_once() -> dict | None:
             patches[f["id"]] = p
     if patches:
         store.update_many("findings", patches)
-    res = {"targets": len(targets), "companies": len(by_co), "updated": len(patches), "failed": failed, "moves": dict(moves)}
-    if not failed:
-        store.update("meta", "settings", {"rejudge_version": REJUDGE_VERSION, "rejudged_at": store.now_str()})
-    store.log_run("rejudge", not failed, res)
+    tries = int(settings.get("rejudge_tries") or 0) + (1 if failed else 0)
+    res = {"targets": len(targets), "companies": len(by_co), "updated": len(patches), "failed": failed, "moves": dict(moves), "tries": tries}
+    if not failed or tries >= 3:  # 다 됐거나 3번 시도해도 안 되는 기사는 예전 판정 그대로 두고 끝냄 (매일 오류가 쌓이지 않게)
+        store.update("meta", "settings", {"rejudge_version": REJUDGE_VERSION, "rejudged_at": store.now_str(), "rejudge_tries": tries})
+        if failed:
+            errors.append(f" / 재판정 마침: 3번 시도해도 판정을 못 받은 {failed}건은 예전 등급 그대로 둠")
+    else:
+        store.update("meta", "settings", {"rejudge_tries": tries})
+    # 업체 이름이 들어간 오류 내용은 Firestore 실행 기록에만 (공개 로그에는 건수만 — run.py 가 res 를 출력)
+    store.log_run("rejudge", not failed, {**res, "errors": errors[:50]})
     return res

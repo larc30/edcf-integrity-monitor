@@ -2007,7 +2007,8 @@ function runSummary(r) {
   const d = r.detail || {}, errs = Array.isArray(d.errors) ? d.errors.length : d.errors || 0;
   const parts = r.kind === "scan" ? [d.companies != null && `업체 ${d.companies}곳`, d.fetched != null && `기사 ${Number(d.fetched).toLocaleString()}건`, d.new_findings != null && `새 이슈 ${d.new_findings}건`, d.seconds != null && `${Math.round(d.seconds)}초`]
     : r.kind === "report" ? [d.error ? "발송 실패" : d.items != null && `이슈 ${d.items}건`, d.to && `받는 사람 ${[].concat(d.to).length}명`, d.test && "테스트"]
-    : r.kind === "dart" ? [d.count != null && `기업 ${Number(d.count).toLocaleString()}곳`] : [];
+    : r.kind === "dart" ? [d.count != null && `기업 ${Number(d.count).toLocaleString()}곳`]
+    : r.kind === "rejudge" ? [d.targets != null && `대상 ${d.targets}건`, d.updated != null && `갱신 ${d.updated}건`, d.failed ? `못 받음 ${d.failed}건` : ""] : [];
   return [...parts.filter(Boolean), errs ? `오류 ${errs}건` : ""].filter(Boolean).join(" · ");
 }
 // 오류 문장 → 출처·내용별로 묶기 ("업체 / 조달청 부정당제재: Read timed out" → 조달청 부정당제재 · 응답 지연 · 업체 목록)
@@ -2026,12 +2027,16 @@ const errHint = (msg) => /timed? ?out|timeout|시간 초과/i.test(msg) ? "응�
   : /429|too many|limit|한도|quota/i.test(msg) ? "하루 호출 한도를 넘음 — 다음 날 자동으로 다시 확인합니다"
   : /401|403|unauthor|forbidden|key|인증/i.test(msg) ? "키(인증) 문제 — GitHub Secrets의 키를 확인하세요"
   : /credit|balance/i.test(msg) ? "API 잔액 부족 — Anthropic Console에서 충전"
-  : /50[0-9]|bad gateway|unavailable/i.test(msg) ? "상대 서버 일시 오류 — 다음 스캔 때 다시 확인합니다" : "";
+  : /50[0-9]|bad gateway|unavailable/i.test(msg) ? "상대 서버 일시 오류 — 다음 스캔 때 다시 확인합니다"
+  : /판정을 주지 않음|예전 등급/.test(msg) ? "등급이 바뀌지 않았을 뿐 이슈는 그대로 보입니다 — 따로 할 일은 없습니다" : "";
 function renderAdvanced() {
-  const KIND = { scan: "스캔", report: "메일 발송", dart: "DART 갱신" };
+  const KIND = { scan: "스캔", report: "메일 발송", dart: "DART 갱신", rejudge: "재판정(새 등급 기준)" };
   renderConnections();
   $("#runList").innerHTML = state.runs.slice(0, 8).map((r) => {
-    const d = r.detail || {}, errs = Array.isArray(d.errors) ? d.errors : d.error ? [d.error] : [];
+    const d = r.detail || {};
+    let errs = Array.isArray(d.errors) ? d.errors : d.error ? [d.error] : [];
+    // 예전 재판정 기록은 오류 내용이 없음 → 무슨 뜻인지 설명으로 대신
+    if (!r.ok && !errs.length && r.kind === "rejudge") errs = [` / AI 재판정: AI가 기사 ${d.failed || 0}건에 판정을 주지 않음 — 그 기사는 예전 등급 그대로 두고 다음 아침에 다시 시도합니다 (3번까지)`];
     const head = `<span class="badge ${r.ok ? "none" : "orange"}">${r.ok ? "정상" : "오류"}</span><b>${esc(KIND[r.kind] || r.kind)}</b><span class="t">${esc(String(r.at || "").slice(5, 16))}</span><span class="s">${esc(runSummary(r))}</span>`;
     if (!errs.length) return `<div class="run">${head}</div>`;
     return `<details class="run run-err"><summary>${head}<span class="go">오류 보기</span></summary><div class="err-list">${errGroups(errs).map((g) => {
