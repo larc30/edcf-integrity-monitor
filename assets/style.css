@@ -739,7 +739,8 @@ button { font-size: inherit; }
 .kw-fixed-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; font-size: var(--fs-sm); }
 .kchip.kfix { padding: 2px 8px; }
 .kw-user .kw-chips { margin-bottom: 10px; }
-.kw-user .kw-form { margin: 0; }
+.kw-user .kw-form { margin: 0; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; }
+.kw-user .kw-form .btn { min-width: 88px; justify-content: center; }
 .kchip { gap: 2px; padding: 2px 4px; font-size: var(--fs-sm); background: var(--panel); }
 .kchip .w { padding: 0 2px; font-weight: 650; }
 .kchip small { font-size: var(--fs-xs); color: var(--muted); margin-left: 2px; }

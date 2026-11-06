@@ -133,8 +133,8 @@ export function seed() {
     runs: {
       run1: { kind: "scan", at: kst(now - 2 * 3600e3), at_ms: now - 2 * 3600e3, ok: true, detail: { companies: 216, fetched: 2930, new_findings: 6, seconds: 61.8 } },
       run0: { kind: "scan", at: kst(now - 26 * 3600e3), at_ms: now - 26 * 3600e3, ok: false, detail: { companies: 216, fetched: 2870, new_findings: 4, seconds: 64.3, errors: [
-        "조달청 부정당제재: (데모 예시) Read timed out", "조달청 부정당제재: (데모 예시) Read timed out",
-        "Naver 검색: (데모 예시) 429 Too Many Requests"] } },
+        "새벼리측량 / 조달청 부정당제재: (데모 예시) Read timed out", "윤솔정보통신 / 조달청 부정당제재: (데모 예시) Read timed out",
+        "해람테크 / Naver '해람테크': (데모 예시) 429 Too Many Requests"] } },
     },
     requests: {},
     edcf_sanctions: Object.fromEntries([
