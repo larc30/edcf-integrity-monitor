@@ -141,7 +141,7 @@ function compute() {
     c.mine = !!c.watch || c.engagements.some((e) => { const p = state.projects.find((x) => x.id === e.project_id); return p && isMine(p); });
     const fs = state.findings.filter((f) => f.company_id === c.id && f.status !== "dismissed");
     c.risk = fs.reduce((m, f) => (LV[f.level] || 0) > (LV[m] || 0) ? f.level : m, "none");
-    c.open = groupFindings(fs.filter((f) => f.status === "new")).length; // 같은 이슈는 1건
+    c.open = groupFindings(fs.filter((f) => f.status === "new" && (f.level === "red" || f.level === "orange"))).length; // 확인할 일 = 위험·경고 (같은 이슈는 1건)
     c.total = fs.length;
   }
 }
@@ -428,7 +428,10 @@ function renderHome() {
 
   // ① 리스크 업체: 위험·경고·주의를 한 판에 (숫자 · 해당 업체 · 등급 뜻)
   const open = state.findings.filter((f) => f.status === "new" && ids.has(f.company_id));
-  const openG = groupFindings(open); // 같은 기사·같은 사건은 한 건으로
+  // 확인할 일은 위험·경고만 — 주의는 '참고 이력'으로 따로 모음 (처리하지 않아도 됨)
+  const isAct = (f) => f.level === "red" || f.level === "orange";
+  const openG = groupFindings(open.filter(isAct)); // 같은 기사·같은 사건은 한 건으로
+  const refG = groupFindings(open.filter((f) => !isAct(f)));
   const byLv = { red: [], orange: [], yellow: [], none: [] };
   cs.forEach((c) => byLv[c.risk].push(c));
   const riskyN = byLv.red.length + byLv.orange.length + byLv.yellow.length;
@@ -472,6 +475,16 @@ function renderHome() {
   else $("#feed").innerHTML = !sc ? `<div class="empty">스캔 후 이곳에 이슈가 출처와 함께 표시됩니다.</div>`
     : openG.length ? `<div class="ok-box">이 조건에는 확인할 이슈가 없습니다 <span class="muted small">(전체 ${openG.length}건)</span></div>`
     : `<div class="ok-box">확인이 필요한 이슈가 없습니다</div>`;
+  if (period === "old" && shown.length) { // 1년 지난 기사: 이미 아는 과거 이력이면 한 번에 정리
+    $("#feed").insertAdjacentHTML("afterbegin", `<div class="bulk-bar"><span>1년 지난 기사 <b>${shown.length}건</b> — 이미 아는 과거 이력이면 한 번에 정리할 수 있습니다</span><button class="btn sm" id="bulkOld">모두 확인했음</button></div>`);
+    $("#bulkOld").onclick = () => bulkReview(shown);
+  }
+  // 참고 이력(주의): 처리하지 않아도 되는 목록 — 펼칠 때만 그림
+  const refW = $("#refWrap");
+  refW.classList.toggle("hidden", !refG.length);
+  $("#refN").textContent = refG.length;
+  refW.ontoggle = () => { if (!refW.open) return; renderGroups(refG.slice(0, 100), $("#feedRef")); if (refG.length > 100) $("#feedRef").insertAdjacentHTML("beforeend", `<div class="muted small">앞의 100건만 보여줍니다 (전체 ${refG.length}건 · 업체 상세에서 모두 볼 수 있음)</div>`); };
+  if (refW.open) refW.ontoggle();
   const done = state.findings.filter((f) => f.status === "reviewed" && ids.has(f.company_id)).sort(byLevelDate);
   $("#doneWrap").classList.toggle("hidden", !done.length);
   if (done.length) renderFeed(done, $("#feedDone"));
@@ -506,8 +519,17 @@ function projectRow(p) {
   return `<div class="pj" data-pid="${p.id}">
     <div class="pj-top"><span class="pj-name" title="${esc(p.name)}">${esc(p.name)}</span>${p.country ? `<span class="pj-ctry">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</div>
     ${total ? `<div class="pj-dist"><div class="pj-bar">${bar}</div><div class="pj-sum">${sum}</div></div>` : `<div class="pj-dist"><div class="pj-sum">${sum}</div></div>`}
-    <div class="pcos">${rows.map(({ c, e }) => `<span class="cchip ${sc ? c.risk : ""}" data-cid="${c.id}" title="${esc(e.role)}${e.stage && e.stage !== "계약" ? " · " + esc(e.stage) : ""}"><span class="dot ${sc ? c.risk : ""}"></span>${esc(c.name)}<small>${ROLE_ABBR[e.role] || esc(e.role)}${e.rank ? " " + e.rank + "순위" : ""}</small></span>`).join("")}</div>
+    <div class="pj-roles">${pjRoles(rows, sc)}</div>
   </div>`;
+}
+// 사업 카드 안 업체: 역할(F/S → 컨설턴트 → 본구매)별로 한 줄씩 — 역할이 섞여 보이지 않게
+function pjRoles(rows, sc) {
+  const roles = [...ROLE_ORDER, ...new Set(rows.map((r) => r.e.role).filter((r) => !ROLE_ORDER.includes(r)))];
+  return roles.map((role) => {
+    const l = rows.filter((r) => r.e.role === role);
+    if (!l.length) return "";
+    return `<div class="pj-role">${roleTag(role || "기타")}<div class="pcos">${l.map(({ c, e }) => `<span class="cchip ${sc ? c.risk : ""}" data-cid="${c.id}" title="${esc(c.name)}${sc ? " · " + LEVEL[c.risk] : ""}${e.stage && e.stage !== "계약" ? " · " + esc(e.stage) : ""}"><span class="dot ${sc ? c.risk : ""}"></span>${esc(c.name)}${e.rank ? `<small>${e.rank}순위</small>` : e.stage && e.stage !== "계약" ? `<small>${esc(e.stage)}</small>` : ""}</span>`).join("")}</div></div>`;
+  }).join("");
 }
 function showDataCheck(cs, cv, gapN) {
   const row = (ok, k, d) => `<div class="chk-row ${ok}"><span class="ic">${{ ok: "✓", warn: "!", bad: "✕", na: "–" }[ok]}</span><div><b>${k}</b><div class="d">${d}</div></div></div>`;
@@ -603,6 +625,16 @@ function findingHtml(g, showCompany = true) {
         <span class="muted">${esc(x.source_name || "")}${x.published_at ? " · " + esc(x.published_at) : ""}</span></div>`).join("")}</div></details>` : ""}
   </div>`;
 }
+// 과거 이력 일괄 정리 ('확인했음'으로 — 등급은 그대로, AI 판정 예시에는 쓰지 않음)
+async function bulkReview(groups) {
+  const ids = groups.flatMap((g) => g.items.map((x) => x.id));
+  if (!ids.length || !confirm(`1년 지난 기사 ${groups.length}건(기록 ${ids.length}개)을 '확인했음'으로 처리할까요?\n등급은 그대로 남고, '확인 완료한 이슈'에서 되돌릴 수 있습니다.`)) return;
+  const patch = { status: "reviewed", reviewed_by: auth.currentUser.email, reviewed_at: nowStr(), review_note: "과거 이력 일괄 정리" };
+  for (let i = 0; i < ids.length; i += 400) { const b = writeBatch(db); ids.slice(i, i + 400).forEach((id) => b.update(doc(db, "findings", id), patch)); await b.commit(); }
+  ids.forEach((id) => Object.assign(state.findings.find((f) => f.id === id) || {}, patch));
+  toast(`1년 지난 기사 ${groups.length}건을 확인 처리했습니다`);
+  rerender();
+}
 // 이슈 목록: 같은 내용은 한 줄로 묶어서 표시
 function renderFeed(list, el, showCompany = true) { renderGroups(groupFindings(list), el, showCompany); }
 function renderGroups(groups, el, showCompany = true) {
@@ -626,12 +658,13 @@ function renderGroups(groups, el, showCompany = true) {
 const REPORT_PERIODS = [["all", "전체 기간"], ["30", "최근 30일"], ["7", "최근 7일"]];
 function openReport() {
   modal(`<h2>보고서 내려받기</h2>
-    <p class="muted small">고른 범위의 리스크 업체·사업 현황·확인할 이슈를 A4 보고서로 만듭니다. 인쇄 창의 <b>대상</b>에서 <b>PDF로 저장</b>을 고르세요.</p>
+    <p class="muted small">기본은 <b>한 장 요약</b>(위험·경고 이슈 + 사업별 현황)입니다. 인쇄 창의 <b>대상</b>에서 <b>PDF로 저장</b>을 고르세요.</p>
     <form id="rpForm" class="form" autocomplete="off">
       <div class="row">
         <label>범위<select name="scope"><option value="mine" ${scope === "mine" ? "selected" : ""}>내 담당 사업</option><option value="all" ${scope === "all" ? "selected" : ""}>EDCF 전체</option></select></label>
         <label>이슈 기간<select name="period">${REPORT_PERIODS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select></label>
       </div>
+      <label class="check"><input type="checkbox" name="detail"> 자세한 목록 포함 (이슈 전체 · 리스크 업체 · 사업별 업체)</label>
       <label class="check"><input type="checkbox" name="done"> 확인 완료한 이슈도 포함</label>
       <div class="actions"><button class="btn primary">PDF로 저장</button></div>
     </form>`);
@@ -639,10 +672,10 @@ function openReport() {
     ev.preventDefault();
     const fd = Object.fromEntries(new FormData(ev.target));
     closeModal();
-    printReport(buildReport({ scope: fd.scope, period: fd.period, done: !!fd.done }));
+    printReport(buildReport({ scope: fd.scope, period: fd.period, done: !!fd.done, detail: !!fd.detail }));
   };
 }
-function buildReport({ scope: sc0, period, done }) {
+function buildReport({ scope: sc0, period, done, detail = false }) {
   const C = { red: ["#E11D48", "#FDE8EE", "위험"], orange: ["#EA580C", "#FDEDE3", "경고"], yellow: ["#A16207", "#FBF3DC", "주의"], none: ["#0D9488", "#E2F4F2", "정상"] };
   const bd = (lv) => { const [fg, bg, l] = C[lv || "none"] || C.none; return `<span class="bd" style="color:${fg};background:${bg}">● ${l}</span>`; };
   const ROLE_C = { "F/S": "#0E7490", 컨설턴트: "#1D4ED8", 본구매: "#A21CAF" };
@@ -678,6 +711,20 @@ function buildReport({ scope: sc0, period, done }) {
       ${more.length ? `<div class="dup">같은 내용 ${more.length}건 더: ${more.slice(0, 5).map((x) => esc(String(x.source_name || "").replace(/\s*\((Google News|Naver|네이버)\)$/i, "")) + (x.published_at ? " " + esc(x.published_at) : "")).join(" · ")}${more.length > 5 ? " 외" : ""}</div>` : ""}
     </div>`;
   };
+  // 한 장 요약 (기본): 위험·경고 이슈 한 줄씩 + 사업별 리스크 수
+  const hotG = groups.filter((g) => g.rep.level === "red" || g.rep.level === "orange"), yelN = groups.length - hotG.length;
+  const pStat = (p) => { const s = new Set(); state.companies.forEach((c) => { if (c.engagements.some((e) => e.project_id === p.id)) s.add(c); }); const k = { red: 0, orange: 0, yellow: 0 }; s.forEach((c) => { if (sc && k[c.risk] != null) k[c.risk]++; }); return { n: s.size, k }; };
+  const simpleBody = `<h2>확인할 이슈 · 위험·경고 <span class="mu">${hotG.length}건${yelN ? ` · 주의 ${yelN}건은 생략` : ""}</span></h2>
+${hotG.length ? `<table><tr><th style="width:10%">등급</th><th style="width:22%">업체</th><th>내용</th><th class="c" style="width:13%">날짜</th></tr>${hotG.slice(0, 20).map((g) => `<tr><td>${bd(g.rep.level)}</td><td><b>${esc(g.companies.map((c) => c.name).join(" · "))}</b></td><td>${esc(g.rep.summary || g.rep.title || "")}${g.rep.source_type !== "news" ? ` <span class="tg red">공식 명단</span>` : ""}</td><td class="c">${esc(g.rep.published_at || "-")}</td></tr>`).join("")}</table>${hotG.length > 20 ? `<div class="mu" style="margin-top:6px">외 ${hotG.length - 20}건은 대시보드 또는 '자세한 목록 포함'으로 확인</div>` : ""}` : `<div class="empty">해당 기간에 확인할 위험·경고 이슈가 없습니다</div>`}
+${ps.length ? `<h2>사업별 현황 <span class="mu">${ps.length}개</span></h2><table><tr><th>사업</th><th class="c" style="width:12%">업체</th><th class="c" style="width:28%">리스크</th></tr>${ps.map((p) => { const { n, k } = pStat(p); return `<tr><td><b>${esc(p.name)}</b>${p.country ? ` <span class="mu">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</td><td class="c">${n}곳</td><td class="c">${["red", "orange", "yellow"].map((lv) => k[lv] ? `<span style="color:${C[lv][0]};font-weight:700">${C[lv][2]} ${k[lv]}</span>` : "").filter(Boolean).join(" · ") || `<span style="color:${C.none[0]}">이상 없음</span>`}</td></tr>`; }).join("")}</table>` : ""}
+`;
+  const detailBody = `<h2>${done ? "이슈" : "확인할 이슈"} <span class="mu">${groups.length}건 · 등급 높은 순${groups.length > MAX ? ` · 앞의 ${MAX}건` : ""}</span></h2>
+${groups.length ? groups.slice(0, MAX).map(issue).join("") : `<div class="empty">해당 기간에 ${done ? "" : "확인할 "}이슈가 없습니다</div>`}
+<h2>리스크 업체 <span class="mu">${risky.length}곳 · 정상 ${cs.length - risky.length}곳은 생략</span></h2>
+${risky.length ? `<table><tr><th style="width:11%">등급</th><th style="width:24%">업체</th><th>참여 사업 · 역할</th><th class="c" style="width:10%">미확인</th></tr>
+${risky.map((c) => `<tr><td>${bd(c.risk)}</td><td><b>${esc(c.name)}</b>${c.name_en ? `<div class="mu">${esc(c.name_en)}</div>` : ""}</td><td>${engL(c)}</td><td class="c">${c.open}</td></tr>`).join("")}</table>` : `<div class="empty">${sc ? "리스크 업체가 없습니다" : "아직 스캔하지 않았습니다"}</div>`}
+${ps.length ? `<h2>사업별 현황 <span class="mu">${ps.length}개</span></h2><table><tr><th style="width:32%">사업</th><th>참여 업체 (역할 · 등급)</th><th class="c" style="width:18%">리스크</th></tr>${projRows}</table>` : ""}
+`;
   const title = `EDCF_리스크보고서_${sc0 === "mine" ? "내담당" : "전체"}_${now.slice(0, 10)}`;
   const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(title)}</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
@@ -714,13 +761,8 @@ tr { break-inside: avoid; }
   <div class="eb">RISK REPORT · ${esc(now.slice(0, 10).replace(/-/g, "."))}</div>
   <h1>EDCF <span>업체 리스크 보고서</span></h1>
   <div class="meta">범위 ${esc(scopeL)} (업체 ${cs.length}곳 · 사업 ${ps.length}개) · 이슈 ${esc(periodL)}${done ? " · 확인 완료 포함" : ""} · 마지막 스캔 ${esc((state.status.last_scan_at || "-").slice(0, 16))} · 작성 ${esc(now.slice(0, 16))} ${esc(me().split("@")[0])}</div></div>
-<div class="kpi"><div><small>위험 업체</small><b style="color:${C.red[0]}">${t.red}</b> <i>곳</i></div><div><small>경고 업체</small><b style="color:${C.orange[0]}">${t.orange}</b> <i>곳</i></div><div><small>주의 업체</small><b style="color:${C.yellow[0]}">${t.yellow}</b> <i>곳</i></div><div><small>${done ? "이슈" : "확인할 이슈"}</small><b style="color:#5B5BF0">${groups.length}</b> <i>건</i></div></div>
-<h2>${done ? "이슈" : "확인할 이슈"} <span class="mu">${groups.length}건 · 등급 높은 순${groups.length > MAX ? ` · 앞의 ${MAX}건` : ""}</span></h2>
-${groups.length ? groups.slice(0, MAX).map(issue).join("") : `<div class="empty">해당 기간에 ${done ? "" : "확인할 "}이슈가 없습니다</div>`}
-<h2>리스크 업체 <span class="mu">${risky.length}곳 · 정상 ${cs.length - risky.length}곳은 생략</span></h2>
-${risky.length ? `<table><tr><th style="width:11%">등급</th><th style="width:24%">업체</th><th>참여 사업 · 역할</th><th class="c" style="width:10%">미확인</th></tr>
-${risky.map((c) => `<tr><td>${bd(c.risk)}</td><td><b>${esc(c.name)}</b>${c.name_en ? `<div class="mu">${esc(c.name_en)}</div>` : ""}</td><td>${engL(c)}</td><td class="c">${c.open}</td></tr>`).join("")}</table>` : `<div class="empty">${sc ? "리스크 업체가 없습니다" : "아직 스캔하지 않았습니다"}</div>`}
-${ps.length ? `<h2>사업별 현황 <span class="mu">${ps.length}개</span></h2><table><tr><th style="width:32%">사업</th><th>참여 업체 (역할 · 등급)</th><th class="c" style="width:18%">리스크</th></tr>${projRows}</table>` : ""}
+<div class="kpi"><div><small>위험 업체</small><b style="color:${C.red[0]}">${t.red}</b> <i>곳</i></div><div><small>경고 업체</small><b style="color:${C.orange[0]}">${t.orange}</b> <i>곳</i></div><div><small>주의 업체</small><b style="color:${C.yellow[0]}">${t.yellow}</b> <i>곳</i></div><div><small>${done ? "이슈 · 위험·경고" : "확인할 이슈 · 위험·경고"}</small><b style="color:#5B5BF0">${hotG.length}</b> <i>건</i></div></div>
+${detail ? detailBody : simpleBody}
 <div class="ft">뉴스 기반 항목은 '제재 확정'이 아니라 '검토가 필요한 신호'입니다. 원문과 공식 자료(EXIMIIS, 나라장터, 각 MDB 제재 리스트)로 확인하시기 바랍니다.<br>데이터: EDCF 부정당업자(EXIMIIS) · 조달청 나라장터 · OpenSanctions(World Bank·ADB·AfDB·IDB·EBRD) · Google 뉴스 · 네이버 뉴스 · AI 판정(Claude)</div>
 </body></html>`;
   return { title, html };
@@ -1968,6 +2010,7 @@ const TOPIC_QUERIES = [
   "입찰 담합", "담합 과징금", "공정위 과징금 건설", "영업정지 건설사", "영업정지 엔지니어링", "등록말소 건설",
   "벌점 건설사", "제재 건설사", "제재 엔지니어링", "하도급 과징금", "공공입찰 제한", "국토교통부 처분",
   "중대재해 건설", "중대재해처벌법 기소", "건설현장 사망사고", "산업재해 건설사", "부실시공 건설사",
+  "입찰제한 집행정지", "부정당 집행정지",
 ];
 // 리스크 키워드: 기본(고정) + 추가(직접 입력). 둘 다 매일 검색, AI 판정 참고. 등급은 AI가 기사 내용으로 정함
 function renderKeywords() {

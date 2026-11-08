@@ -20,7 +20,7 @@ keywords{word,level,lang,use_in_query} / recipients{email} / requests{task,compa
 meta/status, meta/progress, meta/settings{relay_url,keywords_version}, meta/report_preview / runs
 
 ## 스캔 로직 (monitor/scanner.py)
-- 제재 키워드 검색(TOPIC_QUERIES 23개 + 설정의 추가 키워드, 인턴 코랩 QUERIES 기반) → 기사를 전체 명단과 대조(match_sweep).
+- 제재 키워드 검색(TOPIC_QUERIES 25개 + 설정의 추가 키워드, 인턴 코랩 QUERIES 기반) → 기사를 전체 명단과 대조(match_sweep).
 - 집중 감시(사업 연결 또는 watch=true): 매일 업체명 검색 + 매일 '업체명+추가 키워드' 심층(v34, 7일 → 매일). 기본 감시(명단만): 키워드 대조·MDB·조달청 매일(v32, 조달청 3일 → 매일), 업체명 검색 주 1회.
 - 업체명 일치(textutil.name_matches): 4자 이상 포함 일치, 3자 이하 독립 단어만, 2자 이하는 업종 문맥 단어 필요, KTX/KT&G 제외. 오탐 기사 자동 '관련 없음' 정리.
 - 조달청: 나라장터 사용자정보 서비스(data.go.kr 15129466) getUnptRsttCorpInfo02, 사업자번호(inqryDiv=1)로 '현재 유효' 제재만. 업체명→사업자번호 조회 없음.
@@ -116,6 +116,7 @@ meta/status, meta/progress, meta/settings{relay_url,keywords_version}, meta/repo
 - (v34, 11-06 사용자 결정) 키워드 구조 단순화: 설정 = 기본 키워드(고정 TOPIC_QUERIES 23, 보기만) + 추가 키워드(직접 입력·삭제). ★·위험/경고/주의 칸 제거 — 등급은 AI가 기사 내용으로 판정, 키워드는 검색어 + AI 참고용. 추가 키워드는 모두 매일 검색(topic_sweep extra, 최대 12)·집중 감시 업체 '업체명+추가 키워드'(앞 6개). AI를 못 쓸 때의 예비 등급 기준은 analyzer.RULE_KEYWORDS(코드, 화면에 없음), 추가 키워드가 거기 없으면 주의. analyzer.build_keywords(docs) 가 추가 키워드(user=True)+예비 기준을 합쳐 scanner·rejudge 에 전달. app.js KEYWORDS_VERSION 5: 첫 로그인 때 예전 기본 키워드 41개 중 새 기본 8개(압수수색·뇌물·횡령·배임·기소·회생절차·법정관리·시정명령) 외는 삭제(사용자가 직접 넣은 단어는 남김), 키워드를 다 지워도 되살리지 않음. 집중 감시 심층 검색을 매일로(업체당 검색 약 9회).
 - (v35, 11-06) 재판정(rejudge): AI가 빠뜨린 기사는 그 기사만 한 번 더 물어봄, 실패 이유를 runs.detail.errors 에 남김(업체명은 Firestore 에만, 공개 로그는 건수), meta/settings.rejudge_tries 3번 실패하면 예전 등급 유지로 끝냄(매일 오류 기록이 쌓이지 않게). 대시보드 고급 > 최근 실행: '재판정(새 등급 기준)' 이름·요약(대상·갱신·못 받음), 오류 내용 없는 예전 기록도 눌러서 설명. 추가 키워드 입력칸·버튼 정렬.
 - (v36, 11-06 사용자 질문: 나라장터 '제재'(1차) → '제재정지'(2차, 법원 집행정지)) pps.sanctions: 같은 부정당번호(R26UF00002196 형식, 없으면 같은 통보기관) 안에 정지·해제·취소 줄이 하나라도 있으면 그 제재 전체를 경고(확인 필요)로 — 예전엔 1차 '제재' 줄 때문에 위험으로 나올 수 있었음. 위험 요약에 '집행정지 여부 확인' 안내. scanner: 이미 저장된 pps- 기록도 매 조회 결과에 맞춰 등급·요약 갱신, 오늘 조회 안 되면(만료·해제) 주의(지난 이력)로. AI 판정 기준에도 '집행정지·효력정지면 red 아님 → orange' 추가. 실제 API가 차수별 줄을 주는지·필드 이름은 키가 없어 확인 못 함.
+- (v37, 11-08 팀 리뷰 반영) ① 대시보드 내 사업 카드: 업체를 역할(F/S·컨설턴트·본구매)별 줄로(pjRoles, roleTag), 범례 제거. ② '확인이 필요한 이슈' = 위험·경고만(c.open 도 위험·경고 기준), 주의는 접힌 '참고 이력 · 주의 N건 — 확인하지 않아도 됩니다'(#refWrap, 펼칠 때만 100건까지 그림). '과거 이력'(1년 지난 기사) 탭에 [모두 확인했음] 일괄 정리(bulkReview, review_note '과거 이력 일괄 정리' → AI 예시에서 제외). ③ 메일 간단히: 제목 '[EDCF RADAR] MM/DD 위험 N · 경고 N', 오늘 새 위험·경고만 한 줄씩(최대 15), 주의·30일 지난 기사는 건수만, 리스크 업체 표·사업별 현황 제거. PDF 보고서: 기본 한 장 요약(위험·경고 표 20건 + 사업별 리스크 수), '자세한 목록 포함' 체크 시 예전 전체 보고서. ④ 조달청 집행정지: TOPIC_QUERIES 에 '입찰제한 집행정지'·'부정당 집행정지'(25개), pps 기록에 rstt_end 저장, 저장된 pps 제재가 조회 안 될 때 기간이 남았으면 경고(pps_state missing_active, '집행정지·해제 가능성'), 끝났으면 주의(expired). 정지·해제 이력까지 주는 공공데이터 API 는 검색으로 못 찾음(15129466 은 현재 유효 제재만).
 - 해커톤 재구현 키트: docs/HACKATHON.md (A안 코드 가져가기 프롬프트 / B안 마스터 프롬프트 + 단계별 9개 + 시행착오 결정 표).
 - 설계도(사용자용 비공개 Artifact): https://claude.ai/artifact/JtxkBSsA5KA4Z2b57Nd8tU — 전체 구조·하루 일정·검사 순서·등급 기준·결과 흐름·노동법 같은 새 검사 붙이는 방법. 구조가 바뀌면 Artifact read 로 원본을 받아 고친 뒤 같은 URL 로 다시 게시.
 

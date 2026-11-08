@@ -7,6 +7,7 @@
 import hashlib
 import logging
 import threading
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
@@ -32,6 +33,8 @@ TOPIC_QUERIES = [  # assets/app.js TOPIC_QUERIES(설정 화면 '기본 검색어
     "하도급 과징금", "공공입찰 제한", "국토교통부 처분",
     # 중대재해·안전사고 (팀 매뉴얼 언론보도 키워드: 재해)
     "중대재해 건설", "중대재해처벌법 기소", "건설현장 사망사고", "산업재해 건설사", "부실시공 건설사",
+    # 집행정지: 조달청 API는 '현재 유효 제재'만 줘서 법원 집행정지로 멈춘 제재가 안 보임 → 뉴스로 보완
+    "입찰제한 집행정지", "부정당 집행정지",
 ]
 
 
@@ -330,7 +333,7 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
     fb_src = sorted(existing, key=lambda f: f.get("reviewed_at") or "", reverse=True)
     feedback = {
         "dismissed": [f.get("title", "")[:120] for f in fb_src if f.get("status") == "dismissed" and f.get("reviewed_by") != "자동 정리"][:12],
-        "confirmed": [f.get("title", "")[:120] for f in fb_src if f.get("status") == "reviewed"][:8],
+        "confirmed": [f.get("title", "")[:120] for f in fb_src if f.get("status") == "reviewed" and f.get("review_note") != "과거 이력 일괄 정리"][:8],
         # 같은 사건 판단용: 이 업체의 최근 이슈 (AI가 새 기사와 비교해 same_event_as 로 표시)
         "recent": [{"id": f["id"], "title": f.get("title", ""), "date": f.get("published_at") or "", "summary": f.get("summary") or ""}
                    for f in sorted((x for x in existing if x.get("relevant") and x.get("status") != "dismissed" and x.get("source_type") == "news"),
@@ -416,11 +419,16 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
             if not k.startswith("pps-"):
                 continue
             n = now_pps.get(k)
-            if n and (n["level"] != e.get("level") or n["summary"] != e.get("summary")):
-                fix[e["id"]] = {"level": n["level"], "summary": n["summary"], "snippet": n["snippet"], "pps_updated_at": store.now_str()}
-            elif not n and e.get("level") in ("red", "orange"):  # 오늘은 '현재 유효 제재'로 조회되지 않음 → 지난 이력
-                fix[e["id"]] = {"level": "yellow", "pps_updated_at": store.now_str(),
-                                "summary": (e.get("summary") or "") + " (이후 나라장터에서 현재 유효 제재로 조회되지 않음 — 만료·해제된 지난 이력)"}
+            if n and (n["level"] != e.get("level") or n["summary"] != e.get("summary") or e.get("pps_state")):
+                fix[e["id"]] = {"level": n["level"], "summary": n["summary"], "snippet": n["snippet"], "rstt_end": n.get("rstt_end"), "pps_state": None, "pps_updated_at": store.now_str()}
+            elif not n and e.get("pps_state") not in ("missing_active", "expired"):  # 오늘은 '현재 유효 제재'로 조회되지 않음
+                end = re.sub(r"\D", "", str(e.get("rstt_end") or (re.search(r"제재기간 \S* ~ (\S+)", e.get("snippet") or "") or [None, ""])[1]))[:8]
+                if len(end) == 8 and end >= store.now_kst().strftime("%Y%m%d"):  # 기간이 남았는데 사라짐 → 법원 집행정지·해제 가능성
+                    fix[e["id"]] = {"level": "orange", "pps_state": "missing_active", "pps_updated_at": store.now_str(),
+                                    "summary": "제재 기간이 남았는데 나라장터에서 '현재 유효 제재'로 조회되지 않습니다 — 법원 집행정지·해제 가능성. 나라장터 '부정당제재 이력'에서 확인하세요. (처음 조회: " + (e.get("summary") or "")[:80] + ")"}
+                else:  # 기간이 끝나서 사라짐 → 지난 이력
+                    fix[e["id"]] = {"level": "yellow", "pps_state": "expired", "pps_updated_at": store.now_str(),
+                                    "summary": (e.get("summary") or "") + " (제재 기간이 끝나 지금은 조회되지 않음 — 지난 이력)"}
         if fix:
             store.update_many("findings", fix)
     for f in official:
