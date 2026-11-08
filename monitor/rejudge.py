@@ -43,7 +43,7 @@ def run_once() -> dict | None:
         mine = [f for f in rel if f.get("company_id") == cid]
         feedback = {
             "dismissed": [f.get("title", "")[:120] for f in mine if f.get("status") == "dismissed" and f.get("reviewed_by") != "자동 정리"][:12],
-            "confirmed": [f.get("title", "")[:120] for f in mine if f.get("status") == "reviewed"][:8],
+            "confirmed": [f.get("title", "")[:120] for f in mine if f.get("status") == "reviewed" and f.get("review_note") != "과거 이력 일괄 정리"][:8],
         }
         arts = [{"title": f.get("title") or "", "snippet": f.get("snippet") or "", "published_at": f.get("published_at") or "",
                  "source_name": f.get("source_name") or ""} for f in items]

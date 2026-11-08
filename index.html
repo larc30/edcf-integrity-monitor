@@ -89,13 +89,14 @@
         </div>
         <!-- 담당 사업 (오른쪽, 세로로 길게) -->
         <div class="card d-projects">
-          <div class="card-head"><h2><span id="projTitle">내 담당 사업</span> <span class="count" id="projN">0</span></h2><span class="legend"><span class="role fs">F/S</span><span class="role consult">컨설턴트</span><span class="role buy">본구매</span></span></div>
+          <div class="card-head"><h2><span id="projTitle">내 담당 사업</span> <span class="count" id="projN">0</span></h2></div>
           <div id="projectMap" class="plist"></div>
         </div>
         <!-- 확인이 필요한 이슈 -->
         <div class="card d-issues" id="issuesCard">
-          <div class="card-head"><h2>확인이 필요한 이슈 <span class="count" id="issueCount">0</span></h2><div class="seg" id="periodSeg"></div></div>
+          <div class="card-head"><h2>확인이 필요한 이슈 <span class="count" id="issueCount">0</span> <span class="h2-sub">위험·경고</span></h2><div class="seg" id="periodSeg"></div></div>
           <div id="feed" class="feed"></div>
+          <details id="refWrap" class="more hidden"><summary>참고 이력 · 주의 <span id="refN">0</span>건 <span class="muted small">— 확인하지 않아도 됩니다</span></summary><div id="feedRef" class="feed" style="margin-top:8px"></div></details>
           <details id="doneWrap" class="more hidden"><summary>확인 완료한 이슈 보기</summary><div id="feedDone" class="feed" style="margin-top:8px"></div></details>
         </div>
       </div>

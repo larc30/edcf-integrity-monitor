@@ -487,6 +487,12 @@ html.lite .rdot.red, html.lite .rdot.orange, html.lite .dot.red, html.lite .dot.
 .pj-sum .red { color: var(--red); } .pj-sum .orange { color: var(--orange); } .pj-sum .yellow { color: var(--yellow); }
 .pj-sum .ok { color: var(--green); font-weight: 650; } .pj-sum .tot { color: var(--muted); font-weight: 600; }
 .pcos { display: flex; flex-wrap: wrap; gap: 5px; }
+.pj-roles { display: flex; flex-direction: column; gap: 5px; }
+.pj-role { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 8px; align-items: start; }
+.pj-role > .role { justify-self: start; margin-top: 1px; }
+.pj-role .pcos { margin-top: 0; }
+.h2-sub { font-size: var(--fs-xs); font-weight: 600; color: var(--muted); margin-left: 4px; }
+.bulk-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; margin-bottom: 10px; border: 1px dashed var(--line); border-radius: 12px; background: var(--panel-2); font-size: var(--fs-sm); }
 .dcheck { margin-top: 12px; width: 100%; flex-shrink: 0; display: flex; align-items: center; gap: 8px; font: inherit; font-size: var(--fs-sm); font-weight: 650; text-align: left; padding: 10px 12px; border-radius: 12px; border: 1px dashed var(--line-2); background: transparent; color: var(--text-2); cursor: pointer; }
 .dcheck:hover { border-color: var(--accent); color: var(--text); }
 .dcheck .go { margin-left: auto; color: var(--muted); }
