@@ -12,8 +12,8 @@ from .analyzer import LEVEL_ORDER
 # 대시보드(밝은 화면)와 같은 색·글꼴
 FONT = "Pretendard,'Pretendard Variable',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic','Segoe UI',sans-serif"
 COLORS = {  # (글자색, 옅은 배경, 이름)
-    "red": ("#E11D48", "#FDE8EE", "위험"),
-    "orange": ("#EA580C", "#FDEDE3", "경고"),
+    "red": ("#D92D20", "#FDE8E6", "위험"),
+    "orange": ("#E2660A", "#FEEFE0", "경고"),
     "yellow": ("#A16207", "#FBF3DC", "주의"),
     "none": ("#0D9488", "#E2F4F2", "정상"),
 }
@@ -44,8 +44,12 @@ def load_overview() -> tuple[list[dict], list[dict], dict]:
     return companies, finds, engs
 
 
+BADGE = {"red": ("#D92D20", "#FFFFFF"), "orange": ("#F57C00", "#2B1400"), "yellow": ("#FBC02D", "#3A2A00"), "none": ("#E2F4F2", "#0D9488")}  # (배경, 글자) — 대시보드와 같은 꽉 찬 배지
+
+
 def _badge(level: str) -> str:
-    fg, bg, label = COLORS.get(level or "none", COLORS["none"])
+    bg, fg = BADGE.get(level or "none", BADGE["none"])
+    label = COLORS.get(level or "none", COLORS["none"])[2]
     return (f'<span style="display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;line-height:18px;'
             f'font-weight:700;color:{fg};background:{bg};white-space:nowrap;"><span style="font-size:8px;vertical-align:1px;">●</span> {label}</span>')
 
