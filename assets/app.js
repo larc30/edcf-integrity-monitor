@@ -676,8 +676,9 @@ function openReport() {
   };
 }
 function buildReport({ scope: sc0, period, done, detail = false }) {
-  const C = { red: ["#E11D48", "#FDE8EE", "위험"], orange: ["#EA580C", "#FDEDE3", "경고"], yellow: ["#A16207", "#FBF3DC", "주의"], none: ["#0D9488", "#E2F4F2", "정상"] };
-  const bd = (lv) => { const [fg, bg, l] = C[lv || "none"] || C.none; return `<span class="bd" style="color:${fg};background:${bg}">● ${l}</span>`; };
+  const C = { red: ["#D92D20", "#FDE8E6", "위험"], orange: ["#E2660A", "#FEEFE0", "경고"], yellow: ["#A16207", "#FBF3DC", "주의"], none: ["#0D9488", "#E2F4F2", "정상"] };
+  const BF = { red: ["#D92D20", "#FFFFFF"], orange: ["#F57C00", "#2B1400"], yellow: ["#FBC02D", "#3A2A00"], none: ["#E2F4F2", "#0D9488"] }; // 대시보드와 같은 꽉 찬 배지
+  const bd = (lv) => { const [bg, fg] = BF[lv || "none"] || BF.none, l = (C[lv || "none"] || C.none)[2]; return `<span class="bd" style="color:${fg};background:${bg}">● ${l}</span>`; };
   const ROLE_C = { "F/S": "#0E7490", 컨설턴트: "#1D4ED8", 본구매: "#A21CAF" };
   const role = (r) => `<span class="role" style="color:${ROLE_C[r] || "#3D4A63"}">${esc(r)}</span>`;
   const sc = scanned();

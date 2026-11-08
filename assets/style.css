@@ -896,14 +896,18 @@ html[data-font="sm"] { font-size: 93.75%; }
   --red-bg: rgba(255, 90, 95, .16); --orange-bg: rgba(255, 138, 31, .16); --yellow-bg: rgba(250, 204, 21, .14);
 }
 :root[data-theme="light"] {
-  --red: #DC2626; --orange: #EA580C; --yellow: #A16207; --yellow-fill: #EAB308;
+  --red: #D92D20; --orange: #E2660A; --yellow: #A16207; --yellow-fill: #FBC02D;
   --red-bg: rgba(220, 38, 38, .1); --orange-bg: rgba(234, 88, 12, .12); --yellow-bg: rgba(234, 179, 8, .2);
 }
-.badge.red { background: var(--red); color: #fff; }
-.badge.red::before { background: #fff; box-shadow: none; }
-:root[data-theme="dark"] .badge.red, :root:not([data-theme]) .badge.red { color: #1A0507; }
-:root[data-theme="dark"] .badge.red::before, :root:not([data-theme]) .badge.red::before { background: #1A0507; }
-.badge.orange { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--orange) 45%, transparent); }
+/* 등급 배지: 세 등급 모두 꽉 찬 색으로 통일 — 위험 빨강(진함) · 경고 주황(중간) · 주의 노랑(밝음), 밝기가 달라 색약에도 구분 (메일·보고서·발표 자료도 같은 색) */
+.badge.red, .badge.orange, .badge.yellow { box-shadow: none; }
+.badge.red::before, .badge.orange::before, .badge.yellow::before { background: currentColor; box-shadow: none; }
+:root[data-theme="light"] .badge.red { background: #D92D20; color: #FFFFFF; }
+:root[data-theme="light"] .badge.orange { background: #F57C00; color: #2B1400; }
+:root[data-theme="light"] .badge.yellow { background: #FBC02D; color: #3A2A00; }
+:root[data-theme="dark"] .badge.red, :root:not([data-theme]) .badge.red { background: #FF5A5F; color: #1A0507; }
+:root[data-theme="dark"] .badge.orange, :root:not([data-theme]) .badge.orange { background: #FF9F1C; color: #1F0F00; }
+:root[data-theme="dark"] .badge.yellow, :root:not([data-theme]) .badge.yellow { background: #FDE047; color: #2A2000; }
 .dot.yellow, .rdot.yellow, .pj-bar .yellow { background: var(--yellow-fill); }
 .rdot.yellow { color: var(--yellow-fill); }
 .item.lv-yellow { --c: var(--yellow-fill); }
