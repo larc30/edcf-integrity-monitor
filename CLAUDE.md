@@ -51,7 +51,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
 ## 자료
 - 발표 자료(Slides Artifact): https://claude.ai/artifact/P8sKcUGGNPhx8tiRM22g61 — 19장, 맑은 고딕, 제목 60·본문 28px. 고칠 때는 Artifact read 로 받아 수정.
-- 설계도(Artifact): https://claude.ai/artifact/JtxkBSsA5KA4Z2b57Nd8tU · 해커톤 키트: docs/HACKATHON.md
+- 설계도(Artifact): https://claude.ai/artifact/JtxkBSsA5KA4Z2b57Nd8tU · 해커톤 키트: docs/HACKATHON.md (A·B안 풀버전 재구현, C안 라이트 = HTML 하나 즉석 실사)
 - 팀 매뉴얼 기준: 필요자료 = 사업자번호·영문명. ① EXIMIIS 부정당업자(등록=위험, 해지=이력) ② MDB 5곳 영문명 조회 후 국적 한국 확인 ③ 나라장터 부정당제재(제재정지면 확인 필요).
 
 ## 남은 일
