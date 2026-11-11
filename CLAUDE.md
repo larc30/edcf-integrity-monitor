@@ -72,7 +72,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 화면: Playwright로 `?demo=1` 또는 Firebase 모듈을 가짜(window.__DB)로 바꿔 실행.
 
 ## 자료
-- 발표 자료(Slides Artifact): https://claude.ai/artifact/P8sKcUGGNPhx8tiRM22g61 — 14장(11/11 최종: 시연 슬라이드 빼고 맨 뒤 부록 '시연 순서와 말할 포인트' 1장, 수원국 1장 추가, 배포 전 정보시스템부·정보보호단 협의 강조), 맑은 고딕, 제목 60·본문 28px, 스크립트는 짧고 담백하게. 고칠 때는 Artifact read 로 받아 수정.
+- 발표 자료(Slides Artifact): https://claude.ai/artifact/P8sKcUGGNPhx8tiRM22g61 — 13장, 프로그램과 같은 다크 톤(배경 #0A0F1E · 카드 #10172B · 강조 #7C83FF→#22D3EE), 맑은 고딕, 제목 56 · 카드 제목 34 · 본문 26 · 머리말 24px(● 청록), 위 6px 그러데이션 띠, 왼쪽 아래 EDCF RADAR · 오른쪽 아래 쪽번호. 6쪽 업체 리스크·7쪽 수원국 리스크 화면(다크 데모 캡처, 이메일 가림), 맨 뒤 부록 시연 순서. 배포는 '관계 부서와 충분히 검토' 뉘앙스(경고처럼 내세우지 않기). 스크립트는 짧고 담백하게. 고칠 때는 Artifact read 로 받아 수정.
 - 설계도(Artifact): https://claude.ai/artifact/JtxkBSsA5KA4Z2b57Nd8tU · 해커톤 키트: docs/HACKATHON.md
 - 팀 매뉴얼 기준: 필요자료 = 사업자번호·영문명. ① EXIMIIS 부정당업자(등록=위험, 해지=이력) ② MDB 5곳 영문명 조회 후 국적 한국 확인 ③ 나라장터 부정당제재(제재정지면 확인 필요).
 
