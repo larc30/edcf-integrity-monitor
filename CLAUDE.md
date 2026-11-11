@@ -72,7 +72,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 화면: Playwright로 `?demo=1` 또는 Firebase 모듈을 가짜(window.__DB)로 바꿔 실행.
 
 ## 자료
-- 발표 자료(Slides Artifact): https://claude.ai/artifact/P8sKcUGGNPhx8tiRM22g61 — 19장, 맑은 고딕, 제목 60·본문 28px. 고칠 때는 Artifact read 로 받아 수정.
+- 발표 자료(Slides Artifact): https://claude.ai/artifact/P8sKcUGGNPhx8tiRM22g61 — 14장(11/11 최종: 시연 슬라이드 빼고 맨 뒤 부록 '시연 순서와 말할 포인트' 1장, 수원국 1장 추가, 배포 전 정보시스템부·정보보호단 협의 강조), 맑은 고딕, 제목 60·본문 28px, 스크립트는 짧고 담백하게. 고칠 때는 Artifact read 로 받아 수정.
 - 설계도(Artifact): https://claude.ai/artifact/JtxkBSsA5KA4Z2b57Nd8tU · 해커톤 키트: docs/HACKATHON.md
 - 팀 매뉴얼 기준: 필요자료 = 사업자번호·영문명. ① EXIMIIS 부정당업자(등록=위험, 해지=이력) ② MDB 5곳 영문명 조회 후 국적 한국 확인 ③ 나라장터 부정당제재(제재정지면 확인 필요).
 
