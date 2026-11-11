@@ -1269,3 +1269,8 @@ html.lite .radar svg.grid circle.ring.glow { display: none; }
 .cn.mine { display: block; color: var(--map-name); font-weight: 800; font-size: var(--fs-sm); letter-spacing: .08em; text-transform: uppercase; }
 .geo-map.z-big .cn.big, .geo-map.z-mid .cn.mid, .geo-map.z-small .cn.small { display: block; }
 .geo-map.z-mid .cn.big { font-size: var(--fs-sm); }
+/* 수원국: 사업 카드 등급 근거 */
+.gp-why { display: flex; flex-direction: column; gap: 2px; min-width: 0; color: var(--text); }
+.gp-why span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gp.red .gp-why { color: var(--red); } .gp.orange .gp-why { color: var(--orange); }
+#gboard .itip .tip { width: 440px; }

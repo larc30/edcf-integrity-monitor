@@ -169,7 +169,7 @@ export function seed() {
             TZ: { level: 1 }, MN: { level: 1 }, LA: { level: 1 }, VN: { level: 1 }, KH: { level: 1 }, UZ: { level: 1 },
           },
           events: [
-            ev("d1", "quake", "PH", 30, 7.2, 126.4, "필리핀 민다나오 동쪽 해역 규모 6.2 지진", "USGS", { mag: 6.2 }),
+            ev("d1", "quake", "PH", 30, 7.3, 125.7, "필리핀 민다나오 동쪽 해역 규모 6.2 지진", "USGS", { mag: 6.2 }),
             ev("d2", "flood", "BD", 52, 23.2, 90.9, "방글라데시 중부 폭우로 일부 지역 침수", "Google 뉴스"),
             ev("d3", "unrest", "KE", 20, -1.25, 36.9, "나이로비 도심 대규모 시위", "네이버 뉴스"),
             ev("d4", "storm", "VN", 110, 15.6, 109.2, "베트남 중부 해안 태풍 접근", "Google 뉴스"),

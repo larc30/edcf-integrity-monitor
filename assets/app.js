@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=30";
-import { initGeo, renderGeo } from "./geo.js?v=37";
+import { initGeo, renderGeo } from "./geo.js?v=38";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
