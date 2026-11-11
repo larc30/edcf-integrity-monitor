@@ -14,7 +14,8 @@
 ## 구조
 - 화면: GitHub Pages `index.html` + `assets/app.js`·`style.css` / 데이터: Firebase Firestore(프로젝트 edcf-monitor) / 검사: GitHub Actions `monitor/`(Python). 저장소 larc30/edcf-integrity-monitor(public).
 - 로그인: Google. 관리자 = `assets/firebase-config.js` ALLOWED_EMAILS·`firestore.rules` owner(), 추가 계정 = meta/access.emails(설정 > 로그인 계정, 규칙 재게시 필요). 데이터 권한은 구분 없음(모두 읽기·쓰기).
-- 화면 탭: 업체 리스크 · 수원국 리스크. 업체 관리·사업 관리·설정은 관리자 모드에서만(상단 오른쪽 [관리자 모드] 버튼, 관리자 계정에만 보임). 화면에서만 막은 것이고 Firestore 규칙은 그대로.
+- 화면 탭: 업체 리스크 ↔ 수원국 리스크(미끄러지는 스위치, 카드 뒤집기 전환 · 가벼운 모드면 바로 전환). 업체 관리·사업 관리·설정은 관리자 모드에서만(상단 오른쪽 주황 [관리자 모드] 버튼, 관리자 계정에만 보임, 켜면 주황 띠). 화면에서만 막은 것이고 Firestore 규칙은 그대로.
+- 보기 범위 버튼 숫자: 업체 리스크는 '업체 N', 수원국 리스크는 '사업 N'으로 단위를 붙여 표시.
 - 실행: 회사망은 api.github.com·script.google.com 차단 → [지금 스캔]은 Firestore requests 에 저장 → Apps Script(tools/relay.gs) tick(평일 08~19시 5분마다)이 queue 디스패치. 매일 아침은 Apps Script daily()(07~08시) + GitHub cron(30 22 UTC). run.py 는 자동 실행이면 하루 한 번만(meta/status.last_daily_at).
 - 데모: `index.html?demo=1` (demo/fb-*.js 가짜 Firebase + demo/data.js 가상 데이터, 216곳 규모). `&guest` 붙이면 관리자 아닌 팀원 화면. demo/mail.js 는 tools/demo 스크립트로 생성.
 
@@ -43,13 +44,14 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 여행경보: 공공데이터포털 '외교부_국가·지역별 여행경보'(TravelAlarmService2) + 특별여행주의보. 키 = MOFA_TRAVEL_KEY 또는 DATA_GO_KR_KEY(활용신청 필요). 응답 필드명은 실제 키로 아직 확인 못 함.
 - 지진: USGS 4.5_week(키 없음), 사업지·수원국 600km 안. 브라우저에서도 실시간으로 한 번 더 받음(회사망에서 막히면 저장본).
 - 뉴스: Google·네이버 '나라 이름 + 사건 단어', 제목에 나라 이름 있는 것만. 30일 보관, 최대 200건.
+- 지도 표시: 이벤트는 종류별 색 아이콘 배지(이모티콘 안 씀), 지명은 영어(Esri 이름 층 + 'Nairobi, Kenya'). 오른쪽 사업을 누르면 사업지 둘레 100~500km 점선 원 + 600km 안 이벤트까지 거리선·거리, 왼쪽 아래 안내 상자. 다시 누르거나 [전체 지도]로 해제.
 
 ## 같은 기준을 두 곳에서 유지
 - TOPIC_QUERIES: monitor/scanner.py ↔ assets/app.js
 - 업종 6종: monitor/category.py ↔ app.js CATS·CAT_RULES
 - 이슈 묶기: monitor/grouping.py ↔ app.js groupFindings (같은 제목·주소 / 같은 업체·분류 3일 / 제목 유사 0.6 / 같은 공식 기록 / AI same_as)
 - 역할 순서 F/S → 컨설턴트 → 본구매: app.js ROLES·ROLE_ORDER ↔ report.ROLE_ORDER
-- 수원국 좌표·도시 좌표·이벤트 종류: monitor/geo.py COUNTRY·CITY·EVENT_WORDS ↔ assets/geo.js GEO_COUNTRY·GEO_CITY·GEO_TYPES
+- 수원국 좌표·도시 좌표·이벤트 종류: monitor/geo.py COUNTRY·CITY·EVENT_WORDS ↔ assets/geo.js GEO_COUNTRY·GEO_CITY(영문명 포함)·GEO_TYPES(이름·색·아이콘)
 
 ## 화면 규칙
 - 다크 기본, 대시보드 배치 'B 관제실'. backdrop-filter·blur 애니메이션 금지(느려짐, 가벼운 모드 html.lite 있음).

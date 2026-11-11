@@ -1027,5 +1027,117 @@ html.lite .gev.fresh { animation: none; }
 }
 @media (max-width: 640px) {
   .top-right { flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; }
-  .admin-btn span { display: none; } /* 휴대폰: 방패 아이콘만 */
+  .admin-btn .ab-t { display: none; } /* 휴대폰: 방패 아이콘·스위치만 */
 }
+
+/* =====================================================================
+   v43 — 화면 전환(뒤집기) · 관리자 모드 강조 · 레이더 · 수원국 지도 아이콘
+   ===================================================================== */
+/* 업체 리스크 ↔ 수원국 리스크 스위치 (가운데 밝은 손잡이가 미끄러짐) */
+.tabs .mode-switch { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 0; padding: 4px; border-radius: 13px; background: var(--panel-2); border: 1px solid var(--line); }
+.tabs .mode-switch .ms-btn { position: relative; z-index: 1; justify-content: center; transition: color .3s; }
+.tabs .mode-switch .ms-btn.active { background: transparent; box-shadow: none; color: #fff; }
+.tabs .mode-switch .ms-btn.active svg { color: #fff; }
+.ms-thumb { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 10px; background: var(--grad); box-shadow: 0 6px 18px rgba(124, 131, 255, .35); transition: transform .5s cubic-bezier(.2, .8, .2, 1), background .4s, opacity .2s; }
+.mode-switch[data-mode="geo"] .ms-thumb { transform: translateX(100%); background: linear-gradient(135deg, #0EA5E9 0%, #10B981 100%); box-shadow: 0 6px 18px rgba(16, 185, 129, .35); }
+.mode-switch[data-mode="off"] .ms-thumb { opacity: 0; }
+.mode-switch[data-mode="off"] .ms-btn { color: var(--text-2); }
+
+/* 카드를 뒤집듯 전환 */
+.main { perspective: 2000px; }
+.view.flip-out { animation: flipOut .26s cubic-bezier(.5, 0, .9, .4) forwards; transform-origin: 50% 30vh; pointer-events: none; }
+.view.flip-in { animation: flipIn .52s cubic-bezier(.15, .85, .25, 1); transform-origin: 50% 30vh; }
+@keyframes flipOut { to { transform: rotateY(90deg) scale(.96); opacity: .15; } }
+@keyframes flipIn { from { transform: rotateY(-90deg) scale(.96); opacity: .15; } to { transform: none; opacity: 1; } }
+/* 수원국 쪽은 색을 반대편(청록·초록)으로 */
+.geo-dash .hero-title .grad { background: linear-gradient(135deg, #22D3EE 0%, #34D399 100%); -webkit-background-clip: text; background-clip: text; }
+.geo-dash .eyebrow { color: #34D399; } .geo-dash .eyebrow::before { background: #34D399; box-shadow: 0 0 10px #34D399; }
+:root[data-theme="light"] .geo-dash .eyebrow { color: #059669; }
+:root[data-theme="light"] .geo-dash .hero-title .grad { background: linear-gradient(135deg, #0891B2 0%, #059669 100%); -webkit-background-clip: text; background-clip: text; }
+
+/* 관리자 모드: 주황 버튼 + 켜짐 스위치, 켜지면 상단 아래 주황 띠 */
+.admin-btn { gap: 7px; font-weight: 800; color: #F59E0B; border-color: rgba(245, 158, 11, .55); background: rgba(245, 158, 11, .1); }
+.admin-btn:hover { background: rgba(245, 158, 11, .18); border-color: #F59E0B; }
+:root[data-theme="light"] .admin-btn { color: #B45309; }
+.ab-sw { position: relative; width: 26px; height: 14px; border-radius: 999px; background: var(--line-2); transition: background .2s; flex: 0 0 auto; }
+.ab-sw i { position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .35); transition: transform .25s cubic-bezier(.2, .8, .2, 1); }
+.admin-btn.on { color: #1F1300; border-color: transparent; background: linear-gradient(135deg, #FBBF24, #F97316); box-shadow: 0 0 0 3px rgba(245, 158, 11, .25), 0 6px 20px rgba(245, 158, 11, .35); }
+.admin-btn.on .ab-sw { background: rgba(0, 0, 0, .35); } .admin-btn.on .ab-sw i { transform: translateX(12px); }
+.admin-strip { display: none; position: sticky; top: var(--top); z-index: 19; background: linear-gradient(90deg, rgba(245, 158, 11, .2), rgba(249, 115, 22, .08) 60%, transparent); border-bottom: 1px solid rgba(245, 158, 11, .45); background-color: var(--bg); }
+body.admin-on .admin-strip { display: block; }
+body.admin-on .topbar { border-bottom-color: rgba(245, 158, 11, .5); }
+.as-in { max-width: 1680px; margin: 0 auto; padding: 7px 24px; display: flex; align-items: center; gap: 10px; font-size: var(--fs-sm); color: var(--text-2); }
+.as-in b { color: #F59E0B; font-weight: 850; } :root[data-theme="light"] .as-in b { color: #B45309; }
+.as-dot { width: 8px; height: 8px; border-radius: 50%; background: #F59E0B; box-shadow: 0 0 0 0 rgba(245, 158, 11, .6); animation: asPulse 2s infinite; flex: 0 0 auto; }
+@keyframes asPulse { 70% { box-shadow: 0 0 0 8px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.as-in .btn { margin-left: auto; }
+body.admin-on .tabs .adm.active { background: rgba(245, 158, 11, .14); box-shadow: inset 0 0 0 1px rgba(245, 158, 11, .5); }
+body.admin-on .tabs .adm.active svg { color: #F59E0B; }
+html.lite .as-dot { animation: none; }
+@media (max-width: 640px) { .as-txt { display: none; } .as-in { padding: 6px 16px; } }
+
+/* 레이더: 계기판 테두리·눈금, 깊이감 있는 색 띠, 빛줄기 앞머리, 가운데 맥박 */
+.d-radar { background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent-2) 7%, var(--panel)) 0%, var(--panel) 62%); }
+.radar svg.grid circle.band.none { fill: url(#rgNone); } .radar svg.grid circle.band.orange { fill: url(#rgOrange); } .radar svg.grid circle.band.red { fill: url(#rgRed); }
+.radar svg.grid circle.bezel { fill: none; stroke: url(#rgBezel); stroke-width: 1.3; }
+.radar svg.grid line.tick { stroke: var(--line-2); stroke-width: .5; }
+.radar svg.grid line.tick.major { stroke: var(--accent-2); stroke-width: 1; opacity: .85; }
+.radar svg.grid circle.sub { fill: none; stroke: var(--line-2); stroke-width: .4; stroke-dasharray: .8 2.4; opacity: .8; }
+.radar svg.grid circle.ring { stroke-width: .8; }
+.radar svg.grid line.axis.diag { opacity: .45; }
+.radar svg.grid text.bl { font-size: 6.6px; letter-spacing: .06em; }
+.sweep { inset: 5%; }
+.sweep::after { content: ""; position: absolute; left: 50%; top: 0; width: 1.5px; height: 50%; margin-left: -.75px; border-radius: 2px; background: linear-gradient(to top, transparent, color-mix(in srgb, var(--accent-2) 90%, #fff)); box-shadow: 0 0 8px var(--accent-2), 0 0 2px var(--accent-2); }
+.radar.scanning .sweep::after { background: linear-gradient(to top, transparent, var(--accent)); box-shadow: 0 0 8px var(--accent); }
+.radar-core { width: 8px; height: 8px; margin: -4px 0 0 -4px; background: #fff; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 55%, transparent), 0 0 16px var(--accent-2); }
+.radar-core::before, .radar-core::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 1px solid var(--accent-2); animation: corePulse 3s ease-out infinite; }
+.radar-core::after { animation-delay: 1.5s; }
+@keyframes corePulse { 0% { transform: scale(1); opacity: .8; } 100% { transform: scale(5); opacity: 0; } }
+html.lite .radar-core::before, html.lite .radar-core::after { animation: none; opacity: 0; }
+.rdot.red, .rdot.orange { background: radial-gradient(circle at 35% 30%, #fff 0, currentColor 45%); }
+.rlabel { box-shadow: 0 2px 10px rgba(0, 0, 0, .25); letter-spacing: -.01em; }
+
+/* 수원국 지도: 종류별 아이콘 배지 */
+.ico { --ec: var(--accent-2); display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; flex: 0 0 auto; color: var(--ec); background: color-mix(in srgb, var(--ec) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ec) 42%, transparent); }
+.ico svg { width: 64%; height: 64%; }
+.ico.xs { width: 18px; height: 18px; border-radius: 6px; }
+.ico.lg { width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(145deg, color-mix(in srgb, var(--ec) 26%, transparent), color-mix(in srgb, var(--ec) 8%, transparent)); }
+.ico.lg svg { width: 52%; height: 52%; }
+.ev-chip:not(.on) .ico { filter: grayscale(1); opacity: .45; }
+.ev-item { grid-template-columns: 40px minmax(0, 1fr); }
+.gev { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 0;
+  background: radial-gradient(circle at 35% 28%, color-mix(in srgb, var(--ec) 60%, #fff) 0%, var(--ec) 55%, color-mix(in srgb, var(--ec) 70%, #000) 100%);
+  border: 2px solid rgba(255, 255, 255, .92); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ec) 28%, transparent), 0 4px 12px rgba(0, 0, 0, .45); }
+.gev svg { width: 17px; height: 17px; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .3)); }
+.gev.big { width: 38px; height: 38px; margin: -3px; border-color: #fff; } .gev.big svg { width: 20px; height: 20px; }
+.gev.fresh { border-color: #fff; animation: evPulse2 2.4s ease-out infinite; }
+@keyframes evPulse2 { 0% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ec) 45%, transparent), 0 4px 12px rgba(0, 0, 0, .45); } 70% { box-shadow: 0 0 0 14px transparent, 0 4px 12px rgba(0, 0, 0, .45); } 100% { box-shadow: 0 0 0 4px transparent, 0 4px 12px rgba(0, 0, 0, .45); } }
+.gev.dim { opacity: .25; filter: grayscale(.7); animation: none; }
+html.lite .gev.fresh { animation: none; }
+.gpop-h { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); margin-bottom: 4px; }
+.gpop-h svg { width: 16px; height: 16px; } .gpop-h span { color: var(--muted); font-weight: 600; }
+.leaflet-tooltip.gtip .en { color: var(--accent-2); font-weight: 700; }
+
+/* 사업을 누르면: 100km 간격 거리 원 + 가까운 이벤트까지 거리 */
+.ring-lb { display: inline-block; padding: 0 6px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 750; line-height: 16px; white-space: nowrap; color: var(--accent-2); background: color-mix(in srgb, var(--panel-solid) 88%, transparent); border: 1px solid color-mix(in srgb, var(--accent-2) 45%, transparent); }
+.dist-lb { display: inline-block; padding: 0 7px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 850; line-height: 18px; white-space: nowrap; color: #fff; background: var(--ec); box-shadow: 0 2px 8px rgba(0, 0, 0, .4); }
+.map-focus { position: absolute; left: 12px; bottom: 12px; z-index: 600; width: min(280px, calc(100% - 24px)); padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--panel-solid) 95%, transparent); border: 1px solid var(--line-2); box-shadow: var(--shadow); font-size: var(--fs-sm); }
+.mf-top { display: flex; align-items: center; gap: 8px; }
+.mf-name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-base); }
+.mf-en { margin: 3px 0 10px; color: var(--accent-2); font-weight: 700; letter-spacing: .01em; }
+.mf-h { font-size: var(--fs-xs); font-weight: 750; color: var(--text-2); margin-bottom: 6px; }
+.mf-list { display: flex; flex-direction: column; gap: 5px; }
+.mf-ev { display: flex; align-items: center; gap: 7px; }
+.mf-t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mf-ev b { font-variant-numeric: tabular-nums; color: var(--text); }
+.mf-none { color: var(--green); font-weight: 650; }
+.mf-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--line); }
+.mf-key { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--fs-xs); }
+.mf-key i { width: 22px; border-top: 1.5px dashed var(--accent-2); }
+.gp.sel { background: color-mix(in srgb, var(--accent-2) 10%, var(--panel-2)); box-shadow: 0 0 0 1.5px var(--accent-2); }
+.gp-en { margin-left: 4px; font-size: var(--fs-xs); font-weight: 700; color: var(--accent-2); }
+.gp-ev { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.gp-ev-t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gp-km { flex: 0 0 auto; font-size: var(--fs-xs); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.radar svg.grid.labels { z-index: 1; pointer-events: none; }
+@media (max-width: 520px) { .scope-switch { flex-wrap: wrap; max-width: 100%; } .tabs .mode-switch .ms-btn { padding: 7px 10px; } }
