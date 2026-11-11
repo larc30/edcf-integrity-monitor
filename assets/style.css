@@ -1192,7 +1192,8 @@ html.lite .radar svg.grid circle.ring.glow { display: none; }
 .geo-dash #evFeed { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .geo-dash #evFeed > .ok-box, .geo-dash #evFeed > .muted { grid-column: 1 / -1; }
 /* 지도 모양: 지도(플랫) / 위성 */
-.map-style { position: absolute; top: 12px; right: 12px; z-index: 600; box-shadow: var(--shadow); background: color-mix(in srgb, var(--panel-solid) 92%, transparent); }
+.map-tools { position: absolute; top: 12px; right: 12px; z-index: 600; display: flex; gap: 8px; align-items: center; }
+.map-style { box-shadow: var(--shadow); background: color-mix(in srgb, var(--panel-solid) 92%, transparent); }
 /* 보고서 미리보기 */
 .modal.report { max-width: 1120px; padding: 0; overflow: hidden; }
 .rp-wrap { display: grid; grid-template-columns: 300px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: min(86vh, 900px); }
@@ -1244,3 +1245,20 @@ html.lite .radar svg.grid circle.ring.glow { display: none; }
 #btnConnCheck:disabled { opacity: .75; }
 .adv-grid .conn-note { margin: 8px 2px 0; }
 .adv-grid .actions.left { margin-top: 10px; }
+
+/* 지도 글씨: 나라·도시 이름 층 대비를 높여 또렷하게 (흐림 효과 아님) */
+.geo-map .leaflet-labels-pane { filter: contrast(1.35) brightness(1.25); }
+:root[data-theme="light"] .geo-map .leaflet-labels-pane { filter: contrast(1.25); }
+html.lite .geo-map .leaflet-labels-pane { filter: none; }
+/* 핀 옆 사업명 */
+.gpin-w { position: relative; width: 28px; height: 28px; }
+.pin-lb { position: absolute; top: 3px; left: 34px; max-width: 13em; padding: 2px 9px; border-radius: 8px; font-size: var(--fs-xs); font-weight: 750; line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); background: color-mix(in srgb, var(--panel-solid) 90%, transparent); border: 1px solid var(--line-2); border-left: 3px solid var(--c, var(--green)); box-shadow: 0 2px 8px rgba(0, 0, 0, .35); pointer-events: none; }
+.pin-lb.l { left: auto; right: 34px; border-left: 1px solid var(--line-2); border-right: 3px solid var(--c, var(--green)); }
+.pin-lb.red { --c: var(--red); } .pin-lb.orange { --c: var(--orange); } .pin-lb.none { --c: var(--green); }
+/* [전체 지도]: 사업을 골랐을 때만 지도 오른쪽 위에 */
+.map-all { box-shadow: var(--shadow); background: var(--panel-solid); gap: 4px; padding: 5px 12px 5px 8px; }
+.map-all svg { width: 14px; height: 14px; }
+.map-focus .mf-foot { justify-content: flex-start; margin-top: 8px; padding-top: 7px; }
+.pin-lb.b, .pin-lb.t { left: 14px; right: auto; transform: translateX(-50%); border-left: 1px solid var(--line-2); border-right: 1px solid var(--line-2); border-top: 1px solid var(--line-2); border-bottom: 3px solid var(--c, var(--green)); }
+.pin-lb.b { top: 34px; }
+.pin-lb.t { top: -30px; }
