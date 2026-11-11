@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache">
-<title>EDCF RADAR · 업체 리스크 자동감지</title>
+<title>EDCF RADAR · 업체·수원국 리스크 자동감지</title>
 <script>try { document.documentElement.dataset.theme = localStorage.getItem("edcf_theme3") || "dark"; var _f = localStorage.getItem("edcf_font"); if (_f) document.documentElement.dataset.font = _f; } catch (e) {}</script>
 <script>
   // ?demo — 로그인 없이 가상 데이터로 화면 보기 (Firebase 대신 demo/ 의 대체 모듈 사용)
@@ -19,7 +19,8 @@
   }
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="assets/style.css?v=30">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="assets/style.css?v=31">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -41,15 +42,18 @@
     <div class="logo" id="logoHome" role="button" tabindex="0" title="대시보드로"><div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9" opacity=".45"/><circle cx="12" cy="12" r="5" opacity=".7"/><path d="M12 12 L19 6"/><circle cx="12" cy="12" r="1.6" fill="#fff"/></svg></div>
       <div class="logo-t">EDCF RADAR</div></div>
     <nav class="tabs" id="tabs">
-      <button data-view="home" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>대시보드</button>
-      <button data-view="companies"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg>업체 관리 <span class="cnt" id="tabCnt">0</span></button>
-      <button data-view="projects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></svg>사업 관리 <span class="cnt" id="tabCntP">0</span></button>
-      <button data-view="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>설정</button>
+      <button data-view="home" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>업체 리스크</button>
+      <button data-view="geo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z"/></svg>수원국 리스크</button>
+      <span class="tab-sep adm" aria-hidden="true"></span>
+      <button data-view="companies" class="adm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg>업체 관리 <span class="cnt" id="tabCnt">0</span></button>
+      <button data-view="projects" class="adm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></svg>사업 관리 <span class="cnt" id="tabCntP">0</span></button>
+      <button data-view="settings" class="adm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>설정</button>
     </nav>
     <div class="top-right">
       <span class="user" id="userEmail"></span>
       <div class="font-ctl" role="group" aria-label="글자 크기"><button class="btn sm" id="fontDown" title="글자 작게">가−</button><button class="btn sm ghost fsize" id="fontReset">보통</button><button class="btn sm" id="fontUp" title="글자 크게">가+</button></div>
       <button class="btn sm" id="btnTheme">라이트</button>
+      <button class="btn sm admin-btn hidden" id="btnAdmin" title="업체 관리·사업 관리·설정 (관리자 계정에만 보임)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg><span>관리자 모드</span></button>
       <button class="btn sm" id="btnLogout">로그아웃</button>
     </div>
   </div></header>
@@ -76,7 +80,7 @@
           </div>
           <div id="guide" class="notice hidden"></div>
         </div>
-        <!-- 리스크 업체(위험·경고·주의) + 확인할 이슈(비고) -->
+        <!-- 업체 등급(위험·경고·정상) + 공식 제재 명단 -->
         <div class="d-risk">
           <div class="card risk-card" id="kboard"></div>
           <div class="note-card off-card" id="noteCard" role="button" tabindex="0"></div>
@@ -96,13 +100,54 @@
         <div class="card d-issues" id="issuesCard">
           <div class="card-head"><h2>확인이 필요한 이슈 <span class="count" id="issueCount">0</span> <span class="h2-sub">위험·경고</span></h2><div class="seg" id="periodSeg"></div></div>
           <div id="feed" class="feed"></div>
-          <details id="refWrap" class="more hidden"><summary>참고 이력 · 주의 <span id="refN">0</span>건 <span class="muted small">(확인하지 않아도 됩니다)</span></summary><div id="feedRef" class="feed" style="margin-top:8px"></div></details>
+          <details id="refWrap" class="more hidden"><summary>참고 이력 <span id="refN">0</span>건 <span class="muted small">(확인하지 않아도 됩니다)</span></summary><div id="feedRef" class="feed" style="margin-top:8px"></div></details>
           <details id="doneWrap" class="more hidden"><summary>확인 완료한 이슈 보기</summary><div id="feedDone" class="feed" style="margin-top:8px"></div></details>
         </div>
       </div>
     </section>
 
-    <!-- ================= 업체 · 사업 ================= -->
+
+    <!-- ================= 수원국 리스크 ================= -->
+    <section id="view-geo" class="view">
+      <div class="dash geo-dash">
+        <div class="d-title">
+          <div class="d-titles">
+            <div class="eyebrow" id="geoDate">COUNTRY RISK</div>
+            <h1 class="hero-title">오늘의 <span class="grad">EDCF 수원국 리스크</span></h1>
+            <div class="hero-sub" id="geoSub">-</div>
+          </div>
+          <div class="d-ctrl">
+            <div class="ctrl-row">
+              <div class="scope-switch" id="geoScope"></div>
+              <button class="btn" id="geoRefresh" title="지진 정보를 다시 불러옵니다"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg><span>새로고침</span></button>
+            </div>
+            <div class="geo-srcs" id="geoSrcs"></div>
+          </div>
+        </div>
+        <!-- 왼쪽: 수원국 등급 + 이벤트 요약 -->
+        <div class="d-risk">
+          <div class="card risk-card" id="gboard"></div>
+          <div class="card ev-card" id="evSummary"></div>
+        </div>
+        <!-- 가운데: 지도 -->
+        <div class="d-map">
+          <div id="geoMap" class="geo-map" aria-label="수원국 리스크 지도"></div>
+          <div class="map-legend" id="mapLegend"></div>
+        </div>
+        <!-- 오른쪽: 사업별 내역 + 여행경보 -->
+        <div class="card d-projects">
+          <div class="card-head"><h2><span id="geoProjTitle">내 담당 사업</span> <span class="count" id="geoProjN">0</span> <span class="h2-sub">여행경보</span></h2></div>
+          <div id="geoProjects" class="plist"></div>
+        </div>
+        <!-- 아래: 최근 이벤트 -->
+        <div class="card d-issues">
+          <div class="card-head"><h2>수원국 최근 이벤트 <span class="count" id="evCount">0</span> <span class="h2-sub">지진·분쟁·테러·재난</span></h2><div class="seg" id="evSeg"></div></div>
+          <div id="evFeed" class="feed"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 업체 · 사업 (관리자 모드) ================= -->
     <section id="view-companies" class="view">
       <div class="page-head">
         <h1>업체 관리 <span class="h-count" id="coTotal">0</span></h1>
@@ -122,7 +167,7 @@
           <select id="fProj"><option value="">사업 전체</option></select>
           <select id="fRole"><option value="">역할 전체</option><option>F/S</option><option>컨설턴트</option><option>본구매</option></select>
           <select id="fStage"><option value="">단계 전체</option><option>계약</option><option>우선협상</option><option>입찰중</option></select>
-          <select id="fRisk"><option value="">등급 전체</option><option value="red">위험</option><option value="orange">경고</option><option value="yellow">주의</option><option value="none">정상</option></select>
+          <select id="fRisk"><option value="">등급 전체</option><option value="red">위험</option><option value="orange">경고</option><option value="none">정상</option></select>
           <select id="fCat"><option value="">업종 전체</option></select>
           <select id="fNat"><option value="">국내·해외</option><option value="KR">국내</option><option value="foreign">해외</option></select>
           <button class="btn sm ghost hidden" id="fReset">초기화</button>
@@ -166,7 +211,7 @@
       <div class="set-grid">
         <div class="card kw-card">
           <div class="card-head"><h2>리스크 키워드 <span class="count" id="kwCount">0</span></h2></div>
-          <p class="card-desc">매일 아침 이 단어들로 뉴스를 찾고, 찾은 기사를 AI가 판정할 때도 모두 참고합니다. 등급(위험·경고·주의)은 단어가 아니라 <b>기사 내용</b>으로 AI가 정합니다. 사업에 연결된 업체는 매일 '업체명 + 추가 키워드'로도 찾습니다.</p>
+          <p class="card-desc">매일 아침 이 단어들로 뉴스를 찾고, 찾은 기사를 AI가 판정할 때도 모두 참고합니다. 등급(위험·경고·정상)은 단어가 아니라 <b>기사 내용</b>으로 AI가 정합니다. 사업에 연결된 업체는 매일 '업체명 + 추가 키워드'로도 찾습니다.</p>
           <div class="kw-fixed"><div class="kw-fixed-head"><b>기본 키워드</b><span class="muted small">고정 <span id="kwFixedN">0</span>개 · 화면에서 바꿀 수 없음</span></div><div class="kw-chips" id="kwFixed"></div></div>
           <div class="kw-fixed kw-user"><div class="kw-fixed-head"><b>추가 키워드</b><span class="muted small">직접 넣고 뺄 수 있음 · <span id="kwCount2">0</span>개</span></div>
             <div class="kw-chips" id="kwList"></div>
@@ -211,6 +256,7 @@
 <aside class="drawer" id="drawer"><div class="drawer-head"><div id="drawerTitle"></div><button class="btn sm" id="drawerClose">닫기</button></div><div id="drawerBody" class="drawer-body"></div></aside>
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div id="toast" class="toast"></div>
-<script type="module" src="assets/app.js?v=30"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script type="module" src="assets/app.js?v=31"></script>
 </body>
 </html>

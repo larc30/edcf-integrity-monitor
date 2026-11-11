@@ -150,12 +150,36 @@ export function seed() {
         connections: { naver: true, google_news: true, claude: true, dart: true, pps: true, smtp: true },
         sanction_lists: { worldbank_debarred: 1418, adb_sanctions: 1457, afdb_sanctions: 1148, iadb_sanctions: 1237, ebrd_ineligible: 1221 },
       },
+      access: { emails: ["teammate@example.com"] }, // 데모: 설정에서 추가한 팀원 계정 (?guest 로 보기)
       settings: { keywords_version: 3, edcf_sanctions_at: kst(now - 5 * DAY), edcf_sanctions_count: 13 },
       mdb_korea: { count: 2, at: kst(now - 2 * 3600e3), items: [
         { name: "SAMPLE KOREA CO., LTD. (예시)", dataset: "worldbank_debarred", url: "https://www.opensanctions.org/", sanctions: "예시" },
         { name: "EXAMPLE KR CONSTRUCTION (예시)", dataset: "iadb_sanctions", url: "https://www.opensanctions.org/", sanctions: "예시" },
       ] },
       report_preview: { html: fillDates(MAIL_HTML, now), subject: fillDates(MAIL_SUBJECT, now), generated_at: kst(now), items: 12 },
+      // 수원국 리스크 (데모 예시) — 여행경보 단계·이벤트는 화면 확인용으로 지어낸 값입니다 (실제 외교부·USGS·뉴스 자료 아님)
+      geo: (() => {
+        const H = 3600e3, ev = (id, type, country, hAgo, lat, lng, title, source, extra = {}) => ({ id, type, country, lat, lng, title: `${title} (데모 예시)`, source, url: "", at_ms: now - hAgo * H, ...extra });
+        return {
+          updated_at: kst(now - 2 * H), alerts_at: kst(now - 2 * H), news_at: kst(now - 2 * H),
+          alerts: {
+            PH: { level: 3, partial: true, regions: "(데모 예시) 민다나오 일부 지역 3단계, 그 밖 1~2단계" },
+            BD: { level: 2, partial: false, regions: "" },
+            KE: { level: 2, partial: true, regions: "(데모 예시) 북동부 접경 지역 2단계, 그 밖 1단계" },
+            TZ: { level: 1 }, MN: { level: 1 }, LA: { level: 1 }, VN: { level: 1 }, KH: { level: 1 }, UZ: { level: 1 },
+          },
+          events: [
+            ev("d1", "quake", "PH", 30, 7.2, 126.4, "필리핀 민다나오 동쪽 해역 규모 6.2 지진", "USGS", { mag: 6.2 }),
+            ev("d2", "flood", "BD", 52, 23.2, 90.9, "방글라데시 중부 폭우로 일부 지역 침수", "Google 뉴스"),
+            ev("d3", "unrest", "KE", 20, -1.25, 36.9, "나이로비 도심 대규모 시위", "네이버 뉴스"),
+            ev("d4", "storm", "VN", 110, 15.6, 109.2, "베트남 중부 해안 태풍 접근", "Google 뉴스"),
+            ev("d5", "quake", "MN", 140, 49.1, 100.6, "몽골 북부 규모 4.8 지진", "USGS", { mag: 4.8 }),
+            ev("d6", "terror", "KE", 230, 0.6, 40.4, "케냐 북동부 접경 지역 폭발 사건", "Google 뉴스"),
+            ev("d7", "fire", "LA", 260, 20.3, 101.6, "라오스 북부 산불 확산", "네이버 뉴스"),
+            ev("d8", "disease", "TZ", 300, -6.9, 39.3, "다르에스살람 콜레라 확진 증가", "Google 뉴스"),
+          ],
+        };
+      })(),
     },
   };
 }

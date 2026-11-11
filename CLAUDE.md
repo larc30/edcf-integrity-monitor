@@ -13,12 +13,14 @@
 
 ## 구조
 - 화면: GitHub Pages `index.html` + `assets/app.js`·`style.css` / 데이터: Firebase Firestore(프로젝트 edcf-monitor) / 검사: GitHub Actions `monitor/`(Python). 저장소 larc30/edcf-integrity-monitor(public).
-- 로그인: Google. 관리자 = `assets/firebase-config.js` ALLOWED_EMAILS·`firestore.rules` owner(), 추가 계정 = meta/access.emails(설정 > 로그인 계정, 규칙 재게시 필요). 권한 구분 없음(모두 읽기·쓰기).
+- 로그인: Google. 관리자 = `assets/firebase-config.js` ALLOWED_EMAILS·`firestore.rules` owner(), 추가 계정 = meta/access.emails(설정 > 로그인 계정, 규칙 재게시 필요). 데이터 권한은 구분 없음(모두 읽기·쓰기).
+- 화면 탭: 업체 리스크 · 수원국 리스크. 업체 관리·사업 관리·설정은 관리자 모드에서만(상단 오른쪽 [관리자 모드] 버튼, 관리자 계정에만 보임). 화면에서만 막은 것이고 Firestore 규칙은 그대로.
 - 실행: 회사망은 api.github.com·script.google.com 차단 → [지금 스캔]은 Firestore requests 에 저장 → Apps Script(tools/relay.gs) tick(평일 08~19시 5분마다)이 queue 디스패치. 매일 아침은 Apps Script daily()(07~08시) + GitHub cron(30 22 UTC). run.py 는 자동 실행이면 하루 한 번만(meta/status.last_daily_at).
-- 데모: `index.html?demo=1` (demo/fb-*.js 가짜 Firebase + demo/data.js 가상 데이터, 216곳 규모). demo/mail.js 는 tools/demo 스크립트로 생성.
+- 데모: `index.html?demo=1` (demo/fb-*.js 가짜 Firebase + demo/data.js 가상 데이터, 216곳 규모). `&guest` 붙이면 관리자 아닌 팀원 화면. demo/mail.js 는 tools/demo 스크립트로 생성.
 
 ## Firestore
-projects{name,country,owner,created_at} · companies{name,name_en,aliases,category,category_source,biz_no,corp_code,country,watch,engagements:[{project_id,role,stage,order}],last_check,...} · findings{company_id,source_type(news/official),source_name,title,url,published_at,level(red/orange/yellow/none),category,summary,rationale,analyzer,dedup_key,relevant,status(new/reviewed/dismissed),same_as,reported_at,review_note} · seen/{업체id}(이미 본 기사 키) · edcf_sanctions(EXIMIIS 명단) · keywords{word,lang}(추가 키워드) · recipients · requests · runs · meta/status·settings·access.
+projects{name,country,owner,created_at} · companies{name,name_en,aliases,category,category_source,biz_no,corp_code,country,watch,engagements:[{project_id,role,stage,order}],last_check,...} · findings{company_id,source_type(news/official),source_name,title,url,published_at,level(red/orange/yellow/none),category,summary,rationale,analyzer,dedup_key,relevant,status(new/reviewed/dismissed),same_as,reported_at,review_note} · seen/{업체id}(이미 본 기사 키) · edcf_sanctions(EXIMIIS 명단) · keywords{word,lang}(추가 키워드) · recipients · requests · runs · meta/status·settings·access·geo.
+- meta/geo{updated_at, alerts{ISO2:{level 1~4, partial, regions, special}}, alerts_at, news_at, events[{id,type,country,lat,lng,title,url,at_ms,source,mag}]} — monitor/geo.py 가 daily 때 저장(문서 1개 = 대시보드 읽기 1회). projects.lat/lng 있으면 그 위치에 핀.
 - 내 사업 = projects.owner(로그인 이메일 1개). owner 없으면 모두에게 내 사업. watch=true 업체는 모두의 내 담당.
 
 ## 검사 (monitor/scanner.py)
@@ -29,16 +31,25 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 사업자번호·영문명·업종: DART corpCode 정확 일치 1건일 때만 자동, 아니면 수기.
 - AI 판정: Claude(config.CLAUDE_MODEL, 기본 Haiku), 키 없으면 analyzer.RULE_KEYWORDS 규칙 판정. 업체별 '관련 없음'·'확인했음' 제목을 예시로 전달('과거 이력 일괄 정리'는 제외). 재판정은 monitor/rejudge.py.
 
-## 등급
-- 위험 = 지금 유효한 제재(입찰제한·MDB·영업정지·등록말소·EXIMIIS 등록) / 경고 = 제재로 이어질 진행 중 사안(수사·기소·과징금·부도·회생, 집행정지) / 주의 = 참고 이력. ('위험·경고·정상' 3단계로 바꿀지 사용자 검토 중)
-- 확인할 이슈·메일·업체 미확인 수는 위험·경고만. 주의는 접힌 '참고 이력'.
-- 배지(모두 꽉 찬 색): 밝은 화면 위험 #D92D20/흰 · 경고 #F57C00/#2B1400 · 주의 #FBC02D/#3A2A00, 어두운 화면 #FF5A5F · #FF9F1C · #FDE047. style.css .badge ↔ report.BADGE ↔ app.js BF 같게.
+## 등급 (3단계: 위험·경고·정상, 2026-11-11 결정)
+- 업체 등급: 위험 = 지금 유효한 제재(입찰제한·MDB·영업정지·등록말소·EXIMIIS 등록) / 경고 = 제재로 이어질 진행 중 사안(수사·기소·과징금·부도·회생, 집행정지) / 정상 = 그 밖.
+- 기록의 level 값은 그대로 red/orange/yellow/none. yellow 는 등급이 아니라 '참고 이력'(회색 '참고' 배지) — 업체 등급 계산(app.js compute·report.load_overview)에서 정상으로 봄. AI 판정 기준(analyzer)은 안 바꿈.
+- 확인할 이슈·메일·업체 미확인 수는 위험·경고만. 참고는 접힌 '참고 이력'.
+- 배지(모두 꽉 찬 색): 밝은 화면 위험 #D92D20/흰 · 경고 #F57C00/#2B1400 · 참고 #E2E8F0/#475569, 어두운 화면 #FF5A5F · #FF9F1C · 참고 #334155/#CBD5E1. style.css .badge ↔ report.BADGE ↔ app.js BF 같게.
+- 수원국 등급(assets/geo.js countryRisk): 위험 = 외교부 여행경보 3·4단계 또는 특별여행주의보 / 경고 = 2단계 또는 최근 7일 규모 6+ 지진·분쟁·테러 / 정상. 일부 지역만 높아도 나라 전체로 봄(초안).
+
+## 수원국 리스크 (초안, monitor/geo.py ↔ assets/geo.js)
+- 지도: Leaflet(cdnjs) + Esri 회색 지도(키 없음). CARTO 무료 지도는 'API KEY REQUIRED' 이미지가 나와서 안 씀.
+- 여행경보: 공공데이터포털 '외교부_국가·지역별 여행경보'(TravelAlarmService2) + 특별여행주의보. 키 = MOFA_TRAVEL_KEY 또는 DATA_GO_KR_KEY(활용신청 필요). 응답 필드명은 실제 키로 아직 확인 못 함.
+- 지진: USGS 4.5_week(키 없음), 사업지·수원국 600km 안. 브라우저에서도 실시간으로 한 번 더 받음(회사망에서 막히면 저장본).
+- 뉴스: Google·네이버 '나라 이름 + 사건 단어', 제목에 나라 이름 있는 것만. 30일 보관, 최대 200건.
 
 ## 같은 기준을 두 곳에서 유지
 - TOPIC_QUERIES: monitor/scanner.py ↔ assets/app.js
 - 업종 6종: monitor/category.py ↔ app.js CATS·CAT_RULES
 - 이슈 묶기: monitor/grouping.py ↔ app.js groupFindings (같은 제목·주소 / 같은 업체·분류 3일 / 제목 유사 0.6 / 같은 공식 기록 / AI same_as)
 - 역할 순서 F/S → 컨설턴트 → 본구매: app.js ROLES·ROLE_ORDER ↔ report.ROLE_ORDER
+- 수원국 좌표·도시 좌표·이벤트 종류: monitor/geo.py COUNTRY·CITY·EVENT_WORDS ↔ assets/geo.js GEO_COUNTRY·GEO_CITY·GEO_TYPES
 
 ## 화면 규칙
 - 다크 기본, 대시보드 배치 'B 관제실'. backdrop-filter·blur 애니메이션 금지(느려짐, 가벼운 모드 html.lite 있음).
@@ -55,6 +66,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 팀 매뉴얼 기준: 필요자료 = 사업자번호·영문명. ① EXIMIIS 부정당업자(등록=위험, 해지=이력) ② MDB 5곳 영문명 조회 후 국적 한국 확인 ③ 나라장터 부정당제재(제재정지면 확인 필요).
 
 ## 남은 일
-- 검토 중: 등급 3단계(위험·경고·정상), 세계은행 제재 목록 직접 연결(실패 시 OpenSanctions로 대체).
+- 보류: 세계은행 제재 목록 직접 연결(작업 환경에서 worldbank.org 차단, 사용자가 '지금 중요하지 않음'). 원인 후보: 제재 종료일 미확인·국적 미확인.
+- 수원국 리스크 초안 다음: 외교부 키 연결·응답 확인, 사업지 좌표 입력(사업 관리), 지역별 여행경보와 사업지 대조.
 - 사용자: 추가 계정 4개(팀 대표 계정 권장) + Firebase 규칙 재게시 확인, 사업자번호 88곳 보완, 11/5 이전 공개 실행 로그 삭제(다음 주).
-- 발표 후: 라이트 버전, 보완 엑셀. 2부(수원국 리스크 지도) 보류.
+- 발표 후: 라이트 버전, 보완 엑셀.

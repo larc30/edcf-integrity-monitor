@@ -6,6 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=30";
+import { initGeo, renderGeo, refreshGeo } from "./geo.js?v=31";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -17,15 +18,17 @@ const SECRETS_URL = `https://github.com/${GITHUB_REPO}/settings/secrets/actions`
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const LEVEL = { red: "위험", orange: "경고", yellow: "주의", none: "정상" };
-const LEVEL_DESC = { red: "지금 제재 중", orange: "제재로 이어질 수 있는 진행 중 사안", yellow: "참고할 이력", none: "발견된 이슈 없음" };
+// 등급은 3단계(위험·경고·정상). yellow 는 등급이 아니라 "참고 이력"으로만 남김 (업체 등급에는 넣지 않음)
+const LEVEL = { red: "위험", orange: "경고", yellow: "참고", none: "정상" };
+const LEVEL_DESC = { red: "지금 제재 중", orange: "제재로 이어질 수 있는 진행 중 사안", yellow: "참고 이력 (등급에 넣지 않음)", none: "위험·경고 이슈 없음" };
 // 등급 뜻 (i 에 마우스를 올리면): 위험은 실제로 지금 제재를 받고 있는 경우만
 const LEVEL_DEF = {
   red: "<b>지금 제재 중</b> — 입찰참가자격 제한(부정당업자 제재)·MDB 제재·영업정지·등록말소 처분이 현재 유효 (EXIMIIS '등록' 포함)",
   orange: "<b>제재로 이어질 수 있는 진행 중 사안</b> — 최근 1년 내 수사·압수수색·기소·유죄판결, 담합 적발·공정위 과징금, 제재 처분 예고·청문, 부도·회생절차",
-  yellow: "<b>참고할 이력</b> — 1년 지난 제재·처분(EXIMIIS '해지' 포함), 의혹·고발, 소송·분쟁, 중대재해·부실시공, 재무 악화",
+  none: "<b>위험·경고 이슈 없음</b> — 참고 이력(1년 지난 제재, EXIMIIS '해지', 의혹·소송 등)은 있어도 정상으로 봅니다",
+  yellow: "<b>참고 이력</b> — 등급에는 넣지 않고 기록만 남김: 1년 지난 제재·처분(EXIMIIS '해지' 포함), 의혹·고발, 소송·분쟁, 중대재해·부실시공, 재무 악화",
 };
-const levelTip = () => ["red", "orange", "yellow"].map((lv) => `<div class="tip-row">${badge(lv)}<span>${LEVEL_DEF[lv]}</span></div>`).join("");
+const levelTip = () => ["red", "orange", "none", "yellow"].map((lv) => `<div class="tip-row">${badge(lv)}<span>${LEVEL_DEF[lv]}</span></div>`).join("");
 // i 버튼: 마우스를 올리거나 누르면 설명 (cls 'r' = 오른쪽 맞춤)
 const info = (html, cls = "") => `<span class="itip ${cls}" tabindex="0" role="note" aria-label="설명">i<span class="tip">${html}</span></span>`;
 const LV = { red: 3, orange: 2, yellow: 1, none: 0 };
@@ -86,6 +89,10 @@ onAuthStateChanged(auth, async (user) => {
   $("#loginView").classList.add("hidden"); $("#appView").classList.remove("hidden");
   if (window.__DEMO && !$(".demo-banner")) $("#appView").insertAdjacentHTML("afterbegin", `<div class="demo-banner">DEMO · 가상 데이터로 보는 화면입니다 (실제 업체·Firebase와 연결되지 않음) · <a href="./">실제 화면으로</a></div>`);
   $("#userEmail").textContent = user.email;
+  // 관리자(firebase-config.js ALLOWED_EMAILS)만 [관리자 모드] 버튼이 보임 — 다른 계정은 업체·수원국 리스크 화면만
+  state.admin = ALLOWED_EMAILS.includes(user.email);
+  $("#btnAdmin").classList.toggle("hidden", !state.admin);
+  setAdmin(state.admin && adminSaved());
   $("#lnkActions").href = ACTIONS_URL; $("#lnkSecrets").href = SECRETS_URL;
   try {
     await loadAll();
@@ -101,7 +108,7 @@ onAuthStateChanged(auth, async (user) => {
 // ---------- 데이터 ----------
 const docs = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 async function loadAll() {
-  const [p, c, f, k, r, st, runs, cfg, ed, mk, acc] = await Promise.all([
+  const [p, c, f, k, r, st, runs, cfg, ed, mk, acc, geo] = await Promise.all([
     getDocs(collection(db, "projects")),
     getDocs(collection(db, "companies")),
     getDocs(query(collection(db, "findings"), where("relevant", "==", true))),
@@ -113,6 +120,7 @@ async function loadAll() {
     getDocs(collection(db, "edcf_sanctions")),
     getDoc(doc(db, "meta", "mdb_korea")),
     getDoc(doc(db, "meta", "access")),
+    getDoc(doc(db, "meta", "geo")), // 수원국 리스크 (여행경보·지진·뉴스 이벤트) — 문서 1개라 읽기 1회
   ]);
   state.projects = docs(p).sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")) || a.name.localeCompare(b.name));
   state.companies = docs(c);
@@ -128,6 +136,7 @@ async function loadAll() {
   state.findings = state.findings.filter((f) => !String(f.dedup_key || "").startsWith("edcf-") || okEdcf.has(f.company_id));
   state.mdbKorea = mk.exists() ? mk.data() : null;
   state.access = acc.exists() ? (acc.data().emails || []) : [];
+  state.geo = geo.exists() ? geo.data() : null;
   state.loadedAt = Date.now();
   if ((state.settings?.keywords_version || 0) < KEYWORDS_VERSION) await loadDefaultKeywords(); // 키워드를 모두 지워도 되살리지 않음
   compute();
@@ -140,7 +149,8 @@ function compute() {
     c.catGuess = !c.cat; if (!c.cat) c.cat = guessCat(c.name) || guessCat(c.name_en) || "기타";
     c.mine = !!c.watch || c.engagements.some((e) => { const p = state.projects.find((x) => x.id === e.project_id); return p && isMine(p); });
     const fs = state.findings.filter((f) => f.company_id === c.id && f.status !== "dismissed");
-    c.risk = fs.reduce((m, f) => (LV[f.level] || 0) > (LV[m] || 0) ? f.level : m, "none");
+    c.risk = fs.reduce((m, f) => (f.level === "red" || f.level === "orange") && LV[f.level] > (LV[m] || 0) ? f.level : m, "none"); // 3단계: 참고(yellow)는 정상
+    c.ref = fs.filter((f) => f.level === "yellow").length;
     c.open = groupFindings(fs.filter((f) => f.status === "new" && (f.level === "red" || f.level === "orange"))).length; // 확인할 일 = 위험·경고 (같은 이슈는 1건)
     c.total = fs.length;
   }
@@ -152,14 +162,30 @@ const worstOf = (cs) => cs.reduce((m, c) => LV[c.risk] > LV[m] ? c.risk : m, "no
 $$("#tabs button").forEach((b) => b.addEventListener("click", () => showView(b.dataset.view)));
 $("#logoHome").addEventListener("click", () => { showView("home"); window.scrollTo({ top: 0, behavior: "smooth" }); });
 $("#logoHome").addEventListener("keydown", (e) => { if (e.key === "Enter") showView("home"); });
+const ADMIN_VIEWS = ["companies", "projects", "settings"];
+const adminSaved = () => { try { return localStorage.getItem("edcf_admin") === "1"; } catch { return false; } };
+function setAdmin(on) {
+  state.adminOn = !!(on && state.admin);
+  document.body.classList.toggle("admin-on", state.adminOn);
+  const b = $("#btnAdmin"); b.classList.toggle("on", state.adminOn);
+  $("span", b).textContent = state.adminOn ? "관리자 모드 끄기" : "관리자 모드";
+  try { localStorage.setItem("edcf_admin", state.adminOn ? "1" : "0"); } catch {}
+}
+$("#btnAdmin").onclick = () => {
+  setAdmin(!state.adminOn);
+  const cur = $("#tabs button.active")?.dataset.view || "home";
+  showView(state.adminOn ? "companies" : ADMIN_VIEWS.includes(cur) ? "home" : cur);
+  toast(state.adminOn ? "관리자 모드: 업체 관리·사업 관리·설정 탭이 열렸습니다" : "관리자 모드를 껐습니다", 2000);
+};
 function showView(v) {
   if (!$(`#view-${v}`)) v = "home";
+  if (ADMIN_VIEWS.includes(v) && !state.adminOn) v = "home"; // 관리자 모드가 아니면 관리 화면은 열지 않음
   $$("#tabs button").forEach((x) => x.classList.toggle("active", x.dataset.view === v));
   $$(".view").forEach((x) => x.classList.toggle("active", x.id === `view-${v}`));
   try { localStorage.setItem("view3", v); } catch {}
   $("#tabCnt").textContent = state.companies.length;
   $("#tabCntP").textContent = state.projects.length;
-  v === "home" ? renderHome() : v === "companies" ? renderCompanies() : v === "projects" ? renderProjects() : renderSettings();
+  v === "home" ? renderHome() : v === "geo" ? renderGeo() : v === "companies" ? renderCompanies() : v === "projects" ? renderProjects() : renderSettings();
 }
 const rerender = () => {
   compute(); showView($("#tabs button.active")?.dataset.view || "home");
@@ -324,7 +350,7 @@ const ROLE_ABBR = { 컨설턴트: "컨", 본구매: "본", "F/S": "FS" };
 // ---------- 리스크 레이더: 색 띠 = 등급(가운데일수록 위험), 주요 리스크 업체는 이름 표시 ----------
 function hash(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; } return h; }
 const polar = (deg, r) => { const rad = (deg * Math.PI) / 180; return [50 + (Math.sin(rad) * r) / 2, 50 - (Math.cos(rad) * r) / 2]; };
-const BANDS = { red: [8, 25], orange: [37, 52], yellow: [62, 74], none: [83, 93], pending: [70, 93] };
+const BANDS = { red: [8, 25], orange: [38, 58], none: [72, 92], pending: [70, 93] };
 const RADAR_MAX = 40; // 점이 너무 많으면 읽기 어려워서 — 등급 높은 순으로
 function renderRadar(cs) {
   const el = $("#radar"), sc = scanned();
@@ -350,12 +376,12 @@ function renderRadar(cs) {
   const t = (lv, y, label) => `<text class="bl ${lv}" x="100" y="${y}">${label} ${sc ? n[lv] : "-"}</text>`;
   el.innerHTML = `
     <svg class="grid" viewBox="0 0 200 200" aria-hidden="true">
-      <circle class="band none" cx="100" cy="100" r="96"/><circle class="band yellow" cx="100" cy="100" r="79"/>
-      <circle class="band orange" cx="100" cy="100" r="57"/><circle class="band red" cx="100" cy="100" r="31"/>
-      <circle class="ring none" cx="100" cy="100" r="96"/><circle class="ring yellow" cx="100" cy="100" r="79"/>
-      <circle class="ring orange" cx="100" cy="100" r="57"/><circle class="ring red" cx="100" cy="100" r="31"/>
+      <circle class="band none" cx="100" cy="100" r="96"/>
+      <circle class="band orange" cx="100" cy="100" r="64"/><circle class="band red" cx="100" cy="100" r="31"/>
+      <circle class="ring none" cx="100" cy="100" r="96"/>
+      <circle class="ring orange" cx="100" cy="100" r="64"/><circle class="ring red" cx="100" cy="100" r="31"/>
       <line class="axis" x1="100" y1="4" x2="100" y2="196"/><line class="axis" x1="4" y1="100" x2="196" y2="100"/>
-      ${t("none", 13, "정상")}${t("yellow", 33, "주의")}${t("orange", 55, "경고")}${t("red", 82, "위험")}
+      ${t("none", 15, "정상")}${t("orange", 48, "경고")}${t("red", 82, "위험")}
     </svg>
     <div class="sweep"></div><div class="radar-core"></div>
     ${dots}<div class="radar-tip hidden" id="radarTip"></div>`;
@@ -403,7 +429,7 @@ function focusProject(pid) {
 }
 
 // ---------- 대시보드 ----------
-const LEVEL_SHORT = { red: "지금 제재 중 (입찰제한·MDB·영업정지)", orange: "수사·기소·과징금·처분 예고·부도", yellow: "과거 이력·의혹·소송·재해" };
+const LEVEL_SHORT = { red: "지금 제재 중 (입찰제한·MDB·영업정지)", orange: "수사·기소·과징금·처분 예고·부도", none: "위험·경고 이슈 없음" };
 const ICON_USER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>`;
 const ICON_ORG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg>`;
 function renderHome() {
@@ -426,23 +452,23 @@ function renderHome() {
   else if (!sc) showGuide(`업체 ${cs.length}곳이 등록됐습니다. <b>지금 스캔</b>을 눌러 첫 스캔을 실행하세요.`);
   else showGuide("");
 
-  // ① 리스크 업체: 위험·경고·주의를 한 판에 (숫자 · 해당 업체 · 등급 뜻)
+  // ① 업체 등급: 위험·경고·정상 3단계를 한 판에 (숫자 · 해당 업체 · 등급 뜻)
   const open = state.findings.filter((f) => f.status === "new" && ids.has(f.company_id));
-  // 확인할 일은 위험·경고만 — 주의는 '참고 이력'으로 따로 모음 (처리하지 않아도 됨)
+  // 확인할 일은 위험·경고만 — 참고(yellow)는 '참고 이력'으로 따로 모음 (처리하지 않아도 됨)
   const isAct = (f) => f.level === "red" || f.level === "orange";
   const openG = groupFindings(open.filter(isAct)); // 같은 기사·같은 사건은 한 건으로
   const refG = groupFindings(open.filter((f) => !isAct(f)));
-  const byLv = { red: [], orange: [], yellow: [], none: [] };
+  const byLv = { red: [], orange: [], none: [] };
   cs.forEach((c) => byLv[c.risk].push(c));
-  const riskyN = byLv.red.length + byLv.orange.length + byLv.yellow.length;
+  const riskyN = byLv.red.length + byLv.orange.length;
   const who = (l) => { const x = [...l].sort((a, b) => b.open - a.open || a.name.localeCompare(b.name)); return x.slice(0, 2).map((c) => c.name).join(" · ") + (x.length > 2 ? ` 외 ${x.length - 2}곳` : ""); };
-  $("#kboard").innerHTML = `<div class="card-head"><h2>리스크 업체 ${info(levelTip())}</h2><span class="muted small">${sc ? `${cs.length}곳 중 ${riskyN}곳` : "스캔 전"}</span></div>`
-    + ["red", "orange", "yellow"].map((lv) => {
+  $("#kboard").innerHTML = `<div class="card-head"><h2>업체 등급 ${info(levelTip())}</h2><span class="muted small">${sc ? `${cs.length}곳 중 위험·경고 ${riskyN}곳` : "스캔 전"}</span></div>`
+    + ["red", "orange", "none"].map((lv) => {
       const l = byLv[lv];
       return `<button class="rk ${lv} ${sc && l.length ? "on" : ""}" data-lv="${lv}" ${sc && l.length ? `title="누르면 ${LEVEL[lv]} 업체 ${l.length}곳을 봅니다"` : "disabled"}>
         <div class="rk-num">${sc ? `<span data-count="${l.length}">0</span>` : "-"}<small>곳</small></div>
         <div class="rk-lv">${LEVEL[lv]}</div>
-        <div class="rk-names ${sc && l.length ? "" : "zero"}">${!sc ? "스캔 전" : l.length ? esc(who(l)) : "해당 업체 없음"}</div></button>`;
+        <div class="rk-names ${sc && l.length && lv !== "none" ? "" : "zero"}">${!sc ? "스캔 전" : lv === "none" ? (l.length ? `위험·경고 이슈 없음${l.filter((c) => c.ref).length ? ` · 참고 이력 ${l.filter((c) => c.ref).length}곳` : ""}` : "해당 업체 없음") : l.length ? esc(who(l)) : "해당 업체 없음"}</div></button>`;
     }).join("");
   // ② 공식 제재 명단 대조: 출처별(EXIMIIS·조달청·MDB) 현황만 — 아래 이슈 목록과 겹치지 않게
   const off = state.findings.filter((f) => ids.has(f.company_id) && f.source_type !== "news" && f.status !== "dismissed");
@@ -462,7 +488,7 @@ function renderHome() {
 
   // ③ 레이더
   renderRadar(cs);
-  $("#radarInfo").innerHTML = info(`<b>${scope === "mine" ? "내 담당" : "전체"} 업체 ${cs.length}곳</b> — 가운데로 갈수록 위험합니다.<br>점은 위험·경고·주의 업체만 표시하고(최대 ${RADAR_MAX}곳), 정상 업체는 바깥 원에 숫자로만 보여줍니다.<br>점을 누르면 업체 상세, 빈 곳을 누르면 다시 훑어봅니다.`, "r");
+  $("#radarInfo").innerHTML = info(`<b>${scope === "mine" ? "내 담당" : "전체"} 업체 ${cs.length}곳</b> — 가운데로 갈수록 위험합니다.<br>점은 위험·경고 업체만 표시하고(최대 ${RADAR_MAX}곳), 정상 업체는 바깥 원에 숫자로만 보여줍니다.<br>점을 누르면 업체 상세, 빈 곳을 누르면 다시 훑어봅니다.`, "r");
 
   // ④ 확인이 필요한 이슈 (위험 → 공식 제재 → 최신)
   const counts = Object.fromEntries(PERIODS.map(([k]) => [k, openG.filter((g) => groupIn(g, k)).length]));
@@ -479,7 +505,7 @@ function renderHome() {
     $("#feed").insertAdjacentHTML("afterbegin", `<div class="bulk-bar"><span>1년 지난 기사 <b>${shown.length}건</b> — 이미 아는 과거 이력이면 한 번에 정리할 수 있습니다</span><button class="btn sm" id="bulkOld">모두 확인했음</button></div>`);
     $("#bulkOld").onclick = () => bulkReview(shown);
   }
-  // 참고 이력(주의): 처리하지 않아도 되는 목록 — 펼칠 때만 그림
+  // 참고 이력: 처리하지 않아도 되는 목록 — 펼칠 때만 그림
   const refW = $("#refWrap");
   refW.classList.toggle("hidden", !refG.length);
   $("#refN").textContent = refG.length;
@@ -495,7 +521,7 @@ function renderHome() {
   const tally = (p) => { const t = { red: 0, orange: 0, yellow: 0, none: 0 }; state.companies.forEach((c) => { if (c.engagements.some((e) => e.project_id === p.id)) t[c.risk]++; }); return t; };
   const tl = Object.fromEntries(ps.map((p) => [p.id, tally(p)]));
   const psSorted = [...ps].sort((a, b) => !sc ? a.name.localeCompare(b.name)
-    : (tl[b.id].red - tl[a.id].red) || (tl[b.id].orange - tl[a.id].orange) || (tl[b.id].yellow - tl[a.id].yellow) || a.name.localeCompare(b.name));
+    : (tl[b.id].red - tl[a.id].red) || (tl[b.id].orange - tl[a.id].orange) || a.name.localeCompare(b.name));
   $("#projectMap").innerHTML = psSorted.map((p) => projectRow(p)).join("")
     || `<div class="empty small">${scope === "mine" ? "내가 담당하는 사업이 없습니다." : "등록된 사업이 없습니다."}</div>`;
   $$("#projectMap .pj").forEach((r) => { r.addEventListener("mouseenter", () => focusProject(r.dataset.pid)); r.addEventListener("mouseleave", () => focusProject(null)); });
@@ -510,12 +536,12 @@ function projectRow(p) {
   rows.sort((a, b) => ROLE_ORDER.indexOf(a.e.role) - ROLE_ORDER.indexOf(b.e.role) || byOrder(a, b));
   const sc = scanned(), t = { red: 0, orange: 0, yellow: 0, none: 0 };
   new Set(rows.map((r) => r.c)).forEach((c) => t[c.risk]++);
-  const total = t.red + t.orange + t.yellow + t.none;
+  const total = t.red + t.orange + t.none;
   const bar = !total ? "" : !sc ? `<i class="pending" style="flex:1"></i>`
-    : ["red", "orange", "yellow", "none"].filter((lv) => t[lv]).map((lv) => `<i class="${lv}" style="flex:${t[lv]}" title="${LEVEL[lv]} ${t[lv]}곳"></i>`).join("");
+    : ["red", "orange", "none"].filter((lv) => t[lv]).map((lv) => `<i class="${lv}" style="flex:${t[lv]}" title="${LEVEL[lv]} ${t[lv]}곳"></i>`).join("");
   const sum = !total ? `<span class="tot">연결된 업체 없음</span>`
     : !sc ? `<span class="tot">업체 ${total}곳 · 스캔 전</span>`
-    : (["red", "orange", "yellow"].filter((lv) => t[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${t[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) + `<span class="tot">/ ${total}곳</span>`;
+    : (["red", "orange"].filter((lv) => t[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${t[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) + `<span class="tot">/ ${total}곳</span>`;
   return `<div class="pj" data-pid="${p.id}">
     <div class="pj-top"><span class="pj-name" title="${esc(p.name)}">${esc(p.name)}</span>${p.country ? `<span class="pj-ctry">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</div>
     ${total ? `<div class="pj-dist"><div class="pj-bar">${bar}</div><div class="pj-sum">${sum}</div></div>` : `<div class="pj-dist"><div class="pj-sum">${sum}</div></div>`}
@@ -676,8 +702,8 @@ function openReport() {
   };
 }
 function buildReport({ scope: sc0, period, done, detail = false }) {
-  const C = { red: ["#D92D20", "#FDE8E6", "위험"], orange: ["#E2660A", "#FEEFE0", "경고"], yellow: ["#A16207", "#FBF3DC", "주의"], none: ["#0D9488", "#E2F4F2", "정상"] };
-  const BF = { red: ["#D92D20", "#FFFFFF"], orange: ["#F57C00", "#2B1400"], yellow: ["#FBC02D", "#3A2A00"], none: ["#E2F4F2", "#0D9488"] }; // 대시보드와 같은 꽉 찬 배지
+  const C = { red: ["#D92D20", "#FDE8E6", "위험"], orange: ["#E2660A", "#FEEFE0", "경고"], yellow: ["#64748B", "#EEF1F5", "참고"], none: ["#0D9488", "#E2F4F2", "정상"] };
+  const BF = { red: ["#D92D20", "#FFFFFF"], orange: ["#F57C00", "#2B1400"], yellow: ["#E2E8F0", "#475569"], none: ["#E2F4F2", "#0D9488"] }; // 대시보드와 같은 꽉 찬 배지 (참고는 회색)
   const bd = (lv) => { const [bg, fg] = BF[lv || "none"] || BF.none, l = (C[lv || "none"] || C.none)[2]; return `<span class="bd" style="color:${fg};background:${bg}">● ${l}</span>`; };
   const ROLE_C = { "F/S": "#0E7490", 컨설턴트: "#1D4ED8", 본구매: "#A21CAF" };
   const role = (r) => `<span class="role" style="color:${ROLE_C[r] || "#3D4A63"}">${esc(r)}</span>`;
@@ -688,7 +714,7 @@ function buildReport({ scope: sc0, period, done, detail = false }) {
   const days = period === "all" ? null : +period;
   const fs = state.findings.filter((f) => ids.has(f.company_id) && (f.status === "new" || (done && f.status === "reviewed")) && (!days || Date.now() - pubMs(f) <= days * DAY));
   const groups = groupFindings(fs), MAX = 300;
-  const t = { red: 0, orange: 0, yellow: 0 };
+  const t = { red: 0, orange: 0, none: 0 };
   cs.forEach((c) => { if (sc && t[c.risk] != null) t[c.risk]++; });
   const risky = cs.filter((c) => sc && c.risk !== "none").sort((a, b) => LV[b.risk] - LV[a.risk] || b.open - a.open || a.name.localeCompare(b.name));
   const now = nowStr(), scopeL = sc0 === "mine" ? "내 담당 사업" : "EDCF 전체", periodL = REPORT_PERIODS.find(([k]) => k === period)[1];
@@ -696,10 +722,10 @@ function buildReport({ scope: sc0, period, done, detail = false }) {
     const rows = [];
     for (const c of state.companies) c.engagements.forEach((e) => { if (e.project_id === p.id) rows.push({ c, e }); });
     rows.sort((a, b) => ROLE_ORDER.indexOf(a.e.role) - ROLE_ORDER.indexOf(b.e.role) || byOrder(a, b));
-    const k = { red: 0, orange: 0, yellow: 0 }; new Set(rows.map((r) => r.c)).forEach((c) => { if (sc && k[c.risk] != null) k[c.risk]++; });
+    const k = { red: 0, orange: 0 }; new Set(rows.map((r) => r.c)).forEach((c) => { if (sc && k[c.risk] != null) k[c.risk]++; });
     return `<tr><td><b>${esc(p.name)}</b>${p.country ? `<div class="mu">${esc(COUNTRY[p.country] || p.country)}</div>` : ""}</td>
       <td>${rows.map(({ c, e }) => `<div>${role(e.role)} ${esc(c.name)}${e.stage && e.stage !== "계약" ? ` <span class="mu">(${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""})</span>` : ""} ${sc && c.risk !== "none" ? bd(c.risk) : ""}</div>`).join("") || `<span class="mu">연결된 업체 없음</span>`}</td>
-      <td class="c">${["red", "orange", "yellow"].map((lv) => k[lv] ? `<span style="color:${C[lv][0]};font-weight:700">${C[lv][2]} ${k[lv]}</span>` : "").filter(Boolean).join(" · ") || `<span style="color:${C.none[0]}">이상 없음</span>`}</td></tr>`;
+      <td class="c">${["red", "orange"].map((lv) => k[lv] ? `<span style="color:${C[lv][0]};font-weight:700">${C[lv][2]} ${k[lv]}</span>` : "").filter(Boolean).join(" · ") || `<span style="color:${C.none[0]}">이상 없음</span>`}</td></tr>`;
   }).join("");
   const engL = (c) => byRole(c.engagements).map((e) => `${role(e.role)} ${esc(projName(e.project_id))}${e.stage && e.stage !== "계약" ? ` <span class="mu">(${esc(e.stage)})</span>` : ""}`).join("<br>") || `<span class="mu">사업 미연결</span>`;
   const issue = (g) => {
@@ -714,10 +740,10 @@ function buildReport({ scope: sc0, period, done, detail = false }) {
   };
   // 한 장 요약 (기본): 위험·경고 이슈 한 줄씩 + 사업별 리스크 수
   const hotG = groups.filter((g) => g.rep.level === "red" || g.rep.level === "orange"), yelN = groups.length - hotG.length;
-  const pStat = (p) => { const s = new Set(); state.companies.forEach((c) => { if (c.engagements.some((e) => e.project_id === p.id)) s.add(c); }); const k = { red: 0, orange: 0, yellow: 0 }; s.forEach((c) => { if (sc && k[c.risk] != null) k[c.risk]++; }); return { n: s.size, k }; };
-  const simpleBody = `<h2>확인할 이슈 · 위험·경고 <span class="mu">${hotG.length}건${yelN ? ` · 주의 ${yelN}건은 생략` : ""}</span></h2>
+  const pStat = (p) => { const s = new Set(); state.companies.forEach((c) => { if (c.engagements.some((e) => e.project_id === p.id)) s.add(c); }); const k = { red: 0, orange: 0 }; s.forEach((c) => { if (sc && k[c.risk] != null) k[c.risk]++; }); return { n: s.size, k }; };
+  const simpleBody = `<h2>확인할 이슈 · 위험·경고 <span class="mu">${hotG.length}건${yelN ? ` · 참고 이력 ${yelN}건은 생략` : ""}</span></h2>
 ${hotG.length ? `<table><tr><th style="width:10%">등급</th><th style="width:22%">업체</th><th>내용</th><th class="c" style="width:13%">날짜</th></tr>${hotG.slice(0, 20).map((g) => `<tr><td>${bd(g.rep.level)}</td><td><b>${esc(g.companies.map((c) => c.name).join(" · "))}</b></td><td>${esc(g.rep.summary || g.rep.title || "")}${g.rep.source_type !== "news" ? ` <span class="tg red">공식 명단</span>` : ""}</td><td class="c">${esc(g.rep.published_at || "-")}</td></tr>`).join("")}</table>${hotG.length > 20 ? `<div class="mu" style="margin-top:6px">외 ${hotG.length - 20}건은 대시보드 또는 '자세한 목록 포함'으로 확인</div>` : ""}` : `<div class="empty">해당 기간에 확인할 위험·경고 이슈가 없습니다</div>`}
-${ps.length ? `<h2>사업별 현황 <span class="mu">${ps.length}개</span></h2><table><tr><th>사업</th><th class="c" style="width:12%">업체</th><th class="c" style="width:28%">리스크</th></tr>${ps.map((p) => { const { n, k } = pStat(p); return `<tr><td><b>${esc(p.name)}</b>${p.country ? ` <span class="mu">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</td><td class="c">${n}곳</td><td class="c">${["red", "orange", "yellow"].map((lv) => k[lv] ? `<span style="color:${C[lv][0]};font-weight:700">${C[lv][2]} ${k[lv]}</span>` : "").filter(Boolean).join(" · ") || `<span style="color:${C.none[0]}">이상 없음</span>`}</td></tr>`; }).join("")}</table>` : ""}
+${ps.length ? `<h2>사업별 현황 <span class="mu">${ps.length}개</span></h2><table><tr><th>사업</th><th class="c" style="width:12%">업체</th><th class="c" style="width:28%">리스크</th></tr>${ps.map((p) => { const { n, k } = pStat(p); return `<tr><td><b>${esc(p.name)}</b>${p.country ? ` <span class="mu">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</td><td class="c">${n}곳</td><td class="c">${["red", "orange"].map((lv) => k[lv] ? `<span style="color:${C[lv][0]};font-weight:700">${C[lv][2]} ${k[lv]}</span>` : "").filter(Boolean).join(" · ") || `<span style="color:${C.none[0]}">이상 없음</span>`}</td></tr>`; }).join("")}</table>` : ""}
 `;
   const detailBody = `<h2>${done ? "이슈" : "확인할 이슈"} <span class="mu">${groups.length}건 · 등급 높은 순${groups.length > MAX ? ` · 앞의 ${MAX}건` : ""}</span></h2>
 ${groups.length ? groups.slice(0, MAX).map(issue).join("") : `<div class="empty">해당 기간에 ${done ? "" : "확인할 "}이슈가 없습니다</div>`}
@@ -762,7 +788,7 @@ tr { break-inside: avoid; }
   <div class="eb">RISK REPORT · ${esc(now.slice(0, 10).replace(/-/g, "."))}</div>
   <h1>EDCF <span>업체 리스크 보고서</span></h1>
   <div class="meta">범위 ${esc(scopeL)} (업체 ${cs.length}곳 · 사업 ${ps.length}개) · 이슈 ${esc(periodL)}${done ? " · 확인 완료 포함" : ""} · 마지막 스캔 ${esc((state.status.last_scan_at || "-").slice(0, 16))} · 작성 ${esc(now.slice(0, 16))} ${esc(me().split("@")[0])}</div></div>
-<div class="kpi"><div><small>위험 업체</small><b style="color:${C.red[0]}">${t.red}</b> <i>곳</i></div><div><small>경고 업체</small><b style="color:${C.orange[0]}">${t.orange}</b> <i>곳</i></div><div><small>주의 업체</small><b style="color:${C.yellow[0]}">${t.yellow}</b> <i>곳</i></div><div><small>${done ? "이슈 · 위험·경고" : "확인할 이슈 · 위험·경고"}</small><b style="color:#5B5BF0">${hotG.length}</b> <i>건</i></div></div>
+<div class="kpi"><div><small>위험 업체</small><b style="color:${C.red[0]}">${t.red}</b> <i>곳</i></div><div><small>경고 업체</small><b style="color:${C.orange[0]}">${t.orange}</b> <i>곳</i></div><div><small>정상 업체</small><b style="color:${C.none[0]}">${t.none}</b> <i>곳</i></div><div><small>${done ? "이슈 · 위험·경고" : "확인할 이슈 · 위험·경고"}</small><b style="color:#5B5BF0">${hotG.length}</b> <i>건</i></div></div>
 ${detail ? detailBody : simpleBody}
 <div class="ft">뉴스 기반 항목은 '제재 확정'이 아니라 '검토가 필요한 신호'입니다. 원문과 공식 자료(EXIMIIS, 나라장터, 각 MDB 제재 리스트)로 확인하시기 바랍니다.<br>데이터: EDCF 부정당업자(EXIMIIS) · 조달청 나라장터 · OpenSanctions(World Bank·ADB·AfDB·IDB·EBRD) · Google 뉴스 · 네이버 뉴스 · AI 판정(Claude)</div>
 </body></html>`;
@@ -846,7 +872,7 @@ function checkGrid(c) {
   </div>
   ${(lc.identity?.notes || []).slice(0, 1).map((t) => `<div class="ck-note">${esc(t)}</div>`).join("")}`;
 }
-// 리스크 업체 목록: 대시보드의 위험·경고·주의를 누르면 오른쪽 창에 그 등급 업체들 (업체를 누르면 상세, ← 로 목록)
+// 리스크 업체 목록: 대시보드의 위험·경고·정상을 누르면 오른쪽 창에 그 등급 업체들 (업체를 누르면 상세, ← 로 목록)
 // scroll: "top" 처음 열 때 / "back" 상세에서 돌아올 때(보던 위치) / "keep" 다시 그릴 때
 function openRiskList(lv, scroll = "top") {
   const list = scopeCompanies().filter((c) => c.risk === lv).sort((a, b) => b.open - a.open || a.name.localeCompare(b.name));
@@ -1202,7 +1228,7 @@ function applyCat(c, cat, source) {
 const CO_VIEWS = [
   ["all", "전체", "등록된 모든 업체"],
   ["pre", "계약 전 점검", "입찰중·우선협상 단계 업체 — 부정당업자 확인이 가장 필요한 시점"],
-  ["risk", "리스크 업체", "위험·경고·주의 업체"],
+  ["risk", "리스크 업체", "위험·경고 업체"],
   ["open", "미확인 이슈", "'확인했음·관련 없음' 처리 전 이슈가 있는 업체"],
   ["info", "정보 보완 필요", "사업자번호 또는 영문명이 없어 조회가 불완전한 업체"],
 ];
@@ -1351,8 +1377,8 @@ function projectCard(p, sc) {
   const t = { red: 0, orange: 0, yellow: 0, none: 0 };
   new Set(rows.map((r) => r.c)).forEach((c) => t[c.risk]++);
   const total = t.red + t.orange + t.yellow + t.none;
-  const dist = !total ? "" : `<div class="pj-dist"><div class="pj-bar">${sc ? ["red", "orange", "yellow", "none"].filter((lv) => t[lv]).map((lv) => `<i class="${lv}" style="flex:${t[lv]}"></i>`).join("") : `<i class="pending" style="flex:1"></i>`}</div>
-    <div class="pj-sum">${sc ? (["red", "orange", "yellow"].filter((lv) => t[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${t[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) : ""}<span class="tot">/ ${total}곳</span></div></div>`;
+  const dist = !total ? "" : `<div class="pj-dist"><div class="pj-bar">${sc ? ["red", "orange", "none"].filter((lv) => t[lv]).map((lv) => `<i class="${lv}" style="flex:${t[lv]}"></i>`).join("") : `<i class="pending" style="flex:1"></i>`}</div>
+    <div class="pj-sum">${sc ? (["red", "orange"].filter((lv) => t[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${t[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) : ""}<span class="tot">/ ${total}곳</span></div></div>`;
   return `<div class="pbox">
     <div class="pbox-head"><button class="pname" data-edit-proj="${p.id}" title="눌러서 사업명·수원국·담당 수정">${esc(p.name)}</button>${p.country ? `<span class="ctry">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</div>
     ${dist}
@@ -2138,3 +2164,12 @@ async function loadReportPreview() {
   $("#reportFrame").srcdoc = d?.html || `<p style="font-family:sans-serif;color:#667085;padding:24px">스캔을 한 번 실행하면 메일 미리보기가 만들어집니다.</p>`;
   $("#reportMeta").textContent = d ? `${d.generated_at} 생성 · 신규 ${d.items}건` : "";
 }
+
+// ---------- 수원국 리스크 (assets/geo.js) ----------
+initGeo({
+  state, esc, info, isMine, ICON_USER, ICON_ORG,
+  getScope: () => { scopeCompanies(); return scope; },
+  setScope: (v) => { scope = v; try { localStorage.setItem("edcf_scope2", scope); } catch {} },
+  companyTally: (pid) => { const t = { red: 0, orange: 0, none: 0, total: 0 }; state.companies.forEach((c) => { if (c.engagements.some((e) => e.project_id === pid)) { t[scanned() ? c.risk : "none"]++; t.total++; } }); return t; },
+});
+$("#geoRefresh").onclick = async () => { const b = $("#geoRefresh"); b.disabled = true; await refreshGeo(); b.disabled = false; toast("지진 정보를 다시 불러왔습니다", 1500); };

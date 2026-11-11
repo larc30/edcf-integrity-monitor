@@ -7,6 +7,7 @@ python -m monitor.run preview               # 리포트 미리보기만 갱신
 python -m monitor.run report-test --test-to me@example.com
 python -m monitor.run report                # 수신자 전체 발송
 python -m monitor.run dart                  # DART 기업목록 → data/corp_master.json
+python -m monitor.run geo                   # 수원국 리스크(여행경보·지진·뉴스 이벤트)만 갱신 (daily 에도 포함)
 """
 import argparse
 import json
@@ -126,7 +127,7 @@ def process_queue() -> int:
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("task", choices=["daily", "queue", "scan", "preview", "report", "report-test", "dart"])
+    p.add_argument("task", choices=["daily", "queue", "scan", "preview", "report", "report-test", "dart", "geo"])
     p.add_argument("--companies", default="")
     p.add_argument("--test-to", default="")
     a = p.parse_args()
@@ -180,6 +181,17 @@ def main() -> int:
                     store.update("requests", r["id"], {"status": "done", "finished_at": store.now_str(), "result": summary})
         except Exception as e:
             log.warning("요청 상태 갱신 실패: %s", e)
+
+    if a.task in ("daily", "geo"):
+        try:  # 수원국 리스크: 실패해도 업체 스캔·메일은 계속 (공개 로그엔 건수만)
+            from . import geo
+            log.info("수원국 정보: %s", json.dumps(geo.update(), ensure_ascii=False))
+        except Exception as e:
+            if _quota_exceeded(e):
+                raise
+            log.warning("수원국 정보 갱신 실패: %s", type(e).__name__)
+        if a.task == "geo":
+            return 0
 
     if a.task in ("daily", "scan", "preview"):
         log.info("리포트 미리보기: %s", report.save_preview())

@@ -49,6 +49,8 @@ OPENSANCTIONS_BASE = _get("OPENSANCTIONS_BASE", "https://data.opensanctions.org/
 # 조달청 나라장터 사용자정보 서비스 (공공데이터포털, Decoding 인증키)
 DATA_GO_KR_KEY = _get("DATA_GO_KR_KEY")
 PPS_BASE_URL = _get("PPS_BASE_URL", "https://apis.data.go.kr/1230000/ao/UsrInfoService02")
+# 외교부 여행경보 (공공데이터포털 '외교부_국가·지역별 여행경보' 활용신청 필요). 따로 없으면 위 공공데이터포털 키를 같이 씀
+MOFA_TRAVEL_KEY = _get("MOFA_TRAVEL_KEY") or DATA_GO_KR_KEY
 
 # --- AI 분석 (Claude) ---
 ANTHROPIC_API_KEY = _get("ANTHROPIC_API_KEY")
