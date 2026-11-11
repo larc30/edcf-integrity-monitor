@@ -1246,10 +1246,6 @@ html.lite .radar svg.grid circle.ring.glow { display: none; }
 .adv-grid .conn-note { margin: 8px 2px 0; }
 .adv-grid .actions.left { margin-top: 10px; }
 
-/* 지도 글씨: 나라·도시 이름 층 대비를 높여 또렷하게 (흐림 효과 아님) */
-.geo-map .leaflet-labels-pane { filter: contrast(1.35) brightness(1.25); }
-:root[data-theme="light"] .geo-map .leaflet-labels-pane { filter: contrast(1.25); }
-html.lite .geo-map .leaflet-labels-pane { filter: none; }
 /* 핀 옆 사업명 */
 .gpin-w { position: relative; width: 28px; height: 28px; }
 .pin-lb { position: absolute; top: 3px; left: 34px; max-width: 13em; padding: 2px 9px; border-radius: 8px; font-size: var(--fs-xs); font-weight: 750; line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); background: color-mix(in srgb, var(--panel-solid) 90%, transparent); border: 1px solid var(--line-2); border-left: 3px solid var(--c, var(--green)); box-shadow: 0 2px 8px rgba(0, 0, 0, .35); pointer-events: none; }
@@ -1262,3 +1258,14 @@ html.lite .geo-map .leaflet-labels-pane { filter: none; }
 .pin-lb.b, .pin-lb.t { left: 14px; right: auto; transform: translateX(-50%); border-left: 1px solid var(--line-2); border-right: 1px solid var(--line-2); border-top: 1px solid var(--line-2); border-bottom: 3px solid var(--c, var(--green)); }
 .pin-lb.b { top: 34px; }
 .pin-lb.t { top: -30px; }
+
+/* =====================================================================
+   v47 — 수원국 지도 완전 플랫: 바다·육지·국경선 + 그림자 없는 나라 이름
+   ===================================================================== */
+:root, :root[data-theme="dark"] { --map-sea: #0C1A2E; --map-land: #1C2738; --map-border: #3B4A60; --map-name: #C9D3E3; --map-name-2: #8A97AD; }
+:root[data-theme="light"] { --map-sea: #D7E8F5; --map-land: #FFFFFF; --map-border: #B8C4D3; --map-name: #1E293B; --map-name-2: #64748B; }
+.geo-map, .geo-map.leaflet-container { background: var(--map-sea); }
+.cn { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; pointer-events: none; font-weight: 600; letter-spacing: .02em; color: var(--map-name-2); font-size: var(--fs-xs); text-shadow: none; display: none; }
+.cn.mine { display: block; color: var(--map-name); font-weight: 800; font-size: var(--fs-sm); letter-spacing: .08em; text-transform: uppercase; }
+.geo-map.z-big .cn.big, .geo-map.z-mid .cn.mid, .geo-map.z-small .cn.small { display: block; }
+.geo-map.z-mid .cn.big { font-size: var(--fs-sm); }
