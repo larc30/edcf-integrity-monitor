@@ -1234,3 +1234,13 @@ html.lite .radar svg.grid circle.ring.glow { display: none; }
 .pj-grid { align-items: stretch; }
 .pj-grid .pbox-body { flex: 1; }
 .form label.check { flex-direction: row; align-items: flex-start; } .form label.check input { flex: 0 0 auto; margin-top: 3px; }
+
+/* 설정 > 고급: 두 칸 제목 줄 높이를 같게(목록 시작선 맞춤), [연결 확인]은 주 버튼 */
+.adv-grid .conn-head { margin: 0 0 10px; min-height: 34px; }
+.adv-grid .conn-head h3 { margin: 0; }
+.adv-grid > div > .conn-head + * { margin-top: 0; }
+#btnConnCheck { gap: 6px; padding: 6px 14px; }
+#btnConnCheck svg { width: 15px; height: 15px; }
+#btnConnCheck:disabled { opacity: .75; }
+.adv-grid .conn-note { margin: 8px 2px 0; }
+.adv-grid .actions.left { margin-top: 10px; }
