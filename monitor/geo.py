@@ -60,7 +60,7 @@ EVENT_WORDS = [
     ("disease", ("콜레라", "에볼라", "엠폭스", "전염병", "감염병", "cholera", "ebola", "mpox", "outbreak")),
 ]
 NEWS_QUERY_WORDS = ["지진", "홍수", "태풍", "테러", "내전", "쿠데타", "폭동", "산불", "콜레라"]
-KEEP_DAYS = 30
+KEEP_DAYS = 365  # 과거 이력(30일 이상)도 볼 수 있게 1년 보관
 QUAKE_KM = 600
 KST = timezone(timedelta(hours=9))
 
@@ -270,11 +270,11 @@ def update(projects: list[dict] | None = None, get=httpx.get, gnews=news.google_
     if evs or not errs:
         doc["news_at"] = store.now_str()
 
-    # 지난 이벤트와 합치기 (30일 지난 것은 버림, 같은 id 는 새것으로)
+    # 지난 이벤트와 합치기 (1년 지난 것은 버림, 같은 id 는 새것으로)
     since = int((datetime.now(KST) - timedelta(days=KEEP_DAYS)).timestamp() * 1000)
     merged = {e["id"]: e for e in prev.get("events") or [] if (e.get("at_ms") or 0) >= since}
     merged.update({e["id"]: e for e in quakes + evs})
-    doc["events"] = sorted(merged.values(), key=lambda e: -(e.get("at_ms") or 0))[:200]
+    doc["events"] = sorted(merged.values(), key=lambda e: -(e.get("at_ms") or 0))[:300]
     res["events"] = len(doc["events"])
     store.update("meta", "geo", doc)
     return res

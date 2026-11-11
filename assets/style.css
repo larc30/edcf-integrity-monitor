@@ -1055,7 +1055,7 @@ html.lite .gev.fresh { animation: none; }
 :root[data-theme="light"] .geo-dash .eyebrow { color: #059669; }
 :root[data-theme="light"] .geo-dash .hero-title .grad { background: linear-gradient(135deg, #0891B2 0%, #059669 100%); -webkit-background-clip: text; background-clip: text; }
 
-/* 관리자 모드: 주황 버튼 + 켜짐 스위치, 켜지면 상단 아래 주황 띠 */
+/* 관리자 모드: 주황 버튼 + 켜짐 스위치. 켜면 별도 모드(업체·수원국 스위치 숨김) */
 .admin-btn { gap: 7px; font-weight: 800; color: #F59E0B; border-color: rgba(245, 158, 11, .55); background: rgba(245, 158, 11, .1); }
 .admin-btn:hover { background: rgba(245, 158, 11, .18); border-color: #F59E0B; }
 :root[data-theme="light"] .admin-btn { color: #B45309; }
@@ -1063,20 +1063,10 @@ html.lite .gev.fresh { animation: none; }
 .ab-sw i { position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .35); transition: transform .25s cubic-bezier(.2, .8, .2, 1); }
 .admin-btn.on { color: #1F1300; border-color: transparent; background: linear-gradient(135deg, #FBBF24, #F97316); box-shadow: 0 0 0 3px rgba(245, 158, 11, .25), 0 6px 20px rgba(245, 158, 11, .35); }
 .admin-btn.on .ab-sw { background: rgba(0, 0, 0, .35); } .admin-btn.on .ab-sw i { transform: translateX(12px); }
-.admin-strip { display: none; position: sticky; top: var(--top); z-index: 19; background: linear-gradient(90deg, rgba(245, 158, 11, .2), rgba(249, 115, 22, .08) 60%, transparent); border-bottom: 1px solid rgba(245, 158, 11, .45); background-color: var(--bg); }
-body.admin-on .admin-strip { display: block; }
-body.admin-on .topbar { border-bottom-color: rgba(245, 158, 11, .5); }
-.as-in { max-width: 1680px; margin: 0 auto; padding: 7px 24px; display: flex; align-items: center; gap: 10px; font-size: var(--fs-sm); color: var(--text-2); }
-.as-in b { color: #F59E0B; font-weight: 850; } :root[data-theme="light"] .as-in b { color: #B45309; }
-.as-dot { width: 8px; height: 8px; border-radius: 50%; background: #F59E0B; box-shadow: 0 0 0 0 rgba(245, 158, 11, .6); animation: asPulse 2s infinite; flex: 0 0 auto; }
-@keyframes asPulse { 70% { box-shadow: 0 0 0 8px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
-.as-in .btn { margin-left: auto; }
+body.admin-on body.admin-on .topbar { border-bottom-color: rgba(245, 158, 11, .5); }
 body.admin-on .tabs .adm.active { background: rgba(245, 158, 11, .14); box-shadow: inset 0 0 0 1px rgba(245, 158, 11, .5); }
 body.admin-on .tabs .adm.active svg { color: #F59E0B; }
-html.lite .as-dot { animation: none; }
-@media (max-width: 640px) { .as-txt { display: none; } .as-in { padding: 6px 16px; } }
-
-/* 레이더: 계기판 테두리·눈금, 깊이감 있는 색 띠, 빛줄기 앞머리, 가운데 맥박 */
+html.lite /* 레이더: 계기판 테두리·눈금, 깊이감 있는 색 띠, 빛줄기 앞머리, 가운데 맥박 */
 .d-radar { background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent-2) 7%, var(--panel)) 0%, var(--panel) 62%); }
 .radar svg.grid circle.band.none { fill: url(#rgNone); } .radar svg.grid circle.band.orange { fill: url(#rgOrange); } .radar svg.grid circle.band.red { fill: url(#rgRed); }
 .radar svg.grid circle.bezel { fill: none; stroke: url(#rgBezel); stroke-width: 1.3; }
@@ -1141,3 +1131,46 @@ html.lite .gev.fresh { animation: none; }
 .gp-km { flex: 0 0 auto; font-size: var(--fs-xs); color: var(--text-2); font-variant-numeric: tabular-nums; }
 .radar svg.grid.labels { z-index: 1; pointer-events: none; }
 @media (max-width: 520px) { .scope-switch { flex-wrap: wrap; max-width: 100%; } .tabs .mode-switch .ms-btn { padding: 7px 10px; } }
+
+/* =====================================================================
+   v44 — 관리자 별도 모드 · 설명 줄맞춤 · 확인 버튼 · 연결 확인 · 레이더 음영
+   ===================================================================== */
+body.admin-on .tabs .mode-switch, body.admin-on .tabs .tab-sep { display: none; }
+/* 설명 상자: 이름 칸과 설명 칸을 맞춤 */
+.tip-p + .tip-grid, .tip-grid + .tip-p { margin-top: 8px; }
+.tip-grid { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; align-items: baseline; }
+.tip-grid > b { white-space: nowrap; }
+.tip-grid.wide { gap: 8px 12px; }
+.itip .tip:has(.tip-grid.wide) { width: 340px; }
+/* 확인 완료(맞음) / 관련 없음(아님) */
+.btn.act-ok { color: var(--green); border-color: color-mix(in srgb, var(--green) 45%, transparent); }
+.btn.act-ok:hover { background: var(--green-bg); border-color: var(--green); }
+.btn.act-no { color: var(--text-2); }
+.btn.act-no:hover { background: var(--gray-bg); border-color: var(--gray); }
+/* 설정 > API 연결 */
+.conn-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 18px 0 6px; }
+.conn-head h3 { margin: 0; }
+.conn-note { font-size: var(--fs-xs); color: var(--muted); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.conn-note b { color: var(--text-2); }
+/* 수원국 [지금 스캔] = 업체 리스크와 같은 버튼 */
+.geo-dash .d-ctrl { gap: 8px; }
+
+/* 레이더: 금속 테두리 · 공 모양 빛과 그림자 · 띠 가장자리 빛 */
+.d-radar { background:
+  radial-gradient(55% 55% at 50% 48%, color-mix(in srgb, var(--accent-2) 16%, transparent) 0%, transparent 70%),
+  radial-gradient(90% 70% at 50% 110%, color-mix(in srgb, var(--accent) 18%, transparent) 0%, transparent 60%),
+  linear-gradient(180deg, color-mix(in srgb, var(--panel-solid) 92%, #000) 0%, var(--panel) 100%); }
+.radar { box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-2) 22%, transparent), 0 0 46px -8px color-mix(in srgb, var(--accent-2) 55%, transparent), 0 26px 50px -20px rgba(0, 0, 0, .75);
+  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--bg-2) 70%, #0B2A3A) 0%, var(--bg) 72%); }
+.radar::before { content: ""; position: absolute; inset: 0; z-index: 1; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(120% 120% at 28% 18%, rgba(255, 255, 255, .17) 0%, rgba(255, 255, 255, .05) 24%, transparent 42%),
+              radial-gradient(circle at 50% 50%, transparent 56%, rgba(2, 6, 23, .5) 92%, rgba(2, 6, 23, .7) 100%); }
+:root[data-theme="light"] .radar { background: radial-gradient(circle at 50% 50%, #FFFFFF 0%, #E6EEF8 75%); box-shadow: 0 0 0 1px rgba(8, 145, 178, .2), 0 0 40px -10px rgba(8, 145, 178, .45), 0 22px 40px -22px rgba(15, 23, 42, .45); }
+:root[data-theme="light"] .radar::before { background: radial-gradient(120% 120% at 28% 18%, rgba(255, 255, 255, .7) 0%, transparent 40%), radial-gradient(circle at 50% 50%, transparent 60%, rgba(15, 23, 42, .12) 100%); }
+.radar svg.grid circle.metal { fill: none; stroke: url(#rgMetal); stroke-width: 2.8; }
+.radar svg.grid circle.bezel-in { fill: none; stroke: rgba(0, 0, 0, .45); stroke-width: .7; }
+:root[data-theme="light"] .radar svg.grid circle.bezel-in { stroke: rgba(15, 23, 42, .15); }
+.radar svg.grid circle.ring.glow { stroke-width: 3.2; opacity: .22; }
+.radar svg.grid circle.ring.glow.red { opacity: .32; }
+html.lite .radar svg.grid circle.ring.glow { display: none; }
+.rdot.red, .rdot.orange { box-shadow: 0 0 0 2px rgba(255, 255, 255, .15), 0 0 12px currentColor, 0 2px 4px rgba(0, 0, 0, .5); }
