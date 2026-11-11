@@ -50,12 +50,13 @@ const ALERT = { 1: ["1단계", "여행유의", "a1"], 2: ["2단계", "여행자�
 const LEVEL = { red: "위험", orange: "경고", none: "정상" };
 const LV = { red: 2, orange: 1, none: 0 };
 const DAY = 86400e3;
-// 수원국 리스크 자체 기준: 사업지에서 사건까지 거리 · 기간 · 규모 (숫자만 바꾸면 기준이 바뀜, 설명 창도 이 표로 만듦)
+// 수원국 리스크 기준: 사업지에서 사건까지 거리 · 기간 (숫자만 바꾸면 기준이 바뀜, 설명 창도 이 표로 만듦)
+// 지진은 거리 대신 '사업지 예상 진도'(mmi): 규모·거리·깊이로 사업지가 얼마나 흔들렸을지 계산 (siteMMI)
 export const GEO_RULES = [
-  { lv: "red", types: ["quake"], km: 100, days: 7, mag: 5.0, text: "규모 5.0 이상 지진" },
-  { lv: "red", types: ["terror", "war"], km: 50, days: 14, text: "테러, 분쟁" },
-  { lv: "orange", types: ["quake"], km: 300, days: 7, mag: 5.0, text: "규모 5.0 이상 지진" },
-  { lv: "orange", types: ["terror", "war"], km: 200, days: 14, text: "테러, 분쟁" },
+  { lv: "red", types: ["quake"], mmi: 6, days: 7, text: "지진: 사업지 예상 진도 6 이상 (건물 피해가 생기기 시작하는 흔들림)" },
+  { lv: "red", types: ["terror", "war"], km: 50, days: 14, text: "테러, 분쟁 (같은 도시권)" },
+  { lv: "orange", types: ["quake"], mmi: 5, days: 7, text: "지진: 사업지 예상 진도 5 (거의 모든 사람이 느끼고 물건이 떨어지는 흔들림)" },
+  { lv: "orange", types: ["terror", "war"], km: 200, days: 14, text: "테러, 분쟁 (같은 지역권)" },
   { lv: "orange", types: ["flood", "storm", "fire", "volcano"], km: 100, days: 7, text: "홍수, 태풍, 산불, 화산" },
   { lv: "orange", types: ["unrest", "disease"], km: 50, days: 7, text: "시위, 감염병" },
 ];
@@ -110,7 +111,7 @@ async function loadLiveQuakes(force) {
       const [lng, lat] = f.geometry?.coordinates || [], p = f.properties || {};
       const near = pts.map((t) => ({ t, d: km([lat, lng], t.ll) })).sort((a, b) => a.d - b.d)[0];
       if (!near || near.d > 600) return null;
-      return { id: "usgs-" + f.id, type: "quake", mag: p.mag, title: `규모 ${(+p.mag).toFixed(1)} 지진 · ${p.place || ""}`, url: p.url, lat, lng, country: near.t.country, ms: p.time, at_ms: p.time, source: "USGS (실시간)", dist_km: Math.round(near.d) };
+      return { id: "usgs-" + f.id, type: "quake", mag: p.mag, title: `규모 ${(+p.mag).toFixed(1)} 지진 · ${p.place || ""}`, url: p.url, lat, lng, country: near.t.country, ms: p.time, at_ms: p.time, source: "USGS (실시간)", dist_km: Math.round(near.d), depth: f.geometry?.coordinates?.[2] };
     }).filter(Boolean);
     live.at = Date.now(); live.err = null;
   } catch (e) { live.err = String(e.message || e); live.quakes = live.quakes || []; }
@@ -133,15 +134,23 @@ function alertRisk(a) {
   if (a.level === 3 || (a.level === 2 && !a.partial)) return { lv: "orange", why: [name] };
   return { lv: "none", why: [] };
 }
+// 사업지 예상 진도 (수정 메르칼리 진도 1~12, 기상청 진도와 같은 단계)
+// USGS 가 쓰는 진도 예측식 Atkinson & Wald (2007): 규모 M, 진앙까지 거리 km, 진원 깊이 km
+export function siteMMI(mag, dKm, depth = 10) {
+  const R = Math.hypot(dKm, depth ?? 10, 14), lr = Math.log10(R), m = mag - 6;
+  const v = 12.27 + 2.27 * m + 0.1304 * m * m - 1.30 * lr - 0.000707 * R + 1.95 * (R > 30 ? Math.log10(R / 30) : 0) - 0.577 * mag * lr;
+  return Math.max(1, Math.min(12, v));
+}
 // 사업지 등급 = 여행경보 + 사업지 둘레 사건 (GEO_RULES). 이유는 높은 등급부터
 export function siteRisk(pt, country, evs, alerts) {
   const a = alerts[country] || null, base = alertRisk(a);
   let lv = base.lv; const why = base.lv === "red" ? [...base.why] : [], warn = base.lv === "orange" ? [...base.why] : [];
   if (pt) for (const r of GEO_RULES) {
-    const hit = evs.filter((e) => r.types.includes(e.type) && Number.isFinite(e.lat) && Date.now() - e.ms <= r.days * DAY && (!r.mag || (e.mag || 0) >= r.mag))
-      .map((e) => ({ e, d: km(pt, [e.lat, e.lng]) })).filter((x) => x.d <= r.km).sort((x, y) => x.d - y.d)[0];
+    const hit = evs.filter((e) => r.types.includes(e.type) && Number.isFinite(e.lat) && Date.now() - e.ms <= r.days * DAY && (!r.mmi || e.mag))
+      .map((e) => { const d = km(pt, [e.lat, e.lng]); return { e, d, mmi: r.mmi ? Math.round(siteMMI(+e.mag, d, e.depth)) : 0 }; })
+      .filter((x) => (r.mmi ? x.mmi >= r.mmi : x.d <= r.km)).sort((x, y) => y.mmi - x.mmi || x.d - y.d)[0];
     if (!hit) continue;
-    const t = `${GEO_TYPES[hit.e.type][0]}${hit.e.mag ? ` M${(+hit.e.mag).toFixed(1)}` : ""}, 사업지 ${fmtKm(hit.d)} (${rel(hit.e.ms)})`;
+    const t = `${GEO_TYPES[hit.e.type][0]}${hit.e.mag ? ` M${(+hit.e.mag).toFixed(1)}` : ""}, 사업지 ${fmtKm(hit.d)}${hit.mmi ? `, 예상 진도 ${hit.mmi}` : ""} (${rel(hit.e.ms)})`;
     if (r.lv === "red") { lv = "red"; if (!why.includes(t)) why.push(t); }
     else { if (lv === "none") lv = "orange"; if (!warn.includes(t) && !why.includes(t)) warn.push(t); }
   }
@@ -185,7 +194,7 @@ export async function renderGeo() {
   const byLv = { red: [], orange: [], none: [] };
   codes.forEach((c) => byLv[risk[c].lv].push(c));
   byLv.red.sort(); byLv.orange.sort(); byLv.none.sort();
-  const ruleRows = (lv) => GEO_RULES.filter((r) => r.lv === lv).map((r) => `${r.text}: 사업지 ${r.km}km 안, ${r.days}일 이내`).join("<br>");
+  const ruleRows = (lv) => GEO_RULES.filter((r) => r.lv === lv).map((r) => r.km ? `${r.text}: 사업지 ${r.km}km 안, ${r.days}일 이내` : `${r.text}, ${r.days}일 이내`).join("<br>");
   const tip = `<div class="tip-p">사업지마다 아래 기준으로 정하고, 나라 등급은 그 나라 사업 가운데 가장 높은 등급입니다.</div>
     <div class="tip-row"><span class="badge red">위험</span><span>여행경보 4단계, 특별여행주의보, 전역 3단계<br>${ruleRows("red")}</span></div>
     <div class="tip-row"><span class="badge orange">경고</span><span>여행경보 일부 지역 3단계, 전역 2단계<br>${ruleRows("orange")}</span></div>

@@ -182,7 +182,9 @@ def fetch_quakes(tg, get=httpx.get) -> list[dict]:
     r.raise_for_status()
     out = []
     for f in r.json().get("features", []):
-        lng, lat = (f.get("geometry") or {}).get("coordinates", [None, None])[:2]
+        co = (f.get("geometry") or {}).get("coordinates", [None, None])
+        lng, lat = co[:2]
+        depth = co[2] if len(co) > 2 and co[2] is not None else None
         p = f.get("properties") or {}
         if lat is None or lng is None or p.get("mag") is None:
             continue
@@ -191,7 +193,8 @@ def fetch_quakes(tg, get=httpx.get) -> list[dict]:
             continue
         out.append({"id": f"usgs-{f.get('id')}", "type": "quake", "country": code, "lat": round(lat, 3), "lng": round(lng, 3),
                     "mag": round(float(p["mag"]), 1), "title": f"규모 {float(p['mag']):.1f} 지진 · {p.get('place') or ''}".strip(),
-                    "url": p.get("url") or "", "at_ms": int(p.get("time") or 0), "source": "USGS", "dist_km": round(d)})
+                    "url": p.get("url") or "", "at_ms": int(p.get("time") or 0), "source": "USGS", "dist_km": round(d),
+                    **({"depth": round(float(depth))} if depth is not None else {})})
     return out
 
 

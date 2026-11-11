@@ -33,14 +33,14 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 업체명 일치: textutil.name_matches(짧은 이름은 독립 단어·업종 문맥 필요).
 - 조달청: data.go.kr 15129466, 사업자번호로 현재 유효 제재만. 같은 부정당번호에 정지·해제 줄이 있거나, 저장된 제재가 기간 중 사라지면 경고(집행정지 확인).
 - 사업자번호·영문명·업종: DART corpCode 정확 일치 1건일 때만 자동, 아니면 수기.
-- AI 판정: Claude(config.CLAUDE_MODEL, 기본 Haiku), 키 없으면 analyzer.RULE_KEYWORDS 규칙 판정. 업체별 '관련 없음'·'확인했음' 제목을 예시로 전달('과거 이력 일괄 정리'는 제외). 재판정은 monitor/rejudge.py.
+- AI 판정: Claude(config.CLAUDE_MODEL, 기본 Haiku), 키 없으면 analyzer.RULE_KEYWORDS 규칙 판정. 처분 대상이 모회사·자회사·계열사(다른 법인)면 이 업체는 참고(yellow) 이하. 분류에 '영업정지·등록말소' 있음. 업체별 '관련 없음'·'확인했음' 제목을 예시로 전달('과거 이력 일괄 정리'는 제외). 재판정은 monitor/rejudge.py.
 
 ## 등급 (3단계: 위험·경고·정상, 2026-11-11 결정)
 - 업체 등급: 위험 = 지금 유효한 제재(입찰제한·MDB·영업정지·등록말소·EXIMIIS 등록) / 경고 = 제재로 이어질 진행 중 사안(수사·기소·과징금·부도·회생, 집행정지) / 정상 = 그 밖.
 - 기록의 level 값은 그대로 red/orange/yellow/none. yellow 는 등급이 아니라 '참고 이력'(회색 '참고' 배지) — 업체 등급 계산(app.js compute·report.load_overview)에서 정상으로 봄. AI 판정 기준(analyzer)은 안 바꿈.
 - 확인할 이슈·메일·업체 미확인 수는 위험·경고만. 참고는 접힌 '참고 이력'.
 - 배지(모두 꽉 찬 색): 밝은 화면 위험 #D92D20/흰 · 경고 #F57C00/#2B1400 · 참고 #E2E8F0/#475569, 어두운 화면 #FF5A5F · #FF9F1C · 참고 #334155/#CBD5E1. style.css .badge ↔ report.BADGE ↔ app.js BF 같게.
-- 수원국 등급(assets/geo.js siteRisk · GEO_RULES 표): 사업지마다 정하고 나라 등급 = 그 나라 사업 중 가장 높은 등급. 위험 = 여행경보 4단계·특별여행주의보·전역 3단계, 사업지 100km 안 규모 5.0+ 지진(7일), 50km 안 테러·분쟁(14일) / 경고 = 일부 지역 3단계·전역 2단계, 300km 안 규모 5.0+ 지진(7일), 200km 안 테러·분쟁(14일), 100km 안 홍수·태풍·산불·화산(7일), 50km 안 시위·감염병(7일) / 정상. 사업 카드에 '근거' 줄.
+- 수원국 등급(assets/geo.js siteRisk · GEO_RULES 표): 사업지마다 정하고 나라 등급 = 그 나라 사업 중 가장 높은 등급. 위험 = 여행경보 4단계·특별여행주의보·전역 3단계, 사업지 예상 진도 6+ 지진(7일), 50km 안 테러·분쟁(14일) / 경고 = 일부 지역 3단계·전역 2단계, 예상 진도 5 지진(7일), 200km 안 테러·분쟁(14일), 100km 안 홍수·태풍·산불·화산(7일), 50km 안 시위·감염병(7일) / 정상. 사업 카드에 '근거' 줄. 예상 진도 = geo.js siteMMI (USGS 진도 예측식 Atkinson & Wald 2007, 규모·진앙 거리·깊이; 2026-11-11 사용자 예시 거리 기준에서 바꿈).
 
 ## 수원국 리스크 (초안, monitor/geo.py ↔ assets/geo.js)
 - 지도: Leaflet + 저장소 안 세계 지도 assets/world-50m.json(world-atlas · Natural Earth 1:50m, topojson 3.0.2 cdnjs)로 바다·육지·국경선만 그리는 완전 플랫(바깥 지도 서비스·키 없음). 색은 style.css --map-sea·--map-land·--map-border. 위험·경고 수원국만 육지 색에 등급 색을 섞어 칠함(정상은 안 칠함: 초록이 바다처럼 보임). 나라 이름은 그림자 없는 글자(사업 나라는 대문자 굵게, 그 밖은 확대할수록 큰→중간→작은 나라). Esri 타일·위성 버튼은 없앰.
