@@ -14,7 +14,7 @@ FONT = "Pretendard,'Pretendard Variable',-apple-system,BlinkMacSystemFont,'Apple
 COLORS = {  # (글자색, 옅은 배경, 이름)
     "red": ("#D92D20", "#FDE8E6", "위험"),
     "orange": ("#E2660A", "#FEEFE0", "경고"),
-    "yellow": ("#A16207", "#FBF3DC", "주의"),
+    "yellow": ("#64748B", "#EEF1F5", "참고"),  # 등급 3단계(위험·경고·정상) — yellow 는 참고 이력
     "none": ("#0D9488", "#E2F4F2", "정상"),
 }
 TEXT, TEXT2, MUTED, LINE, SOFT, BG, PANEL = "#0B1220", "#3D4A63", "#6B7690", "#E3E7EF", "#EEF1F6", "#F3F5FA", "#FFFFFF"
@@ -39,12 +39,12 @@ def load_overview() -> tuple[list[dict], list[dict], dict]:
         c["counts"] = {lv: sum(1 for f in fs if f.get("level") == lv) for lv in ("red", "orange", "yellow")}
         c["unreviewed"] = len(grouping.group([f for f in fs if f.get("status") == "new"]))  # 같은 이슈는 1건으로
         top = max((f.get("level") for f in fs), key=lambda l: LEVEL_ORDER.get(l, 0), default="none")
-        c["risk"] = top if LEVEL_ORDER.get(top, 0) > 0 else "none"
+        c["risk"] = top if top in ("red", "orange") else "none"  # 3단계: 참고(yellow)는 정상
     companies.sort(key=lambda c: (-LEVEL_ORDER.get(c["risk"], 0), -c["unreviewed"], c["name"]))
     return companies, finds, engs
 
 
-BADGE = {"red": ("#D92D20", "#FFFFFF"), "orange": ("#F57C00", "#2B1400"), "yellow": ("#FBC02D", "#3A2A00"), "none": ("#E2F4F2", "#0D9488")}  # (배경, 글자) — 대시보드와 같은 꽉 찬 배지
+BADGE = {"red": ("#D92D20", "#FFFFFF"), "orange": ("#F57C00", "#2B1400"), "yellow": ("#E2E8F0", "#475569"), "none": ("#E2F4F2", "#0D9488")}  # (배경, 글자) — 대시보드와 같은 꽉 찬 배지
 
 
 def _badge(level: str) -> str:
@@ -68,7 +68,7 @@ def _eng_text(engs: list[dict]) -> str:
 
 def build() -> tuple[str, str, list[str]]:
     """returns (subject, html, finding_ids_included)
-    간단한 메일 (v37, 팀 리뷰): 오늘 새로 확인할 위험·경고만 한 줄씩, 주의·오래된 기사는 건수만, 나머지는 대시보드에서."""
+    간단한 메일 (v37, 팀 리뷰): 오늘 새로 확인할 위험·경고만 한 줄씩, 참고 이력·오래된 기사는 건수만, 나머지는 대시보드에서."""
     now = store.now_kst()
     today = now.strftime("%Y-%m-%d")
     overview, finds, engs = load_overview()
@@ -85,7 +85,6 @@ def build() -> tuple[str, str, list[str]]:
 
     n_red = sum(1 for c in overview if c["risk"] == "red")
     n_org = sum(1 for c in overview if c["risk"] == "orange")
-    n_yel = sum(1 for c in overview if c["risk"] == "yellow")
     new_red = sum(1 for g in hot if g[0]["level"] == "red")
     new_org = len(hot) - new_red
     head = " · ".join(t for t in (f"위험 {new_red}" if new_red else "", f"경고 {new_org}" if new_org else "") if t) or "새 위험·경고 없음"
@@ -118,7 +117,7 @@ def build() -> tuple[str, str, list[str]]:
         lines.append(f'<tr><td colspan="2" style="padding:10px 0;font-size:13px;color:{TEXT2};">위험·경고 {len(hot) - MAX}건 더 → {dash}</td></tr>')
     if not hot:
         lines.append(f'<tr><td colspan="2" style="padding:18px 0;text-align:center;font-size:14px;color:{COLORS["none"][0]};">오늘 새로 확인할 위험·경고 이슈가 없습니다</td></tr>')
-    skipped = " · ".join(t for t in (f"주의 {len(mild)}건" if mild else "", f"30일 지난 기사 {len(old_hot)}건" if old_hot else "") if t)
+    skipped = " · ".join(t for t in (f"참고 이력 {len(mild)}건" if mild else "", f"30일 지난 기사 {len(old_hot)}건" if old_hot else "") if t)
     skipped_html = (f'<div style="margin-top:14px;background:{BG};border-radius:10px;padding:10px 14px;font-size:13px;color:{TEXT2};">'
                     f'{skipped}은 참고용이라 메일에서 생략했습니다 → {dash}</div>') if skipped else ""
     weekday = "월화수목금토일"[now.weekday()]
@@ -130,7 +129,7 @@ def build() -> tuple[str, str, list[str]]:
 <tr><td style="background:{NAVY};padding:18px 24px;border-radius:13px 13px 0 0;">
   <div style="font-size:13px;font-weight:800;color:#FFFFFF;">◎ EDCF RADAR <span style="color:#22D3EE;font-weight:700;margin-left:6px;">{today} ({weekday})</span></div>
   <div style="margin-top:8px;font-size:22px;font-weight:800;color:#FFFFFF;line-height:1.3;">오늘 새로 확인할 이슈 <span style="color:#FFB4C2;">{E(head)}</span></div>
-  <div style="margin-top:4px;font-size:13px;color:#B3BCCD;">지금 위험 업체 {n_red}곳 · 경고 {n_org}곳 · 주의 {n_yel}곳 (모니터링 {len(overview)}곳)</div>
+  <div style="margin-top:4px;font-size:13px;color:#B3BCCD;">지금 위험 업체 {n_red}곳 · 경고 {n_org}곳 (모니터링 {len(overview)}곳)</div>
 </td></tr>
 <tr><td style="padding:8px 24px 4px;"><table width="100%" cellpadding="0" cellspacing="0">{''.join(lines)}</table>{skipped_html}</td></tr>
 <tr><td style="padding:16px 24px 20px;">
