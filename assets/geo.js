@@ -50,8 +50,15 @@ const ALERT = { 1: ["1단계", "여행유의", "a1"], 2: ["2단계", "여행자�
 const LEVEL = { red: "위험", orange: "경고", none: "정상" };
 const LV = { red: 2, orange: 1, none: 0 };
 const DAY = 86400e3;
-const RECENT = 7 * DAY; // 경고로 올리는 기간
-const SEVERE = new Set(["war", "terror"]);
+// 수원국 리스크 자체 기준: 사업지에서 사건까지 거리 · 기간 · 규모 (숫자만 바꾸면 기준이 바뀜, 설명 창도 이 표로 만듦)
+export const GEO_RULES = [
+  { lv: "red", types: ["quake"], km: 100, days: 7, mag: 5.0, text: "규모 5.0 이상 지진" },
+  { lv: "red", types: ["terror", "war"], km: 50, days: 14, text: "테러, 분쟁" },
+  { lv: "orange", types: ["quake"], km: 300, days: 7, mag: 5.0, text: "규모 5.0 이상 지진" },
+  { lv: "orange", types: ["terror", "war"], km: 200, days: 14, text: "테러, 분쟁" },
+  { lv: "orange", types: ["flood", "storm", "fire", "volcano"], km: 100, days: 7, text: "홍수, 태풍, 산불, 화산" },
+  { lv: "orange", types: ["unrest", "disease"], km: 50, days: 7, text: "시위, 감염병" },
+];
 
 let ctx = null, map = null, layers = null, live = { quakes: null, at: null, err: null, loading: false };
 const ui = { type: null, period: "14", lv: null, focus: null };
@@ -117,18 +124,30 @@ function targets() {
   return out;
 }
 
-// 수원국 등급 + 이유
-export function countryRisk(code, evs, alerts) {
-  const a = alerts[code] || null, why = [];
-  let lv = "none";
-  if (a?.special) { lv = "red"; why.push(`특별여행주의보${a.special_text ? ` (${a.special_text})` : ""}`); }
-  if ((a?.level || 0) >= 3) { lv = "red"; why.push(`여행경보 ${ALERT[a.level][0]} ${ALERT[a.level][1]}${a.partial ? " (일부 지역)" : ""}`); }
-  else if (a?.level === 2) { if (lv === "none") lv = "orange"; why.push(`여행경보 2단계 여행자제${a.partial ? " (일부 지역)" : ""}`); }
-  const recent = evs.filter((e) => e.country === code && Date.now() - e.ms <= RECENT);
-  const sev = recent.filter((e) => SEVERE.has(e.type) || (e.type === "quake" && (e.mag || 0) >= 6) || e.severe);
-  if (sev.length) { if (lv === "none") lv = "orange"; why.push(`최근 7일 ${[...new Set(sev.map((e) => GEO_TYPES[e.type][0]))].join("·")} ${sev.length}건`); }
-  return { lv, why, alert: a, recent };
+// 여행경보로 보는 등급: 4단계·특별여행주의보·전역 3단계는 위험, 일부 지역 3단계·전역 2단계는 경고
+function alertRisk(a) {
+  if (!a) return { lv: "none", why: [] };
+  const name = a.level ? `여행경보 ${ALERT[a.level][0]} ${ALERT[a.level][1]}${a.partial ? " (일부 지역)" : ""}` : "";
+  if (a.special) return { lv: "red", why: [`특별여행주의보${a.special_text ? ` (${a.special_text})` : ""}`] };
+  if (a.level >= 4 || (a.level === 3 && !a.partial)) return { lv: "red", why: [name] };
+  if (a.level === 3 || (a.level === 2 && !a.partial)) return { lv: "orange", why: [name] };
+  return { lv: "none", why: [] };
 }
+// 사업지 등급 = 여행경보 + 사업지 둘레 사건 (GEO_RULES). 이유는 높은 등급부터
+export function siteRisk(pt, country, evs, alerts) {
+  const a = alerts[country] || null, base = alertRisk(a);
+  let lv = base.lv; const why = base.lv === "red" ? [...base.why] : [], warn = base.lv === "orange" ? [...base.why] : [];
+  if (pt) for (const r of GEO_RULES) {
+    const hit = evs.filter((e) => r.types.includes(e.type) && Number.isFinite(e.lat) && Date.now() - e.ms <= r.days * DAY && (!r.mag || (e.mag || 0) >= r.mag))
+      .map((e) => ({ e, d: km(pt, [e.lat, e.lng]) })).filter((x) => x.d <= r.km).sort((x, y) => x.d - y.d)[0];
+    if (!hit) continue;
+    const t = `${GEO_TYPES[hit.e.type][0]}${hit.e.mag ? ` M${(+hit.e.mag).toFixed(1)}` : ""}, 사업지 ${fmtKm(hit.d)} (${rel(hit.e.ms)})`;
+    if (r.lv === "red") { lv = "red"; if (!why.includes(t)) why.push(t); }
+    else { if (lv === "none") lv = "orange"; if (!warn.includes(t) && !why.includes(t)) warn.push(t); }
+  }
+  return { lv, why: [...why, ...warn], alert: a };
+}
+const worse = (x, y) => (LV[y.lv] > LV[x.lv] ? y : x);
 
 // ---------- 화면 ----------
 export function initGeo(c) { ctx = c; }
@@ -138,7 +157,15 @@ export async function renderGeo() {
   const g = geoDoc(), alerts = g.alerts || {};
   const evsAll = allEvents();
   const codes = [...new Set(ps.map((p) => p.country).filter(Boolean))];
-  const risk = Object.fromEntries(codes.map((c) => [c, countryRisk(c, evsAll, alerts)]));
+  // 사업지마다 등급을 정하고, 나라 등급은 그 나라 사업 가운데 가장 높은 등급
+  const byC0 = {};
+  const pins = ps.map((p) => { const i = (byC0[p.country] = (byC0[p.country] ?? -1) + 1); const pt = projectPoint(p, i); return { p, pt, r: siteRisk(pt?.ll, p.country, evsAll, alerts) }; });
+  const risk = {};
+  codes.forEach((c) => {
+    const rs = pins.filter((x) => x.p.country === c).map((x) => x.r);
+    const top = rs.reduce(worse, { lv: "none", why: [], alert: alerts[c] || null });
+    risk[c] = { lv: top.lv, why: [...new Set(rs.flatMap((r) => r.why))], alert: alerts[c] || null };
+  });
   const inScope = evsAll.filter((e) => codes.includes(e.country));
   const pCounts = Object.fromEntries(PERIODS.map(([k]) => [k, inScope.filter((e) => inP(e, k)).length]));
   if (!pCounts.hasOwnProperty(ui.period)) ui.period = "30d";
@@ -158,10 +185,11 @@ export async function renderGeo() {
   const byLv = { red: [], orange: [], none: [] };
   codes.forEach((c) => byLv[risk[c].lv].push(c));
   byLv.red.sort(); byLv.orange.sort(); byLv.none.sort();
-  const tip = `<div class="tip-row"><span class="badge red">위험</span><span><b>여행경보 3단계(출국권고)·4단계(여행금지)</b> 또는 특별여행주의보가 있는 나라</span></div>
-    <div class="tip-row"><span class="badge orange">경고</span><span><b>여행경보 2단계(여행자제)</b>, 또는 최근 7일 안에 규모 6 이상 지진·분쟁·테러가 있었던 나라</span></div>
-    <div class="tip-row"><span class="badge none">정상</span><span>그 밖 (1단계 여행유의 포함). 홍수·태풍 같은 이벤트는 지도와 목록에만 표시</span></div>
-    <div class="tip-row muted">여행경보가 일부 지역만 높아도 그 나라 전체를 높은 단계로 봅니다 (초안 기준)</div>`;
+  const ruleRows = (lv) => GEO_RULES.filter((r) => r.lv === lv).map((r) => `${r.text}: 사업지 ${r.km}km 안, ${r.days}일 이내`).join("<br>");
+  const tip = `<div class="tip-p">사업지마다 아래 기준으로 정하고, 나라 등급은 그 나라 사업 가운데 가장 높은 등급입니다.</div>
+    <div class="tip-row"><span class="badge red">위험</span><span>여행경보 4단계, 특별여행주의보, 전역 3단계<br>${ruleRows("red")}</span></div>
+    <div class="tip-row"><span class="badge orange">경고</span><span>여행경보 일부 지역 3단계, 전역 2단계<br>${ruleRows("orange")}</span></div>
+    <div class="tip-row"><span class="badge none">정상</span><span>그 밖 (여행경보 1단계, 일부 지역 2단계 포함)</span></div>`;
   $("#gboard").innerHTML = `<div class="card-head"><h2>수원국 등급 ${info(tip)}</h2><span class="muted small">${codes.length}개국 중 ${byLv.red.length + byLv.orange.length}개국</span></div>`
     + ["red", "orange", "none"].map((lv) => {
       const l = byLv[lv];
@@ -180,14 +208,12 @@ export async function renderGeo() {
   $$("#evSummary [data-et]:not(:disabled)").forEach((b) => b.onclick = () => { ui.type = ui.type === b.dataset.et ? null : b.dataset.et; renderGeo(); });
 
   // 오른쪽: 사업별 내역 + 여행경보
-  const byC = {};
-  const pins = ps.map((p) => { const i = (byC[p.country] = (byC[p.country] ?? -1) + 1); return { p, pt: projectPoint(p, i), r: risk[p.country] || { lv: "none", why: [], recent: [] } }; });
   pins.sort((a, b) => LV[b.r.lv] - LV[a.r.lv] || (b.r.alert?.level || 0) - (a.r.alert?.level || 0) || a.p.name.localeCompare(b.p.name));
   $("#geoProjTitle").textContent = scope === "mine" ? "내 담당 사업" : "전체 사업";
   $("#geoProjN").textContent = ps.length;
   if (ui.focus && !pins.some((x) => x.p.id === ui.focus)) ui.focus = null;
   $("#geoProjects").innerHTML = pins.map(({ p, pt, r }, idx) => {
-    const a = r.alert, near = nearEvents(pt, evs, p.country).slice(0, 2);
+    const a = r.alert, sel = ui.focus === p.id, near = nearEvents(pt, evs, p.country).slice(0, sel ? 6 : 2);
     const co = ctx.companyTally(p.id);
     const alertHtml = a?.level ? `<span class="alert-chip ${ALERT[a.level][2]}">${ALERT[a.level][0]} ${ALERT[a.level][1]}</span>${a.partial ? `<span class="muted small">일부 지역</span>` : ""}${a.special ? `<span class="alert-chip sp">특별여행주의보</span>` : ""}`
       : aOk ? `<span class="alert-chip a0">여행경보 없음</span>` : `<span class="muted small">여행경보 연결 전</span>`;
@@ -196,7 +222,8 @@ export async function renderGeo() {
       <div class="gp-row"><span class="gp-k">사업지</span><span>${esc(cname(p.country))}${pt ? ` <span class="gp-en">${esc(pt.en)}</span>` : ` <span class="muted small">· 위치 미상</span>`}</span></div>
       <div class="gp-row"><span class="gp-k">여행경보</span><span class="gp-alert">${alertHtml}</span></div>
       ${a?.regions ? `<div class="gp-reg">${esc(String(a.regions).slice(0, 120))}</div>` : ""}
-      <div class="gp-row"><span class="gp-k">이벤트</span><span class="gp-evs">${near.length ? near.map((e) => `<span class="gp-ev" title="${esc(e.title)}">${ibadge(e.type, "xs")}<span class="gp-ev-t">${esc(e.title)}</span>${e.d != null ? `<b class="gp-km">${fmtKm(e.d)}</b>` : ""}</span>`).join("") : `<span class="muted small">${pl} · ${NEAR_KM}km 안 없음</span>`}</span></div>
+      ${r.why.length ? `<div class="gp-row"><span class="gp-k">근거</span><span class="gp-why">${r.why.slice(0, sel ? 4 : 2).map((w) => `<span>${esc(w)}</span>`).join("")}</span></div>` : ""}
+      <div class="gp-row"><span class="gp-k">${sel ? "가까운 사건" : "이벤트"}</span><span class="gp-evs">${near.length ? near.map((e) => `<span class="gp-ev" title="${esc(e.title)}">${ibadge(e.type, "xs")}<span class="gp-ev-t">${esc(e.title)}</span>${e.d != null ? `<b class="gp-km">${fmtKm(e.d)}</b>` : ""}</span>`).join("") : `<span class="muted small">${pl} · ${NEAR_KM}km 안 없음</span>`}</span></div>
       <div class="gp-row"><span class="gp-k">참여 업체</span><span class="pj-sum">${co.total ? (["red", "orange"].filter((lv) => co[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${co[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) + `<span class="tot">/ ${co.total}곳</span>` : `<span class="tot">연결된 업체 없음</span>`}</span></div>
     </div>`;
   }).join("") || `<div class="empty small">${scope === "mine" ? "내가 담당하는 사업이 없습니다." : "등록된 사업이 없습니다."}</div>`;
@@ -216,6 +243,9 @@ export async function renderGeo() {
 
   last = { pins, evs, risk };
   drawMap(pins, evs, risk);
+  // 고른 사업 카드가 목록 안에서 보이게 (페이지는 움직이지 않게 목록만 스크롤)
+  const selEl = ui.focus && $(`#geoProjects [data-gpid="${ui.focus}"]`), list = $("#geoProjects");
+  if (selEl && (selEl.offsetTop < list.scrollTop || selEl.offsetTop + selEl.offsetHeight > list.scrollTop + list.clientHeight)) list.scrollTo({ top: selEl.offsetTop - 8, behavior: "smooth" });
   $$("#geoProjects [data-gpid]").forEach((el) => {
     const pid = el.dataset.gpid;
     el.onmouseenter = () => hiPin(pid, true); el.onmouseleave = () => hiPin(pid, false);
@@ -356,7 +386,8 @@ function drawMap(pins, evs, risk) {
 function drawFocus(f, near) {
   const box = $("#mapFocus"), all = $("#mapAll");
   all.classList.toggle("hidden", !f); all.onclick = () => setFocus(null);
-  if (!f) { box.classList.add("hidden"); map._focusPid = null; return; }
+  box.classList.add("hidden"); // 사업 정보는 오른쪽 카드 안에 펼쳐 보여 줌 (지도를 가리지 않게)
+  if (!f) { map._focusPid = null; return; }
   const c = f.pt.ll, accent = cssv("--accent-2");
   RINGS.forEach((r, i) => {
     // 위성 사진 위에서도 보이게: 어두운 바깥선 + 밝은 점선 두 겹
@@ -376,16 +407,8 @@ function drawFocus(f, near) {
   if (map._focusPid !== f.p.id) map.flyToBounds([[c[0] - dLat, c[1] - dLng], [c[0] + dLat, c[1] + dLng]], { duration: 0.9 }); // 다시 그릴 때는 그대로
   map._focusPid = f.p.id;
   map._fitFocus = true;
-  const r = last.risk[f.p.country] || { lv: "none" };
-  box.innerHTML = `<div class="mf-top"><span class="badge ${r.lv}">${LEVEL[r.lv]}</span><b class="mf-name">${ctx.esc(f.p.name)}</b></div>
-    <div class="mf-en">${ctx.esc(f.pt.en)}</div>
-    <div class="mf-h">사업지에서 가까운 이벤트 <span class="muted">${NEAR_KM}km 안</span></div>
-    ${near.length ? `<div class="mf-list">${near.slice(0, 4).map((e) => `<div class="mf-ev">${ibadge(e.type, "xs")}<span class="mf-t">${ctx.esc(GEO_TYPES[e.type][0])} · ${ctx.esc(e.title)}</span><b>${fmtKm(e.d)}</b></div>`).join("")}</div>` : `<div class="mf-none">${NEAR_KM}km 안에 최근 이벤트가 없습니다</div>`}
-    <div class="mf-foot"><span class="mf-key"><i></i>점선 원 100km 간격</span></div>`;
-  box.classList.remove("hidden");
 }
 function setFocus(pid) { ui.focus = pid; renderGeo(); }
-// 이름표가 서로 겹치면 뒤 순서(덜 위험한 사업)부터 숨김 · 확대하면 다시 보임 (마우스를 올리면 사업명이 뜸)
 // 이름표가 겹치면 자리를 바꿔 봄: 원래 쪽 → 반대쪽 → 핀 아래 → 핀 위. 모두 막히면 숨김 (위험한 사업부터 자리를 차지) · 확대하면 다시 보임
 const SIDES = ["r", "l", "b", "t"];
 function declutter() {
