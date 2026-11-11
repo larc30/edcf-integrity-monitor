@@ -53,7 +53,7 @@ const DAY = 86400e3;
 const RECENT = 7 * DAY; // 경고로 올리는 기간
 const SEVERE = new Set(["war", "terror"]);
 
-let ctx = null, map = null, tiles = null, layers = null, live = { quakes: null, at: null, err: null, loading: false };
+let ctx = null, map = null, layers = null, live = { quakes: null, at: null, err: null, loading: false };
 const ui = { type: null, period: "14", lv: null, focus: null };
 const RINGS = [100, 200, 300, 400, 500]; // 사업을 누르면 사업지 둘레에 그리는 거리 원 (km)
 const NEAR_KM = 600;
@@ -237,56 +237,86 @@ function nearEvents(pt, evs, country) {
 // ---------- 지도 ----------
 let last = null;
 const pinMarkers = {}, evMarkers = {};
-// 지도 바탕: Esri 회색 지도 (키 없음, 다크·라이트) + 영어 나라·도시 이름 층. CARTO 무료 지도는 키를 요구해서 사용하지 않음
-const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/";
+// 지도 바탕: 완전 플랫 — 바다·육지·국경선만 (assets/world-50m.json, Natural Earth 1:50m · 저장소 안 파일이라 바깥 지도 서비스·키 없음)
+// 나라 이름은 지도 위에 글자로 직접 올림(그림자 없이). 사업이 있는 나라는 등급 색으로 옅게 칠함
 const isLight = () => document.documentElement.dataset.theme === "light";
-// 지도 모양: 기본 = 플랫(바다 기본도 · 핀·아이콘이 잘 보이고 인쇄·발표에 깔끔), 위성 = 실사 사진 (오른쪽 위 버튼)
-let mapStyle = "flat";
-try { mapStyle = localStorage.getItem("edcf_map_style") || "flat"; } catch {}
-const baseUrl = () => `${ESRI}${mapStyle === "sat" ? "World_Imagery" : "Ocean/World_Ocean_Base"}/MapServer/tile/{z}/{y}/{x}`;
-const LABEL_URL = `${ESRI}Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}`;
-let labels = null, shade = null;
-const makeTiles = () => L.tileLayer(baseUrl(), { maxZoom: 16, maxNativeZoom: mapStyle === "sat" ? 16 : 10, keepBuffer: 4, attribution: 'Tiles &copy; <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a> · Maxar, Earthstar Geographics, HERE, Garmin, &copy; OpenStreetMap' });
-function applyTheme() { // 다크 화면에서는 살짝 어둡게 덮어 대시보드 색과 맞추고 핀·아이콘이 잘 보이게
-  // 모양을 바꿀 때는 바탕 지도 층을 새로 만듦 (주소만 바꾸면 이전 지도 조각이 섞여 보임)
-  const key = mapStyle + (isLight() ? "L" : "D");
-  if (tiles?._key !== key) { if (tiles) map.removeLayer(tiles); tiles = makeTiles(); tiles._key = key; tiles.addTo(map); }
-  labels.addTo(map);
-  if (isLight()) map.removeLayer(shade);
-  else { shade.setStyle({ fillOpacity: mapStyle === "sat" ? 0.28 : 0.3 }); shade.addTo(map); }
-  const sw = $("#mapStyle");
-  if (sw) sw.innerHTML = [["flat", "지도"], ["sat", "위성"]].map(([k, l]) => `<button data-ms="${k}" class="${k === mapStyle ? "active" : ""}">${l}</button>`).join("");
-  $$("#mapStyle button").forEach((b) => b.onclick = () => { mapStyle = b.dataset.ms; try { localStorage.setItem("edcf_map_style", mapStyle); } catch {} applyTheme(); });
+// 나라 숫자 코드(ISO 3166-1) ↔ 두 글자 코드
+const ISO_NUM = { TZ: "834", PK: "586", KE: "404", MN: "496", LA: "418", ID: "360", KR: "410", VN: "704", KH: "116", BD: "050", PH: "608", UZ: "860", ET: "231", GH: "288", MM: "104", LK: "144", NP: "524", RW: "646", UG: "800", TN: "788", EG: "818", BO: "068", PY: "600", CO: "170", PE: "604", EC: "218", GT: "320", SN: "686", MZ: "508", CM: "120", NG: "566", TR: "792", UA: "804", GE: "268", AZ: "031", KZ: "398", KG: "417", TJ: "762", TL: "626" };
+const NUM_ISO = Object.fromEntries(Object.entries(ISO_NUM).map(([k, v]) => [v, k]));
+let world = null, worldLayer = null, nameLayer = null, riskNow = {}, worldLoading = null;
+const cssv = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function loadWorld() {
+  if (world || worldLoading) return worldLoading;
+  worldLoading = fetch("assets/world-50m.json").then((r) => r.json()).then((t) => {
+    world = window.topojson.feature(t, t.objects.countries).features;
+    if (map) { drawWorld(); if (last) drawMap(last.pins, last.evs, last.risk); }
+  }).catch((e) => { console.warn("world map", e); });
+  return worldLoading;
 }
+// 두 색을 섞은 불투명 색 (육지 위에 등급 색을 옅게 · 바다 색이 비치지 않게)
+const mix = (a, b, k) => { const h = (c) => { c = c.replace("#", ""); if (c.length === 3) c = [...c].map((x) => x + x).join(""); return [0, 2, 4].map((i) => parseInt(c.slice(i, i + 2), 16)); }; try { const x = h(a), y = h(b); return "#" + x.map((v, i) => Math.round(v * k + y[i] * (1 - k)).toString(16).padStart(2, "0")).join(""); } catch { return b; } };
+function landStyle(f) {
+  const code = NUM_ISO[f.id], lv = riskNow[code];
+  const tint = lv && lv !== "none" ? cssv(lv === "red" ? "--red" : "--orange") : null; // 정상 나라는 칠하지 않음 (초록은 바다처럼 보여서)
+  const dim = lv && ui.lv && ui.lv !== lv;
+  return { stroke: true, color: lv ? cssv("--map-name-2") : cssv("--map-border"), weight: lv ? 1.3 : 0.7, opacity: 1, fill: true, fillColor: tint && !dim ? mix(tint, cssv("--map-land"), isLight() ? 0.2 : 0.28) : cssv("--map-land"), fillOpacity: 1 };
+}
+// 나라 이름 자리: 가장 큰 덩어리의 가운데 (사업 나라는 정해 둔 중심)
+function labelPoint(f) {
+  const code = NUM_ISO[f.id];
+  if (GEO_COUNTRY[code]) return [GEO_COUNTRY[code][2], GEO_COUNTRY[code][3]];
+  const polys = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates;
+  const ring = polys.map((p) => p[0]).sort((x, y) => y.length - x.length)[0];
+  let [x0, y0, x1, y1] = [180, 90, -180, -90];
+  ring.forEach(([x, y]) => { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); });
+  return { ll: [(y0 + y1) / 2, (x0 + x1) / 2], size: (x1 - x0) * (y1 - y0) };
+}
+function drawWorld() {
+  if (!world || !map) return;
+  if (worldLayer) map.removeLayer(worldLayer);
+  if (nameLayer) map.removeLayer(nameLayer);
+  worldLayer = L.geoJSON(world, { pane: "land", renderer: L.canvas({ pane: "land", padding: 0.5 }), style: landStyle, interactive: false }).addTo(map);
+  nameLayer = L.layerGroup().addTo(map);
+  world.forEach((f) => {
+    const code = NUM_ISO[f.id], lp = labelPoint(f), mine = !!riskNow[code];
+    const ll = Array.isArray(lp) ? lp : lp.ll, size = Array.isArray(lp) ? 999 : lp.size;
+    if (!mine && size < 6) return; // 아주 작은 나라 이름은 생략
+    const name = GEO_COUNTRY[code]?.[1] || f.properties.name;
+    const tier = mine ? "mine" : size > 400 ? "big" : size > 60 ? "mid" : "small";
+    L.marker(ll, { pane: "names", interactive: false, keyboard: false, icon: L.divIcon({ className: "", html: `<span class="cn ${tier}">${ctx.esc(name)}</span>`, iconSize: [0, 0] }) }).addTo(nameLayer);
+  });
+  zoomClass();
+}
+function zoomClass() { // 확대할수록 작은 나라 이름까지
+  const z = map.getZoom(), el = $("#geoMap");
+  el.classList.toggle("z-big", z >= 2.5); el.classList.toggle("z-mid", z >= 4); el.classList.toggle("z-small", z >= 5.5);
+  setTimeout(declutter, 30);
+}
+function applyTheme() { if (worldLayer) worldLayer.setStyle(landStyle); }
 function ensureMap() {
   if (map || !window.L) return !!map;
   // 휠 확대·축소를 잘게(0.25단계) 나눠 부드럽게
-  map = L.map("geoMap", { worldCopyJump: true, minZoom: 2, maxZoom: 12, zoomSnap: 0.25, zoomDelta: 0.5, wheelPxPerZoomLevel: 110, wheelDebounceTime: 20, attributionControl: true }).setView([15, 80], 3);
-  tiles = null; // applyTheme() 에서 만듦
-  map.createPane("shade"); map.getPane("shade").style.zIndex = 250; map.getPane("shade").style.pointerEvents = "none";
-  map.createPane("labels"); map.getPane("labels").style.zIndex = 300; map.getPane("labels").style.pointerEvents = "none";
-  shade = L.rectangle([[-89, -540], [89, 540]], { pane: "shade", stroke: false, fillColor: "#020617", fillOpacity: 0.42, interactive: false });
-  labels = L.tileLayer(LABEL_URL, { maxZoom: 16, pane: "labels" }); // 불투명: 반투명이면 조각 겹친 곳에 줄이 보임
+  map = L.map("geoMap", { worldCopyJump: true, minZoom: 2, maxZoom: 10, zoomSnap: 0.25, zoomDelta: 0.5, wheelPxPerZoomLevel: 110, wheelDebounceTime: 20, attributionControl: true }).setView([15, 80], 3);
+  map.attributionControl.setPrefix("").addAttribution('지도 자료: <a href="https://www.naturalearthdata.com" target="_blank" rel="noopener">Natural Earth</a>');
+  map.createPane("land"); map.getPane("land").style.zIndex = 200;
+  map.createPane("names"); map.getPane("names").style.zIndex = 450; map.getPane("names").style.pointerEvents = "none";
   layers = { halo: L.layerGroup().addTo(map), focus: L.layerGroup().addTo(map), ev: L.layerGroup().addTo(map), pin: L.layerGroup().addTo(map) };
-  applyTheme();
+  map.on("zoomend", zoomClass);
   map.on("zoomend moveend", () => setTimeout(declutter, 30));
   new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
   map._fitted = false;
+  loadWorld();
   return true;
 }
-const cssv = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 function drawMap(pins, evs, risk) {
   if (!ensureMap()) { $("#geoMap").innerHTML = `<div class="empty">지도를 불러오지 못했습니다 (인터넷 연결 또는 회사망 차단 확인)</div>`; return; }
   setTimeout(() => map.invalidateSize(), 0); setTimeout(() => map.invalidateSize(), 520); // 화면 전환(뒤집기) 뒤에도 크기 맞춤
   layers.halo.clearLayers(); layers.focus.clearLayers(); layers.ev.clearLayers(); layers.pin.clearLayers();
-  const col = (lv) => cssv(lv === "red" ? "--red" : lv === "orange" ? "--orange" : "--green");
   const f = ui.focus && pins.find((x) => x.p.id === ui.focus && x.pt);
-  // 수원국: 등급 색 원 (사업을 고르면 숨김)
-  if (!f) Object.entries(risk).forEach(([code, r]) => {
-    const c = GEO_COUNTRY[code]; if (!c) return;
-    const dim = ui.lv && ui.lv !== r.lv;
-    L.circle([c[2], c[3]], { radius: 420000, color: col(r.lv), weight: 1, opacity: dim ? 0.15 : 0.55, fillColor: col(r.lv), fillOpacity: dim ? 0.02 : r.lv === "none" ? 0.05 : 0.12, dashArray: "4 4", interactive: false }).addTo(layers.halo);
-  });
+  // 수원국: 나라를 등급 색으로 옅게 칠함 (지도 자료를 받은 뒤)
+  riskNow = Object.fromEntries(Object.entries(risk).map(([c, r]) => [c, r.lv]));
+  if (world && (!worldLayer || worldLayer._riskKey !== JSON.stringify(riskNow))) { drawWorld(); worldLayer._riskKey = JSON.stringify(riskNow); }
+  else if (worldLayer) worldLayer.setStyle(landStyle);
   // 이벤트: 종류별 아이콘 배지
   const near = f ? nearEvents(f.pt, evs, f.p.country) : [];
   const nearIds = new Set(near.map((e) => e.id));
@@ -315,7 +345,7 @@ function drawMap(pins, evs, risk) {
     if (!dim) pts.push(pt.ll);
   });
   drawFocus(f, near);
-  setTimeout(declutter, 60);
+  requestAnimationFrame(declutter);
   if (f) return;
   if (pts.length && (!map._fitted || ui.lv !== map._fitLv || map._fitFocus)) {
     map.fitBounds(L.latLngBounds(pts).pad(0.25), { maxZoom: ui.lv ? 6 : 4, animate: map._fitted });
@@ -330,7 +360,7 @@ function drawFocus(f, near) {
   const c = f.pt.ll, accent = cssv("--accent-2");
   RINGS.forEach((r, i) => {
     // 위성 사진 위에서도 보이게: 어두운 바깥선 + 밝은 점선 두 겹
-    L.circle(c, { radius: r * 1000, color: "#020617", weight: 3.5, opacity: 0.35, fill: false, interactive: false }).addTo(layers.focus);
+    L.circle(c, { radius: r * 1000, color: isLight() ? "#FFFFFF" : "#020617", weight: 3.5, opacity: isLight() ? 0.7 : 0.35, fill: false, interactive: false }).addTo(layers.focus);
     L.circle(c, { radius: r * 1000, color: isLight() ? "#0E7490" : "#67E8F9", weight: i === RINGS.length - 1 ? 2 : 1.6, opacity: 0.95 - i * 0.08, dashArray: "6 6", fill: i === 0, fillColor: accent, fillOpacity: 0.08, interactive: false }).addTo(layers.focus);
     const lat = c[0] - r / 111.2; // 원의 맨 아래에 거리 글씨 (위쪽은 핀 자리)
     L.marker([lat, c[1]], { interactive: false, icon: L.divIcon({ className: "", html: `<span class="ring-lb">${r}km</span>`, iconSize: [44, 16], iconAnchor: [22, 8] }) }).addTo(layers.focus);
@@ -377,6 +407,14 @@ function declutter() {
     for (const side of order) { put(el, side); q = free(el); if (q) break; }
     if (q) placed.push(q);
     else { put(el, el.dataset.side); el.style.visibility = "hidden"; }
+  });
+  const evs = $$("#geoMap .gev").map((el) => el.getBoundingClientRect());
+  $$("#geoMap .cn").sort((x, y) => (y.classList.contains("mine") - x.classList.contains("mine")) || (y.classList.contains("big") - x.classList.contains("big"))).forEach((el) => {
+    el.style.visibility = "";
+    if (getComputedStyle(el).display === "none") return;
+    const q = el.getBoundingClientRect();
+    if (placed.some((x) => hit(q, x)) || pins.some((x) => hit(q, x.box)) || evs.some((x) => hit(q, x))) el.style.visibility = "hidden";
+    else placed.push(q);
   });
 }
 function hiPin(pid, on) { const el = document.querySelector(`.gpin[data-pin="${pid}"]`); if (el) el.classList.toggle("hi", on || ui.focus === pid); }

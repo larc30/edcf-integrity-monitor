@@ -43,12 +43,13 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 수원국 등급(assets/geo.js countryRisk): 위험 = 외교부 여행경보 3·4단계 또는 특별여행주의보 / 경고 = 2단계 또는 최근 7일 규모 6+ 지진·분쟁·테러 / 정상. 일부 지역만 높아도 나라 전체로 봄(초안).
 
 ## 수원국 리스크 (초안, monitor/geo.py ↔ assets/geo.js)
-- 지도: Leaflet(cdnjs) + Esri(키 없음). 기본 '지도' = 플랫(Ocean/World_Ocean_Base, 다크면 살짝 어둡게) + 영어 지명 층(World_Boundaries_and_Places, 불투명), 오른쪽 위 [위성] = World_Imagery. 모양 바꿀 때 바탕 층을 새로 만듦. 휠 0.25단계(zoomSnap 0.25 · wheelPxPerZoomLevel 110). 타일 틈 메우기 CSS(256.5px) 넣지 말 것: Leaflet 1.9 의 plus-lighter 와 겹쳐 밝은 줄이 생김. CARTO 무료 지도는 'API KEY REQUIRED'라 안 씀.
+- 지도: Leaflet + 저장소 안 세계 지도 assets/world-50m.json(world-atlas · Natural Earth 1:50m, topojson 3.0.2 cdnjs)로 바다·육지·국경선만 그리는 완전 플랫(바깥 지도 서비스·키 없음). 색은 style.css --map-sea·--map-land·--map-border. 위험·경고 수원국만 육지 색에 등급 색을 섞어 칠함(정상은 안 칠함: 초록이 바다처럼 보임). 나라 이름은 그림자 없는 글자(사업 나라는 대문자 굵게, 그 밖은 확대할수록 큰→중간→작은 나라). Esri 타일·위성 버튼은 없앰.
 - 여행경보: 공공데이터포털 '외교부_국가·지역별 여행경보'(TravelAlarmService2) + 특별여행주의보. 키는 조달청과 같은 DATA_GO_KR_KEY 그대로(따로 입력 안 함, 활용신청만). MOFA_TRAVEL_KEY 는 다른 키를 쓸 때만. 응답 필드명은 실제 키로 아직 확인 못 함. 연결 상태는 대시보드가 아니라 설정 > 고급 > API 연결에.
 - 지진: USGS 4.5_week(키 없음), 사업지·수원국 600km 안. 브라우저에서도 실시간으로 한 번 더 받음(회사망에서 막히면 저장본).
 - 뉴스: Google·네이버 '나라 이름 + 사건 단어', 제목에 나라 이름 있는 것만. 이벤트는 1년 보관, 최대 300건.
 - 지도 표시: 이벤트는 종류별 색 아이콘 배지(이모티콘 안 씀), 지명은 영어(Esri 이름 층 + 'Nairobi, Kenya'). 오른쪽 사업을 누르면 사업지 둘레 100~500km 점선 원 + 600km 안 이벤트까지 거리선·거리, 왼쪽 아래 안내 상자. 다시 누르거나 지도 오른쪽 위 [‹ 전체 지도](사업 골랐을 때만 보임)로 해제.
-- 핀 옆 사업명(나라 이름·'사업' 뺀 짧은 이름). 겹치면 declutter(): 원래 쪽 → 반대쪽 → 아래 → 위, 모두 막히면 숨김(위험 순서대로 자리 차지, 지도 밖 잘림도 막힘으로 봄). 지명 층은 CSS contrast·brightness 로 또렷하게(2배 확대 방식은 흐려서 안 씀).
+- 핀 옆 사업명(나라 이름·'사업' 뺀 짧은 이름). 겹치면 declutter(): 원래 쪽 → 반대쪽 → 아래 → 위, 모두 막히면 숨김(위험 순서대로 자리 차지, 지도 밖 잘림도 막힘으로 봄). 나라 이름도 핀·사업명·이벤트와 겹치면 숨김.
+- 첫 실제 수집(11/11 스캔): 여행경보 145개국 · 지진 2 · 뉴스 이벤트 62 (수원국 6개국). 특별여행주의보 API 는 HTTP 오류(활용신청 또는 주소 확인 필요).
 
 ## 같은 기준을 두 곳에서 유지
 - TOPIC_QUERIES: monitor/scanner.py ↔ assets/app.js
