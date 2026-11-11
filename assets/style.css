@@ -364,9 +364,9 @@ html.lite .rdot.red, html.lite .rdot.orange, html.lite .dot.red, html.lite .dot.
 .sc-btn.active .sc-ic, .sc-btn.active .sc-n { background: var(--sc); color: #fff; }
 .scope-desc { font-size: var(--fs-sm); color: var(--muted); }
 .scope-desc:empty { display: none; }
-#btnScan { padding: 11px 20px; border-radius: 13px; font-size: var(--fs-base); }
-#btnScan svg { width: 16px; height: 16px; }
-#btnScan.busy svg { animation: spin 1.1s linear infinite; }
+#btnScan, #geoScan { padding: 11px 20px; border-radius: 13px; font-size: var(--fs-base); }
+#btnScan svg, #geoScan svg { width: 16px; height: 16px; }
+#btnScan.busy svg, #geoScan.busy svg { animation: spin 1.1s linear infinite; }
 .job-inline { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; font-size: var(--fs-sm); }
 .job-inline:empty { display: none; }
 .jline { display: inline-flex; align-items: center; gap: 7px; color: var(--text-2); font-weight: 650; }
@@ -1174,3 +1174,63 @@ body.admin-on .tabs .mode-switch, body.admin-on .tabs .tab-sep { display: none; 
 .radar svg.grid circle.ring.glow.red { opacity: .32; }
 html.lite .radar svg.grid circle.ring.glow { display: none; }
 .rdot.red, .rdot.orange { box-shadow: 0 0 0 2px rgba(255, 255, 255, .15), 0 0 12px currentColor, 0 2px 4px rgba(0, 0, 0, .5); }
+
+/* =====================================================================
+   v45 — 줄 맞춤 · 지도 모양 버튼 · 보고서 미리보기
+   ===================================================================== */
+/* 업체 리스크: 오른쪽 사업 목록의 아래 끝을 이슈 목록 끝에 맞추고, 넘치면 안에서 스크롤 */
+.dash > .d-projects { position: relative; top: auto; align-self: stretch; max-height: none; contain: size; }
+.dash > .d-projects .plist { flex: 1; min-height: 0; overflow: auto; }
+/* 수원국 리스크: 가운데 줄(등급·지도·사업) 높이를 같게, 아래 최근 이벤트는 전체 폭 2열 */
+.geo-dash { grid-template-rows: auto minmax(560px, auto) auto; grid-template-areas:
+    "title title title title title title title title title title title title"
+    "risk risk risk map map map map map proj proj proj proj"
+    "issues issues issues issues issues issues issues issues issues issues issues issues"; }
+.geo-dash .d-risk { align-self: stretch; }
+.geo-dash .d-risk .ev-card { flex: 1; }
+.geo-dash .d-map { min-height: 0; align-self: stretch; }
+.geo-dash #evFeed { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.geo-dash #evFeed > .ok-box, .geo-dash #evFeed > .muted { grid-column: 1 / -1; }
+/* 지도 모양: 지도(플랫) / 위성 */
+.map-style { position: absolute; top: 12px; right: 12px; z-index: 600; box-shadow: var(--shadow); background: color-mix(in srgb, var(--panel-solid) 92%, transparent); }
+/* 보고서 미리보기 */
+.modal.report { max-width: 1120px; padding: 0; overflow: hidden; }
+.rp-wrap { display: grid; grid-template-columns: 300px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: min(86vh, 900px); }
+.rp-opts, .rp-prev { min-height: 0; }
+.rp-opts { padding: 22px; border-right: 1px solid var(--line); overflow: auto; }
+.rp-opts h2 { margin-bottom: 4px; }
+.rp-opts .actions { margin-top: auto; padding-top: 12px; }
+.rp-hint { margin: 4px 0 0; }
+.rp-prev { display: flex; flex-direction: column; min-width: 0; background: var(--bg-2); }
+.rp-prev-h { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; font-size: var(--fs-sm); font-weight: 750; border-bottom: 1px solid var(--line); }
+.rp-scroll { flex: 1; min-height: 0; overflow: auto; padding: 12px; display: flex; justify-content: center; }
+.rp-paper { flex: 0 0 auto; background: #fff; border-radius: 4px; box-shadow: 0 10px 30px rgba(0, 0, 0, .35); overflow: hidden; }
+.rp-paper iframe { display: block; border: 0; background: #fff; transform-origin: 0 0; }
+
+@media (max-width: 1100px) {
+  .dash > .d-projects { contain: none; align-self: start; }
+  .dash > .d-projects .plist { max-height: 560px; }
+  .geo-dash { grid-template-rows: none; grid-template-areas: "title" "risk" "map" "proj" "issues"; }
+  .geo-dash .d-map { min-height: 420px; }
+  .geo-dash #evFeed { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .rp-wrap { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .rp-opts { border-right: 0; border-bottom: 1px solid var(--line); }
+}
+/* 목록이 넘치면 아래쪽을 살짝 흐리게 (스크롤된다는 표시) */
+.dash > .d-projects .plist { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); padding-bottom: 20px; }
+/* 글자 크기(작게~아주 크게)를 바꿔도 칸이 함께 늘어나게: 고정 px 대신 글자 기준(em) 폭 */
+.oc-row { grid-template-columns: max-content minmax(0, 1fr) auto; column-gap: 14px; }
+.oc-k { white-space: nowrap; }
+.pj-role { grid-template-columns: 6em minmax(0, 1fr); }
+.gp-row { grid-template-columns: 4.9em minmax(0, 1fr); }
+.gp-k { white-space: nowrap; font-size: var(--fs-sm); }
+.gp-reg { margin-left: calc(4.9em + 8px); }
+.ev-grid { grid-template-columns: repeat(auto-fit, minmax(6.8em, 1fr)); }
+.rlabel { max-width: 9em; }
+.mf-name, .pj-name { min-width: 0; }
+/* 사업 관리: 같은 줄 카드의 아래 끝(수정·삭제 줄)을 맞춤 */
+.pj-grid { align-items: stretch; }
+.pj-grid .pbox-body { flex: 1; }
+.form label.check { flex-direction: row; align-items: flex-start; } .form label.check input { flex: 0 0 auto; margin-top: 3px; }

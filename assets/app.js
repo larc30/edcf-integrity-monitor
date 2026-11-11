@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=30";
-import { initGeo, renderGeo } from "./geo.js?v=33";
+import { initGeo, renderGeo } from "./geo.js?v=34";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -58,7 +58,7 @@ function modal(html) {
   else row.insertBefore(close, row.firstChild);
   $("#modalBg").classList.add("open"); close.onclick = closeModal;
 }
-function closeModal() { $("#modalBg").classList.remove("open"); }
+function closeModal() { $("#modalBg").classList.remove("open"); $("#modal").classList.remove("report"); }
 $("#modalBg").addEventListener("click", (e) => { if (e.target.id === "modalBg") closeModal(); });
 const projName = (pid) => state.projects.find((p) => p.id === pid)?.name || "(삭제된 사업)";
 const engText = (e) => `${esc(projName(e.project_id))} · ${esc(e.role)}${e.stage && e.stage !== "계약" ? ` · ${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""}` : ""}`;
@@ -721,23 +721,42 @@ function renderGroups(groups, el, showCompany = true) {
 
 // ---------- 보고서 (PDF로 저장) — 대시보드에서 고른 범위 기준, 메일과 같은 디자인 ----------
 const REPORT_PERIODS = [["all", "전체 기간"], ["30", "최근 30일"], ["7", "최근 7일"]];
+// 보고서: 왼쪽에서 고르면 오른쪽 미리보기(A4)가 바로 바뀜 → [PDF로 저장]
 function openReport() {
-  modal(`<h2>보고서 내려받기</h2>
-    <p class="muted small">기본은 <b>한 장 요약</b>(위험·경고 이슈 + 사업별 현황)입니다. 인쇄 창의 <b>대상</b>에서 <b>PDF로 저장</b>을 고르세요.</p>
-    <form id="rpForm" class="form" autocomplete="off">
-      <div class="row">
-        <label>범위<select name="scope"><option value="mine" ${scope === "mine" ? "selected" : ""}>내 담당 사업</option><option value="all" ${scope === "all" ? "selected" : ""}>EDCF 전체</option></select></label>
-        <label>이슈 기간<select name="period">${REPORT_PERIODS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select></label>
-      </div>
+  modal(`<div class="rp-wrap">
+    <form id="rpForm" class="form rp-opts" autocomplete="off">
+      <h2>보고서 내려받기</h2>
+      <p class="muted small">기본은 <b>한 장 요약</b>(위험·경고 이슈 + 사업별 현황)입니다. 오른쪽에서 미리 본 뒤 저장하세요.</p>
+      <label>범위<select name="scope"><option value="mine" ${scope === "mine" ? "selected" : ""}>내 담당 사업</option><option value="all" ${scope === "all" ? "selected" : ""}>EDCF 전체</option></select></label>
+      <label>이슈 기간<select name="period">${REPORT_PERIODS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select></label>
       <label class="check"><input type="checkbox" name="detail"> 자세한 목록 포함 (이슈 전체 · 리스크 업체 · 사업별 업체)</label>
       <label class="check"><input type="checkbox" name="done"> 확인 완료한 이슈도 포함</label>
+      <p class="muted small rp-hint">저장: 인쇄 창의 <b>대상</b>에서 <b>PDF로 저장</b>을 고르세요.</p>
       <div class="actions"><button class="btn primary">PDF로 저장</button></div>
-    </form>`);
+    </form>
+    <div class="rp-prev"><div class="rp-prev-h"><span>미리보기</span><span class="muted small" id="rpPages"></span></div><div class="rp-scroll" id="rpScroll"><div class="rp-paper" id="rpPaper"><iframe id="rpFrame" title="보고서 미리보기" tabindex="-1"></iframe></div></div></div>
+  </div>`);
+  $("#modal").classList.add("report");
+  const opts = () => { const fd = Object.fromEntries(new FormData($("#rpForm"))); return { scope: fd.scope, period: fd.period, done: !!fd.done, detail: !!fd.detail }; };
+  const A4W = 794, A4H = 1123; // A4 (96dpi)
+  const draw = () => {
+    const f = $("#rpFrame"); if (!f) return;
+    f.onload = () => {
+      const box = $("#rpScroll"), k = Math.min(1, (box.clientWidth - 24) / A4W);
+      const h = Math.max(A4H, f.contentDocument.documentElement.scrollHeight);
+      f.style.width = A4W + "px"; f.style.height = h + "px"; f.style.transform = `scale(${k})`;
+      $("#rpPaper").style.width = A4W * k + "px"; $("#rpPaper").style.height = h * k + "px";
+      $("#rpPages").textContent = `약 ${Math.max(1, Math.ceil(h / A4H))}쪽`;
+    };
+    // 화면 미리보기에도 인쇄 여백(@page 13mm 12mm)을 똑같이
+    f.srcdoc = buildReport(opts()).html.replace("</head>", "<style>@media screen { html { background: #fff; } body { margin: 0; padding: 13mm 12mm; } }</style></head>");
+  };
+  $("#rpForm").onchange = draw;
+  draw();
   $("#rpForm").onsubmit = (ev) => {
     ev.preventDefault();
-    const fd = Object.fromEntries(new FormData(ev.target));
     closeModal();
-    printReport(buildReport({ scope: fd.scope, period: fd.period, done: !!fd.done, detail: !!fd.detail }));
+    printReport(buildReport(opts()));
   };
 }
 function buildReport({ scope: sc0, period, done, detail = false }) {
