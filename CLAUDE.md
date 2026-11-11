@@ -72,7 +72,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 화면: Playwright로 `?demo=1` 또는 Firebase 모듈을 가짜(window.__DB)로 바꿔 실행.
 
 ## 자료
-- 발표 자료(Slides Artifact): https://claude.ai/artifact/P8sKcUGGNPhx8tiRM22g61 — 13장, 프로그램과 같은 다크 톤(배경 #0A0F1E · 카드 #10172B · 강조 #7C83FF→#22D3EE), 맑은 고딕, 제목 56 · 카드 제목 34 · 본문 26 · 머리말 24px(● 청록), 위 6px 그러데이션 띠, 왼쪽 아래 EDCF RADAR · 오른쪽 아래 쪽번호. 6쪽 업체 리스크·7쪽 수원국 리스크 화면(다크 데모 캡처, 이메일 가림), 맨 뒤 부록 시연 순서. 배포는 '관계 부서와 충분히 검토' 뉘앙스(경고처럼 내세우지 않기). 스크립트는 짧고 담백하게. 고칠 때는 Artifact read 로 받아 수정.
+- 발표 자료(Slides Artifact): https://claude.ai/artifact/P8sKcUGGNPhx8tiRM22g61 — 13장, 다크 톤(배경 #0A0F1E · 카드 #10172B · 강조 #7C83FF→#22D3EE), 맑은 고딕, 제목 56 · 카드 제목 34 · 본문 26 · 머리말 24px(청록 글자만), 위 6px 그러데이션 띠, 오른쪽 아래 쪽번호만. 장표 글에 가운뎃점(·)과 ● 쓰지 않기(사용자가 AI 티 난다고 함, 쉼표로). 6·7쪽 화면 캡처는 밝은 화면(다크 캡처는 어두운 배경에서 안 보임, 이메일 가림). 4쪽 시스템 구조에 수원국 데이터(외교부·USGS·재난 뉴스) 포함. 9쪽 일정: 11월 테스트·검증 → 12월 시범운영 → 연내 또는 연초 정식 운영(5단계). 11쪽은 두 가지만(초기 업체·사업 정확 입력, 쓰면서 확인 처리). 배포는 관계 부서와 충분히 검토 뉘앙스. 스크립트는 짧고 담백하게. 생성 스크립트로 만들었으니 고칠 때는 Artifact read 로 받아 수정.
 - 설계도(Artifact): https://claude.ai/artifact/JtxkBSsA5KA4Z2b57Nd8tU · 해커톤 키트: docs/HACKATHON.md
 - 팀 매뉴얼 기준: 필요자료 = 사업자번호·영문명. ① EXIMIIS 부정당업자(등록=위험, 해지=이력) ② MDB 5곳 영문명 조회 후 국적 한국 확인 ③ 나라장터 부정당제재(제재정지면 확인 필요).
 
