@@ -269,6 +269,7 @@ function ensureMap() {
   labels = L.tileLayer(LABEL_URL, { maxZoom: 16, pane: "labels" }); // 불투명: 반투명이면 조각 겹친 곳에 줄이 보임
   layers = { halo: L.layerGroup().addTo(map), focus: L.layerGroup().addTo(map), ev: L.layerGroup().addTo(map), pin: L.layerGroup().addTo(map) };
   applyTheme();
+  map.on("zoomend moveend", () => setTimeout(declutter, 30));
   new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
   map._fitted = false;
   return true;
@@ -300,10 +301,13 @@ function drawMap(pins, evs, risk) {
   });
   // 사업: 핀
   const pts = [];
+  const short = (p) => String(p.name || "").replace(new RegExp("^" + cname(p.country) + "\\s*"), "").replace(/\s*사업$/, "");
   pins.forEach(({ p, pt, r }, idx) => {
     if (!pt) return;
     const dim = (ui.lv && ui.lv !== r.lv) || (f && f.p.id !== p.id);
-    const m = L.marker(pt.ll, { icon: L.divIcon({ className: "", html: `<div class="gpin ${r.lv} ${dim ? "dim" : ""} ${f && f.p.id === p.id ? "hi" : ""}" data-pin="${p.id}"><span>${idx + 1}</span></div>`, iconSize: [28, 36], iconAnchor: [14, 34], tooltipAnchor: [0, -30] }), zIndexOffset: 1000 })
+    const side = pins.some((o, j) => j < idx && o.pt && Math.abs(o.pt.ll[0] - pt.ll[0]) < 4 && o.pt.ll[1] > pt.ll[1] - 1 && o.pt.ll[1] - pt.ll[1] < 12) ? "l" : "r"; // 오른쪽 가까이에 다른 핀이 있으면 왼쪽에
+    const lb = dim ? "" : `<span class="pin-lb ${side} ${r.lv}" title="${ctx.esc(p.name)}">${ctx.esc(short(p))}</span>`;
+    const m = L.marker(pt.ll, { icon: L.divIcon({ className: "", html: `<div class="gpin-w"><div class="gpin ${r.lv} ${dim ? "dim" : ""} ${f && f.p.id === p.id ? "hi" : ""}" data-pin="${p.id}"><span>${idx + 1}</span></div>${lb}</div>`, iconSize: [28, 36], iconAnchor: [14, 34], tooltipAnchor: [0, -30] }), zIndexOffset: dim ? 500 : 1000 })
       .bindTooltip(`<b>${ctx.esc(p.name)}</b><br><span class="en">${ctx.esc(pt.en)}</span> · ${LEVEL[r.lv]}${r.why.length ? `<br><span class="muted">${ctx.esc(r.why.join(" / "))}</span>` : ""}`, { direction: "top", className: "gtip" })
       .on("click", () => setFocus(ui.focus === p.id ? null : p.id))
       .addTo(layers.pin);
@@ -311,6 +315,7 @@ function drawMap(pins, evs, risk) {
     if (!dim) pts.push(pt.ll);
   });
   drawFocus(f, near);
+  setTimeout(declutter, 60);
   if (f) return;
   if (pts.length && (!map._fitted || ui.lv !== map._fitLv || map._fitFocus)) {
     map.fitBounds(L.latLngBounds(pts).pad(0.25), { maxZoom: ui.lv ? 6 : 4, animate: map._fitted });
@@ -319,7 +324,8 @@ function drawMap(pins, evs, risk) {
 }
 // 고른 사업: 100km 간격 점선 원 + 가까운 이벤트까지 선과 거리 + 지도 위 안내 상자
 function drawFocus(f, near) {
-  const box = $("#mapFocus");
+  const box = $("#mapFocus"), all = $("#mapAll");
+  all.classList.toggle("hidden", !f); all.onclick = () => setFocus(null);
   if (!f) { box.classList.add("hidden"); map._focusPid = null; return; }
   const c = f.pt.ll, accent = cssv("--accent-2");
   RINGS.forEach((r, i) => {
@@ -345,11 +351,34 @@ function drawFocus(f, near) {
     <div class="mf-en">${ctx.esc(f.pt.en)}</div>
     <div class="mf-h">사업지에서 가까운 이벤트 <span class="muted">${NEAR_KM}km 안</span></div>
     ${near.length ? `<div class="mf-list">${near.slice(0, 4).map((e) => `<div class="mf-ev">${ibadge(e.type, "xs")}<span class="mf-t">${ctx.esc(GEO_TYPES[e.type][0])} · ${ctx.esc(e.title)}</span><b>${fmtKm(e.d)}</b></div>`).join("")}</div>` : `<div class="mf-none">${NEAR_KM}km 안에 최근 이벤트가 없습니다</div>`}
-    <div class="mf-foot"><span class="mf-key"><i></i>100km 간격</span><button class="btn sm" id="mfAll">전체 지도</button></div>`;
+    <div class="mf-foot"><span class="mf-key"><i></i>점선 원 100km 간격</span></div>`;
   box.classList.remove("hidden");
-  $("#mfAll").onclick = () => setFocus(null);
 }
 function setFocus(pid) { ui.focus = pid; renderGeo(); }
+// 이름표가 서로 겹치면 뒤 순서(덜 위험한 사업)부터 숨김 · 확대하면 다시 보임 (마우스를 올리면 사업명이 뜸)
+// 이름표가 겹치면 자리를 바꿔 봄: 원래 쪽 → 반대쪽 → 핀 아래 → 핀 위. 모두 막히면 숨김 (위험한 사업부터 자리를 차지) · 확대하면 다시 보임
+const SIDES = ["r", "l", "b", "t"];
+function declutter() {
+  const map0 = $("#geoMap"); if (!map0) return;
+  const edge = map0.getBoundingClientRect(); // 지도 밖으로 잘리는 자리도 안 됨
+  const pins = $$("#geoMap .gpin").map((el) => ({ el, box: el.getBoundingClientRect() })), placed = [];
+  const hit = (q, x) => !(q.right < x.left || q.left > x.right || q.bottom < x.top || q.top > x.bottom);
+  const put = (el, side) => SIDES.forEach((k) => el.classList.toggle(k, k === side));
+  const free = (el) => {
+    const q = el.getBoundingClientRect(), own = el.previousElementSibling;
+    const inside = q.left >= edge.left + 4 && q.right <= edge.right - 4 && q.top >= edge.top + 4 && q.bottom <= edge.bottom - 4;
+    return inside && !placed.some((x) => hit(q, x)) && !pins.some((x) => x.el !== own && hit(q, x.box)) ? q : null;
+  };
+  $$("#geoMap .pin-lb").forEach((el) => {
+    el.style.visibility = "";
+    if (!el.dataset.side) el.dataset.side = el.classList.contains("l") ? "l" : "r";
+    const order = [el.dataset.side, ...SIDES.filter((k) => k !== el.dataset.side)];
+    let q = null;
+    for (const side of order) { put(el, side); q = free(el); if (q) break; }
+    if (q) placed.push(q);
+    else { put(el, el.dataset.side); el.style.visibility = "hidden"; }
+  });
+}
 function hiPin(pid, on) { const el = document.querySelector(`.gpin[data-pin="${pid}"]`); if (el) el.classList.toggle("hi", on || ui.focus === pid); }
 function flyEvent(id) { const m = evMarkers[id]; if (!m || !map) return; map.flyTo(m.getLatLng(), Math.max(map.getZoom(), 5), { duration: 0.8 }); setTimeout(() => m.openPopup(), 850); }
 export async function refreshGeo() { await loadLiveQuakes(true); renderGeo(); }
