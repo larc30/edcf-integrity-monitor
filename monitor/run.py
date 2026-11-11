@@ -7,7 +7,8 @@ python -m monitor.run preview               # 리포트 미리보기만 갱신
 python -m monitor.run report-test --test-to me@example.com
 python -m monitor.run report                # 수신자 전체 발송
 python -m monitor.run dart                  # DART 기업목록 → data/corp_master.json
-python -m monitor.run geo                   # 수원국 리스크(여행경보·지진·뉴스 이벤트)만 갱신 (daily 에도 포함)
+python -m monitor.run geo                   # 수원국 리스크(여행경보·지진·뉴스 이벤트)만 갱신 (daily·scan 에도 포함)
+python -m monitor.run check                 # API 연결 확인 (대시보드 설정 > 고급 > [연결 확인])
 """
 import argparse
 import json
@@ -48,6 +49,17 @@ def log_counts() -> None:
         log.warning("건수 확인 실패: %s", e)
 
 
+def update_geo() -> None:
+    """수원국 리스크 갱신 — 실패해도 업체 스캔·메일은 계속 (공개 로그엔 건수만)"""
+    try:
+        from . import geo
+        log.info("수원국 정보: %s", json.dumps(geo.update(), ensure_ascii=False))
+    except Exception as e:
+        if _quota_exceeded(e):
+            raise
+        log.warning("수원국 정보 갱신 실패: %s", type(e).__name__)
+
+
 def process_queue() -> int:
     """대시보드 [지금 스캔] 등이 Firestore 'requests'에 남긴 요청을 처리한다.
     회사망에서 api.github.com이 막혀도 Firebase만 되면 실행할 수 있게 하기 위함."""
@@ -82,6 +94,8 @@ def process_queue() -> int:
         try:
             res = scanner.run_scan(names, progress=progress, should_stop=should_stop)
             report.save_preview()
+            if full and not res.get("stopped"):
+                update_geo()  # [지금 스캔]은 업체·수원국 리스크를 함께
             summary = {k: res.get(k) for k in ("companies", "fetched", "new_findings", "official", "cleaned", "seconds")}
             summary["errors"] = len(res.get("errors") or [])
             log.info("스캔 결과(요청): %s", json.dumps(summary, ensure_ascii=False))  # 업체 이름 없이 건수만
@@ -116,6 +130,13 @@ def process_queue() -> int:
                 res = {"count": sync_dart()}
             elif task == "preview":
                 res = report.save_preview()
+            elif task == "check":
+                from . import conncheck
+                res = conncheck.run_and_save()
+                log.info("연결 확인: %d/%d 정상", res["ok"], res["total"])
+            elif task == "geo":
+                update_geo()
+                res = {}
             else:
                 raise RuntimeError(f"알 수 없는 작업: {task}")
             finish(r, True, {k: v for k, v in res.items() if k in ("items", "subject", "count", "test")})
@@ -127,7 +148,7 @@ def process_queue() -> int:
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("task", choices=["daily", "queue", "scan", "preview", "report", "report-test", "dart", "geo"])
+    p.add_argument("task", choices=["daily", "queue", "scan", "preview", "report", "report-test", "dart", "geo", "check"])
     p.add_argument("--companies", default="")
     p.add_argument("--test-to", default="")
     a = p.parse_args()
@@ -182,14 +203,14 @@ def main() -> int:
         except Exception as e:
             log.warning("요청 상태 갱신 실패: %s", e)
 
-    if a.task in ("daily", "geo"):
-        try:  # 수원국 리스크: 실패해도 업체 스캔·메일은 계속 (공개 로그엔 건수만)
-            from . import geo
-            log.info("수원국 정보: %s", json.dumps(geo.update(), ensure_ascii=False))
-        except Exception as e:
-            if _quota_exceeded(e):
-                raise
-            log.warning("수원국 정보 갱신 실패: %s", type(e).__name__)
+    if a.task == "check":
+        from . import conncheck
+        res = conncheck.run_and_save()
+        log.info("연결 확인: %d/%d 정상", res["ok"], res["total"])
+        return 0
+
+    if a.task in ("daily", "geo") or (a.task == "scan" and not a.companies.strip()):
+        update_geo()
         if a.task == "geo":
             return 0
 

@@ -57,7 +57,10 @@ let ctx = null, map = null, tiles = null, layers = null, live = { quakes: null, 
 const ui = { type: null, period: "14", lv: null, focus: null };
 const RINGS = [100, 200, 300, 400, 500]; // 사업을 누르면 사업지 둘레에 그리는 거리 원 (km)
 const NEAR_KM = 600;
-try { ui.period = localStorage.getItem("edcf_geo_period") || "14"; } catch {}
+try { ui.period = localStorage.getItem("edcf_geo_period2") || "30d"; } catch {}
+const PERIODS = [["all", "전체"], ["7d", "최근 7일"], ["30d", "최근 30일"], ["old", "30일 이전"]];
+const inP = (e, p) => { const age = Date.now() - e.ms; return p === "all" ? true : p === "old" ? age > 30 * DAY : age <= (p === "7d" ? 7 : 30) * DAY; };
+const P_LABEL = { all: "전체 기간", "7d": "최근 7일", "30d": "최근 30일", old: "30일 이전" };
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -136,8 +139,10 @@ export async function renderGeo() {
   const evsAll = allEvents();
   const codes = [...new Set(ps.map((p) => p.country).filter(Boolean))];
   const risk = Object.fromEntries(codes.map((c) => [c, countryRisk(c, evsAll, alerts)]));
-  const days = { "7": 7, "14": 14, "30": 30 }[ui.period] || 14;
-  const evs = evsAll.filter((e) => codes.includes(e.country) && Date.now() - e.ms <= days * DAY);
+  const inScope = evsAll.filter((e) => codes.includes(e.country));
+  const pCounts = Object.fromEntries(PERIODS.map(([k]) => [k, inScope.filter((e) => inP(e, k)).length]));
+  if (!pCounts.hasOwnProperty(ui.period)) ui.period = "30d";
+  const evs = inScope.filter((e) => inP(e, ui.period)), pl = P_LABEL[ui.period];
 
   // 제목
   const now = new Date(Date.now() + 9 * 3600e3);
@@ -147,12 +152,7 @@ export async function renderGeo() {
   $("#geoScope").innerHTML = [["mine", "내 담당 사업", mineN, ctx.ICON_USER], ["all", "EDCF 전체", state.projects.length, ctx.ICON_ORG]]
     .map(([k, l, n, ic]) => `<button data-s="${k}" class="sc-btn ${k} ${k === scope ? "active" : ""}" title="${l}: 사업 ${n}개"><span class="sc-ic">${ic}</span>${l}<span class="sc-n">사업 ${n}</span></button>`).join("");
   $$("#geoScope button").forEach((b) => b.onclick = () => { ctx.setScope(b.dataset.s); renderGeo(); });
-  const aOk = Object.keys(alerts).length;
-  $("#geoSrcs").innerHTML = [
-    aOk ? `<span class="src ok">여행경보 · 외교부${g.alerts_at ? ` ${esc(String(g.alerts_at).slice(5, 16).replace("-", "/"))}` : ""}</span>` : `<span class="src warn" title="공공데이터포털에서 외교부 여행경보 API 활용신청 후 연결됩니다">여행경보 · 연결 전</span>`,
-    live.quakes && !live.err ? `<span class="src ok">지진 · USGS 실시간</span>` : (g.events || []).some((e) => e.type === "quake") ? `<span class="src ok">지진 · USGS 저장본</span>` : `<span class="src off">지진 · ${live.loading ? "불러오는 중" : "불러오지 못함"}</span>`,
-    g.news_at ? `<span class="src ok">뉴스 · Google·네이버 ${esc(String(g.news_at).slice(5, 16).replace("-", "/"))}</span>` : `<span class="src off">뉴스 · 다음 아침 스캔부터</span>`,
-  ].join("");
+  const aOk = Object.keys(alerts).length; // 연결 상태는 설정 > 고급 > API 연결에서
 
   // 왼쪽: 수원국 등급
   const byLv = { red: [], orange: [], none: [] };
@@ -175,7 +175,7 @@ export async function renderGeo() {
 
   // 왼쪽 아래: 이벤트 종류별 건수 (누르면 지도·목록 거르기)
   const tc = {}; evs.forEach((e) => (tc[e.type] = (tc[e.type] || 0) + 1));
-  $("#evSummary").innerHTML = `<div class="card-head"><h2>이벤트 요약 ${info("수원국 안팎에서 최근 일어난 지진·분쟁·테러·재난입니다.<br><b>지진</b> USGS(미국지질조사국) 규모 4.5 이상, 사업지·수원국에서 600km 안<br><b>그 밖</b> Google·네이버 뉴스 제목에서 나라 이름과 사건 단어로 찾음 (매일 아침)<br>종류를 누르면 지도와 목록이 그 종류만 보여줍니다.")}</h2><span class="muted small">최근 ${days}일</span></div>
+  $("#evSummary").innerHTML = `<div class="card-head"><h2>이벤트 요약 ${info("수원국 안팎에서 최근 일어난 지진·분쟁·테러·재난입니다.<br><b>지진</b> USGS(미국지질조사국) 규모 4.5 이상, 사업지·수원국에서 600km 안<br><b>그 밖</b> Google·네이버 뉴스 제목에서 나라 이름과 사건 단어로 찾음 (매일 아침)<br>종류를 누르면 지도와 목록이 그 종류만 보여줍니다.")}</h2><span class="muted small">${pl}</span></div>
     <div class="ev-grid">${Object.entries(GEO_TYPES).map(([k, [label]]) => `<button class="ev-chip ${tc[k] ? "on" : ""} ${ui.type === k ? "sel" : ""}" data-et="${k}" ${tc[k] ? "" : "disabled"}>${ibadge(k, "sm")}<span class="lb">${label.split("·")[0]}</span><b>${tc[k] || 0}</b></button>`).join("")}</div>`;
   $$("#evSummary [data-et]:not(:disabled)").forEach((b) => b.onclick = () => { ui.type = ui.type === b.dataset.et ? null : b.dataset.et; renderGeo(); });
 
@@ -196,22 +196,22 @@ export async function renderGeo() {
       <div class="gp-row"><span class="gp-k">사업지</span><span>${esc(cname(p.country))}${pt ? ` <span class="gp-en">${esc(pt.en)}</span>` : ` <span class="muted small">· 위치 미상</span>`}</span></div>
       <div class="gp-row"><span class="gp-k">여행경보</span><span class="gp-alert">${alertHtml}</span></div>
       ${a?.regions ? `<div class="gp-reg">${esc(String(a.regions).slice(0, 120))}</div>` : ""}
-      <div class="gp-row"><span class="gp-k">이벤트</span><span class="gp-evs">${near.length ? near.map((e) => `<span class="gp-ev" title="${esc(e.title)}">${ibadge(e.type, "xs")}<span class="gp-ev-t">${esc(e.title)}</span>${e.d != null ? `<b class="gp-km">${fmtKm(e.d)}</b>` : ""}</span>`).join("") : `<span class="muted small">최근 ${days}일, ${NEAR_KM}km 안 없음</span>`}</span></div>
+      <div class="gp-row"><span class="gp-k">이벤트</span><span class="gp-evs">${near.length ? near.map((e) => `<span class="gp-ev" title="${esc(e.title)}">${ibadge(e.type, "xs")}<span class="gp-ev-t">${esc(e.title)}</span>${e.d != null ? `<b class="gp-km">${fmtKm(e.d)}</b>` : ""}</span>`).join("") : `<span class="muted small">${pl} · ${NEAR_KM}km 안 없음</span>`}</span></div>
       <div class="gp-row"><span class="gp-k">참여 업체</span><span class="pj-sum">${co.total ? (["red", "orange"].filter((lv) => co[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${co[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) + `<span class="tot">/ ${co.total}곳</span>` : `<span class="tot">연결된 업체 없음</span>`}</span></div>
     </div>`;
   }).join("") || `<div class="empty small">${scope === "mine" ? "내가 담당하는 사업이 없습니다." : "등록된 사업이 없습니다."}</div>`;
 
   // 아래: 최근 이벤트 목록
   const shown = evs.filter((e) => !ui.type || e.type === ui.type).filter((e) => !ui.lv || risk[e.country]?.lv === ui.lv);
-  $("#evSeg").innerHTML = [["7", "7일"], ["14", "14일"], ["30", "30일"]].map(([k, l]) => `<button data-p="${k}" class="${k === ui.period ? "active" : ""}">${l}</button>`).join("");
-  $$("#evSeg button").forEach((b) => b.onclick = () => { ui.period = b.dataset.p; try { localStorage.setItem("edcf_geo_period", ui.period); } catch {} renderGeo(); });
+  $("#evSeg").innerHTML = PERIODS.map(([k, l]) => `<button data-p="${k}" class="${k === ui.period ? "active" : ""}">${l} <span class="n">${pCounts[k]}</span></button>`).join("");
+  $$("#evSeg button").forEach((b) => b.onclick = () => { ui.period = b.dataset.p; try { localStorage.setItem("edcf_geo_period2", ui.period); } catch {} renderGeo(); });
   $("#evCount").textContent = shown.length;
   $("#evFeed").innerHTML = shown.slice(0, 40).map((e) => `<div class="ev-item t-${e.type}" data-eid="${esc(e.id)}">
       ${ibadge(e.type, "lg")}
       <div class="ev-body"><div class="ev-top"><span class="ev-type" style="color:${GEO_TYPES[e.type][1]}">${GEO_TYPES[e.type][0]}</span><span class="ev-ctry">${esc(cname(e.country))} · ${esc(cen(e.country))}</span>${e.mag ? `<span class="ev-mag ${e.mag >= 6 ? "big" : ""}">M${(+e.mag).toFixed(1)}</span>` : ""}<span class="ev-time" title="${ymd(e.ms)}">${rel(e.ms)}</span></div>
       <div class="ev-title">${esc(e.title)}</div>
       <div class="ev-src">${esc(e.source || "-")} · ${ymd(e.ms)}${e.url ? ` · <a href="${esc(e.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}</div></div></div>`).join("")
-    || `<div class="ok-box">${ui.type || ui.lv ? "이 조건에 맞는 이벤트가 없습니다" : `최근 ${days}일 수원국 이벤트가 없습니다`}</div>`;
+    || `<div class="ok-box">${ui.type || ui.lv ? "이 조건에 맞는 이벤트가 없습니다" : `${pl} 수원국 이벤트가 없습니다`}</div>`;
   if (shown.length > 40) $("#evFeed").insertAdjacentHTML("beforeend", `<div class="muted small">최근 40건만 보여줍니다 (전체 ${shown.length}건)</div>`);
 
   last = { pins, evs, risk };
@@ -238,16 +238,26 @@ function nearEvents(pt, evs, country) {
 let last = null;
 const pinMarkers = {}, evMarkers = {};
 // 지도 바탕: Esri 회색 지도 (키 없음, 다크·라이트) + 영어 나라·도시 이름 층. CARTO 무료 지도는 키를 요구해서 사용하지 않음
-const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/";
-const tileUrl = (kind) => `${ESRI}World_${document.documentElement.dataset.theme === "light" ? "Light" : "Dark"}_Gray_${kind}/MapServer/tile/{z}/{y}/{x}`;
-let labels = null;
+const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/";
+const isLight = () => document.documentElement.dataset.theme === "light";
+const baseUrl = () => `${ESRI}${isLight() ? "World_Topo_Map" : "World_Imagery"}/MapServer/tile/{z}/{y}/{x}`;
+const LABEL_URL = `${ESRI}Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}`;
+let labels = null, shade = null;
+function applyTheme() { // 위성 사진은 살짝 어둡게 덮어 핀·아이콘이 잘 보이게, 라이트(지형도)는 지명 층이 이미 있음
+  tiles.setUrl(baseUrl());
+  if (isLight()) { map.removeLayer(labels); map.removeLayer(shade); } else { labels.addTo(map); shade.addTo(map); }
+}
 function ensureMap() {
   if (map || !window.L) return !!map;
   map = L.map("geoMap", { worldCopyJump: true, minZoom: 2, maxZoom: 12, zoomSnap: 0.5, attributionControl: true }).setView([15, 80], 3);
-  tiles = L.tileLayer(tileUrl("Base"), { maxZoom: 16, attribution: 'Tiles &copy; <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a> · Esri, HERE, Garmin, &copy; OpenStreetMap' }).addTo(map);
-  labels = L.tileLayer(tileUrl("Reference"), { maxZoom: 16, pane: "overlayPane", opacity: 0.85 }).addTo(map);
+  tiles = L.tileLayer(baseUrl(), { maxZoom: 16, attribution: 'Tiles &copy; <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a> · Maxar, Earthstar Geographics, HERE, Garmin, &copy; OpenStreetMap' }).addTo(map);
+  map.createPane("shade"); map.getPane("shade").style.zIndex = 250; map.getPane("shade").style.pointerEvents = "none";
+  map.createPane("labels"); map.getPane("labels").style.zIndex = 300; map.getPane("labels").style.pointerEvents = "none";
+  shade = L.rectangle([[-89, -540], [89, 540]], { pane: "shade", stroke: false, fillColor: "#020617", fillOpacity: 0.28, interactive: false });
+  labels = L.tileLayer(LABEL_URL, { maxZoom: 16, pane: "labels", opacity: 0.95 });
   layers = { halo: L.layerGroup().addTo(map), focus: L.layerGroup().addTo(map), ev: L.layerGroup().addTo(map), pin: L.layerGroup().addTo(map) };
-  new MutationObserver(() => { tiles.setUrl(tileUrl("Base")); labels.setUrl(tileUrl("Reference")); }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  applyTheme();
+  new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
   map._fitted = false;
   return true;
 }
@@ -301,7 +311,9 @@ function drawFocus(f, near) {
   if (!f) { box.classList.add("hidden"); map._focusPid = null; return; }
   const c = f.pt.ll, accent = cssv("--accent-2");
   RINGS.forEach((r, i) => {
-    L.circle(c, { radius: r * 1000, color: accent, weight: i === RINGS.length - 1 ? 1.4 : 1, opacity: 0.75 - i * 0.1, dashArray: "2 6", fill: i === 0, fillColor: accent, fillOpacity: 0.06, interactive: false }).addTo(layers.focus);
+    // 위성 사진 위에서도 보이게: 어두운 바깥선 + 밝은 점선 두 겹
+    L.circle(c, { radius: r * 1000, color: "#020617", weight: 3.5, opacity: 0.35, fill: false, interactive: false }).addTo(layers.focus);
+    L.circle(c, { radius: r * 1000, color: isLight() ? "#0E7490" : "#67E8F9", weight: i === RINGS.length - 1 ? 2 : 1.6, opacity: 0.95 - i * 0.08, dashArray: "6 6", fill: i === 0, fillColor: accent, fillOpacity: 0.08, interactive: false }).addTo(layers.focus);
     const lat = c[0] - r / 111.2; // 원의 맨 아래에 거리 글씨 (위쪽은 핀 자리)
     L.marker([lat, c[1]], { interactive: false, icon: L.divIcon({ className: "", html: `<span class="ring-lb">${r}km</span>`, iconSize: [44, 16], iconAnchor: [22, 8] }) }).addTo(layers.focus);
   });

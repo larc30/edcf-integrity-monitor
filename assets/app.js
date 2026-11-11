@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=30";
-import { initGeo, renderGeo, refreshGeo } from "./geo.js?v=32";
+import { initGeo, renderGeo } from "./geo.js?v=33";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -168,16 +168,14 @@ function setAdmin(on) {
   state.adminOn = !!(on && state.admin);
   document.body.classList.toggle("admin-on", state.adminOn);
   const b = $("#btnAdmin"); b.classList.toggle("on", state.adminOn);
-  $(".ab-t", b).textContent = state.adminOn ? "관리자 모드 ON" : "관리자 모드";
-  b.title = state.adminOn ? "누르면 관리자 모드를 끕니다" : "업체 관리·사업 관리·설정 열기 (관리자 계정에만 보임)";
+  $(".ab-t", b).textContent = state.adminOn ? "관리자 모드 나가기" : "관리자 모드";
+  b.title = state.adminOn ? "누르면 업체 리스크 화면으로 돌아갑니다" : "업체 관리·사업 관리·설정 (관리자 계정에만 보임)";
   try { localStorage.setItem("edcf_admin", state.adminOn ? "1" : "0"); } catch {}
 }
-$("#adminOff").onclick = () => $("#btnAdmin").click();
 $("#btnAdmin").onclick = () => {
   setAdmin(!state.adminOn);
   const cur = $("#tabs button.active")?.dataset.view || "home";
   showView(state.adminOn ? "companies" : ADMIN_VIEWS.includes(cur) ? "home" : cur);
-  toast(state.adminOn ? "관리자 모드: 업체 관리·사업 관리·설정 탭이 열렸습니다" : "관리자 모드를 껐습니다", 2000);
 };
 // 업체 리스크 ↔ 수원국 리스크: 카드를 뒤집듯 전환 (가벼운 모드·움직임 줄이기 설정이면 바로 전환)
 const FLIP = ["home", "geo"];
@@ -206,6 +204,7 @@ function showView(v) {
   openView(v);
 }
 function openView(v) {
+  if (state.adminOn && !ADMIN_VIEWS.includes(v)) setAdmin(false); // 대시보드로 가면 관리자 모드에서 나옴 (로고 등)
   $$("#tabs button").forEach((x) => x.classList.toggle("active", x.dataset.view === v));
   $$(".view").forEach((x) => x.classList.toggle("active", x.id === `view-${v}`));
   try { localStorage.setItem("view3", v); } catch {}
@@ -297,7 +296,7 @@ const relTime = (ms) => { const m = Math.round((Date.now() - ms) / 60e3); return
 const weekday = ["일", "월", "화", "수", "목", "금", "토"];
 
 // ---------- 기간 ----------
-const PERIODS = [["all", "전체"], ["today", "오늘·어제"], ["7d", "7일"], ["30d", "30일"], ["old", "과거 이력"]];
+const PERIODS = [["all", "전체"], ["7d", "최근 7일"], ["30d", "최근 30일"], ["old", "30일 이전"]]; // 수원국 리스크(geo.js)와 같은 구분
 const pubMs = (f) => { const d = f.published_at ? Date.parse(String(f.published_at).slice(0, 10) + "T00:00:00+09:00") : NaN; return Number.isFinite(d) ? d : (f.first_seen_ms || Date.now()); };
 // ---------- 같은 이슈 묶기 (monitor/grouping.py 와 같은 기준) ----------
 // 같은 기사·같은 사건이 여러 건으로 보이지 않게 한 줄로 묶음. 묶인 기사는 펼쳐서 보고, 처리 버튼은 묶음 전체에 적용
@@ -355,9 +354,9 @@ const groupIn = (g, p) => g.items.some((f) => inPeriod(f, p));
 function inPeriod(f, p) {
   const age = Date.now() - pubMs(f), official = f.source_type !== "news";
   if (p === "all") return true;
-  if (p === "old") return !official && age > 365 * DAY;
+  if (p === "old") return !official && age > 30 * DAY;
   if (official) return true; // 공식 제재·수기 기록은 기간과 무관하게 항상 표시
-  return age <= { today: 2 * DAY, "7d": 7 * DAY, "30d": 30 * DAY }[p];
+  return age <= { "7d": 7 * DAY, "30d": 30 * DAY }[p];
 }
 let period = null;
 try { period = localStorage.getItem("edcf_period"); } catch {}
@@ -409,11 +408,13 @@ function renderRadar(cs) {
   el.innerHTML = `
     <svg class="grid" viewBox="0 0 200 200" aria-hidden="true">
       <defs>${rg("rgNone", "--green", 66, 96)}${rg("rgOrange", "--orange", 48, 94)}${rg("rgRed", "--red", 0, 90)}
-        <linearGradient id="rgBezel" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" style="stop-color:var(--accent)"/><stop offset="55%" style="stop-color:var(--accent-2);stop-opacity:.25"/><stop offset="100%" style="stop-color:var(--accent-2)"/></linearGradient></defs>
-      <circle class="bezel" cx="100" cy="100" r="99"/><g class="ticks">${ticks}</g>
+        <linearGradient id="rgBezel" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" style="stop-color:var(--accent)"/><stop offset="55%" style="stop-color:var(--accent-2);stop-opacity:.25"/><stop offset="100%" style="stop-color:var(--accent-2)"/></linearGradient>
+        <linearGradient id="rgMetal" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fff" stop-opacity=".55"/><stop offset="35%" stop-color="#94A3B8" stop-opacity=".18"/><stop offset="65%" stop-color="#0F172A" stop-opacity=".55"/><stop offset="100%" stop-color="#fff" stop-opacity=".3"/></linearGradient></defs>
+      <circle class="metal" cx="100" cy="100" r="99.3"/><circle class="bezel" cx="100" cy="100" r="99"/><circle class="bezel-in" cx="100" cy="100" r="97.8"/><g class="ticks">${ticks}</g>
       <circle class="band none" cx="100" cy="100" r="90" fill="url(#rgNone)"/>
       <circle class="band orange" cx="100" cy="100" r="62" fill="url(#rgOrange)"/><circle class="band red" cx="100" cy="100" r="31" fill="url(#rgRed)"/>
       <circle class="sub" cx="100" cy="100" r="15.5"/><circle class="sub" cx="100" cy="100" r="46.5"/><circle class="sub" cx="100" cy="100" r="76"/>
+      <circle class="ring glow none" cx="100" cy="100" r="90"/><circle class="ring glow orange" cx="100" cy="100" r="62"/><circle class="ring glow red" cx="100" cy="100" r="31"/>
       <circle class="ring none" cx="100" cy="100" r="90"/>
       <circle class="ring orange" cx="100" cy="100" r="62"/><circle class="ring red" cx="100" cy="100" r="31"/>
       <line class="axis" x1="100" y1="10" x2="100" y2="190"/><line class="axis" x1="10" y1="100" x2="190" y2="100"/>
@@ -513,7 +514,7 @@ function renderHome() {
   off.forEach((f) => oc[officialSrc(f)][f.level === "red" ? 0 : 1].add(f.company_id));
   const evN = state.edcf.filter(edcfValid).length;
   const ocRow = (name, k, other, extra) => `<div class="oc-row"><span class="oc-k">${name}</span><span class="oc-v">${oc[k][0].size ? `<b class="red-t">제재 중 ${oc[k][0].size}곳</b>` : `<span class="muted">제재 중 0</span>`}${oc[k][1].size ? ` <span class="muted">· ${other} ${oc[k][1].size}곳</span>` : ""}</span>${extra || ""}</div>`;
-  $("#noteCard").innerHTML = `<div class="oc-head"><h2>공식 제재 명단 ${info("우리 업체를 공식 제재 명단과 대조한 결과입니다.<br><b>EDCF</b> EXIMIIS 부정당업자 명단 · <b>조달청</b> 나라장터 현재 제재 · <b>MDB</b> World Bank·ADB·AfDB·IDB·EBRD<br>'제재 중'은 지금 유효한 제재(= 위험)입니다.")}</h2>${evN ? "" : `<span class="oc-x"><span class="warn-t">EXIMIIS 명단 없음</span></span>`}</div>
+  $("#noteCard").innerHTML = `<div class="oc-head"><h2>공식 제재 명단 ${info(`<div class="tip-p">우리 업체를 공식 제재 명단과 대조한 결과입니다.</div><div class="tip-grid"><b>EDCF</b><span>EXIMIIS 부정당업자 명단</span><b>조달청</b><span>나라장터 현재 제재</span><b>MDB</b><span>World Bank · ADB · AfDB · IDB · EBRD</span></div><div class="tip-p muted">'제재 중'은 지금 유효한 제재(= 위험)입니다.</div>`)}</h2>${evN ? "" : `<span class="oc-x"><span class="warn-t">EXIMIIS 명단 없음</span></span>`}</div>
     <div class="oc-rows">${ocRow("EDCF (EXIMIIS)", "edcf", "과거")}${ocRow("조달청", "pps", "집행정지")}${ocRow("MDB", "mdb", "이름 유사")}</div>
     <span class="nc-go">명단·검사 내역 보기 →</span>`;
   const nums = [$("#kboard"), $("#noteCard")];
@@ -529,17 +530,18 @@ function renderHome() {
 
   // ④ 확인이 필요한 이슈 (위험 → 공식 제재 → 최신)
   const counts = Object.fromEntries(PERIODS.map(([k]) => [k, openG.filter((g) => groupIn(g, k)).length]));
-  if (!period || !counts.hasOwnProperty(period)) period = counts.today ? "today" : "all";
+  if (!period || !counts.hasOwnProperty(period)) period = counts["7d"] ? "7d" : "all";
   $("#periodSeg").innerHTML = PERIODS.map(([k, label]) => `<button data-p="${k}" class="${k === period ? "active" : ""}">${label} <span class="n">${counts[k]}</span></button>`).join("");
   $$("#periodSeg button").forEach((b) => b.onclick = () => { period = b.dataset.p; try { localStorage.setItem("edcf_period", period); } catch {} renderHome(); });
   const shown = openG.filter((g) => groupIn(g, period));
   $("#issueCount").textContent = openG.length;
+  $("#actHelp").innerHTML = info(`<div class="tip-p"><b>두 버튼의 차이</b></div><div class="tip-grid wide"><b>✓ 확인 완료</b><span>이 업체 이야기가 <b>맞음</b>. 목록에서 내려가고 <b>등급은 유지</b>. 비슷한 유형의 <b>새</b> 사건은 계속 알려줌</span><b>✕ 관련 없음</b><span>이 업체 이야기가 <b>아님</b>(동명이인·다른 회사·단순 언급). <b>등급에서 빠지고</b>, AI가 비슷한 유형을 앞으로 걸러냄</span></div><div class="tip-p muted">둘 다 같은 기사는 다시 가져오지 않고, 업체 상세에서 되돌릴 수 있습니다.</div>`);
   if (shown.length) renderGroups(shown, $("#feed"));
   else $("#feed").innerHTML = !sc ? `<div class="empty">스캔 후 이곳에 이슈가 출처와 함께 표시됩니다.</div>`
     : openG.length ? `<div class="ok-box">이 조건에는 확인할 이슈가 없습니다 <span class="muted small">(전체 ${openG.length}건)</span></div>`
     : `<div class="ok-box">확인이 필요한 이슈가 없습니다</div>`;
-  if (period === "old" && shown.length) { // 1년 지난 기사: 이미 아는 과거 이력이면 한 번에 정리
-    $("#feed").insertAdjacentHTML("afterbegin", `<div class="bulk-bar"><span>1년 지난 기사 <b>${shown.length}건</b> — 이미 아는 과거 이력이면 한 번에 정리할 수 있습니다</span><button class="btn sm" id="bulkOld">모두 확인했음</button></div>`);
+  if (period === "old" && shown.length) { // 30일 지난 기사: 이미 아는 과거 이력이면 한 번에 정리
+    $("#feed").insertAdjacentHTML("afterbegin", `<div class="bulk-bar"><span>30일 지난 기사 <b>${shown.length}건</b> · 이미 아는 과거 이력이면 한 번에 정리할 수 있습니다</span><button class="btn sm" id="bulkOld">모두 확인 완료</button></div>`);
     $("#bulkOld").onclick = () => bulkReview(shown);
   }
   // 참고 이력: 처리하지 않아도 되는 목록 — 펼칠 때만 그림
@@ -677,8 +679,8 @@ function findingHtml(g, showCompany = true) {
     <div class="item-meta">
       <span class="src">${esc(f.source_name || "-")} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}${why ? ` · <span class="why" title="${esc(why)}">근거</span>` : ""}</span>
       <span class="item-actions">
-        ${f.status !== "reviewed" ? `<button class="btn sm" data-act="reviewed" title="실제 이 업체의 리스크가 맞음 — 다음 AI 판정 때 참고 예시로 씁니다${more.length ? ` (같은 내용 ${g.items.length}건 함께)` : ""}">확인했음</button>` : ""}
-        ${f.status !== "dismissed" ? `<button class="btn sm" data-act="dismissed" title="이 업체와 관계없음 — 다시 수집하지 않고, 다음 AI 판정 때 비슷한 기사를 걸러내는 예시로 씁니다${more.length ? ` (같은 내용 ${g.items.length}건 함께)` : ""}">관련 없음</button>` : ""}
+        ${f.status !== "reviewed" ? `<button class="btn sm act-ok" data-act="reviewed" title="이 업체 이야기가 맞고 내용을 확인함. 목록에서 내려가고 등급은 그대로 남습니다. 비슷한 유형의 새 기사는 앞으로도 알려줍니다${more.length ? ` (같은 내용 ${g.items.length}건 함께)` : ""}">✓ 확인 완료</button>` : ""}
+        ${f.status !== "dismissed" ? `<button class="btn sm act-no" data-act="dismissed" title="이 업체 이야기가 아님(동명이인·다른 회사·단순 언급). 등급에서 빠지고, AI가 비슷한 유형을 앞으로 걸러냅니다${more.length ? ` (같은 내용 ${g.items.length}건 함께)` : ""}">✕ 관련 없음</button>` : ""}
         ${f.status && f.status !== "new" ? `<button class="btn sm ghost" data-act="new">되돌리기</button>` : ""}
       </span>
     </div>
@@ -691,11 +693,11 @@ function findingHtml(g, showCompany = true) {
 // 과거 이력 일괄 정리 ('확인했음'으로 — 등급은 그대로, AI 판정 예시에는 쓰지 않음)
 async function bulkReview(groups) {
   const ids = groups.flatMap((g) => g.items.map((x) => x.id));
-  if (!ids.length || !confirm(`1년 지난 기사 ${groups.length}건(기록 ${ids.length}개)을 '확인했음'으로 처리할까요?\n등급은 그대로 남고, '확인 완료한 이슈'에서 되돌릴 수 있습니다.`)) return;
+  if (!ids.length || !confirm(`30일 지난 기사 ${groups.length}건(기록 ${ids.length}개)을 '확인 완료'로 처리할까요?\n등급은 그대로 남고, '확인 완료한 이슈'에서 되돌릴 수 있습니다.`)) return;
   const patch = { status: "reviewed", reviewed_by: auth.currentUser.email, reviewed_at: nowStr(), review_note: "과거 이력 일괄 정리" };
   for (let i = 0; i < ids.length; i += 400) { const b = writeBatch(db); ids.slice(i, i + 400).forEach((id) => b.update(doc(db, "findings", id), patch)); await b.commit(); }
   ids.forEach((id) => Object.assign(state.findings.find((f) => f.id === id) || {}, patch));
-  toast(`1년 지난 기사 ${groups.length}건을 확인 처리했습니다`);
+  toast(`30일 지난 기사 ${groups.length}건을 확인 완료로 처리했습니다`);
   rerender();
 }
 // 이슈 목록: 같은 내용은 한 줄로 묶어서 표시
@@ -712,7 +714,7 @@ function renderGroups(groups, el, showCompany = true) {
     await batch.commit();
     ids.forEach((id) => Object.assign(state.findings.find((f) => f.id === id) || {}, patch));
     const both = ids.length > 1 ? ` (같은 내용 ${ids.length}건 함께)` : "";
-    toast((st === "dismissed" ? "관련 없음 처리 — 다시 수집하지 않고, 다음 AI 판정 때 비슷한 기사를 걸러냅니다" : st === "reviewed" ? "확인 처리했습니다 — 다음 AI 판정 때 참고합니다" : "되돌렸습니다") + both, 4000);
+    toast((st === "dismissed" ? "관련 없음: 등급에서 빠지고, AI가 비슷한 유형을 앞으로 걸러냅니다" : st === "reviewed" ? "확인 완료: 목록에서 내려가고 등급은 그대로 남습니다" : "되돌렸습니다") + both, 4000);
     rerender();
   }));
 }
@@ -1174,6 +1176,12 @@ async function trackJob() {
   renderJob();
 }
 function renderJob() {
+  renderJob0();
+  const g = $("#geoJobState"); if (g) g.innerHTML = $("#jobState").innerHTML; // 수원국 화면에도 같은 진행 표시
+  const busy = !!(state.job && !state.job.done);
+  $("#geoScan").disabled = busy; $("#geoScan").classList.toggle("busy", busy);
+}
+function renderJob0() {
   const j = state.job, el = $("#jobState");
   $("#radar")?.classList.toggle("scanning", !!(j && !j.done));
   $("#btnStop").classList.toggle("hidden", !(j && !j.done && (j.mode === "queue" || j.runId)));
@@ -1266,7 +1274,7 @@ const CO_VIEWS = [
   ["all", "전체", "등록된 모든 업체"],
   ["pre", "계약 전 점검", "입찰중·우선협상 단계 업체 — 부정당업자 확인이 가장 필요한 시점"],
   ["risk", "리스크 업체", "위험·경고 업체"],
-  ["open", "미확인 이슈", "'확인했음·관련 없음' 처리 전 이슈가 있는 업체"],
+  ["open", "미확인 이슈", "'확인 완료·관련 없음' 처리 전 이슈가 있는 업체"],
   ["info", "정보 보완 필요", "사업자번호 또는 영문명이 없어 조회가 불완전한 업체"],
 ];
 const needInfo = (c) => (c.country === "KR" && !c.biz_no) || !c.name_en;
@@ -2105,9 +2113,43 @@ function renderConnections() {
     ["조달청 API", c.pps ? "부정당제재 · 업체 기본정보" : "DATA_GO_KR_KEY", B(c.pps)],
     ["MDB 제재 리스트", lists.length ? lists.map(([k, v]) => `${MDB_NAME[k] || k} ${v}`).join(" · ") : "OpenSanctions (키 필요 없음)", !lists.length ? "unknown" : listOk ? "ok" : "warn"],
     ["메일 발송 (SMTP)", c.smtp ? `받는 사람 ${state.recipients.length}명` : "SMTP_USER · SMTP_PASSWORD", B(c.smtp) === "ok" && !state.recipients.length ? "warn" : B(c.smtp)],
+    ["외교부 여행경보", state.geo?.alerts ? `조달청과 같은 공공데이터포털 키 · ${Object.keys(state.geo.alerts).length}개국` : "조달청과 같은 키(DATA_GO_KR_KEY) · 공공데이터포털 활용신청 필요", state.geo?.alerts ? "ok" : known ? "off" : "unknown"],
+    ["USGS 지진", "키 필요 없음 · 규모 4.5 이상", (state.geo?.events || []).length || state.geo?.updated_at ? "ok" : "unknown"],
   ];
+  // [연결 확인]을 눌렀을 때 실제로 불러 본 결과가 있으면 그것을 우선
+  const cc = s.conn_check, CK = { "Google 뉴스": "google_news", "네이버 뉴스 API": "naver", "Claude API": "claude", "DART API": "dart", "조달청 API": "pps", "MDB 제재 리스트": "mdb", "외교부 여행경보": "mofa", "USGS 지진": "usgs", "메일 발송 (SMTP)": "smtp" };
+  if (cc?.results) rows.forEach((r) => { const x = cc.results[CK[r[0]]]; if (x) { r[1] = `${x.ok ? "" : "실패: "}${x.msg}`; r[2] = x.ok ? "ok" : "off"; } });
+  $("#connNote").innerHTML = cc?.at ? `<b>${esc(cc.at.slice(5, 16))}</b> 연결 확인 결과 (실제로 한 번씩 불러 본 결과)` : `아래는 <b>키가 등록돼 있는지</b>만 본 것입니다 (마지막 스캔 기준). 키가 살아 있는지는 [연결 확인]을 누르세요.`;
   const BADGE = { ok: `<span class="badge none">연결됨</span>`, warn: `<span class="badge yellow">확인 필요</span>`, off: `<span class="badge orange">미연결</span>`, unknown: `<span class="badge gray">확인 전</span>` };
   $("#connList").innerHTML = rows.map(([k, d, stt]) => `<div class="conn"><div class="ct"><div class="k">${k}</div><div class="d" title="${esc(d)}">${esc(d)}</div></div>${BADGE[stt]}</div>`).join("");
+}
+// [연결 확인]: 요청을 남기면 5분 안에 GitHub Actions 가 각 API를 실제로 불러 보고 결과를 저장
+$("#btnConnCheck").onclick = async () => {
+  const b = $("#btnConnCheck");
+  if (state.connReq) return toast("이미 연결 확인을 요청했습니다. 잠시만 기다려 주세요");
+  try {
+    const ref = await addDoc(collection(db, "requests"), { task: "check", companies: "", test_to: "", label: "연결 확인", status: "pending", requested_by: auth.currentUser?.email || "", requested_at: nowStr(), requested_ms: Date.now() });
+    state.connReq = { id: ref.id, at: Date.now() };
+    const relayed = await pingRelay();
+    b.disabled = true; b.textContent = "확인 중…";
+    $("#connNote").innerHTML = `<span class="spinner"></span> 연결 확인 요청됨 · ${relayed ? "1~2분" : "보통 5분"} 안에 결과가 나옵니다 (평일 08~19시)`;
+    pollConnCheck();
+  } catch (e) { toast("요청을 저장하지 못했습니다: " + e.message, 5000); }
+};
+async function pollConnCheck() {
+  const r = state.connReq; if (!r) return;
+  try {
+    const d = (await getDoc(doc(db, "requests", r.id))).data() || {};
+    if (d.status === "done" || d.status === "error") {
+      const st = await getDoc(doc(db, "meta", "status")); if (st.exists()) state.status = st.data();
+      state.connReq = null; const b = $("#btnConnCheck"); b.disabled = false; b.textContent = "연결 확인";
+      renderConnections();
+      toast(d.status === "done" ? `연결 확인 완료 · ${d.result?.ok ?? "-"}/${d.result?.total ?? "-"} 정상` : `연결 확인 실패: ${d.result?.error || ""}`, 5000);
+      return;
+    }
+  } catch {}
+  if (Date.now() - r.at > 20 * 60e3) { state.connReq = null; $("#btnConnCheck").disabled = false; $("#btnConnCheck").textContent = "연결 확인"; $("#connNote").textContent = "응답이 없습니다. 평일 08~19시에 다시 눌러 주세요."; return; }
+  setTimeout(pollConnCheck, 8000);
 }
 // 실행 기록: 사람이 읽는 한 줄 요약
 function runSummary(r) {
@@ -2209,4 +2251,4 @@ initGeo({
   setScope: (v) => { scope = v; try { localStorage.setItem("edcf_scope2", scope); } catch {} },
   companyTally: (pid) => { const t = { red: 0, orange: 0, none: 0, total: 0 }; state.companies.forEach((c) => { if (c.engagements.some((e) => e.project_id === pid)) { t[scanned() ? c.risk : "none"]++; t.total++; } }); return t; },
 });
-$("#geoRefresh").onclick = async () => { const b = $("#geoRefresh"); b.disabled = true; await refreshGeo(); b.disabled = false; toast("지진 정보를 다시 불러왔습니다", 1500); };
+$("#geoScan").onclick = () => $("#btnScan").click(); // 같은 스캔 (업체·수원국 정보를 함께 새로 받음)

@@ -39,6 +39,14 @@ export function writeBatch() {
 // [지금 스캔] 흉내: 3초 뒤 시작 → 업체를 차례로 검사 → 완료
 function simulate(id) {
   const r = coll("requests")[id];
+  if (r.task === "check") { // [연결 확인] 흉내: 3초 뒤 모두 정상 (데모 예시)
+    setTimeout(() => {
+      const ok = (msg) => ({ ok: true, msg: `${msg} (데모 예시)` });
+      coll("meta").status.conn_check = { at: kst(Date.now()), results: { google_news: ok("기사 3건 받음"), naver: ok("기사 3건 받음"), claude: ok("모델 claude-haiku-5-5"), dart: ok("정상"), pps: ok("정상"), mdb: ok("OpenSanctions 응답"), mofa: ok("9개국"), usgs: ok("지진 120건"), smtp: ok("로그인 성공") } };
+      Object.assign(r, { status: "done", finished_at: kst(Date.now()), result: { ok: 9, total: 9 } });
+    }, 3000);
+    return;
+  }
   const names = Object.values(coll("companies")).map((c) => c.name);
   const total = names.length;
   setTimeout(() => {
