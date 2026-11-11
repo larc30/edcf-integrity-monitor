@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=30";
-import { initGeo, renderGeo, refreshGeo } from "./geo.js?v=31";
+import { initGeo, renderGeo, refreshGeo } from "./geo.js?v=32";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -168,18 +168,44 @@ function setAdmin(on) {
   state.adminOn = !!(on && state.admin);
   document.body.classList.toggle("admin-on", state.adminOn);
   const b = $("#btnAdmin"); b.classList.toggle("on", state.adminOn);
-  $("span", b).textContent = state.adminOn ? "관리자 모드 끄기" : "관리자 모드";
+  $(".ab-t", b).textContent = state.adminOn ? "관리자 모드 ON" : "관리자 모드";
+  b.title = state.adminOn ? "누르면 관리자 모드를 끕니다" : "업체 관리·사업 관리·설정 열기 (관리자 계정에만 보임)";
   try { localStorage.setItem("edcf_admin", state.adminOn ? "1" : "0"); } catch {}
 }
+$("#adminOff").onclick = () => $("#btnAdmin").click();
 $("#btnAdmin").onclick = () => {
   setAdmin(!state.adminOn);
   const cur = $("#tabs button.active")?.dataset.view || "home";
   showView(state.adminOn ? "companies" : ADMIN_VIEWS.includes(cur) ? "home" : cur);
   toast(state.adminOn ? "관리자 모드: 업체 관리·사업 관리·설정 탭이 열렸습니다" : "관리자 모드를 껐습니다", 2000);
 };
+// 업체 리스크 ↔ 수원국 리스크: 카드를 뒤집듯 전환 (가벼운 모드·움직임 줄이기 설정이면 바로 전환)
+const FLIP = ["home", "geo"];
 function showView(v) {
   if (!$(`#view-${v}`)) v = "home";
   if (ADMIN_VIEWS.includes(v) && !state.adminOn) v = "home"; // 관리자 모드가 아니면 관리 화면은 열지 않음
+  const prev = $(".view.active")?.id?.slice(5);
+  $("#modeSwitch").dataset.mode = v === "geo" ? "geo" : v === "home" ? "home" : "off";
+  const flip = prev && prev !== v && FLIP.includes(prev) && FLIP.includes(v) && !document.documentElement.classList.contains("lite") && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (flip) {
+    if (state.flipping) return;
+    state.flipping = true;
+    $$("#tabs button").forEach((x) => x.classList.toggle("active", x.dataset.view === v));
+    const out = $(`#view-${prev}`);
+    out.classList.add("flip-out");
+    setTimeout(() => {
+      out.classList.toggle("flip-out", false);
+      state.flipping = false;
+      openView(v);
+      const inn = $(`#view-${v}`);
+      inn.classList.add("flip-in");
+      setTimeout(() => inn.classList.toggle("flip-in", false), 520);
+    }, 260);
+    return;
+  }
+  openView(v);
+}
+function openView(v) {
   $$("#tabs button").forEach((x) => x.classList.toggle("active", x.dataset.view === v));
   $$(".view").forEach((x) => x.classList.toggle("active", x.id === `view-${v}`));
   try { localStorage.setItem("view3", v); } catch {}
@@ -350,7 +376,7 @@ const ROLE_ABBR = { 컨설턴트: "컨", 본구매: "본", "F/S": "FS" };
 // ---------- 리스크 레이더: 색 띠 = 등급(가운데일수록 위험), 주요 리스크 업체는 이름 표시 ----------
 function hash(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; } return h; }
 const polar = (deg, r) => { const rad = (deg * Math.PI) / 180; return [50 + (Math.sin(rad) * r) / 2, 50 - (Math.cos(rad) * r) / 2]; };
-const BANDS = { red: [8, 25], orange: [38, 58], none: [72, 92], pending: [70, 93] };
+const BANDS = { red: [8, 25], orange: [38, 56], none: [68, 86], pending: [68, 86] };
 const RADAR_MAX = 40; // 점이 너무 많으면 읽기 어려워서 — 등급 높은 순으로
 function renderRadar(cs) {
   const el = $("#radar"), sc = scanned();
@@ -374,16 +400,27 @@ function renderRadar(cs) {
     ...(sc ? [] : cs.slice(0, RADAR_MAX).map((c) => dot(c, 32 + (hash(c.id) % 296), "pending", false))), // 정상 업체는 점 없이 바깥 원 숫자로
   ].join("");
   const t = (lv, y, label) => `<text class="bl ${lv}" x="100" y="${y}">${label} ${sc ? n[lv] : "-"}</text>`;
+  // 바깥 테: 5도마다 눈금, 30도마다 긴 눈금 (계기판 느낌)
+  const ticks = Array.from({ length: 72 }, (_, i) => {
+    const a = (i * 5 * Math.PI) / 180, major = i % 6 === 0, r1 = major ? 91.5 : 94.5, r2 = 97.5;
+    return `<line class="tick ${major ? "major" : ""}" x1="${(100 + Math.sin(a) * r1).toFixed(2)}" y1="${(100 - Math.cos(a) * r1).toFixed(2)}" x2="${(100 + Math.sin(a) * r2).toFixed(2)}" y2="${(100 - Math.cos(a) * r2).toFixed(2)}"/>`;
+  }).join("");
+  const rg = (id, v, a, b) => `<radialGradient id="${id}" cx="50%" cy="50%" r="50%"><stop offset="${a}%" style="stop-color:var(${v});stop-opacity:.02"/><stop offset="${b}%" style="stop-color:var(${v});stop-opacity:.26"/><stop offset="100%" style="stop-color:var(${v});stop-opacity:.06"/></radialGradient>`;
   el.innerHTML = `
     <svg class="grid" viewBox="0 0 200 200" aria-hidden="true">
-      <circle class="band none" cx="100" cy="100" r="96"/>
-      <circle class="band orange" cx="100" cy="100" r="64"/><circle class="band red" cx="100" cy="100" r="31"/>
-      <circle class="ring none" cx="100" cy="100" r="96"/>
-      <circle class="ring orange" cx="100" cy="100" r="64"/><circle class="ring red" cx="100" cy="100" r="31"/>
-      <line class="axis" x1="100" y1="4" x2="100" y2="196"/><line class="axis" x1="4" y1="100" x2="196" y2="100"/>
-      ${t("none", 15, "정상")}${t("orange", 48, "경고")}${t("red", 82, "위험")}
+      <defs>${rg("rgNone", "--green", 66, 96)}${rg("rgOrange", "--orange", 48, 94)}${rg("rgRed", "--red", 0, 90)}
+        <linearGradient id="rgBezel" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" style="stop-color:var(--accent)"/><stop offset="55%" style="stop-color:var(--accent-2);stop-opacity:.25"/><stop offset="100%" style="stop-color:var(--accent-2)"/></linearGradient></defs>
+      <circle class="bezel" cx="100" cy="100" r="99"/><g class="ticks">${ticks}</g>
+      <circle class="band none" cx="100" cy="100" r="90" fill="url(#rgNone)"/>
+      <circle class="band orange" cx="100" cy="100" r="62" fill="url(#rgOrange)"/><circle class="band red" cx="100" cy="100" r="31" fill="url(#rgRed)"/>
+      <circle class="sub" cx="100" cy="100" r="15.5"/><circle class="sub" cx="100" cy="100" r="46.5"/><circle class="sub" cx="100" cy="100" r="76"/>
+      <circle class="ring none" cx="100" cy="100" r="90"/>
+      <circle class="ring orange" cx="100" cy="100" r="62"/><circle class="ring red" cx="100" cy="100" r="31"/>
+      <line class="axis" x1="100" y1="10" x2="100" y2="190"/><line class="axis" x1="10" y1="100" x2="190" y2="100"/>
+      <line class="axis diag" x1="36.4" y1="36.4" x2="163.6" y2="163.6"/><line class="axis diag" x1="163.6" y1="36.4" x2="36.4" y2="163.6"/>
     </svg>
     <div class="sweep"></div><div class="radar-core"></div>
+    <svg class="grid labels" viewBox="0 0 200 200" aria-hidden="true">${t("none", 20, "정상")}${t("orange", 50, "경고")}${t("red", 81, "위험")}</svg>
     ${dots}<div class="radar-tip hidden" id="radarTip"></div>`;
   const tip = $("#radarTip");
   $$(".rdot", el).forEach((d) => {
@@ -443,8 +480,8 @@ function renderHome() {
   $("#heroDate").textContent = `RISK BRIEFING · ${now.toISOString().slice(0, 10).replace(/-/g, ".")} (${weekday[now.getUTCDay()]})`;
   // 마지막 스캔 시각 (하루 넘게 안 돌았으면 알림)
   $("#sumSub").textContent = sc ? `마지막 스캔 ${s.last_scan_at.slice(5, 16).replace("-", "/")}${hoursSince(s.last_scan_at) > 26 ? " · 자동 스캔이 하루 넘게 안 돌았습니다" : ""}` : "아직 스캔하지 않았습니다";
-  $("#scopeSeg").innerHTML = !state.companies.length ? "" : [["mine", "내 담당 사업", mineN, ICON_USER], ["all", "EDCF 전체", state.companies.length, ICON_ORG]]
-    .map(([k, l, cnt, ic]) => `<button data-s="${k}" class="sc-btn ${k} ${k === scope ? "active" : ""}"><span class="sc-ic">${ic}</span>${l}<span class="sc-n">${cnt}</span></button>`).join("");
+  $("#scopeSeg").innerHTML = !state.companies.length ? "" : [["mine", "내 담당 사업", mineN, myP, ICON_USER], ["all", "EDCF 전체", state.companies.length, state.projects.length, ICON_ORG]]
+    .map(([k, l, cnt, pn, ic]) => `<button data-s="${k}" class="sc-btn ${k} ${k === scope ? "active" : ""}" title="${l}: 사업 ${pn}개 · 업체 ${cnt}곳"><span class="sc-ic">${ic}</span>${l}<span class="sc-n">업체 ${cnt}</span></button>`).join("");
   $$("#scopeSeg button").forEach((b) => b.onclick = () => { scope = b.dataset.s; try { localStorage.setItem("edcf_scope2", scope); } catch {} renderHome(); });
   $("#scopeInfo").innerHTML = !state.companies.length ? "" : info(`<b>내 담당 사업</b> — ${myP ? `내가 담당하는 사업 ${myP}개에 참여한 업체 ${mineN}곳` : "담당 사업이 없습니다 (사업 관리에서 [내 사업으로] 지정)"}<br><b>EDCF 전체</b> — 등록된 업체 ${state.companies.length}곳 전체 (사업 미연결 업체 포함)`, "r");
 

@@ -20,7 +20,7 @@
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=31">
+<link rel="stylesheet" href="assets/style.css?v=32">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -42,8 +42,9 @@
     <div class="logo" id="logoHome" role="button" tabindex="0" title="대시보드로"><div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9" opacity=".45"/><circle cx="12" cy="12" r="5" opacity=".7"/><path d="M12 12 L19 6"/><circle cx="12" cy="12" r="1.6" fill="#fff"/></svg></div>
       <div class="logo-t">EDCF RADAR</div></div>
     <nav class="tabs" id="tabs">
-      <button data-view="home" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>업체 리스크</button>
-      <button data-view="geo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z"/></svg>수원국 리스크</button>
+      <div class="mode-switch" id="modeSwitch" data-mode="home"><span class="ms-thumb" aria-hidden="true"></span>
+      <button data-view="home" class="active ms-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>업체 리스크</button>
+      <button data-view="geo" class="ms-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z"/></svg>수원국 리스크</button></div>
       <span class="tab-sep adm" aria-hidden="true"></span>
       <button data-view="companies" class="adm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg>업체 관리 <span class="cnt" id="tabCnt">0</span></button>
       <button data-view="projects" class="adm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></svg>사업 관리 <span class="cnt" id="tabCntP">0</span></button>
@@ -53,10 +54,11 @@
       <span class="user" id="userEmail"></span>
       <div class="font-ctl" role="group" aria-label="글자 크기"><button class="btn sm" id="fontDown" title="글자 작게">가−</button><button class="btn sm ghost fsize" id="fontReset">보통</button><button class="btn sm" id="fontUp" title="글자 크게">가+</button></div>
       <button class="btn sm" id="btnTheme">라이트</button>
-      <button class="btn sm admin-btn hidden" id="btnAdmin" title="업체 관리·사업 관리·설정 (관리자 계정에만 보임)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg><span>관리자 모드</span></button>
+      <button class="btn sm admin-btn hidden" id="btnAdmin" title="업체 관리·사업 관리·설정 (관리자 계정에만 보임)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg><span class="ab-t">관리자 모드</span><span class="ab-sw" aria-hidden="true"><i></i></span></button>
       <button class="btn sm" id="btnLogout">로그아웃</button>
     </div>
   </div></header>
+  <div class="admin-strip" id="adminStrip"><div class="as-in"><span class="as-dot"></span><b>관리자 모드</b><span class="as-txt">업체·사업·설정을 바꿀 수 있습니다. 바꾼 내용은 팀 전체 화면에 바로 반영됩니다.</span><button class="btn sm" id="adminOff">관리자 모드 끄기</button></div></div>
 
   <main class="main">
     <!-- ================= 대시보드 (한 화면) ================= -->
@@ -132,6 +134,7 @@
         <!-- 가운데: 지도 -->
         <div class="d-map">
           <div id="geoMap" class="geo-map" aria-label="수원국 리스크 지도"></div>
+          <div class="map-focus hidden" id="mapFocus"></div>
           <div class="map-legend" id="mapLegend"></div>
         </div>
         <!-- 오른쪽: 사업별 내역 + 여행경보 -->
@@ -257,6 +260,6 @@
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div id="toast" class="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script type="module" src="assets/app.js?v=31"></script>
+<script type="module" src="assets/app.js?v=32"></script>
 </body>
 </html>
