@@ -20,7 +20,7 @@
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=34">
+<link rel="stylesheet" href="assets/style.css?v=35">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -222,7 +222,7 @@
         </div>
         <div class="set-side">
         <div class="card mail-card">
-          <div class="card-head"><h2>메일</h2><div class="head-actions"><button class="btn sm" id="btnPreview">미리보기</button><button class="btn sm" id="runTestMail" title="내 주소로 1통">테스트 메일</button><button class="btn sm" id="runMailAll" title="지금 기준 리포트를 받는 사람 전체에게">지금 보내기</button></div></div>
+          <div class="card-head"><h2>메일</h2><div class="head-actions"><button class="btn sm" id="btnPreview" title="내일 아침 갈 메일이 어떻게 보일지 화면에서만 봅니다 (발송 안 함)">미리보기</button><button class="btn sm" id="runTestMail" title="내 주소로만 1통 보냅니다. 제목에 [테스트]가 붙고, 받는 사람들에게 갈 내용에는 영향 없음">테스트 메일</button><button class="btn sm" id="runMailAll" title="받는 사람 전체에게 지금 바로 보냅니다. 보낸 이슈는 '보고됨'이 되어 내일 아침 메일에서는 빠집니다">지금 보내기</button></div></div>
           <p class="card-desc">매일 아침 새로 발견된 이슈를 아래 주소로 보냅니다.</p>
           <form id="rcForm" class="add-row"><input name="email" type="email" placeholder="받는 사람 이메일" required><button class="btn primary">추가</button></form>
           <div id="rcList" class="simple-list"></div>
@@ -239,13 +239,13 @@
         <summary><h2>고급</h2><span class="muted small">API 연결 · 실행 기록 · 화면</span></summary>
         <div class="adv-grid">
           <div>
-            <div class="conn-head"><h3>API 연결</h3><button class="btn sm" id="btnConnCheck" title="각 API를 실제로 한 번씩 불러 키가 살아 있는지 확인합니다">연결 확인</button></div>
-            <div class="conn-note" id="connNote"></div>
+            <div class="conn-head"><h3>API 연결</h3><button class="btn sm primary" id="btnConnCheck" title="각 API를 실제로 한 번씩 불러 키가 살아 있는지 확인합니다"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3-8 4 16 3-8h6"/></svg><span>연결 확인</span></button></div>
             <div id="connList" class="conn-list"></div>
+            <div class="conn-note" id="connNote"></div>
             <div class="actions left"><a class="btn sm" id="lnkActions" target="_blank" rel="noopener">GitHub Actions ↗</a><a class="btn sm" id="lnkSecrets" target="_blank" rel="noopener">키 관리 (Secrets) ↗</a></div>
           </div>
           <div>
-            <h3>최근 실행</h3>
+            <div class="conn-head"><h3>최근 실행</h3></div>
             <div id="runList" class="run-list"></div>
             <h3>화면</h3>
             <label class="check"><input type="checkbox" id="liteToggle"> 가벼운 모드 (레이더 효과 줄이기)</label>
@@ -261,6 +261,6 @@
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div id="toast" class="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script type="module" src="assets/app.js?v=34"></script>
+<script type="module" src="assets/app.js?v=35"></script>
 </body>
 </html>

@@ -2138,7 +2138,7 @@ function renderConnections() {
   // [연결 확인]을 눌렀을 때 실제로 불러 본 결과가 있으면 그것을 우선
   const cc = s.conn_check, CK = { "Google 뉴스": "google_news", "네이버 뉴스 API": "naver", "Claude API": "claude", "DART API": "dart", "조달청 API": "pps", "MDB 제재 리스트": "mdb", "외교부 여행경보": "mofa", "USGS 지진": "usgs", "메일 발송 (SMTP)": "smtp" };
   if (cc?.results) rows.forEach((r) => { const x = cc.results[CK[r[0]]]; if (x) { r[1] = `${x.ok ? "" : "실패: "}${x.msg}`; r[2] = x.ok ? "ok" : "off"; } });
-  $("#connNote").innerHTML = cc?.at ? `<b>${esc(cc.at.slice(5, 16))}</b> 연결 확인 결과 (실제로 한 번씩 불러 본 결과)` : `아래는 <b>키가 등록돼 있는지</b>만 본 것입니다 (마지막 스캔 기준). 키가 살아 있는지는 [연결 확인]을 누르세요.`;
+  $("#connNote").innerHTML = cc?.at ? `<b>${esc(cc.at.slice(5, 16))}</b> 연결 확인 결과 (실제로 한 번씩 불러 본 결과)` : `위 표시는 <b>키가 등록돼 있는지</b>만 본 것입니다 (마지막 스캔 기준). 키가 실제로 되는지는 위의 [연결 확인]을 누르세요.`;
   const BADGE = { ok: `<span class="badge none">연결됨</span>`, warn: `<span class="badge yellow">확인 필요</span>`, off: `<span class="badge orange">미연결</span>`, unknown: `<span class="badge gray">확인 전</span>` };
   $("#connList").innerHTML = rows.map(([k, d, stt]) => `<div class="conn"><div class="ct"><div class="k">${k}</div><div class="d" title="${esc(d)}">${esc(d)}</div></div>${BADGE[stt]}</div>`).join("");
 }
@@ -2150,7 +2150,7 @@ $("#btnConnCheck").onclick = async () => {
     const ref = await addDoc(collection(db, "requests"), { task: "check", companies: "", test_to: "", label: "연결 확인", status: "pending", requested_by: auth.currentUser?.email || "", requested_at: nowStr(), requested_ms: Date.now() });
     state.connReq = { id: ref.id, at: Date.now() };
     const relayed = await pingRelay();
-    b.disabled = true; b.textContent = "확인 중…";
+    b.disabled = true; $("span", b).textContent = "확인 중…";
     $("#connNote").innerHTML = `<span class="spinner"></span> 연결 확인 요청됨 · ${relayed ? "1~2분" : "보통 5분"} 안에 결과가 나옵니다 (평일 08~19시)`;
     pollConnCheck();
   } catch (e) { toast("요청을 저장하지 못했습니다: " + e.message, 5000); }
@@ -2161,13 +2161,13 @@ async function pollConnCheck() {
     const d = (await getDoc(doc(db, "requests", r.id))).data() || {};
     if (d.status === "done" || d.status === "error") {
       const st = await getDoc(doc(db, "meta", "status")); if (st.exists()) state.status = st.data();
-      state.connReq = null; const b = $("#btnConnCheck"); b.disabled = false; b.textContent = "연결 확인";
+      state.connReq = null; const b = $("#btnConnCheck"); b.disabled = false; $("span", b).textContent = "연결 확인";
       renderConnections();
       toast(d.status === "done" ? `연결 확인 완료 · ${d.result?.ok ?? "-"}/${d.result?.total ?? "-"} 정상` : `연결 확인 실패: ${d.result?.error || ""}`, 5000);
       return;
     }
   } catch {}
-  if (Date.now() - r.at > 20 * 60e3) { state.connReq = null; $("#btnConnCheck").disabled = false; $("#btnConnCheck").textContent = "연결 확인"; $("#connNote").textContent = "응답이 없습니다. 평일 08~19시에 다시 눌러 주세요."; return; }
+  if (Date.now() - r.at > 20 * 60e3) { state.connReq = null; $("#btnConnCheck").disabled = false; $("#btnConnCheck span").textContent = "연결 확인"; $("#connNote").textContent = "응답이 없습니다. 평일 08~19시에 다시 눌러 주세요."; return; }
   setTimeout(pollConnCheck, 8000);
 }
 // 실행 기록: 사람이 읽는 한 줄 요약
