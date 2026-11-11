@@ -240,21 +240,33 @@ const pinMarkers = {}, evMarkers = {};
 // 지도 바탕: Esri 회색 지도 (키 없음, 다크·라이트) + 영어 나라·도시 이름 층. CARTO 무료 지도는 키를 요구해서 사용하지 않음
 const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/";
 const isLight = () => document.documentElement.dataset.theme === "light";
-const baseUrl = () => `${ESRI}${isLight() ? "World_Topo_Map" : "World_Imagery"}/MapServer/tile/{z}/{y}/{x}`;
+// 지도 모양: 기본 = 플랫(바다 기본도 · 핀·아이콘이 잘 보이고 인쇄·발표에 깔끔), 위성 = 실사 사진 (오른쪽 위 버튼)
+let mapStyle = "flat";
+try { mapStyle = localStorage.getItem("edcf_map_style") || "flat"; } catch {}
+const baseUrl = () => `${ESRI}${mapStyle === "sat" ? "World_Imagery" : "Ocean/World_Ocean_Base"}/MapServer/tile/{z}/{y}/{x}`;
 const LABEL_URL = `${ESRI}Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}`;
 let labels = null, shade = null;
-function applyTheme() { // 위성 사진은 살짝 어둡게 덮어 핀·아이콘이 잘 보이게, 라이트(지형도)는 지명 층이 이미 있음
-  tiles.setUrl(baseUrl());
-  if (isLight()) { map.removeLayer(labels); map.removeLayer(shade); } else { labels.addTo(map); shade.addTo(map); }
+const makeTiles = () => L.tileLayer(baseUrl(), { maxZoom: 16, maxNativeZoom: mapStyle === "sat" ? 16 : 10, keepBuffer: 4, attribution: 'Tiles &copy; <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a> · Maxar, Earthstar Geographics, HERE, Garmin, &copy; OpenStreetMap' });
+function applyTheme() { // 다크 화면에서는 살짝 어둡게 덮어 대시보드 색과 맞추고 핀·아이콘이 잘 보이게
+  // 모양을 바꿀 때는 바탕 지도 층을 새로 만듦 (주소만 바꾸면 이전 지도 조각이 섞여 보임)
+  const key = mapStyle + (isLight() ? "L" : "D");
+  if (tiles?._key !== key) { if (tiles) map.removeLayer(tiles); tiles = makeTiles(); tiles._key = key; tiles.addTo(map); }
+  labels.addTo(map);
+  if (isLight()) map.removeLayer(shade);
+  else { shade.setStyle({ fillOpacity: mapStyle === "sat" ? 0.28 : 0.3 }); shade.addTo(map); }
+  const sw = $("#mapStyle");
+  if (sw) sw.innerHTML = [["flat", "지도"], ["sat", "위성"]].map(([k, l]) => `<button data-ms="${k}" class="${k === mapStyle ? "active" : ""}">${l}</button>`).join("");
+  $$("#mapStyle button").forEach((b) => b.onclick = () => { mapStyle = b.dataset.ms; try { localStorage.setItem("edcf_map_style", mapStyle); } catch {} applyTheme(); });
 }
 function ensureMap() {
   if (map || !window.L) return !!map;
-  map = L.map("geoMap", { worldCopyJump: true, minZoom: 2, maxZoom: 12, zoomSnap: 0.5, attributionControl: true }).setView([15, 80], 3);
-  tiles = L.tileLayer(baseUrl(), { maxZoom: 16, attribution: 'Tiles &copy; <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a> · Maxar, Earthstar Geographics, HERE, Garmin, &copy; OpenStreetMap' }).addTo(map);
+  // 휠 확대·축소를 잘게(0.25단계) 나눠 부드럽게
+  map = L.map("geoMap", { worldCopyJump: true, minZoom: 2, maxZoom: 12, zoomSnap: 0.25, zoomDelta: 0.5, wheelPxPerZoomLevel: 110, wheelDebounceTime: 20, attributionControl: true }).setView([15, 80], 3);
+  tiles = null; // applyTheme() 에서 만듦
   map.createPane("shade"); map.getPane("shade").style.zIndex = 250; map.getPane("shade").style.pointerEvents = "none";
   map.createPane("labels"); map.getPane("labels").style.zIndex = 300; map.getPane("labels").style.pointerEvents = "none";
-  shade = L.rectangle([[-89, -540], [89, 540]], { pane: "shade", stroke: false, fillColor: "#020617", fillOpacity: 0.28, interactive: false });
-  labels = L.tileLayer(LABEL_URL, { maxZoom: 16, pane: "labels", opacity: 0.95 });
+  shade = L.rectangle([[-89, -540], [89, 540]], { pane: "shade", stroke: false, fillColor: "#020617", fillOpacity: 0.42, interactive: false });
+  labels = L.tileLayer(LABEL_URL, { maxZoom: 16, pane: "labels" }); // 불투명: 반투명이면 조각 겹친 곳에 줄이 보임
   layers = { halo: L.layerGroup().addTo(map), focus: L.layerGroup().addTo(map), ev: L.layerGroup().addTo(map), pin: L.layerGroup().addTo(map) };
   applyTheme();
   new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });

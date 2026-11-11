@@ -43,7 +43,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 수원국 등급(assets/geo.js countryRisk): 위험 = 외교부 여행경보 3·4단계 또는 특별여행주의보 / 경고 = 2단계 또는 최근 7일 규모 6+ 지진·분쟁·테러 / 정상. 일부 지역만 높아도 나라 전체로 봄(초안).
 
 ## 수원국 리스크 (초안, monitor/geo.py ↔ assets/geo.js)
-- 지도: Leaflet(cdnjs) + Esri(키 없음). 다크 = 위성 사진(World_Imagery) + 살짝 어둡게 + 영어 지명 층(World_Boundaries_and_Places), 라이트 = 컬러 지형도(World_Topo_Map). CARTO 무료 지도는 'API KEY REQUIRED'라 안 씀.
+- 지도: Leaflet(cdnjs) + Esri(키 없음). 기본 '지도' = 플랫(Ocean/World_Ocean_Base, 다크면 살짝 어둡게) + 영어 지명 층(World_Boundaries_and_Places, 불투명), 오른쪽 위 [위성] = World_Imagery. 모양 바꿀 때 바탕 층을 새로 만듦. 휠 0.25단계(zoomSnap 0.25 · wheelPxPerZoomLevel 110). 타일 틈 메우기 CSS(256.5px) 넣지 말 것: Leaflet 1.9 의 plus-lighter 와 겹쳐 밝은 줄이 생김. CARTO 무료 지도는 'API KEY REQUIRED'라 안 씀.
 - 여행경보: 공공데이터포털 '외교부_국가·지역별 여행경보'(TravelAlarmService2) + 특별여행주의보. 키는 조달청과 같은 DATA_GO_KR_KEY 그대로(따로 입력 안 함, 활용신청만). MOFA_TRAVEL_KEY 는 다른 키를 쓸 때만. 응답 필드명은 실제 키로 아직 확인 못 함. 연결 상태는 대시보드가 아니라 설정 > 고급 > API 연결에.
 - 지진: USGS 4.5_week(키 없음), 사업지·수원국 600km 안. 브라우저에서도 실시간으로 한 번 더 받음(회사망에서 막히면 저장본).
 - 뉴스: Google·네이버 '나라 이름 + 사건 단어', 제목에 나라 이름 있는 것만. 이벤트는 1년 보관, 최대 300건.
@@ -62,7 +62,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 ## 화면 규칙
 - 다크 기본, 대시보드 배치 'B 관제실'. backdrop-filter·blur 애니메이션 금지(느려짐, 가벼운 모드 html.lite 있음).
 - 글자 크기는 var(--fs-xs·sm·base·md·lg·xl)만. 화면 문구에 '—' 쓰지 않기. 창 닫기 버튼은 마지막 .actions 줄 주 버튼 오른쪽.
-- 메일(report.py): 제목 '[EDCF RADAR] MM/DD 위험 N · 경고 N', 오늘 새 위험·경고만 한 줄씩. PDF 보고서: 기본 한 장 요약.
+- 메일(report.py): 제목 '[EDCF RADAR] MM/DD 위험 N · 경고 N', 오늘 새 위험·경고만 한 줄씩. PDF 보고서: 기본 한 장 요약, [보고서] 창 오른쪽에 A4 미리보기(고르면 바로 바뀜, 인쇄 여백 13mm 12mm 같게).
+- 줄 맞춤: 업체 리스크 오른쪽 사업 목록은 이슈 목록 끝까지(contain: size, 넘치면 안에서 스크롤). 수원국 리스크는 가운데 줄(등급·지도·사업) 높이 같게, 최근 이벤트는 전체 폭 2열. 칸 폭은 글자 크기 따라가게 em 단위(가−/가+ 아주 크게에서도 안 깨짐).
 
 ## 테스트
 - Python: store/news/sanctions/dart/pps 를 메모리 가짜로 바꿔 scanner.run_scan.
