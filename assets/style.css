@@ -1462,3 +1462,33 @@ html.lite .rdot.red::before, html.lite .gev.fresh::after { animation: none; } ht
 /* 메일 창 상자 */
 .ml-box { padding: 14px; gap: 4px; } .ml-box .d { line-height: 1.6; } .ml-box .ml-addr { color: var(--text-2); font-weight: 650; word-break: break-all; }
 .ml-box .btn { margin-top: 8px; }
+
+/* =====================================================================
+   v54 — 업체 리스크도 수원국 리스크와 같은 칸 폭 · 또렷한 점 애니메이션
+   ===================================================================== */
+@media (min-width: 1101px) {
+  .dash:not(.geo-dash) { grid-template-columns: minmax(15em, 2.2fr) minmax(0, 5.6fr) minmax(0, 4.2fr);
+    grid-template-areas: "title title title" "risk radar proj" "issues issues proj"; }
+  .dash:not(.geo-dash) .radar { max-width: min(100%, 430px); }
+}
+/* 레이더 위험 점: 밝은 호(弧) 두 개가 빠르게 돎 + 점이 숨쉬듯 커졌다 작아짐 */
+.rdot.red::before { inset: -7px; border: 2px solid transparent; border-top-color: #fff; border-bottom-color: color-mix(in srgb, #fff 55%, transparent); opacity: 1; animation: geoSpin 1.4s linear infinite; }
+.rdot.red { animation: breathe 1.8s ease-in-out infinite; animation-delay: var(--d, 0s); }
+@keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.25); } }
+/* 경고 점: 또렷하게 반짝임 */
+@keyframes twinkle { 0%, 100% { opacity: 1; transform: scale(1.15); } 50% { opacity: .35; transform: scale(.7); } }
+.rdot.orange { animation-duration: 1.6s; }
+.rdot:hover { animation-play-state: paused; }
+.radar.burst .rdot.red { animation: blink .5s ease-in-out 3; }
+/* 수원국 지도: 최근 사건은 밝은 호가 돎, 큰 지진·위험 사건은 더 크게 */
+.gev.fresh::after { inset: -7px; border: 2.5px solid transparent; border-top-color: #fff; border-bottom-color: var(--ec); opacity: 1; animation: geoSpin 1.6s linear infinite; }
+html.lite .rdot.red, html.lite .rdot.orange { animation: none; }
+
+/* v55 — 전체 점검에서 고친 것 */
+@media (min-width: 1101px) {
+  .dash:not(.geo-dash), .geo-dash { grid-template-columns: minmax(17.5em, 2.5fr) minmax(0, 5.3fr) minmax(0, 4.2fr); }
+}
+.off-card .oc-row { grid-template-columns: 5em minmax(0, 1fr); column-gap: 12px; } .oc-row .oc-v { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gp-caret { gap: 0; margin-left: 4px; } .gp-caret svg { width: 16px; height: 16px; }
+.geo-dash .ev-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pj-roles:empty { display: none; }
