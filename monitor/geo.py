@@ -175,6 +175,9 @@ def fetch_alerts(get=httpx.get) -> dict:
 USGS_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_week.geojson"
 
 
+QUAKE_MIN = 5.5  # 이보다 작은 지진은 저장하지 않음 (assets/geo.js QUAKE_MIN 과 같게)
+
+
 def fetch_quakes(tg, get=httpx.get) -> list[dict]:
     if not tg:
         return []
@@ -186,7 +189,7 @@ def fetch_quakes(tg, get=httpx.get) -> list[dict]:
         lng, lat = co[:2]
         depth = co[2] if len(co) > 2 and co[2] is not None else None
         p = f.get("properties") or {}
-        if lat is None or lng is None or p.get("mag") is None:
+        if lat is None or lng is None or p.get("mag") is None or float(p["mag"]) < QUAKE_MIN:
             continue
         d, code = min((_km((lat, lng), ll), c) for ll, c in tg)
         if d > QUAKE_KM:

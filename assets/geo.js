@@ -50,6 +50,7 @@ const ALERT = { 1: ["1단계", "여행유의", "a1"], 2: ["2단계", "여행자�
 const LEVEL = { red: "위험", orange: "경고", none: "정상" };
 const LV = { red: 2, orange: 1, none: 0 };
 const DAY = 86400e3;
+export const QUAKE_MIN = 5.5; // 이보다 작은 지진은 보여 주지 않음 (정말 위험한 것만)
 // 수원국 리스크 기준: 사업지에서 사건까지 거리 · 기간 (숫자만 바꾸면 기준이 바뀜, 설명 창도 이 표로 만듦)
 // 지진은 거리 대신 '사업지 예상 진도'(mmi): 규모·거리·깊이로 사업지가 얼마나 흔들렸을지 계산 (siteMMI)
 export const GEO_RULES = [
@@ -93,7 +94,7 @@ export function projectPoint(p, i = 0) {
 // ---------- 데이터 ----------
 function geoDoc() { return ctx.state.geo || {}; }
 function allEvents() {
-  const stored = (geoDoc().events || []).map((e) => ({ ...e, ms: evMs(e) }));
+  const stored = (geoDoc().events || []).filter((e) => e.type !== "quake" || !e.mag || e.mag >= QUAKE_MIN).map((e) => ({ ...e, ms: evMs(e) }));
   const out = [...stored];
   const have = new Set(stored.map((e) => e.id));
   for (const q of live.quakes || []) if (!have.has(q.id)) out.push(q);
@@ -110,7 +111,7 @@ async function loadLiveQuakes(force) {
     live.quakes = (j.features || []).map((f) => {
       const [lng, lat] = f.geometry?.coordinates || [], p = f.properties || {};
       const near = pts.map((t) => ({ t, d: km([lat, lng], t.ll) })).sort((a, b) => a.d - b.d)[0];
-      if (!near || near.d > 600) return null;
+      if (!near || near.d > 600 || !(p.mag >= QUAKE_MIN)) return null;
       return { id: "usgs-" + f.id, type: "quake", mag: p.mag, title: `규모 ${(+p.mag).toFixed(1)} 지진 · ${p.place || ""}`, url: p.url, lat, lng, country: near.t.country, ms: p.time, at_ms: p.time, source: "USGS (실시간)", dist_km: Math.round(near.d), depth: f.geometry?.coordinates?.[2] };
     }).filter(Boolean);
     live.at = Date.now(); live.err = null;
@@ -227,7 +228,7 @@ export async function renderGeo() {
     const alertHtml = a?.level ? `<span class="alert-chip ${ALERT[a.level][2]}">${ALERT[a.level][0]} ${ALERT[a.level][1]}</span>${a.partial ? `<span class="muted small">일부 지역</span>` : ""}${a.special ? `<span class="alert-chip sp">특별여행주의보</span>` : ""}`
       : aOk ? `<span class="alert-chip a0">여행경보 없음</span>` : `<span class="muted small">여행경보 연결 전</span>`;
     return `<div class="gp ${r.lv} ${ui.focus === p.id ? "sel" : ""}" data-gpid="${p.id}" role="button" tabindex="0" title="누르면 자세한 내용과 지도의 거리 원을 보여줍니다">
-      <div class="pj-top"><span class="gp-no ${r.lv}">${idx + 1}</span><span class="pj-name" title="${esc(p.name)}">${esc(p.name)}</span><span class="badge ${r.lv}">${LEVEL[r.lv]}</span></div>
+      <div class="pj-top"><span class="gp-no ${r.lv}">${idx + 1}</span><span class="pj-name" title="${esc(p.name)}">${esc(p.name)}</span><span class="badge ${r.lv}">${LEVEL[r.lv]}</span><span class="gp-caret" aria-hidden="true">${sel ? "접기" : "자세히"}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span></div>
       ${sel ? `      <div class="gp-row"><span class="gp-k">사업지</span><span>${esc(cname(p.country))}${pt ? ` <span class="gp-en">${esc(pt.en)}</span>` : ` <span class="muted small">· 위치 미상</span>`}</span></div>
       <div class="gp-row"><span class="gp-k">여행경보</span><span class="gp-alert">${alertHtml}</span></div>
       ${a?.regions ? `<div class="gp-reg">${esc(String(a.regions).slice(0, 120))}</div>` : ""}

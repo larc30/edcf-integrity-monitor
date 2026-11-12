@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=30";
-import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY } from "./geo.js?v=44";
+import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY } from "./geo.js?v=45";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -511,16 +511,17 @@ function renderHome() {
   const riskyN = byLv.red.length + byLv.orange.length;
   const who = (l) => { const x = [...l].sort((a, b) => b.open - a.open || a.name.localeCompare(b.name)); return x.slice(0, 2).map((c) => c.name).join(" · ") + (x.length > 2 ? ` 외 ${x.length - 2}` : ""); };
   // 어제와 비교 · 30일 추이: 전체 범위일 때만 (날짜별 기록 meta/history 는 전체 업체 기준)
-  const days = scope === "all" && sc ? Object.keys(state.history || {}).sort() : [], today = nowStr().slice(0, 10);
+  const days = sc ? Object.keys(state.history || {}).sort() : [], today = nowStr().slice(0, 10), isAll = scope === "all";
   const prevDay = days.filter((d) => d < today).pop(), prev = prevDay ? state.history[prevDay] : null;
-  const delta = (lv) => { if (!prev || prev[lv] == null) return ""; const d = byLv[lv].length - prev[lv]; return d ? `<span class="rk-d ${lv !== "none" ? (d > 0 ? "up" : "down") : ""}" title="${prevDay.slice(5).replace("-", "/")} 기준 ${prev[lv]}">${d > 0 ? "+" : "−"}${Math.abs(d)}</span>` : ""; };
+  const delta = (lv) => { if (!isAll || !prev || prev[lv] == null) return ""; const d = byLv[lv].length - prev[lv]; return d ? `<span class="rk-d ${lv !== "none" ? (d > 0 ? "up" : "down") : ""}" title="${prevDay.slice(5).replace("-", "/")} 기준 ${prev[lv]}">${d > 0 ? "+" : "−"}${Math.abs(d)}</span>` : ""; };
   const series = days.slice(-30).map((d) => ({ d, v: (state.history[d].red || 0) + (state.history[d].orange || 0), r: state.history[d].red || 0 }));
-  if (series.length && series[series.length - 1].d === today) series[series.length - 1] = { d: today, v: riskyN, r: byLv.red.length };
+  if (isAll && series.length && series[series.length - 1].d === today) series[series.length - 1] = { d: today, v: riskyN, r: byLv.red.length };
   const spark = () => {
-    if (series.length < 2) return "";
+    if (!sc) return "";
+    if (series.length < 2) return `<div class="rk-trend"><div class="rk-trend-h"><span>최근 30일 위험·경고 (전체 업체)</span></div><div class="muted small">오늘부터 기록합니다. 내일부터 선이 그려집니다</div></div>`;
     const W = 260, H = 44, max = Math.max(...series.map((x) => x.v), 1), X = (i) => (i / (series.length - 1)) * W, Y = (v) => H - 4 - (v / max) * (H - 10);
     const path = (k) => series.map((x, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(x[k]).toFixed(1)}`).join("");
-    return `<div class="rk-trend" title="최근 ${series.length}일 위험·경고 업체 수 (빨간 선은 위험만)"><div class="rk-trend-h"><span>최근 ${series.length}일 위험·경고</span><b>${series[0].v} → ${series[series.length - 1].v}</b></div>
+    return `<div class="rk-trend" title="최근 ${series.length}일 위험·경고 업체 수 (빨간 선은 위험만)"><div class="rk-trend-h"><span>최근 ${series.length}일 위험·경고 (전체 업체)</span><b>${series[0].v} → ${series[series.length - 1].v}</b></div>
       <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path class="tl-a" d="${path("v")}"/><path class="tl-r" d="${path("r")}"/></svg></div>`;
   };
   $("#kboard").innerHTML = `<div class="card-head"><h2>업체 등급 ${info(levelTip())}</h2>${sc ? "" : `<span class="muted small">스캔 전</span>`}</div>`
@@ -2174,15 +2175,9 @@ function renderEdcfInfo() {
 
 const hoursSince = (t) => t ? (Date.now() - Date.parse(String(t).replace(" ", "T") + "+09:00")) / 3600e3 : null;
 // ---------- 설정 ----------
-function renderGuide() {
-  const g = state.guide || {}, fbN = state.findings.filter((f) => f.source_type === "news" && ((f.status === "dismissed" && f.reviewed_by && f.reviewed_by !== "자동 정리") || (f.status === "reviewed" && f.review_note !== "과거 이력 일괄 정리"))).length;
-  $("#guideAuto").innerHTML = g.auto ? esc(g.auto).replace(/\n/g, "<br>") : `<span class="muted">아직 없습니다. 확인 완료, 관련 없음을 5건 이상 누르면 다음 아침 스캔 때 만들어집니다.</span>`;
-  $("#guideMeta").textContent = `지금까지 누른 판단 ${fbN}건${g.auto_at ? ` · ${String(g.auto_at).slice(0, 10)} 정리` : ""} · 주 1회 다시 정리`;
-}
 function renderSettings() {
   renderKeywords();
   renderAccess();
-  renderGuide();
 
   $("#rcList").innerHTML = state.recipients.map((r) => `<div class="srow"><span>${esc(r.email)}</span><button class="xbtn" data-del-rc="${r.id}" title="삭제">✕</button></div>`).join("") || `<div class="muted small">아직 없습니다.</div>`;
   $$("[data-del-rc]").forEach((b) => b.onclick = async () => { await deleteDoc(doc(db, "recipients", b.dataset.delRc)); state.recipients = state.recipients.filter((r) => r.id !== b.dataset.delRc); renderSettings(); });
@@ -2332,12 +2327,6 @@ function renderAdvanced() {
     }).join("")}${(d.errors?.length || 0) >= 50 ? `<div class="muted small">오류가 많아 앞의 50건만 보관했습니다.</div>` : ""}</div></details>`;
   }).join("") || `<div class="muted small">아직 실행 기록이 없습니다.</div>`;
 }
-$("#guideAutoClear").onclick = async () => {
-  if (!confirm("AI가 정리한 지침을 지울까요? 다음 아침 스캔 때 지금까지 누른 판단으로 다시 만듭니다.")) return;
-  await setDoc(doc(db, "meta", "ai_guide"), { auto: "", auto_at: "", auto_n: 0 }, { merge: true });
-  state.guide = { ...(state.guide || {}), auto: "", auto_at: "" }; renderGuide();
-};
-
 // ---------- DART로 빈 정보 채우기 ----------
 // 이름이 DART에 정확히 1곳이면 스캔 쪽에서 바로 채우고, 여러 곳이면 후보(dart_cands)를 남김 → 여기서 고름
 const dartPending = () => state.companies.filter((c) => Array.isArray(c.dart_cands) && c.dart_cands.length);
@@ -2390,9 +2379,9 @@ $("#btnPreview").onclick = async () => {
   modal(`<div class="rp-wrap">
     <div class="form rp-opts">
       <h2>아침 메일</h2>
-      <p class="muted small">매일 아침 받는 사람 ${n}명에게 자동으로 갑니다. 오른쪽은 지금 기준으로 내일 아침에 갈 내용입니다.</p>
-      <div class="ml-box"><b>나에게만 테스트</b><span class="d">${esc(mine)} 로 1통만 보냅니다. 제목에 [테스트]가 붙고, 받는 사람들에게는 가지 않습니다.</span><button type="button" class="btn" id="runTestMail">내 주소로 테스트 메일 받기</button></div>
-      <div class="ml-box"><b>받는 사람 모두에게</b><span class="d">내일 아침을 기다리지 않고 ${n}명에게 지금 보냅니다. 보낸 이슈는 내일 아침 메일에서 빠집니다.</span><button type="button" class="btn primary" id="runMailAll" ${n ? "" : "disabled"}>${n}명에게 지금 보내기</button></div>
+      <p class="muted small">매일 아침 받는 사람 ${n}명에게 자동으로 갑니다.<br>오른쪽은 내일 아침에 갈 내용입니다.</p>
+      <div class="ml-box"><b>나에게만 테스트</b><span class="d">내 주소로 1통만 보냅니다.<br>받는 사람들에게는 가지 않습니다.</span><span class="d ml-addr">${esc(mine)}</span><button type="button" class="btn" id="runTestMail">내 주소로 테스트 메일 받기</button></div>
+      <div class="ml-box"><b>받는 사람 모두에게</b><span class="d">아침을 기다리지 않고 지금 보냅니다.<br>보낸 이슈는 내일 메일에서 빠집니다.</span><button type="button" class="btn primary" id="runMailAll" ${n ? "" : "disabled"}>${n}명에게 지금 보내기</button></div>
       <div class="actions"></div>
     </div>
     <div class="rp-prev"><div class="rp-prev-h"><span>미리보기</span><span class="muted small" id="reportMeta">불러오는 중…</span></div><div class="rp-scroll"><iframe id="reportFrame" class="ml-frame" title="메일 미리보기" sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe></div></div>

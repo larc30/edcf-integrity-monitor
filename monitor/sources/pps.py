@@ -9,6 +9,8 @@
 """
 import hashlib
 import re
+import threading
+import time
 from urllib.parse import unquote
 
 import httpx
@@ -31,13 +33,30 @@ def biz_digits(s: str | None) -> str:
     return re.sub(r"\D", "", s or "")
 
 
+_gate = threading.Semaphore(2)  # 조달청 API는 한꺼번에 많이 부르면 지연·거절이 잦음 → 동시에 2건까지만
+
+
 def _call(op: str, params: dict) -> list[dict]:
-    r = httpx.get(
-        f"{BASE}/{op}",
-        params={"serviceKey": _key(), "type": "json", "numOfRows": 100, "pageNo": 1, **params},
-        timeout=30,
-    )
-    r.raise_for_status()
+    """응답 지연·일시 오류(5xx·429)는 간격을 두고 두 번 더 시도"""
+    last = None
+    for attempt in range(3):
+        try:
+            with _gate:
+                r = httpx.get(
+                    f"{BASE}/{op}",
+                    params={"serviceKey": _key(), "type": "json", "numOfRows": 100, "pageNo": 1, **params},
+                    timeout=30,
+                )
+            if r.status_code in (429, 500, 502, 503, 504) and attempt < 2:
+                time.sleep(2 + attempt * 4)
+                continue
+            r.raise_for_status()
+            break
+        except (httpx.TimeoutException, httpx.TransportError) as e:
+            last = e
+            if attempt == 2:
+                raise
+            time.sleep(2 + attempt * 4)
     try:
         data = r.json()
     except ValueError:
