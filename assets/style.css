@@ -1542,3 +1542,7 @@ html.lite .rdot.red, html.lite .rdot.orange { animation: none; }
   html:not(.lite) .gev.fresh::after { animation: geoSpin 8s linear infinite !important; }
   html:not(.lite) .geo-sweep { animation: geoSpin 6s linear infinite !important; }
 }
+
+/* v58 — 수원국 이벤트: AI 요약·판정 표시 */
+.ev-note { margin-top: 2px; font-size: var(--fs-sm); color: var(--text-2); }
+.ev-ai { font-weight: 750; color: var(--accent-2); } .ev-ai.wait { color: var(--muted); }
