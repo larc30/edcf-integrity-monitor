@@ -4,3 +4,4 @@ __pycache__/
 .venv/
 *-firebase-adminsdk-*.json
 service-account*.json
+node_modules/

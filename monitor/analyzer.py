@@ -231,6 +231,67 @@ def _claude(company: dict, engagements: list[dict], articles: list[dict], keywor
     return out
 
 
+# ---------- 수원국 이벤트 뉴스 판정 ----------
+EVENT_TYPES = ("quake", "war", "terror", "unrest", "flood", "storm", "fire", "volcano", "politics", "disease")
+
+
+class EventJudgement(BaseModel):
+    idx: int
+    affects_project: bool
+    type: Literal["quake", "war", "terror", "unrest", "flood", "storm", "fire", "volcano", "politics", "disease", "none"]
+    summary_ko: str
+
+
+class EventBatch(BaseModel):
+    results: list[EventJudgement]
+
+
+EVENT_PROMPT = """당신은 한국수출입은행 EDCF(대외경제협력기금) 사업의 수원국 리스크 분석가입니다.
+수원국 뉴스 제목을 보고, 그 나라에서 진행 중인 EDCF 사업(건설·시스템 구축·기자재 공급, 한국 업체·출장자 참여)의
+공정·안전·출장·계약 이행에 '실제로 영향을 줄 수 있는 사건'인지 판정합니다.
+
+각 기사에 대해:
+1. affects_project: 아래에 해당하면 true, 아니면 false. 확신이 없으면 false.
+   - true: 그 나라에서 지금 일어났거나 진행 중인 지진·홍수·태풍·산불·화산·감염병 유행, 테러·무력 충돌·쿠데타·계엄,
+     대규모 시위·폭동, 정권 교체·선거(선거 일정·결과·불복)·탄핵·의회 해산처럼 사업 추진에 영향을 줄 정치 변화
+   - false: 그 나라 이야기가 아닌 것(한국·제3국 사건에 나라 이름만 언급), 과거 사건의 회고·기념, 훈련·대비·예보 수준,
+     영화·스포츠·비유적 표현('수주 전쟁' 등), 개인 범죄·단순 사고, 지원·기부·협력 소식, 사설·칼럼
+2. type: quake(지진) war(분쟁·전쟁·쿠데타) terror(테러·폭발) unrest(시위·소요·계엄) flood(홍수·산사태) storm(태풍)
+   fire(산불) volcano(화산) politics(선거·정권 교체 등 정치 변화) disease(감염병). affects_project 가 false 면 none.
+3. summary_ko: 무슨 일이 어디서 일어났는지 한국어 한 문장 (40자 안팎). 제목에 없는 사실은 쓰지 마세요."""
+
+
+def judge_events(items: list[dict]) -> dict[int, dict] | None:
+    """items: [{title, country(나라 이름), date}] → {idx: {affects, type, note}}. 키가 없거나 실패하면 None (단어 분류 결과를 그대로 씀)"""
+    if not items or not config.ANTHROPIC_API_KEY:
+        return None
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+    out: dict[int, dict] = {}
+    try:
+        for start in range(0, len(items), 30):
+            chunk = items[start : start + 30]
+            payload = [{"idx": i, "country": it.get("country"), "date": it.get("date"), "title": it.get("title")} for i, it in enumerate(chunk)]
+            resp = client.messages.parse(
+                model=config.CLAUDE_MODEL,
+                max_tokens=8000,
+                system=EVENT_PROMPT,
+                output_config={"effort": config.CLAUDE_EFFORT},
+                messages=[{"role": "user", "content": f"오늘 날짜: {date.today().isoformat()}\n\n[기사 목록]\n{json.dumps(payload, ensure_ascii=False, indent=1)}\n\n모든 기사(idx)에 대해 판정 결과를 반환하세요."}],
+                output_format=EventBatch,
+            )
+            if resp.stop_reason == "refusal" or resp.parsed_output is None:
+                raise RuntimeError(f"Claude 응답 없음 (stop_reason={resp.stop_reason})")
+            for j in resp.parsed_output.results:
+                if 0 <= j.idx < len(chunk):
+                    out[start + j.idx] = {"affects": bool(j.affects_project) and j.type != "none", "type": j.type, "note": (j.summary_ko or "")[:120]}
+    except Exception as e:
+        log.warning("수원국 이벤트 AI 판정 실패: %s", type(e).__name__)
+        return out or None
+    return out
+
+
 # 스캔 한 번 동안 모든 업체 판정에 함께 주는 것 (scanner.run_scan 이 채움)
 # guide: 팀 판정 지침(설정에서 쓴 것 + 담당자 판단을 AI가 요약한 것), dismissed/confirmed: 다른 업체에서 담당자가 누른 사례
 SHARED: dict = {}

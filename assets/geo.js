@@ -44,6 +44,9 @@ export const GEO_TYPES = {
   politics: ["정치·선거", "#8B9CF6", '<path d="M3 21h18"/><path d="M5 21V10"/><path d="M19 21V10"/><path d="M9.5 21V10"/><path d="M14.5 21V10"/><path d="M2 10l10-6 10 6z"/>'],
   disease: ["감염병", "#22C55E", '<circle cx="12" cy="12" r="5"/><path d="M12 7V3M12 21v-4M7 12H3M21 12h-4M8.5 8.5 6 6M18 18l-2.5-2.5M15.5 8.5 18 6M6 18l2.5-2.5"/>'],
 };
+// 이벤트 요약에서 보여 주는 묶음 (누르면 그 묶음만 보임). 등급 기준(GEO_RULES)은 원래 종류 그대로 씀
+export const GEO_GROUPS = { quake: ["지진·화산", ["quake", "volcano"]], war: ["분쟁·테러", ["war", "terror"]], unrest: ["시위·정치", ["unrest", "politics"]], flood: ["기상재해", ["flood", "storm", "fire"]], disease: ["감염병", ["disease"]] };
+const inGroup = (e, g) => !g || (GEO_GROUPS[g]?.[1] || [g]).includes(e.type);
 const icon = (t) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${GEO_TYPES[t][2]}</svg>`;
 const ibadge = (t, cls = "") => `<span class="ico ${cls}" style="--ec:${GEO_TYPES[t][1]}" title="${GEO_TYPES[t][0]}">${icon(t)}</span>`;
 // 외교부 여행경보 단계 (색은 외교부 지도와 같은 계열)
@@ -215,8 +218,8 @@ export async function renderGeo() {
 
   // 왼쪽 아래: 이벤트 종류별 건수 (누르면 지도·목록 거르기)
   const tc = {}; evs.forEach((e) => (tc[e.type] = (tc[e.type] || 0) + 1));
-  $("#evSummary").innerHTML = `<div class="card-head"><h2>이벤트 요약 ${info("수원국 안팎에서 최근 일어난 지진·분쟁·테러·재난입니다.<br><b>지진</b> USGS(미국지질조사국) 규모 5.5 이상, 사업지·수원국에서 600km 안<br><b>그 밖</b> Google·네이버 뉴스 제목에서 나라 이름과 사건 단어로 찾음 (매일 아침)<br><b>정치·선거</b>는 참고용이라 등급에는 넣지 않습니다.<br>종류를 누르면 지도와 목록이 그 종류만 보여줍니다.")}</h2><span class="muted small">${pl}</span></div>
-    <div class="ev-grid"><button class="ev-chip all on ${ui.type ? "" : "sel"}" data-et=""><span class="lb">전체</span><b>${Object.values(tc).reduce((x, y) => x + y, 0)}</b></button>${Object.entries(GEO_TYPES).map(([k, [label]]) => `<button class="ev-chip ${tc[k] ? "on" : ""} ${ui.type === k ? "sel" : ""}" data-et="${k}" ${tc[k] ? "" : "disabled"}>${ibadge(k, "sm")}<span class="lb">${label.split("·")[0]}</span><b>${tc[k] || 0}</b></button>`).join("")}</div>`;
+  $("#evSummary").innerHTML = `<div class="card-head"><h2>이벤트 요약 ${info("수원국 안팎에서 최근 일어난 지진·분쟁·테러·재난입니다.<br><b>지진</b> USGS(미국지질조사국) 규모 5.5 이상, 사업지·수원국에서 600km 안<br><b>그 밖</b> Google·네이버 뉴스에서 나라 이름과 사건 단어로 찾은 뒤, AI가 사업에 영향을 줄 만한 사건인지 판정해 남김<br><b>정치·선거</b>는 참고용이라 등급에는 넣지 않습니다.<br>종류를 누르면 지도와 목록이 그 종류만 보여줍니다.")}</h2><span class="muted small">${pl}</span></div>
+    <div class="ev-grid"><button class="ev-chip all on ${ui.type ? "" : "sel"}" data-et=""><span class="lb">전체</span><b>${Object.values(tc).reduce((x, y) => x + y, 0)}</b></button>${Object.entries(GEO_GROUPS).map(([k, [label, types]]) => { const n = types.reduce((x, t) => x + (tc[t] || 0), 0); return `<button class="ev-chip ${n ? "on" : ""} ${ui.type === k ? "sel" : ""}" data-et="${k}" ${n ? "" : "disabled"}>${ibadge(k, "sm")}<span class="lb">${label}</span><b>${n}</b></button>`; }).join("")}</div>`;
   $$("#evSummary [data-et]:not(:disabled)").forEach((b) => b.onclick = () => { ui.type = !b.dataset.et || ui.type === b.dataset.et ? null : b.dataset.et; renderGeo(); });
 
   // 오른쪽: 사업별 내역 + 여행경보
@@ -241,7 +244,7 @@ export async function renderGeo() {
   }).join("") || `<div class="empty small">${scope === "mine" ? "내가 담당하는 사업이 없습니다." : "등록된 사업이 없습니다."}</div>`;
 
   // 아래: 최근 이벤트 목록
-  const shown = evs.filter((e) => !ui.type || e.type === ui.type).filter((e) => !ui.lv || risk[e.country]?.lv === ui.lv);
+  const shown = evs.filter((e) => inGroup(e, ui.type)).filter((e) => !ui.lv || risk[e.country]?.lv === ui.lv);
   $("#evSeg").innerHTML = PERIODS.map(([k, l]) => `<button data-p="${k}" class="${k === ui.period ? "active" : ""}">${l} <span class="n">${pCounts[k]}</span></button>`).join("");
   $$("#evSeg button").forEach((b) => b.onclick = () => { ui.period = b.dataset.p; try { localStorage.setItem("edcf_geo_period2", ui.period); } catch {} renderGeo(); });
   $("#evCount").textContent = shown.length;
@@ -249,7 +252,8 @@ export async function renderGeo() {
       ${ibadge(e.type, "lg")}
       <div class="ev-body"><div class="ev-top"><span class="ev-type" style="color:${GEO_TYPES[e.type][1]}">${GEO_TYPES[e.type][0]}</span><span class="ev-ctry">${esc(cname(e.country))} · ${esc(cen(e.country))}</span>${e.mag ? `<span class="ev-mag ${e.mag >= 6 ? "big" : ""}">M${(+e.mag).toFixed(1)}</span>` : ""}<span class="ev-time" title="${ymd(e.ms)}">${rel(e.ms)}</span></div>
       <div class="ev-title">${esc(e.title)}</div>
-      <div class="ev-src">${esc(e.source || "-")} · ${ymd(e.ms)}${e.url ? ` · <a href="${esc(e.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}</div></div></div>`).join("")
+      ${e.note ? `<div class="ev-note">${esc(e.note)}</div>` : ""}
+      <div class="ev-src">${String(e.id || "").startsWith("news-") ? (e.ai ? `<span class="ev-ai" title="AI가 기사 내용을 보고 사업에 영향을 줄 수 있는 사건으로 판정">AI 판정</span> · ` : `<span class="ev-ai wait" title="단어로만 분류된 상태입니다. 다음 스캔 때 AI가 판정합니다">판정 전</span> · `) : ""}${esc(e.source || "-")} · ${ymd(e.ms)}${e.url ? ` · <a href="${esc(e.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}</div></div></div>`).join("")
     || `<div class="ok-box">${ui.type || ui.lv ? "이 조건에 맞는 이벤트가 없습니다" : `${pl} 수원국 이벤트가 없습니다`}</div>`;
   if (shown.length > 40) $("#evFeed").insertAdjacentHTML("beforeend", `<div class="muted small">최근 40건만 보여줍니다 (전체 ${shown.length}건)</div>`);
 
@@ -367,7 +371,7 @@ function drawMap(pins, evs, risk) {
   // 이벤트: 종류별 아이콘 배지
   const near = f ? nearEvents(f.pt, evs, f.p.country) : [];
   const nearIds = new Set(near.map((e) => e.id));
-  evs.filter((e) => !ui.type || e.type === ui.type).filter((e) => Number.isFinite(e.lat) && Number.isFinite(e.lng)).forEach((e) => {
+  evs.filter((e) => inGroup(e, ui.type)).filter((e) => Number.isFinite(e.lat) && Number.isFinite(e.lng)).forEach((e) => {
     const [label, color] = GEO_TYPES[e.type], fresh = Date.now() - e.ms <= 2 * DAY, big = e.type === "quake" && (e.mag || 0) >= 6;
     const dim = (ui.lv && risk[e.country]?.lv !== ui.lv) || (f && !nearIds.has(e.id));
     const d = f ? near.find((x) => x.id === e.id)?.d : null;
