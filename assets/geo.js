@@ -41,6 +41,7 @@ export const GEO_TYPES = {
   storm: ["태풍", "#06B6D4", '<circle cx="12" cy="12" r="2"/><path d="M19 7c-1.5-2.5-4.2-4-7-4-4.4 0-8 3.6-8 8"/><path d="M5 17c1.5 2.5 4.2 4 7 4 4.4 0 8-3.6 8-8"/>'],
   fire: ["산불", "#F97316", '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4.1 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>'],
   volcano: ["화산", "#C2410C", '<path d="M2 21l6.5-10h7L22 21z"/><path d="M10 11l2 3 2-3"/><path d="M12 7V3"/><path d="M8.5 6.5 7 5"/><path d="M15.5 6.5 17 5"/>'],
+  politics: ["정치·선거", "#8B9CF6", '<path d="M3 21h18"/><path d="M5 21V10"/><path d="M19 21V10"/><path d="M9.5 21V10"/><path d="M14.5 21V10"/><path d="M2 10l10-6 10 6z"/>'],
   disease: ["감염병", "#22C55E", '<circle cx="12" cy="12" r="5"/><path d="M12 7V3M12 21v-4M7 12H3M21 12h-4M8.5 8.5 6 6M18 18l-2.5-2.5M15.5 8.5 18 6M6 18l2.5-2.5"/>'],
 };
 const icon = (t) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${GEO_TYPES[t][2]}</svg>`;
@@ -121,8 +122,9 @@ async function loadLiveQuakes(force) {
 function targets() {
   const out = [], seen = new Set();
   const byC = {};
-  ctx.state.projects.forEach((p) => { const i = (byC[p.country] = (byC[p.country] ?? -1) + 1); const pt = projectPoint(p, i); if (pt) out.push({ ll: pt.ll, country: p.country }); });
-  ctx.state.projects.forEach((p) => { const c = GEO_COUNTRY[p.country]; if (c && !seen.has(p.country)) { seen.add(p.country); out.push({ ll: [c[2], c[3]], country: p.country }); } });
+  const projs = ctx.state.projects.filter((p) => p.status !== "done");
+  projs.forEach((p) => { const i = (byC[p.country] = (byC[p.country] ?? -1) + 1); const pt = projectPoint(p, i); if (pt) out.push({ ll: pt.ll, country: p.country }); });
+  projs.forEach((p) => { const c = GEO_COUNTRY[p.country]; if (c && !seen.has(p.country)) { seen.add(p.country); out.push({ ll: [c[2], c[3]], country: p.country }); } });
   return out;
 }
 
@@ -163,7 +165,7 @@ const worse = (x, y) => (LV[y.lv] > LV[x.lv] ? y : x);
 export function initGeo(c) { ctx = c; }
 export async function renderGeo() {
   const { state, esc, info } = ctx;
-  const scope = ctx.getScope(), ps = scope === "mine" ? state.projects.filter(ctx.isMine) : state.projects;
+  const scope = ctx.getScope(), ps = scope === "mine" ? state.projects.filter(ctx.isMine) : state.projects.filter((p) => p.status !== "done"); // 완료한 사업은 뺌
   const g = geoDoc(), alerts = g.alerts || {};
   const evsAll = allEvents();
   const codes = [...new Set(ps.map((p) => p.country).filter(Boolean))];
@@ -213,7 +215,7 @@ export async function renderGeo() {
 
   // 왼쪽 아래: 이벤트 종류별 건수 (누르면 지도·목록 거르기)
   const tc = {}; evs.forEach((e) => (tc[e.type] = (tc[e.type] || 0) + 1));
-  $("#evSummary").innerHTML = `<div class="card-head"><h2>이벤트 요약 ${info("수원국 안팎에서 최근 일어난 지진·분쟁·테러·재난입니다.<br><b>지진</b> USGS(미국지질조사국) 규모 5.5 이상, 사업지·수원국에서 600km 안<br><b>그 밖</b> Google·네이버 뉴스 제목에서 나라 이름과 사건 단어로 찾음 (매일 아침)<br>종류를 누르면 지도와 목록이 그 종류만 보여줍니다.")}</h2><span class="muted small">${pl}</span></div>
+  $("#evSummary").innerHTML = `<div class="card-head"><h2>이벤트 요약 ${info("수원국 안팎에서 최근 일어난 지진·분쟁·테러·재난입니다.<br><b>지진</b> USGS(미국지질조사국) 규모 5.5 이상, 사업지·수원국에서 600km 안<br><b>그 밖</b> Google·네이버 뉴스 제목에서 나라 이름과 사건 단어로 찾음 (매일 아침)<br><b>정치·선거</b>는 참고용이라 등급에는 넣지 않습니다.<br>종류를 누르면 지도와 목록이 그 종류만 보여줍니다.")}</h2><span class="muted small">${pl}</span></div>
     <div class="ev-grid"><button class="ev-chip all on ${ui.type ? "" : "sel"}" data-et=""><span class="lb">전체</span><b>${Object.values(tc).reduce((x, y) => x + y, 0)}</b></button>${Object.entries(GEO_TYPES).map(([k, [label]]) => `<button class="ev-chip ${tc[k] ? "on" : ""} ${ui.type === k ? "sel" : ""}" data-et="${k}" ${tc[k] ? "" : "disabled"}>${ibadge(k, "sm")}<span class="lb">${label.split("·")[0]}</span><b>${tc[k] || 0}</b></button>`).join("")}</div>`;
   $$("#evSummary [data-et]:not(:disabled)").forEach((b) => b.onclick = () => { ui.type = !b.dataset.et || ui.type === b.dataset.et ? null : b.dataset.et; renderGeo(); });
 

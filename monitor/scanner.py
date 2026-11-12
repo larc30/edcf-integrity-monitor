@@ -272,6 +272,7 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
     engagements = [
         {**e, "project_name": projects.get(e.get("project_id"), {}).get("name", "(삭제된 사업)")}
         for e in company.get("engagements") or []
+        if projects.get(e.get("project_id"), {}).get("status") != "done"  # 완료한 사업은 집중 감시에서 뺌 (기본 감시만)
     ]
     # 집중 감시: 우리 사업에 연결된 업체(또는 직접 지정) → 매일 업체명 검색 + '업체명 + 추가 키워드' 검색
     # 기본 감시: 그 외 명단 업체 → 매일 키워드 기사 대조 + 조달청·MDB, 업체명 검색은 주 1회

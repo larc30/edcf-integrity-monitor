@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=30";
-import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY } from "./geo.js?v=48";
+import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY } from "./geo.js?v=49";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -43,7 +43,8 @@ const roleTag = (r) => `<span class="role ${ROLE_CLS[r] || "fs"}">${esc(r)}</spa
 const stageTag = (e) => e.stage && e.stage !== "계약" ? `<span class="stage">${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""}</span>` : "";
 const state = { projects: [], companies: [], findings: [], keywords: [], recipients: [], status: {}, runs: [], edcf: [], mdbKorea: null, loadedAt: 0 };
 const me = () => auth.currentUser?.email || "";
-const isMine = (p) => !p.owner || p.owner === me();
+const live = (p) => p.status !== "done"; // 완료한 사업은 대시보드·내 담당·집중 감시에서 빠짐 (사업 관리에는 남음)
+const isMine = (p) => live(p) && (!p.owner || p.owner === me());
 
 function toast(msg, ms = 2800) {
   const t = $("#toast"); t.textContent = msg; t.classList.add("show");
@@ -91,6 +92,7 @@ onAuthStateChanged(auth, async (user) => {
   if (window.__DEMO && !$(".demo-banner")) $("#appView").insertAdjacentHTML("afterbegin", `<div class="demo-banner">DEMO · 가상 데이터로 보는 화면입니다 (실제 업체·Firebase와 연결되지 않음) · <a href="./">실제 화면으로</a></div>`);
   $("#userEmail").textContent = user.email;
   $("#acctAv").textContent = (user.email || "?")[0].toUpperCase();
+  $("#acctSettings").classList.toggle("hidden", !ALLOWED_EMAILS.includes(user.email));
   // 관리자(firebase-config.js ALLOWED_EMAILS)만 [관리자 모드] 버튼이 보임: 다른 계정은 업체·수원국 리스크 화면만
   state.admin = ALLOWED_EMAILS.includes(user.email);
   $("#btnAdmin").classList.toggle("hidden", !state.admin);
@@ -152,7 +154,7 @@ async function loadAll() {
 function compute() {
   for (const c of state.companies) {
     c.engagements = c.engagements || [];
-    c.focus = c.engagements.length > 0 || !!c.watch;
+    c.focus = c.engagements.some((e) => { const p = state.projects.find((x) => x.id === e.project_id); return p && live(p); }) || !!c.watch;
     c.cat = normCat(c.category); // 업종이 아직 없으면 화면에는 이름으로 추정해 보여줌 (스캔 때 DART 업종으로 저장)
     c.catGuess = !c.cat; if (!c.cat) c.cat = guessCat(c.name) || guessCat(c.name_en) || "기타";
     c.mine = !!c.watch || c.engagements.some((e) => { const p = state.projects.find((x) => x.id === e.project_id); return p && isMine(p); });
@@ -379,7 +381,7 @@ function scopeCompanies() {
   if (!scope) scope = mine.length ? "mine" : "all";
   return scope === "mine" ? mine : state.companies;
 }
-const scopeProjects = () => scope === "mine" ? state.projects.filter(isMine) : state.projects;
+const scopeProjects = () => scope === "mine" ? state.projects.filter(isMine) : state.projects.filter(live);
 
 // ---------- 대시보드 (한 화면) ----------
 const ROLE_ABBR = { 컨설턴트: "컨", 본구매: "본", "F/S": "FS" };
@@ -523,16 +525,16 @@ function renderHome() {
   const series = sc ? Array.from({ length: 30 }, (_, i) => (i === 29 ? { v: riskyN, r: byLv.red.length } : at(dayEnd(29 - i)))) : [];
   const yd = sc ? at(dayEnd(1)) : null, prevN = yd ? { red: yd.r, orange: yd.v - yd.r, none: cs.length - yd.v } : null;
   const delta = (lv) => { if (!prevN) return ""; const d = byLv[lv].length - prevN[lv]; return d ? `<span class="rk-d ${lv !== "none" ? (d > 0 ? "up" : "down") : ""}" title="어제 ${prevN[lv]}">${d > 0 ? "+" : "−"}${Math.abs(d)}</span>` : ""; };
-  // 최근 7일: 날짜마다 위험(빨강)·경고(주황) 업체 수를 막대와 숫자로
+  // 최근 7일: 위험(빨강)·경고(주황) 업체 수를 선으로, 날마다 점과 숫자
   const spark = () => {
     if (!sc) return "";
-    const wk = series.slice(-7), max = Math.max(...wk.map((x) => x.v), 1), WD = "일월화수목금토";
-    const col = (x, i) => {
-      const d = new Date(Date.now() - (6 - i) * DAY), o = x.v - x.r, h = (n) => Math.max(n ? 3 : 0, Math.round((n / max) * 40));
-      return `<div class="wk-col ${i === 6 ? "today" : ""}" title="${d.getMonth() + 1}/${d.getDate()} 위험 ${x.r} · 경고 ${o}"><div class="wk-n"><b class="r">${x.r}</b><b class="o">${o}</b></div>
-        <div class="wk-bar"><i class="o" style="height:${h(o)}px"></i><i class="r" style="height:${h(x.r)}px"></i></div><div class="wk-d">${i === 6 ? "오늘" : WD[d.getDay()]}</div></div>`;
-    };
-    return `<div class="rk-trend"><div class="rk-trend-h"><span>최근 7일</span><span class="wk-lg"><i class="r"></i>위험<i class="o"></i>경고</span></div><div class="wk">${wk.map(col).join("")}</div></div>`;
+    const wk = series.slice(-7).map((x) => ({ r: x.r, o: x.v - x.r })), max = Math.max(...wk.map((x) => Math.max(x.r, x.o)), 1), WD = "일월화수목금토";
+    const W = 280, H = 76, px = 14, X = (i) => px + (i / 6) * (W - px * 2), Y = (v) => H - 8 - (v / max) * (H - 30);
+    const line = (k) => wk.map((x, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(x[k]).toFixed(1)}`).join("");
+    const pts = (k) => wk.map((x, i) => `<circle class="${k}" cx="${X(i).toFixed(1)}" cy="${Y(x[k]).toFixed(1)}" r="${i === 6 ? 3.6 : 2.6}"/><text class="${k}" x="${X(i).toFixed(1)}" y="${(Y(x[k]) - 6).toFixed(1)}">${x[k]}</text>`).join("");
+    const days = wk.map((_, i) => { const d = new Date(Date.now() - (6 - i) * DAY); return `<span class="${i === 6 ? "today" : ""}">${i === 6 ? "오늘" : WD[d.getDay()]}</span>`; }).join("");
+    return `<div class="rk-trend"><div class="rk-trend-h"><span>최근 7일</span><span class="wk-lg"><i class="r"></i>위험<i class="o"></i>경고</span></div>
+      <svg class="wk-line" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path class="o" d="${line("o")}"/><path class="r" d="${line("r")}"/>${pts("o")}${pts("r")}</svg><div class="wk-days">${days}</div></div>`;
   };
   $("#kboard").innerHTML = `<div class="card-head"><h2>업체 등급 ${info(levelTip())}</h2>${sc ? "" : `<span class="muted small">스캔 전</span>`}</div>`
     + ["red", "orange", "none"].map((lv) => {
@@ -819,7 +821,7 @@ function buildReport({ scope: sc0, period, done, detail = false }) {
   const role = (r) => `<span class="role" style="color:${ROLE_C[r] || "#3D4A63"}">${esc(r)}</span>`;
   const sc = scanned();
   const cs = sc0 === "mine" ? state.companies.filter((c) => c.mine) : state.companies;
-  const ps = sc0 === "mine" ? state.projects.filter(isMine) : state.projects;
+  const ps = sc0 === "mine" ? state.projects.filter(isMine) : state.projects.filter(live);
   const ids = new Set(cs.map((c) => c.id));
   const days = period === "all" ? null : +period;
   const fs = state.findings.filter((f) => ids.has(f.company_id) && (f.status === "new" || (done && f.status === "reviewed")) && (!days || Date.now() - pubMs(f) <= days * DAY));
@@ -1496,7 +1498,7 @@ function renderProjects() {
   const mineN = state.projects.filter(isMine).length;
   $("#pjScope").innerHTML = [["all", "전체", state.projects.length], ["mine", "내 사업", mineN]].map(([k, l, n]) => `<button data-s="${k}" class="${pjState.scope === k ? "active" : ""}">${l} <span class="n">${n}</span></button>`).join("");
   $$("#pjScope button").forEach((b) => b.onclick = () => { pjState.scope = b.dataset.s; renderProjects(); });
-  const ps = state.projects.filter((p) => pjState.scope === "all" || isMine(p));
+  const ps = state.projects.filter((p) => pjState.scope === "all" || isMine(p)).sort((a, b) => live(b) - live(a)); // 완료한 사업은 뒤로
   $("#projBoard").innerHTML = ps.map((p) => projectCard(p, sc)).join("")
     || `<div class="empty">${state.projects.length ? "내 사업으로 지정한 사업이 없습니다." : "사업이 없습니다. 오른쪽 위에서 새 사업을 추가하세요."}</div>`;
   bindDnd();
@@ -1534,8 +1536,8 @@ function projectCard(p, sc) {
   const total = t.red + t.orange + t.yellow + t.none;
   const dist = !total ? "" : `<div class="pj-dist"><div class="pj-bar">${sc ? ["red", "orange", "none"].filter((lv) => t[lv]).map((lv) => `<i class="${lv}" style="flex:${t[lv]}"></i>`).join("") : `<i class="pending" style="flex:1"></i>`}</div>
     <div class="pj-sum">${sc ? (["red", "orange"].filter((lv) => t[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${t[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) : ""}<span class="tot">/ ${total}개</span></div></div>`;
-  return `<div class="pbox">
-    <div class="pbox-head"><button class="pname" data-edit-proj="${p.id}" title="눌러서 사업명·수원국·담당 수정">${esc(p.name)}</button>${p.country ? `<span class="ctry">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</div>
+  return `<div class="pbox ${live(p) ? "" : "done"}">
+    <div class="pbox-head"><button class="pname" data-edit-proj="${p.id}" title="눌러서 사업명·수원국·담당 수정">${esc(p.name)}</button>${live(p) ? "" : `<span class="tag">완료</span>`}${p.country ? `<span class="ctry">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</div>
     ${dist}
     <div class="pbox-body">${ROLES.map((role) => {
       const rr = rows.filter((r) => r.e.role === role).sort(byOrder);
@@ -1656,6 +1658,7 @@ function openProjectEdit(pid) {
         <label>수원국<select name="country"><option value="">선택 안 함</option>${countries.map(([k, v]) => `<option value="${k}" ${p.country === k ? "selected" : ""}>${esc(v)}</option>`).join("")}</select></label>
         <label>담당<select name="owner"><option value="">담당 미지정</option>${owners.map((o) => `<option value="${esc(o)}" ${p.owner === o ? "selected" : ""}>${o === me() ? `나 (${esc(o.split("@")[0])})` : esc(o.split("@")[0])}</option>`).join("")}</select></label>
       </div>
+      ${isNew ? "" : `<label class="check"><input type="checkbox" name="done" ${live(p) ? "" : "checked"}> 사업 완료 (대시보드와 집중 감시에서 뺍니다. 업체는 명단에 남아 기본 감시만 받습니다)</label>`}
       <div class="site-box">
         <div class="site-h"><b>사업지</b><span class="muted small">수원국 리스크 지도의 핀 자리입니다. 지도를 눌러 핀을 놓거나(끌어서 옮기기), 도시를 고르거나, 좌표를 붙여 넣으세요</span></div>
         <div class="row">
@@ -1699,7 +1702,7 @@ function openProjectEdit(pid) {
     const name = String(fd.name || "").trim();
     if (!name) return;
     if (state.projects.some((x) => x.id !== pid && x.name === name)) return toast("같은 이름의 사업이 이미 있습니다");
-    const patch = { name, country: fd.country || null, owner: fd.owner || null, lat: site.lat, lng: site.lng, site_en: String(fd.site_en || "").trim() || null };
+    const patch = { name, country: fd.country || null, owner: fd.owner || null, lat: site.lat, lng: site.lng, site_en: String(fd.site_en || "").trim() || null, status: fd.done ? "done" : null };
     if (isNew) { const data = { ...patch, created_at: nowStr() }, ref = await addDoc(collection(db, "projects"), data); state.projects.push({ id: ref.id, ...data }); }
     else { await updateDoc(doc(db, "projects", pid), patch); Object.assign(p, patch); }
     closeModal(); toast(isNew ? `'${name}' 사업을 등록했습니다` : "사업을 수정했습니다"); rerender();
@@ -2453,3 +2456,6 @@ $("#geoScan").onclick = () => $("#btnScan").click(); // 같은 스캔 (업체·�
 
 // 계정 메뉴: 바깥을 누르면 닫힘
 document.addEventListener("click", (e) => { const a = $("#acct"); if (a?.open && !a.contains(e.target)) a.open = false; });
+
+// 계정 메뉴의 [설정]: 관리자 모드로 들어가 설정 화면을 바로 엶
+$("#acctSettings").onclick = () => { $("#acct").open = false; setAdmin(true); showView("settings"); };

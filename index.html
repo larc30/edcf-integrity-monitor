@@ -20,7 +20,7 @@
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=48">
+<link rel="stylesheet" href="assets/style.css?v=49">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -54,9 +54,11 @@
       <button class="btn sm admin-btn hidden" id="btnAdmin" title="업체 관리·사업 관리·설정 (관리자 계정에만 보임)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg><span class="ab-t">관리자 모드</span><span class="ab-sw" aria-hidden="true"><i></i></span></button>
       <div class="font-ctl" role="group" aria-label="글자 크기"><button class="btn sm" id="fontDown" title="글자 작게">가−</button><button class="btn sm ghost fsize" id="fontReset">보통</button><button class="btn sm" id="fontUp" title="글자 크게">가+</button></div>
       <button class="btn sm" id="btnTheme">라이트</button>
-      <details class="acct" id="acct"><summary title="계정 · 로그아웃"><span class="acct-av" id="acctAv">?</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary>
+      <details class="acct" id="acct"><summary title="계정 · 화면 · 설정"><span class="acct-av" id="acctAv">?</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary>
         <div class="acct-menu">
           <span class="user" id="userEmail"></span>
+          <label class="check acct-check" title="PC가 느릴 때 레이더와 점의 움직임을 줄입니다"><input type="checkbox" id="liteToggle"> 가벼운 모드</label>
+          <button class="btn sm hidden" id="acctSettings">설정 (관리자)</button>
           <button class="btn sm" id="btnLogout">로그아웃</button>
         </div></details>
     </div>
@@ -254,8 +256,6 @@
           <div>
             <div class="conn-head"><h3>최근 실행</h3><button class="btn sm" id="btnFullScan" title="업체명으로 하나씩 뉴스를 찾는 전체 스캔 (4~5분). 매일 아침 자동으로 한 번 돕니다">전체 스캔</button></div>
             <div id="runList" class="run-list"></div>
-            <h3>화면</h3>
-            <label class="check"><input type="checkbox" id="liteToggle"> 가벼운 모드 (레이더 효과 줄이기)</label>
           </div>
         </div>
       </details>
@@ -269,6 +269,6 @@
 <div id="toast" class="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
-<script type="module" src="assets/app.js?v=48"></script>
+<script type="module" src="assets/app.js?v=49"></script>
 </body>
 </html>
