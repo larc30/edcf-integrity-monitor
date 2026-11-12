@@ -1431,3 +1431,34 @@ h2:has(> .itip), h3:has(> .itip) { display: flex; align-items: center; gap: 6px;
 /* 한 글자만 다음 줄로 넘어가지 않게: 설명 글은 단어 단위로 줄바꿈 */
 .card-desc, .tip, .muted.small, .d-sub, .site-h, .oc-src-h .d, .side-hint { word-break: keep-all; }
 .gp-brief .gp-alert { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; white-space: nowrap; }
+
+/* =====================================================================
+   v53 — 수원국 카드 펼침 표시 · 점 애니메이션 · 설정 키워드 카드 다듬기
+   ===================================================================== */
+.gp-caret { display: inline-flex; align-items: center; gap: 2px; margin-left: 6px; font-size: var(--fs-xs); font-weight: 650; color: var(--muted); white-space: nowrap; flex: 0 0 auto; }
+.gp-caret svg { width: 14px; height: 14px; transition: transform .2s; } .gp.sel .gp-caret svg { transform: rotate(180deg); }
+.gp:hover .gp-caret { color: var(--accent-2); }
+/* 레이더: 위험 점은 점선 테두리가 돌고, 경고 점은 반짝임 */
+.rdot.red::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 1.5px dashed currentColor; opacity: .75; animation: geoSpin 5s linear infinite; pointer-events: none; }
+.rdot.orange { animation: twinkle 2.6s ease-in-out infinite; animation-delay: var(--d, 0s); }
+@keyframes twinkle { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .55; transform: scale(.8); } }
+.radar.burst .rdot.orange { animation: blink .5s ease-in-out 3; }
+/* 수원국 지도: 최근 2일 안 사건은 점선 테두리가 돎 */
+.gev { position: relative; }
+.gev.fresh::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px dashed var(--ec); opacity: .9; animation: geoSpin 6s linear infinite; pointer-events: none; }
+.gev.dim::after { display: none; }
+html.lite .rdot.red::before, html.lite .gev.fresh::after { animation: none; } html.lite .rdot.orange { animation: none; }
+/* 설정 > 리스크 키워드: 글자 크기·굵기·간격을 한 가지로 */
+.kw-fixed { padding: 14px 16px; }
+.kw-fixed-head { margin-bottom: 10px; align-items: center; }
+.kw-chips { gap: 8px; }
+.kchip, .kchip.kfix { font-size: var(--fs-sm); font-weight: 600; padding: 4px 12px; line-height: 1.5; color: var(--text); }
+.kchip:not(.kfix) { padding: 4px 4px 4px 12px; gap: 4px; }
+.kchip .w { padding: 0; font-weight: 600; }
+.kchip button { width: 20px; height: 20px; }
+.kw-user .kw-chips { margin-bottom: 12px; }
+.kw-user .kw-form input { font-size: var(--fs-base); padding: 9px 12px; }
+.kw-user .kw-form .btn { min-width: 84px; padding: 0 18px; font-size: var(--fs-base); }
+/* 메일 창 상자 */
+.ml-box { padding: 14px; gap: 4px; } .ml-box .d { line-height: 1.6; } .ml-box .ml-addr { color: var(--text-2); font-weight: 650; word-break: break-all; }
+.ml-box .btn { margin-top: 8px; }

@@ -20,7 +20,7 @@
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=44">
+<link rel="stylesheet" href="assets/style.css?v=45">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -145,7 +145,7 @@
         </div>
         <!-- 오른쪽: 사업별 내역 + 여행경보 -->
         <div class="card d-projects">
-          <div class="card-head"><h2><span id="geoProjTitle">내 담당 사업</span> <span class="count" id="geoProjN">0</span> <span class="h2-sub">여행경보</span></h2></div>
+          <div class="card-head"><h2><span id="geoProjTitle">내 담당 사업</span> <span class="count" id="geoProjN">0</span></h2></div>
           <div id="geoProjects" class="plist"></div>
         </div>
         <!-- 아래: 최근 이벤트 -->
@@ -242,12 +242,6 @@
         </div>
         </div>
       </div>
-      <div class="card guide-card">
-        <div class="card-head"><h2>AI 판정 지침</h2><span class="muted small" id="guideMeta"></span></div>
-        <p class="card-desc">이슈에서 누른 확인 완료, 관련 없음이 쌓이면 AI가 주 1회 스스로 기준을 정리해 다음 판정에 씁니다. 따로 적을 것은 없습니다.</p>
-        <div class="guide-auto" id="guideAuto"></div>
-        <div class="actions left"><button class="btn sm ghost" id="guideAutoClear">지우고 다시 만들기</button></div>
-      </div>
       <details class="card adv-card" id="advCard">
         <summary><h2>고급</h2><span class="muted small">API 연결 · 실행 기록 · 화면</span></summary>
         <div class="adv-grid">
@@ -275,6 +269,6 @@
 <div id="toast" class="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
-<script type="module" src="assets/app.js?v=44"></script>
+<script type="module" src="assets/app.js?v=45"></script>
 </body>
 </html>

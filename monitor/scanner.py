@@ -130,6 +130,12 @@ def match_edcf(edcf: list[dict], company: dict) -> list[dict]:
     return out
 
 
+def _pps_today(company: dict, bizno: str) -> bool:
+    """오늘 같은 사업자번호로 조달청을 이미 정상 조회했는지"""
+    p = (company.get("last_check") or {}).get("pps") or {}
+    return p.get("status") == "ok" and p.get("bizno") == bizno and str(p.get("checked_at") or "")[:10] == store.now_str()[:10]
+
+
 def _days_since(ts: str | None) -> float:
     if not ts:
         return 1e9
@@ -403,6 +409,9 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         pps_st = {"status": "not_connected"}
     elif len(bizno) != 10:
         pps_st = {"status": "no_bizno"}
+    elif quick and _pps_today(company, bizno):
+        # 빠른 스캔: 오늘 이미 정상 조회했으면 다시 부르지 않음 (하루 호출 한도·지연 오류 줄이기). 저장된 조달청 기록은 그대로 둠
+        pps_st = {**company["last_check"]["pps"], "reused": True}
     else:
         try:
             hits = pps.sanctions(company)
@@ -429,7 +438,7 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         existing = [f for f in existing if f["id"] not in set(gone)]
         stats["cleaned"] += len(gone)
     # 조달청 제재는 상태가 바뀔 수 있음 (집행정지·해제·기간 만료) → 이미 저장된 기록도 오늘 조회 결과에 맞춰 고침
-    if pps_st.get("status") == "ok":
+    if pps_st.get("status") == "ok" and not pps_st.get("reused"):
         now_pps = {f["dedup_key"]: f for f in official if str(f.get("dedup_key", "")).startswith("pps-")}
         fix = {}
         for e in existing:
