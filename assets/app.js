@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=30";
-import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY } from "./geo.js?v=51";
+import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY } from "./geo.js?v=52";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -529,9 +529,9 @@ function renderHome() {
   const spark = () => {
     if (!sc) return "";
     const wk = series.slice(-7).map((x) => ({ r: x.r, o: x.v - x.r })), max = Math.max(...wk.map((x) => Math.max(x.r, x.o)), 1), WD = "일월화수목금토";
-    const W = 280, H = 76, px = 14, X = (i) => px + (i / 6) * (W - px * 2), Y = (v) => H - 8 - (v / max) * (H - 30);
+    const W = 280, H = 104, px = 16, X = (i) => px + (i / 6) * (W - px * 2), Y = (v) => H - 10 - (v / max) * (H - 40);
     const line = (k) => wk.map((x, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(x[k]).toFixed(1)}`).join("");
-    const pts = (k) => wk.map((x, i) => `<circle class="${k}" cx="${X(i).toFixed(1)}" cy="${Y(x[k]).toFixed(1)}" r="${i === 6 ? 3.6 : 2.6}"/><text class="${k}" x="${X(i).toFixed(1)}" y="${(Y(x[k]) - 6).toFixed(1)}">${x[k]}</text>`).join("");
+    const pts = (k) => wk.map((x, i) => `<circle class="${k}" cx="${X(i).toFixed(1)}" cy="${Y(x[k]).toFixed(1)}" r="${i === 6 ? 4.6 : 3.4}"/><text class="${k}" x="${X(i).toFixed(1)}" y="${(Y(x[k]) - 9).toFixed(1)}">${x[k]}</text>`).join("");
     const days = wk.map((_, i) => { const d = new Date(Date.now() - (6 - i) * DAY); return `<span class="${i === 6 ? "today" : ""}">${i === 6 ? "오늘" : WD[d.getDay()]}</span>`; }).join("");
     return `<div class="rk-trend"><div class="rk-trend-h"><span>최근 7일</span><span class="wk-lg"><i class="r"></i>위험<i class="o"></i>경고</span></div>
       <svg class="wk-line" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path class="o" d="${line("o")}"/><path class="r" d="${line("r")}"/>${pts("o")}${pts("r")}</svg><div class="wk-days">${days}</div></div>`;
@@ -550,8 +550,8 @@ function renderHome() {
   off.forEach((f) => oc[officialSrc(f)][f.level === "red" ? 0 : 1].add(f.company_id));
   const evN = state.edcf.filter(edcfValid).length;
   const ocRow = (name, k, other, extra) => `<div class="oc-row"><span class="oc-k">${name}</span><span class="oc-v">${oc[k][0].size ? `<b class="red-t">제재 중 ${oc[k][0].size}</b>` : `<span class="muted">제재 중 0</span>`}${oc[k][1].size ? ` <span class="muted">· ${other} ${oc[k][1].size}</span>` : ""}</span>${extra || ""}</div>`;
-  $("#noteCard").innerHTML = `<div class="oc-head"><h2>공식 제재 명단 ${info(`<div class="tip-p">우리 업체를 공식 제재 명단과 대조한 결과입니다.</div><div class="tip-grid"><b>EDCF</b><span>EXIMIIS 부정당업자 명단</span><b>조달청</b><span>나라장터 현재 제재</span><b>MDB</b><span>World Bank · ADB · AfDB · IDB · EBRD</span></div><div class="tip-p muted">'제재 중'은 지금 유효한 제재(= 위험)입니다. 카드를 누르면 업체별 내용을 봅니다.</div>`)}</h2>${evN ? "" : `<span class="oc-x"><span class="warn-t">EXIMIIS 명단 없음</span></span>`}</div>
-    <div class="oc-rows">${ocRow("EDCF", "edcf", "과거")}${ocRow("조달청", "pps", "집행정지")}${ocRow("MDB", "mdb", "이름 유사")}</div>`;
+  $("#noteCard").innerHTML = `<div class="oc-head"><h2>공식 제재 명단 ${info(`<div class="tip-p">우리 업체 가운데 공식 제재 명단에서 지금 제재 중인 업체 수입니다.</div><div class="tip-grid"><b>EDCF</b><span>EXIMIIS 부정당업자 명단</span><b>조달청</b><span>나라장터 현재 제재</span><b>MDB</b><span>World Bank · ADB · AfDB · IDB · EBRD</span></div><div class="tip-p muted">'제재 중'은 지금 유효한 제재(= 위험)입니다. 카드를 누르면 업체별 내용을 봅니다.</div>`)}</h2>${evN ? "" : `<span class="oc-x"><span class="warn-t">EXIMIIS 명단 없음</span></span>`}</div>
+    <div class="oc-mini">${[["EDCF", "edcf"], ["조달청", "pps"], ["MDB", "mdb"]].map(([n, k]) => `<span class="oc-c ${oc[k][0].size ? "hot" : ""}"><i>${n}</i><b>${oc[k][0].size}</b></span>`).join("")}</div>`;
   const nums = [$("#kboard"), $("#noteCard")];
   if (!state.kpiAnimated) { state.kpiAnimated = true; nums.forEach(countUp); } // 숫자 올라가는 효과는 처음 한 번만
   else nums.forEach((el) => $$("[data-count]", el).forEach((e) => (e.textContent = e.dataset.count)));

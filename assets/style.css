@@ -1555,3 +1555,25 @@ html.lite .rdot.red, html.lite .rdot.orange { animation: none; }
 .top-search .city-sug button { align-items: center; } .top-search .cf-r { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; } .top-search .cf-r i { font-style: normal; font-size: var(--fs-xs); color: var(--muted); }
 @media (max-width: 900px) { .top-search { order: 5; flex: 1 1 100%; margin: 6px 0 0; } }
 @media (min-width: 1101px) { .dash:not(.geo-dash) .radar { max-width: min(100%, 350px); } }
+
+/* =====================================================================
+   v60 — 업체 리스크 화면 균형: 칸 폭 3 : 4 : 5 (레이더 칸을 레이더 크기에 맞춤) · 왼쪽 칸 정보 줄임
+   ===================================================================== */
+@media (min-width: 1101px) {
+  .dash:not(.geo-dash) { grid-template-columns: minmax(18em, 3fr) minmax(0, 4fr) minmax(0, 5fr); }
+  .dash:not(.geo-dash) .radar { max-width: min(100%, 380px); }
+}
+/* 공식 제재 명단: 한 줄 요약 */
+.off-card { gap: 10px; }
+.off-card .oc-head { justify-content: flex-start; gap: 8px; }
+.oc-mini { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.oc-c { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; padding: 7px 10px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); }
+.oc-c i { font-style: normal; font-size: var(--fs-sm); font-weight: 650; color: var(--text-2); white-space: nowrap; }
+.oc-c b { font-size: var(--fs-md); font-variant-numeric: tabular-nums; color: var(--muted); }
+.oc-c.hot { border-color: color-mix(in srgb, var(--red) 45%, transparent); background: var(--red-bg); } .oc-c.hot b { color: var(--red); }
+/* 최근 7일 선: 글자를 읽을 수 있는 크기로 */
+.rk-trend-h { font-size: var(--fs-sm); } .rk-trend-h > span:first-child { font-weight: 700; color: var(--text-2); }
+.wk-line path { stroke-width: 2.6; } .wk-line circle { stroke-width: 2.4; }
+.wk-line text { font-size: 14px; font-weight: 800; }
+.wk-days { font-size: var(--fs-sm); padding: 2px 4px 0; }
+.rk-trend svg.wk-line { height: auto; width: 100%; }
