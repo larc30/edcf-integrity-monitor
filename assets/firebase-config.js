@@ -10,7 +10,7 @@ export const firebaseConfig = {
 };
 
 // 대시보드 접근 허용 이메일 — firestore.rules 의 목록과 같이 수정하세요.
-export const ALLOWED_EMAILS = ["larc30730@gmail.com"];
+export const ALLOWED_EMAILS = ["larc30730@gmail.com", "juliana0513m@gmail.com", "ahra.bella@gmail.com"];
 
 // GitHub 저장소 (Actions 실행 링크용)
 export const GITHUB_REPO = "larc30/edcf-integrity-monitor";

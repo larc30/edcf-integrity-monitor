@@ -6,7 +6,9 @@ service cloud.firestore {
     // 관리자(고정) — 여기 이메일은 대시보드 설정에서 지울 수 없음
     function owner() {
       return request.auth.token.email in [
-          'larc30730@gmail.com'
+          'larc30730@gmail.com',
+          'juliana0513m@gmail.com',
+          'ahra.bella@gmail.com'
         ];
     }
     // 대시보드 설정 > 로그인 계정에서 추가한 계정 (meta/access 문서의 emails)
