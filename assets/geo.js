@@ -31,7 +31,7 @@ export const GEO_CITY = { // [위도, 경도, 영문명]
   카라치: [24.86, 67.01, "Karachi"], 이슬라마바드: [33.68, 73.05, "Islamabad"], 라호르: [31.55, 74.34, "Lahore"], 자카르타: [-6.21, 106.85, "Jakarta"], 아디스아바바: [9.03, 38.74, "Addis Ababa"],
   아크라: [5.6, -0.19, "Accra"], 콜롬보: [6.93, 79.86, "Colombo"], 카트만두: [27.72, 85.32, "Kathmandu"], 키갈리: [-1.95, 30.06, "Kigali"], 캄팔라: [0.35, 32.58, "Kampala"], 카이로: [30.04, 31.24, "Cairo"], 양곤: [16.84, 96.17, "Yangon"],
 };
-// 이벤트 종류: [이름, 색, 아이콘(선 그림)] — 이모티콘 대신 같은 모양의 아이콘 배지
+// 이벤트 종류: [이름, 색, 아이콘(선 그림)]: 이모티콘 대신 같은 모양의 아이콘 배지
 export const GEO_TYPES = {
   quake: ["지진", "#F59E0B", '<path d="M2 12h3l2-5 3 10 3-14 3 13 2-4h4"/>'],
   war: ["분쟁·전쟁", "#EF4444", '<path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/><path d="M14.5 6.5 18 3h3v3l-3.5 3.5"/><path d="M5 14l4 4"/><path d="M7 17l-3 3"/><path d="M3 19l2 2"/>'],
@@ -67,9 +67,9 @@ const ui = { type: null, period: "14", lv: null, focus: null };
 const RINGS = [100, 200, 300, 400, 500]; // 사업을 누르면 사업지 둘레에 그리는 거리 원 (km)
 const NEAR_KM = 600;
 try { ui.period = localStorage.getItem("edcf_geo_period2") || "30d"; } catch {}
-const PERIODS = [["all", "전체"], ["7d", "최근 7일"], ["30d", "최근 30일"], ["old", "30일 이전"]];
-const inP = (e, p) => { const age = Date.now() - e.ms; return p === "all" ? true : p === "old" ? age > 30 * DAY : age <= (p === "7d" ? 7 : 30) * DAY; };
-const P_LABEL = { all: "전체 기간", "7d": "최근 7일", "30d": "최근 30일", old: "30일 이전" };
+const PERIODS = [["all", "전체"], ["1d", "24시간"], ["7d", "최근 7일"], ["30d", "최근 30일"], ["old", "30일 이전"]];
+const inP = (e, p) => { const age = Date.now() - e.ms; return p === "all" ? true : p === "old" ? age > 30 * DAY : age <= (p === "1d" ? 1 : p === "7d" ? 7 : 30) * DAY; };
+const P_LABEL = { all: "전체 기간", "1d": "24시간", "7d": "최근 7일", "30d": "최근 30일", old: "30일 이전" };
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -100,7 +100,7 @@ function allEvents() {
   for (const q of live.quakes || []) if (!have.has(q.id)) out.push(q);
   return out.filter((e) => e.ms && GEO_TYPES[e.type]).sort((a, b) => b.ms - a.ms);
 }
-// USGS 실시간 지진 (규모 4.5 이상, 최근 7일) — 사업 위치·수원국에서 600km 안만
+// USGS 실시간 지진 (규모 4.5 이상, 최근 7일): 사업 위치·수원국에서 600km 안만
 async function loadLiveQuakes(force) {
   if (live.loading || (!force && live.at && Date.now() - live.at < 10 * 60e3)) return;
   live.loading = true;
@@ -228,7 +228,7 @@ export async function renderGeo() {
     const alertHtml = a?.level ? `<span class="alert-chip ${ALERT[a.level][2]}">${ALERT[a.level][0]} ${ALERT[a.level][1]}</span>${a.partial ? `<span class="muted small">일부 지역</span>` : ""}${a.special ? `<span class="alert-chip sp">특별여행주의보</span>` : ""}`
       : aOk ? `<span class="alert-chip a0">여행경보 없음</span>` : `<span class="muted small">여행경보 연결 전</span>`;
     return `<div class="gp ${r.lv} ${ui.focus === p.id ? "sel" : ""}" data-gpid="${p.id}" role="button" tabindex="0" title="누르면 자세한 내용과 지도의 거리 원을 보여줍니다">
-      <div class="pj-top"><span class="gp-no ${r.lv}">${idx + 1}</span><span class="pj-name" title="${esc(p.name)}">${esc(p.name)}</span><span class="badge ${r.lv}">${LEVEL[r.lv]}</span><span class="gp-caret" aria-hidden="true">${sel ? "접기" : "자세히"}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span></div>
+      <div class="pj-top"><span class="gp-no ${r.lv}">${idx + 1}</span><span class="pj-name" title="${esc(p.name)}">${esc(p.name)}</span><span class="badge ${r.lv}">${LEVEL[r.lv]}</span><span class="gp-caret" title="${sel ? "접기" : "자세히 보기"}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span></div>
       ${sel ? `      <div class="gp-row"><span class="gp-k">사업지</span><span>${esc(cname(p.country))}${pt ? ` <span class="gp-en">${esc(pt.en)}</span>` : ` <span class="muted small">· 위치 미상</span>`}</span></div>
       <div class="gp-row"><span class="gp-k">여행경보</span><span class="gp-alert">${alertHtml}</span></div>
       ${a?.regions ? `<div class="gp-reg">${esc(String(a.regions).slice(0, 120))}</div>` : ""}
@@ -277,7 +277,7 @@ function nearEvents(pt, evs, country) {
 // ---------- 지도 ----------
 let last = null;
 const pinMarkers = {}, evMarkers = {};
-// 지도 바탕: 완전 플랫 — 바다·육지·국경선만 (assets/world-50m.json, Natural Earth 1:50m · 저장소 안 파일이라 바깥 지도 서비스·키 없음)
+// 지도 바탕: 완전 플랫: 바다·육지·국경선만 (assets/world-50m.json, Natural Earth 1:50m · 저장소 안 파일이라 바깥 지도 서비스·키 없음)
 // 나라 이름은 지도 위에 글자로 직접 올림(그림자 없이). 사업이 있는 나라는 등급 색으로 옅게 칠함
 const isLight = () => document.documentElement.dataset.theme === "light";
 // 나라 숫자 코드(ISO 3166-1) ↔ 두 글자 코드
