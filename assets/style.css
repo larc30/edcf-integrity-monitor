@@ -1265,8 +1265,8 @@ html.lite .radar svg.grid circle.ring.glow { display: none; }
 :root, :root[data-theme="dark"] { --map-sea: #0C1A2E; --map-land: #1C2738; --map-border: #3B4A60; --map-name: #C9D3E3; --map-name-2: #8A97AD; }
 :root[data-theme="light"] { --map-sea: #D7E8F5; --map-land: #FFFFFF; --map-border: #B8C4D3; --map-name: #1E293B; --map-name-2: #64748B; }
 .geo-map, .geo-map.leaflet-container { background: var(--map-sea); }
-.cn { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; pointer-events: none; font-weight: 600; letter-spacing: .02em; color: var(--map-name-2); font-size: var(--fs-xs); text-shadow: none; display: none; }
-.cn.mine { display: block; color: var(--map-name); font-weight: 800; font-size: var(--fs-sm); letter-spacing: .08em; text-transform: uppercase; }
+.geo-map .cn { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; pointer-events: none; font-weight: 600; letter-spacing: .02em; color: var(--map-name-2); font-size: var(--fs-xs); text-shadow: none; display: none; }
+.geo-map .cn.mine { display: block; color: var(--map-name); font-weight: 800; font-size: var(--fs-sm); letter-spacing: .08em; text-transform: uppercase; }
 .geo-map.z-big .cn.big, .geo-map.z-mid .cn.mid, .geo-map.z-small .cn.small { display: block; }
 .geo-map.z-mid .cn.big { font-size: var(--fs-sm); }
 /* 수원국: 사업 카드 등급 근거 */
@@ -1274,3 +1274,67 @@ html.lite .radar svg.grid circle.ring.glow { display: none; }
 .gp-why span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gp.red .gp-why { color: var(--red); } .gp.orange .gp-why { color: var(--orange); }
 #gboard .itip .tip { width: 440px; }
+
+/* =====================================================================
+   v48 — 등급 숫자 3자리 · 이슈 목록 안 스크롤 · 공식 제재 명단 창
+   ===================================================================== */
+.rk { grid-template-columns: minmax(3.4em, max-content) minmax(0, 1fr); }
+.rk-num { white-space: nowrap; }
+/* 확인할 이슈: 화면 높이만큼만 차지하고 그 안에서 스크롤 (오른쪽 사업 목록도 같은 높이를 따라감) */
+.d-issues { display: flex; flex-direction: column; max-height: max(620px, calc(100vh - 96px)); }
+.d-issues .issue-scroll { flex: 1; min-height: 0; overflow: auto; margin-right: -8px; padding-right: 8px; overscroll-behavior: contain; }
+@media (max-width: 900px) { .d-issues { max-height: none; } .d-issues .issue-scroll { overflow: visible; } }
+/* 등급 설명: 참고는 등급이 아니라서 선 아래에 따로 */
+.tip-sep { margin: 9px 0 7px; padding-top: 8px; border-top: 1px dashed var(--line-2); font-size: var(--fs-xs); font-weight: 700; color: var(--muted); }
+/* 공식 제재 명단 창: 출처별 한 칸씩 */
+.oc-src { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-top: 12px; background: var(--panel-2); }
+.oc-src-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.oc-src-h b { font-size: var(--fs-md); } .oc-src-h .d { font-size: var(--fs-sm); color: var(--muted); }
+.oc-src-h .n { margin-left: auto; font-size: var(--fs-sm); font-weight: 700; white-space: nowrap; }
+.oc-src .tbl-wrap { margin-top: 10px; max-height: 15em; }
+.oc-src .oc-none { margin-top: 6px; font-size: var(--fs-sm); color: var(--muted); }
+.oc-src .oc-tbl th { background: var(--panel-2); }
+.oc-more { margin-top: 12px; } .oc-more > summary { cursor: pointer; font-weight: 700; font-size: var(--fs-sm); color: var(--text-2); }
+.oc-more .oc-btns { display: flex; gap: 6px; margin: 10px 0 6px; align-items: center; flex-wrap: wrap; }
+
+/* v48 — AI 판정 지침 · DART 후보 고르기 */
+.guide-card { margin-top: 16px; }
+.guide-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.guide-grid h3 { font-size: var(--fs-sm); margin: 0 0 6px; color: var(--text-2); }
+.guide-grid textarea { width: 100%; min-height: 9em; resize: vertical; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--panel-2); color: var(--text); font: inherit; font-size: var(--fs-sm); line-height: 1.6; }
+.guide-auto { min-height: 9em; padding: 10px 12px; border-radius: 10px; border: 1px dashed var(--line-2); font-size: var(--fs-sm); line-height: 1.7; color: var(--text); }
+@media (max-width: 900px) { .guide-grid { grid-template-columns: minmax(0, 1fr); } }
+.btn.warn { border-color: var(--orange); color: var(--orange); font-weight: 750; }
+.dp-list { display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow: auto; margin: 10px 0; }
+.dp-co { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--panel-2); }
+.dp-name { margin-bottom: 4px; }
+.dp-opt { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; font-size: var(--fs-sm); cursor: pointer; }
+
+/* v48 — 레이더 귀퉁이 정보 */
+.radar-hud .hud { position: absolute; z-index: 2; display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-xs); color: var(--muted); line-height: 1.35; pointer-events: none; }
+.radar-hud .hud b { font-weight: 800; letter-spacing: .1em; color: var(--accent-2); } .radar-hud .hud i { font-style: normal; }
+.radar-hud .tl { top: 14px; left: 16px; } .radar-hud .bl { bottom: 14px; left: 16px; gap: 3px; } .radar-hud .br { bottom: 14px; right: 16px; text-align: right; }
+.radar-hud .br b { letter-spacing: 0; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.radar-hud .bl span { display: flex; align-items: center; gap: 6px; font-weight: 650; color: var(--text-2); }
+.radar-hud .lg { width: 8px; height: 8px; border-radius: 50%; background: var(--green); } .radar-hud .lg.red { background: var(--red); } .radar-hud .lg.orange { background: var(--orange); }
+@media (max-width: 520px) { .radar-hud { display: none; } }
+
+/* v48 — 수원국: 설명 창이 지도에 가리지 않게 · 왼쪽 칸 좁게 · 레이더 모양 원 */
+.geo-map { isolation: isolate; }
+@media (min-width: 1101px) {
+  .geo-dash { grid-template-columns: minmax(15em, 2.2fr) minmax(0, 5.6fr) minmax(0, 4.2fr); grid-template-areas: "title title title" "risk map proj" "issues issues issues"; }
+}
+.geo-sweep { border-radius: 50%; pointer-events: none; background: conic-gradient(from 0deg, transparent 0deg 285deg, color-mix(in srgb, var(--accent-2) 30%, transparent) 360deg); animation: geoSpin 6s linear infinite; }
+.geo-sweep.hide { display: none; }
+@keyframes geoSpin { to { transform: rotate(360deg); } }
+html.lite .geo-sweep { display: none; }
+
+/* v48 — 사업 수정: 사업지 고르기 */
+.site-box { margin-top: 6px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); display: flex; flex-direction: column; gap: 8px; }
+.site-h { display: flex; flex-direction: column; gap: 2px; }
+.site-pick { height: 300px; border-radius: 10px; overflow: hidden; background: var(--map-sea); isolation: isolate; cursor: crosshair; }
+.site-pick.leaflet-container { background: var(--map-sea); }
+.site-f { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sp-pin { position: absolute; left: -9px; top: -24px; width: 18px; height: 18px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--red); border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .45); }
+.sp-city { position: absolute; display: flex; align-items: center; gap: 4px; transform: translate(-3px, -50%); white-space: nowrap; font-size: var(--fs-xs); font-weight: 600; color: var(--map-name-2); pointer-events: none; }
+.sp-city i { width: 5px; height: 5px; border-radius: 50%; background: var(--map-name-2); flex: 0 0 auto; }

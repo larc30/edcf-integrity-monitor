@@ -287,7 +287,7 @@ const cssv = (n) => getComputedStyle(document.documentElement).getPropertyValue(
 function loadWorld() {
   if (world || worldLoading) return worldLoading;
   worldLoading = fetch("assets/world-50m.json").then((r) => r.json()).then((t) => {
-    world = window.topojson.feature(t, t.objects.countries).features;
+    world = window.topojson.feature(t, t.objects.countries).features.filter((f) => f.id !== "010"); // 남극은 뺌 (지도 맨 아래에 가로줄로 보임)
     if (map) { drawWorld(); if (last) drawMap(last.pins, last.evs, last.risk); }
   }).catch((e) => { console.warn("world map", e); });
   return worldLoading;
@@ -396,12 +396,22 @@ function drawFocus(f, near) {
   const box = $("#mapFocus"), all = $("#mapAll");
   all.classList.toggle("hidden", !f); all.onclick = () => setFocus(null);
   box.classList.add("hidden"); // 사업 정보는 오른쪽 카드 안에 펼쳐 보여 줌 (지도를 가리지 않게)
-  if (!f) { map._focusPid = null; return; }
+  if (!f) { map._focusPid = null; if (map._sweepOff) map._sweepOff(); return; }
   const c = f.pt.ll, accent = cssv("--accent-2");
+  // 레이더처럼: 십자선·대각선 + 실선 원 + 한 바퀴씩 도는 빛 (업체 리스크 레이더와 같은 모양)
+  const line = isLight() ? "#0E7490" : "#67E8F9", R = RINGS[RINGS.length - 1], kLng = 111.2 * Math.cos((c[0] * Math.PI) / 180);
+  const at = (deg, r) => [c[0] + (Math.cos((deg * Math.PI) / 180) * r) / 111.2, c[1] + (Math.sin((deg * Math.PI) / 180) * r) / kLng];
+  [0, 45, 90, 135].forEach((d) => L.polyline([at(d, R), at(d + 180, R)], { color: line, weight: d % 90 ? 0.6 : 1, opacity: d % 90 ? 0.3 : 0.5, interactive: false }).addTo(layers.focus));
+  for (let d = 0; d < 360; d += 10) L.polyline([at(d, R), at(d, R * (d % 30 ? 1.02 : 1.04))], { color: line, weight: 1.2, opacity: 0.8, interactive: false }).addTo(layers.focus); // 바깥 눈금
+  const sweep = L.marker(c, { interactive: false, keyboard: false, icon: L.divIcon({ className: "", html: `<div class="geo-sweep"></div>`, iconSize: [0, 0] }) }).addTo(layers.focus);
+  const sizeSweep = () => { const el = sweep.getElement()?.firstChild; if (!el) return; const r = Math.abs(map.latLngToLayerPoint(at(90, R)).x - map.latLngToLayerPoint(c).x); el.style.cssText = `width:${2 * r}px;height:${2 * r}px;margin:${-r}px 0 0 ${-r}px`; el.classList.remove("hide"); };
+  if (map._sweepOff) map._sweepOff();
+  const hideSweep = () => sweep.getElement()?.firstChild?.classList.add("hide");
+  map.on("zoomstart", hideSweep); map.on("zoomend", sizeSweep);
+  map._sweepOff = () => { map.off("zoomstart", hideSweep); map.off("zoomend", sizeSweep); map._sweepOff = null; };
+  sizeSweep();
   RINGS.forEach((r, i) => {
-    // 위성 사진 위에서도 보이게: 어두운 바깥선 + 밝은 점선 두 겹
-    L.circle(c, { radius: r * 1000, color: isLight() ? "#FFFFFF" : "#020617", weight: 3.5, opacity: isLight() ? 0.7 : 0.35, fill: false, interactive: false }).addTo(layers.focus);
-    L.circle(c, { radius: r * 1000, color: isLight() ? "#0E7490" : "#67E8F9", weight: i === RINGS.length - 1 ? 2 : 1.6, opacity: 0.95 - i * 0.08, dashArray: "6 6", fill: i === 0, fillColor: accent, fillOpacity: 0.08, interactive: false }).addTo(layers.focus);
+    L.circle(c, { radius: r * 1000, color: line, weight: i === RINGS.length - 1 ? 2.4 : 1.2, opacity: i === RINGS.length - 1 ? 0.95 : 0.7, fill: i === RINGS.length - 1, fillColor: accent, fillOpacity: 0.05, interactive: false }).addTo(layers.focus);
     const lat = c[0] - r / 111.2; // 원의 맨 아래에 거리 글씨 (위쪽은 핀 자리)
     L.marker([lat, c[1]], { interactive: false, icon: L.divIcon({ className: "", html: `<span class="ring-lb">${r}km</span>`, iconSize: [44, 16], iconAnchor: [22, 8] }) }).addTo(layers.focus);
   });
@@ -452,3 +462,33 @@ function declutter() {
 function hiPin(pid, on) { const el = document.querySelector(`.gpin[data-pin="${pid}"]`); if (el) el.classList.toggle("hi", on || ui.focus === pid); }
 function flyEvent(id) { const m = evMarkers[id]; if (!m || !map) return; map.flyTo(m.getLatLng(), Math.max(map.getZoom(), 5), { duration: 0.8 }); setTimeout(() => m.openPopup(), 850); }
 export async function refreshGeo() { await loadLiveQuakes(true); renderGeo(); }
+
+// 사업지 고르기 (사업 수정 창의 작은 지도): 눌러서 핀을 놓고 끌어서 옮김. onPick(lat, lng)
+export function mountSitePicker(el, { lat, lng, country }, onPick) {
+  const has = Number.isFinite(lat) && Number.isFinite(lng), cc = GEO_COUNTRY[country];
+  const m = L.map(el, { minZoom: 2, maxZoom: 11, zoomSnap: 0.25, zoomDelta: 0.5, wheelPxPerZoomLevel: 110, attributionControl: false, worldCopyJump: true })
+    .setView(has ? [lat, lng] : cc ? [cc[2], cc[3]] : [15, 80], has ? 7 : cc ? 5 : 3);
+  m.createPane("land"); m.getPane("land").style.zIndex = 200;
+  const draw = () => {
+    if (!world || !el.isConnected) return;
+    L.geoJSON(world, { pane: "land", renderer: L.canvas({ pane: "land", padding: 0.5 }), interactive: false, style: () => ({ stroke: true, color: cssv("--map-border"), weight: 0.8, opacity: 1, fill: true, fillColor: cssv("--map-land"), fillOpacity: 1 }) }).addTo(m);
+    // 자리를 찾기 쉽게: 아는 도시를 작은 점과 이름으로
+    Object.values(GEO_CITY).forEach(([la, ln, en]) => L.marker([la, ln], { interactive: false, keyboard: false, icon: L.divIcon({ className: "", html: `<span class="sp-city"><i></i>${en}</span>`, iconSize: [0, 0] }) }).addTo(m));
+  };
+  const w = loadWorld(); if (w && w.then) w.then(draw); else draw();
+  let pin = null;
+  const put = (ll, silent) => {
+    if (pin) pin.setLatLng(ll);
+    else pin = L.marker(ll, { draggable: true, keyboard: false, icon: L.divIcon({ className: "", html: `<span class="sp-pin"></span>`, iconSize: [0, 0] }) }).addTo(m)
+      .on("dragend", () => { const p = pin.getLatLng(); onPick(p.lat, p.lng); });
+    if (!silent) onPick(ll[0], ll[1]);
+  };
+  if (has) put([lat, lng], true);
+  m.on("click", (e) => put([e.latlng.lat, e.latlng.lng]));
+  setTimeout(() => m.invalidateSize(), 60);
+  return {
+    set(ll) { put(ll); m.setView(ll, Math.max(m.getZoom(), 7)); },
+    clear() { if (pin) { m.removeLayer(pin); pin = null; } },
+    country(code) { const c = GEO_COUNTRY[code]; if (c) m.setView([c[2], c[3]], 5); },
+  };
+}
