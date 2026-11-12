@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=30";
-import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY } from "./geo.js?v=47";
+import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY } from "./geo.js?v=48";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -523,12 +523,16 @@ function renderHome() {
   const series = sc ? Array.from({ length: 30 }, (_, i) => (i === 29 ? { v: riskyN, r: byLv.red.length } : at(dayEnd(29 - i)))) : [];
   const yd = sc ? at(dayEnd(1)) : null, prevN = yd ? { red: yd.r, orange: yd.v - yd.r, none: cs.length - yd.v } : null;
   const delta = (lv) => { if (!prevN) return ""; const d = byLv[lv].length - prevN[lv]; return d ? `<span class="rk-d ${lv !== "none" ? (d > 0 ? "up" : "down") : ""}" title="어제 ${prevN[lv]}">${d > 0 ? "+" : "−"}${Math.abs(d)}</span>` : ""; };
+  // 최근 7일: 날짜마다 위험(빨강)·경고(주황) 업체 수를 막대와 숫자로
   const spark = () => {
     if (!sc) return "";
-    const W = 260, H = 44, max = Math.max(...series.map((x) => x.v), 1), X = (i) => (i / (series.length - 1)) * W, Y = (v) => H - 4 - (v / max) * (H - 10);
-    const path = (k) => series.map((x, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(x[k]).toFixed(1)}`).join("");
-    return `<div class="rk-trend" title="날짜별 위험·경고 업체 수 (이슈가 처음 잡힌 날 기준, 빨간 선은 위험만)"><div class="rk-trend-h"><span>최근 30일 위험·경고</span><b>${series[0].v} → ${series[series.length - 1].v}</b></div>
-      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path class="tl-a" d="${path("v")}"/><path class="tl-r" d="${path("r")}"/></svg></div>`;
+    const wk = series.slice(-7), max = Math.max(...wk.map((x) => x.v), 1), WD = "일월화수목금토";
+    const col = (x, i) => {
+      const d = new Date(Date.now() - (6 - i) * DAY), o = x.v - x.r, h = (n) => Math.max(n ? 3 : 0, Math.round((n / max) * 40));
+      return `<div class="wk-col ${i === 6 ? "today" : ""}" title="${d.getMonth() + 1}/${d.getDate()} 위험 ${x.r} · 경고 ${o}"><div class="wk-n"><b class="r">${x.r}</b><b class="o">${o}</b></div>
+        <div class="wk-bar"><i class="o" style="height:${h(o)}px"></i><i class="r" style="height:${h(x.r)}px"></i></div><div class="wk-d">${i === 6 ? "오늘" : WD[d.getDay()]}</div></div>`;
+    };
+    return `<div class="rk-trend"><div class="rk-trend-h"><span>최근 7일</span><span class="wk-lg"><i class="r"></i>위험<i class="o"></i>경고</span></div><div class="wk">${wk.map(col).join("")}</div></div>`;
   };
   $("#kboard").innerHTML = `<div class="card-head"><h2>업체 등급 ${info(levelTip())}</h2>${sc ? "" : `<span class="muted small">스캔 전</span>`}</div>`
     + ["red", "orange", "none"].map((lv) => {

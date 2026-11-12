@@ -213,9 +213,9 @@ export async function renderGeo() {
 
   // 왼쪽 아래: 이벤트 종류별 건수 (누르면 지도·목록 거르기)
   const tc = {}; evs.forEach((e) => (tc[e.type] = (tc[e.type] || 0) + 1));
-  $("#evSummary").innerHTML = `<div class="card-head"><h2>이벤트 요약 ${info("수원국 안팎에서 최근 일어난 지진·분쟁·테러·재난입니다.<br><b>지진</b> USGS(미국지질조사국) 규모 4.5 이상, 사업지·수원국에서 600km 안<br><b>그 밖</b> Google·네이버 뉴스 제목에서 나라 이름과 사건 단어로 찾음 (매일 아침)<br>종류를 누르면 지도와 목록이 그 종류만 보여줍니다.")}</h2><span class="muted small">${pl}</span></div>
-    <div class="ev-grid">${Object.entries(GEO_TYPES).map(([k, [label]]) => `<button class="ev-chip ${tc[k] ? "on" : ""} ${ui.type === k ? "sel" : ""}" data-et="${k}" ${tc[k] ? "" : "disabled"}>${ibadge(k, "sm")}<span class="lb">${label.split("·")[0]}</span><b>${tc[k] || 0}</b></button>`).join("")}</div>`;
-  $$("#evSummary [data-et]:not(:disabled)").forEach((b) => b.onclick = () => { ui.type = ui.type === b.dataset.et ? null : b.dataset.et; renderGeo(); });
+  $("#evSummary").innerHTML = `<div class="card-head"><h2>이벤트 요약 ${info("수원국 안팎에서 최근 일어난 지진·분쟁·테러·재난입니다.<br><b>지진</b> USGS(미국지질조사국) 규모 5.5 이상, 사업지·수원국에서 600km 안<br><b>그 밖</b> Google·네이버 뉴스 제목에서 나라 이름과 사건 단어로 찾음 (매일 아침)<br>종류를 누르면 지도와 목록이 그 종류만 보여줍니다.")}</h2><span class="muted small">${pl}</span></div>
+    <div class="ev-grid"><button class="ev-chip all on ${ui.type ? "" : "sel"}" data-et=""><span class="lb">전체</span><b>${Object.values(tc).reduce((x, y) => x + y, 0)}</b></button>${Object.entries(GEO_TYPES).map(([k, [label]]) => `<button class="ev-chip ${tc[k] ? "on" : ""} ${ui.type === k ? "sel" : ""}" data-et="${k}" ${tc[k] ? "" : "disabled"}>${ibadge(k, "sm")}<span class="lb">${label.split("·")[0]}</span><b>${tc[k] || 0}</b></button>`).join("")}</div>`;
+  $$("#evSummary [data-et]:not(:disabled)").forEach((b) => b.onclick = () => { ui.type = !b.dataset.et || ui.type === b.dataset.et ? null : b.dataset.et; renderGeo(); });
 
   // 오른쪽: 사업별 내역 + 여행경보
   pins.sort((a, b) => LV[b.r.lv] - LV[a.r.lv] || (b.r.alert?.level || 0) - (a.r.alert?.level || 0) || a.p.name.localeCompare(b.p.name));
@@ -328,6 +328,8 @@ function drawWorld() {
     const tier = mine ? "mine" : size > 400 ? "big" : size > 60 ? "mid" : "small";
     L.marker(ll, { pane: "names", interactive: false, keyboard: false, icon: L.divIcon({ className: "", html: `<span class="cn ${tier}">${ctx.esc(name)}</span>`, iconSize: [0, 0] }) }).addTo(nameLayer);
   });
+  // 주요 도시: 조금 확대하면(4 이상) 작은 점과 영어 이름으로. 핀·사업명과 겹치면 숨김(declutter)
+  Object.values(GEO_CITY).forEach(([la, ln, en]) => L.marker([la, ln], { pane: "names", interactive: false, keyboard: false, icon: L.divIcon({ className: "", html: `<span class="cn city"><i></i>${ctx.esc(en)}</span>`, iconSize: [0, 0] }) }).addTo(nameLayer));
   zoomClass();
 }
 function zoomClass() { // 확대할수록 작은 나라 이름까지

@@ -1492,3 +1492,32 @@ html.lite .rdot.red, html.lite .rdot.orange { animation: none; }
 .gp-caret { gap: 0; margin-left: 4px; } .gp-caret svg { width: 16px; height: 16px; }
 .geo-dash .ev-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pj-roles:empty { display: none; }
+
+/* =====================================================================
+   v56 — 최근 7일 막대 · 이벤트 '전체' · 사업명 표시 통일 · 도시 이름 · 차분한 점 애니메이션
+   ===================================================================== */
+.wk { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin-top: 6px; }
+.wk-col { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.wk-n { display: flex; gap: 4px; font-size: var(--fs-xs); font-variant-numeric: tabular-nums; line-height: 1.2; }
+.wk-n .r { color: var(--red); } .wk-n .o { color: var(--orange); }
+.wk-bar { width: 100%; max-width: 22px; height: 40px; display: flex; flex-direction: column; justify-content: flex-end; gap: 1px; }
+.wk-bar i { display: block; width: 100%; border-radius: 3px; } .wk-bar .r { background: var(--red); } .wk-bar .o { background: var(--orange); }
+.wk-d { font-size: var(--fs-xs); color: var(--muted); } .wk-col.today .wk-d { color: var(--text); font-weight: 750; }
+.wk-col:not(.today) .wk-bar { opacity: .7; }
+.wk-lg { display: inline-flex; align-items: center; gap: 4px; } .wk-lg i { width: 8px; height: 8px; border-radius: 2px; margin-left: 6px; } .wk-lg .r { background: var(--red); } .wk-lg .o { background: var(--orange); }
+/* 이벤트 요약 '전체' */
+.ev-chip.all { grid-template-columns: minmax(0, 1fr) auto; font-weight: 750; }
+/* 사업명 표시: 핀의 어느 쪽에 놓이든 같은 모양 (왼쪽에 등급 색 띠) */
+.pin-lb.b, .pin-lb.t { border: 1px solid var(--line-2); border-left: 3px solid var(--c, var(--green)); }
+.pin-lb.l { border: 1px solid var(--line-2); border-left: 3px solid var(--c, var(--green)); }
+/* 주요 도시 이름 (지도를 4 이상 확대했을 때) */
+.geo-map .cn.city { display: none; align-items: center; gap: 4px; transform: translate(-3px, -50%); font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0; color: var(--map-name-2); }
+.geo-map .cn.city i { width: 5px; height: 5px; border-radius: 50%; background: var(--map-name-2); flex: 0 0 auto; }
+.geo-map.z-mid .cn.city { display: inline-flex; }
+/* 레이더 위험 점: 흰 호 대신 같은 색 점선 테두리가 천천히 돌고, 점은 은은하게 깜빡임 */
+.rdot.red::before { inset: -6px; border: 1.5px dashed currentColor; opacity: .8; animation: geoSpin 7s linear infinite; }
+.rdot.red { animation: softBlink 2.4s ease-in-out infinite; animation-delay: var(--d, 0s); }
+@keyframes softBlink { 0%, 100% { opacity: 1; } 50% { opacity: .6; } }
+@keyframes twinkle { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .5; transform: scale(.85); } }
+.rdot.orange { animation-duration: 2.4s; }
+.gev.fresh::after { inset: -6px; border: 2px dashed var(--ec); opacity: .9; animation: geoSpin 8s linear infinite; }
