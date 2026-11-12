@@ -1521,3 +1521,24 @@ html.lite .rdot.red, html.lite .rdot.orange { animation: none; }
 @keyframes twinkle { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .5; transform: scale(.85); } }
 .rdot.orange { animation-duration: 2.4s; }
 .gev.fresh::after { inset: -6px; border: 2px dashed var(--ec); opacity: .9; animation: geoSpin 8s linear infinite; }
+
+/* =====================================================================
+   v57 — 최근 7일 선 · 완료한 사업 · 계정 메뉴 · PC '애니메이션 끄기' 설정에서도 점 움직임 유지
+   ===================================================================== */
+.wk-line { display: block; width: 100%; height: auto; margin-top: 4px; overflow: visible; }
+.wk-line path { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.wk-line path.r, .wk-line circle.r { stroke: var(--red); } .wk-line path.o, .wk-line circle.o { stroke: var(--orange); }
+.wk-line circle { fill: var(--panel-solid); stroke-width: 2; }
+.wk-line text { font-size: 11px; font-weight: 750; text-anchor: middle; font-variant-numeric: tabular-nums; } .wk-line text.r { fill: var(--red); } .wk-line text.o { fill: var(--orange); }
+.wk-days { display: flex; justify-content: space-between; padding: 0 2px; font-size: var(--fs-xs); color: var(--muted); } .wk-days .today { color: var(--text); font-weight: 750; }
+.pbox.done { opacity: .6; } .pbox.done .pbox-head .tag { flex: 0 0 auto; }
+.acct-check { font-size: var(--fs-sm); color: var(--text-2); }
+/* 회사 PC는 '애니메이션 효과 끄기'가 켜져 있는 경우가 많아 점 움직임이 전부 멈췄음 → 등급 점·최근 사건 표시는 그 설정과 상관없이 움직이게 (가벼운 모드로 끌 수 있음) */
+@media (prefers-reduced-motion: reduce) {
+  html:not(.lite) .rdot.red { animation: softBlink 2.4s ease-in-out infinite !important; }
+  html:not(.lite) .rdot.red::before { animation: geoSpin 7s linear infinite !important; }
+  html:not(.lite) .rdot.red::after, html:not(.lite) .rdot.orange::after { animation: ping var(--sweep, 6s) linear infinite !important; animation-delay: var(--d, 0s) !important; }
+  html:not(.lite) .rdot.orange { animation: twinkle 2.4s ease-in-out infinite !important; }
+  html:not(.lite) .gev.fresh::after { animation: geoSpin 8s linear infinite !important; }
+  html:not(.lite) .geo-sweep { animation: geoSpin 6s linear infinite !important; }
+}

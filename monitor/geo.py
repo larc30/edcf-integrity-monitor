@@ -57,9 +57,11 @@ EVENT_WORDS = [
     ("flood", ("홍수", "침수", "폭우", "산사태", "flood", "landslide")),
     ("fire", ("산불", "wildfire")),
     ("unrest", ("시위", "폭동", "소요", "계엄", "protest", "riot", "martial law")),
+    ("politics", ("선거", "대선", "총선", "정권 교체", "정권교체", "탄핵", "대통령 사임", "총리 사임", "내각 총사퇴", "의회 해산", "정부 해산",
+                  "election", "impeach", "resigns", "dissolve parliament")),  # 참고용 (등급에는 안 넣음)
     ("disease", ("콜레라", "에볼라", "엠폭스", "전염병", "감염병", "cholera", "ebola", "mpox", "outbreak")),
 ]
-NEWS_QUERY_WORDS = ["지진", "홍수", "태풍", "테러", "내전", "쿠데타", "폭동", "산불", "콜레라"]
+NEWS_QUERY_WORDS = ["지진", "홍수", "태풍", "테러", "내전", "쿠데타", "폭동", "산불", "콜레라", "선거", "정권"]
 KEEP_DAYS = 365  # 과거 이력(30일 이상)도 볼 수 있게 1년 보관
 QUAKE_KM = 600
 KST = timezone(timedelta(hours=9))
@@ -253,6 +255,7 @@ def news_events(codes: list[str], gnews=news.google_news, naver=news.naver_news)
 def update(projects: list[dict] | None = None, get=httpx.get, gnews=news.google_news, naver=news.naver_news) -> dict:
     """meta/geo 갱신. 반환: 건수 요약 (공개 로그용)"""
     projects = projects if projects is not None else store.all_docs("projects")
+    projects = [p for p in projects if p.get("status") != "done"]  # 완료한 사업은 뺌
     codes = sorted({p.get("country") for p in projects if p.get("country")})
     tg = targets(projects)
     prev_snap = store.db().collection("meta").document("geo").get()
