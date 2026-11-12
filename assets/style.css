@@ -1546,3 +1546,12 @@ html.lite .rdot.red, html.lite .rdot.orange { animation: none; }
 /* v58 — 수원국 이벤트: AI 요약·판정 표시 */
 .ev-note { margin-top: 2px; font-size: var(--fs-sm); color: var(--text-2); }
 .ev-ai { font-weight: 750; color: var(--accent-2); } .ev-ai.wait { color: var(--muted); }
+
+/* v59 — 상단 업체 검색 (모든 사용자) · 레이더 크기 줄임 */
+.top-search { position: relative; display: flex; align-items: center; flex: 0 1 15em; min-width: 9em; margin-left: 12px; }
+.top-search svg { position: absolute; left: 10px; width: 15px; height: 15px; color: var(--muted); pointer-events: none; }
+.top-search input { width: 100%; padding: 7px 10px 7px 30px; border-radius: 10px; font-size: var(--fs-sm); }
+.top-search .city-sug { min-width: 20em; }
+.top-search .city-sug button { align-items: center; } .top-search .cf-r { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; } .top-search .cf-r i { font-style: normal; font-size: var(--fs-xs); color: var(--muted); }
+@media (max-width: 900px) { .top-search { order: 5; flex: 1 1 100%; margin: 6px 0 0; } }
+@media (min-width: 1101px) { .dash:not(.geo-dash) .radar { max-width: min(100%, 350px); } }

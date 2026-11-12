@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=30";
-import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY } from "./geo.js?v=50";
+import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY } from "./geo.js?v=51";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -2459,3 +2459,24 @@ document.addEventListener("click", (e) => { const a = $("#acct"); if (a?.open &&
 
 // 계정 메뉴의 [설정]: 관리자 모드로 들어가 설정 화면을 바로 엶
 $("#acctSettings").onclick = () => { $("#acct").open = false; setAdmin(true); showView("settings"); };
+
+// 상단 업체 검색: 누구나 업체명·별칭·영문명·사업자번호로 찾아 상태(등급·이슈)를 바로 봄
+{
+  const box = $("#coFind"), sug = $("#coFindSug"), norm = (x) => String(x || "").toLowerCase().replace(/\s+/g, "");
+  const find = () => {
+    const q = norm(box.value), qd = q.replace(/\D/g, "");
+    if (!q) return [];
+    return state.companies.filter((c) => norm(c.name).includes(q) || norm(c.aliases).includes(q) || norm(c.name_en).includes(q) || (qd.length >= 4 && String(c.biz_no || "").includes(qd)))
+      .sort((a, b) => (norm(b.name).startsWith(q) - norm(a.name).startsWith(q)) || (LV[b.risk] - LV[a.risk]) || a.name.localeCompare(b.name)).slice(0, 8);
+  };
+  const pick = (c) => { box.value = ""; sug.classList.add("hidden"); box.blur(); openCompany(c.id); };
+  const show = () => {
+    const hits = find(), sc = scanned();
+    sug.innerHTML = hits.map((c, i) => `<button type="button" data-fi="${i}"><b>${esc(c.name)}</b><span class="cf-r">${c.open ? `<i>미확인 ${c.open}</i>` : ""}${sc ? badge(c.risk) : ""}</span></button>`).join("") || (box.value.trim() ? `<div class="muted small">명단에 없는 업체입니다</div>` : "");
+    sug.classList.toggle("hidden", !sug.innerHTML);
+    $$("[data-fi]", sug).forEach((b) => b.onmousedown = (e) => { e.preventDefault(); pick(hits[+b.dataset.fi]); });
+  };
+  box.oninput = show; box.onfocus = show; box.addEventListener("compositionupdate", () => setTimeout(show, 0));
+  box.onblur = () => setTimeout(() => sug.classList.add("hidden"), 150);
+  box.onkeydown = (e) => { if (e.key === "Enter" && !e.isComposing) { const h = find(); if (h.length) pick(h[0]); } else if (e.key === "Escape") { box.value = ""; sug.classList.add("hidden"); } };
+}
