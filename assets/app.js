@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=30";
-import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY } from "./geo.js?v=42";
+import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY } from "./geo.js?v=43";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -90,6 +90,7 @@ onAuthStateChanged(auth, async (user) => {
   $("#loginView").classList.add("hidden"); $("#appView").classList.remove("hidden");
   if (window.__DEMO && !$(".demo-banner")) $("#appView").insertAdjacentHTML("afterbegin", `<div class="demo-banner">DEMO · 가상 데이터로 보는 화면입니다 (실제 업체·Firebase와 연결되지 않음) · <a href="./">실제 화면으로</a></div>`);
   $("#userEmail").textContent = user.email;
+  $("#acctAv").textContent = (user.email || "?")[0].toUpperCase();
   // 관리자(firebase-config.js ALLOWED_EMAILS)만 [관리자 모드] 버튼이 보임 — 다른 계정은 업체·수원국 리스크 화면만
   state.admin = ALLOWED_EMAILS.includes(user.email);
   $("#btnAdmin").classList.toggle("hidden", !state.admin);
@@ -110,7 +111,7 @@ onAuthStateChanged(auth, async (user) => {
 // ---------- 데이터 ----------
 const docs = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 async function loadAll() {
-  const [p, c, f, k, r, st, runs, cfg, ed, mk, acc, geo, guide] = await Promise.all([
+  const [p, c, f, k, r, st, runs, cfg, ed, mk, acc, geo, guide, hist] = await Promise.all([
     getDocs(collection(db, "projects")),
     getDocs(collection(db, "companies")),
     getDocs(query(collection(db, "findings"), where("relevant", "==", true))),
@@ -124,7 +125,9 @@ async function loadAll() {
     getDoc(doc(db, "meta", "access")),
     getDoc(doc(db, "meta", "geo")), // 수원국 리스크 (여행경보·지진·뉴스 이벤트) — 문서 1개라 읽기 1회
     getDoc(doc(db, "meta", "ai_guide")), // AI 판정 지침 (직접 쓴 것 + 담당자 판단을 AI가 요약한 것)
+    getDoc(doc(db, "meta", "history")), // 날짜별 등급 업체 수 (어제와 비교 · 30일 추이)
   ]);
+  state.history = hist.exists() ? (hist.data().days || {}) : {};
   state.guide = guide.exists() ? guide.data() : {};
   state.projects = docs(p).sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")) || a.name.localeCompare(b.name));
   state.companies = docs(c);
@@ -222,6 +225,7 @@ const rerender = () => {
   if (!$("#drawer").classList.contains("open")) return;
   if (state.openCid) openCompany(state.openCid, state.drawerBack);
   else if (state.riskList) openRiskList(state.riskList, "keep");
+  else if (state.openPid) openProject(state.openPid);
 };
 // 글자 크기: 상단 [가] 버튼으로 보통 → 크게 → 아주 크게 (모든 탭 같은 비율로)
 const FONT_STEPS = [["sm", "작게"], ["", "보통"], ["lg", "크게"], ["xl", "아주 크게"]];
@@ -506,14 +510,27 @@ function renderHome() {
   cs.forEach((c) => byLv[c.risk].push(c));
   const riskyN = byLv.red.length + byLv.orange.length;
   const who = (l) => { const x = [...l].sort((a, b) => b.open - a.open || a.name.localeCompare(b.name)); return x.slice(0, 2).map((c) => c.name).join(" · ") + (x.length > 2 ? ` 외 ${x.length - 2}` : ""); };
+  // 어제와 비교 · 30일 추이: 전체 범위일 때만 (날짜별 기록 meta/history 는 전체 업체 기준)
+  const days = scope === "all" && sc ? Object.keys(state.history || {}).sort() : [], today = nowStr().slice(0, 10);
+  const prevDay = days.filter((d) => d < today).pop(), prev = prevDay ? state.history[prevDay] : null;
+  const delta = (lv) => { if (!prev || prev[lv] == null) return ""; const d = byLv[lv].length - prev[lv]; return d ? `<span class="rk-d ${lv !== "none" ? (d > 0 ? "up" : "down") : ""}" title="${prevDay.slice(5).replace("-", "/")} 기준 ${prev[lv]}">${d > 0 ? "+" : "−"}${Math.abs(d)}</span>` : ""; };
+  const series = days.slice(-30).map((d) => ({ d, v: (state.history[d].red || 0) + (state.history[d].orange || 0), r: state.history[d].red || 0 }));
+  if (series.length && series[series.length - 1].d === today) series[series.length - 1] = { d: today, v: riskyN, r: byLv.red.length };
+  const spark = () => {
+    if (series.length < 2) return "";
+    const W = 260, H = 44, max = Math.max(...series.map((x) => x.v), 1), X = (i) => (i / (series.length - 1)) * W, Y = (v) => H - 4 - (v / max) * (H - 10);
+    const path = (k) => series.map((x, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(x[k]).toFixed(1)}`).join("");
+    return `<div class="rk-trend" title="최근 ${series.length}일 위험·경고 업체 수 (빨간 선은 위험만)"><div class="rk-trend-h"><span>최근 ${series.length}일 위험·경고</span><b>${series[0].v} → ${series[series.length - 1].v}</b></div>
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path class="tl-a" d="${path("v")}"/><path class="tl-r" d="${path("r")}"/></svg></div>`;
+  };
   $("#kboard").innerHTML = `<div class="card-head"><h2>업체 등급 ${info(levelTip())}</h2>${sc ? "" : `<span class="muted small">스캔 전</span>`}</div>`
     + ["red", "orange", "none"].map((lv) => {
       const l = byLv[lv];
       return `<button class="rk ${lv} ${sc && l.length ? "on" : ""}" data-lv="${lv}" ${sc && l.length ? `title="누르면 ${LEVEL[lv]} 업체 ${l.length}개를 봅니다"` : "disabled"}>
         <div class="rk-num">${sc ? `<span data-count="${l.length}">0</span>` : "-"}</div>
-        <div class="rk-lv">${LEVEL[lv]}</div>
+        <div class="rk-lv">${LEVEL[lv]}${delta(lv)}</div>
         <div class="rk-names ${sc && l.length && lv !== "none" ? "" : "zero"}">${!sc ? "스캔 전" : lv === "none" ? (l.length ? `위험·경고 이슈 없음${l.filter((c) => c.ref).length ? ` · 참고 이력 ${l.filter((c) => c.ref).length}` : ""}` : "해당 업체 없음") : l.length ? esc(who(l)) : "해당 업체 없음"}</div></button>`;
-    }).join("");
+    }).join("") + spark();
   // ② 공식 제재 명단 대조: 출처별(EXIMIIS·조달청·MDB) 현황만 — 아래 이슈 목록과 겹치지 않게
   const off = state.findings.filter((f) => ids.has(f.company_id) && f.source_type !== "news" && f.status !== "dismissed");
   const oc = { edcf: [new Set(), new Set()], pps: [new Set(), new Set()], mdb: [new Set(), new Set()] }; // [지금 제재 중, 그 밖]
@@ -572,7 +589,8 @@ function renderHome() {
   $("#projectMap").innerHTML = psSorted.map((p) => projectRow(p)).join("")
     || `<div class="empty small">${scope === "mine" ? "내가 담당하는 사업이 없습니다." : "등록된 사업이 없습니다."}</div>`;
   $$("#projectMap .pj").forEach((r) => { r.addEventListener("mouseenter", () => focusProject(r.dataset.pid)); r.addEventListener("mouseleave", () => focusProject(null)); });
-  $$("#projectMap [data-cid]").forEach((x) => x.addEventListener("click", () => openCompany(x.dataset.cid)));
+  $$("#projectMap [data-cid]").forEach((x) => x.addEventListener("click", (e) => { e.stopPropagation(); openCompany(x.dataset.cid); }));
+  $$("#projectMap .pj").forEach((r) => { r.tabIndex = 0; r.title = "누르면 이 사업의 업체와 이슈를 봅니다"; r.onclick = () => openProject(r.dataset.pid); r.onkeydown = (e) => { if (e.key === "Enter") openProject(r.dataset.pid); }; });
 
   renderJob(); checkSmooth();
 }
@@ -592,15 +610,17 @@ function projectRow(p) {
   return `<div class="pj" data-pid="${p.id}">
     <div class="pj-top"><span class="pj-name" title="${esc(p.name)}">${esc(p.name)}</span>${p.country ? `<span class="pj-ctry">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</div>
     ${total ? `<div class="pj-dist"><div class="pj-bar">${bar}</div><div class="pj-sum">${sum}</div></div>` : `<div class="pj-dist"><div class="pj-sum">${sum}</div></div>`}
-    <div class="pj-roles">${pjRoles(rows, sc)}</div>
+    <div class="pj-roles">${pjRoles(rows, sc, true)}</div>
   </div>`;
 }
 // 사업 카드 안 업체: 역할(F/S → 컨설턴트 → 본구매)별로 한 줄씩 — 역할이 섞여 보이지 않게
-function pjRoles(rows, sc) {
+function pjRoles(rows, sc, compact = false) {
   const roles = [...ROLE_ORDER, ...new Set(rows.map((r) => r.e.role).filter((r) => !ROLE_ORDER.includes(r)))];
   return roles.map((role) => {
     const l = rows.filter((r) => r.e.role === role);
     if (!l.length) return "";
+    const hot = l.filter(({ c }) => sc && c.risk !== "none"), calm = l.length - hot.length;
+    if (sc && compact) return `<div class="pj-role">${roleTag(role || "기타")}<div class="pcos">${hot.map(({ c, e }) => `<span class="cchip ${c.risk}" data-cid="${c.id}" title="${esc(c.name)} · ${LEVEL[c.risk]}"><span class="dot ${c.risk}"></span>${esc(c.name)}${e.rank ? `<small>${e.rank}순위</small>` : e.stage && e.stage !== "계약" ? `<small>${esc(e.stage)}</small>` : ""}</span>`).join("")}${calm ? `<span class="cchip calm" title="${esc(l.filter(({ c }) => c.risk === "none").map(({ c }) => c.name).join(", "))}">정상 ${calm}</span>` : ""}</div></div>`;
     return `<div class="pj-role">${roleTag(role || "기타")}<div class="pcos">${l.map(({ c, e }) => `<span class="cchip ${sc ? c.risk : ""}" data-cid="${c.id}" title="${esc(c.name)}${sc ? " · " + LEVEL[c.risk] : ""}${e.stage && e.stage !== "계약" ? " · " + esc(e.stage) : ""}"><span class="dot ${sc ? c.risk : ""}"></span>${esc(c.name)}${e.rank ? `<small>${e.rank}순위</small>` : e.stage && e.stage !== "계약" ? `<small>${esc(e.stage)}</small>` : ""}</span>`).join("")}</div></div>`;
   }).join("");
 }
@@ -690,16 +710,16 @@ function findingHtml(g, showCompany = true) {
       ${official ? `<span class="tag official">${f.source_type === "manual" ? "수기 등록" : "공식 제재 명단"}</span>` : ""}
       ${f.category && f.category !== "기타" ? `<span class="tag">${esc(f.category)}</span>` : ""}
       ${isNew ? `<span class="new-pill">NEW</span>` : ""}
-      <span class="item-age">${g.newest ? relTime(g.newest) : ""}</span>
-    </div>
-    <div class="item-summary">${esc(f.summary || f.title)}</div>
-    <div class="item-meta">
-      <span class="src">${esc(f.source_name || "-")} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}${why ? ` · <span class="why" title="${esc(why)}">근거</span>` : ""}</span>
       <span class="item-actions">
         ${f.status !== "reviewed" ? `<button class="btn sm act-ok" data-act="reviewed" title="이 업체 이야기가 맞고 내용을 확인함. 목록에서 내려가고 등급은 그대로 남습니다. 비슷한 유형의 새 기사는 앞으로도 알려줍니다${more.length ? ` (같은 내용 ${g.items.length}건 함께)` : ""}">✓ 확인 완료</button>` : ""}
         ${f.status !== "dismissed" ? `<button class="btn sm act-no" data-act="dismissed" title="이 업체 이야기가 아님(동명이인·다른 회사·단순 언급). 등급에서 빠지고, AI가 비슷한 유형을 앞으로 걸러냅니다${more.length ? ` (같은 내용 ${g.items.length}건 함께)` : ""}">✕ 관련 없음</button>` : ""}
         ${f.status && f.status !== "new" ? `<button class="btn sm ghost" data-act="new">되돌리기</button>` : ""}
       </span>
+    </div>
+    <div class="item-summary">${esc(f.summary || f.title)}</div>
+    <div class="item-meta">
+      <span class="src">${esc(f.source_name || "-")} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}${why ? ` · <span class="why" title="${esc(why)}">근거</span>` : ""}</span>
+      <span class="item-age">${g.newest ? relTime(g.newest) : ""}</span>
     </div>
     ${more.length ? `<details class="dup"><summary>같은 내용 ${more.length}건 더${srcs.length ? ` <span class="dup-src">${esc(srcs.slice(0, 3).join(" · "))}${srcs.length > 3 ? " 외" : ""}</span>` : ""}</summary>
       <div class="dup-list">${more.map((x) => `<div class="dup-row">${badge(x.level)}${showCompany && x.company_id !== f.company_id ? `<b>${esc(x.company_name)}</b>` : ""}
@@ -954,9 +974,38 @@ function checkGrid(c) {
 }
 // 리스크 업체 목록: 대시보드의 위험·경고·정상을 누르면 오른쪽 창에 그 등급 업체들 (업체를 누르면 상세, ← 로 목록)
 // scroll: "top" 처음 열 때 / "back" 상세에서 돌아올 때(보던 위치) / "keep" 다시 그릴 때
+// 사업 상세 (오른쪽 창): 참여 업체(역할별) · 확인할 이슈 · 수원국 여행경보
+function openProject(pid) {
+  const p = state.projects.find((x) => x.id === pid); if (!p) return;
+  const sc = scanned(), rows = [];
+  for (const c of state.companies) c.engagements.forEach((e) => { if (e.project_id === pid) rows.push({ c, e }); });
+  rows.sort((a, b) => ROLE_ORDER.indexOf(a.e.role) - ROLE_ORDER.indexOf(b.e.role) || byOrder(a, b));
+  const ids = new Set(rows.map((r) => r.c.id)), cs = [...new Set(rows.map((r) => r.c))];
+  const top = cs.some((c) => c.risk === "red") ? "red" : cs.some((c) => c.risk === "orange") ? "orange" : "none";
+  const open = state.findings.filter((f) => ids.has(f.company_id) && f.status === "new");
+  const hot = groupFindings(open.filter((f) => f.level === "red" || f.level === "orange")), refN = groupFindings(open.filter((f) => f.level === "yellow")).length;
+  const al = state.geo?.alerts?.[p.country], AL = ["", "1단계 여행유의", "2단계 여행자제", "3단계 출국권고", "4단계 여행금지"];
+  state.openCid = null; state.drawerBack = null; state.riskList = null; state.openPid = pid;
+  $("#drawerTitle").innerHTML = `<div class="d-name"><span class="nm">${esc(p.name)}</span>${sc && cs.length ? badge(top) : ""}</div>
+    <div class="d-engs"><span class="d-eng">${esc(COUNTRY[p.country] || "수원국 미지정")}</span>${al?.level ? `<span class="d-eng">여행경보 ${AL[al.level]}${al.partial ? " (일부 지역)" : ""}</span>` : ""}${p.owner ? `<span class="d-eng">담당 ${esc(p.owner.split("@")[0])}</span>` : ""}</div>`;
+  const body = $("#drawerBody");
+  body.innerHTML = `
+    <div class="d-actions"><button class="btn sm" id="pGeo">수원국 리스크에서 보기</button></div>
+    <section class="d-sec"><div class="d-sec-head"><h3>참여 업체</h3><span class="count">${cs.length}</span></div>
+      ${rows.length ? `<div class="rl">${rows.map(({ c, e }) => `<div class="pd-row" data-pc="${c.id}" role="button" tabindex="0">${roleTag(e.role)}<b>${esc(c.name)}</b>${e.stage && e.stage !== "계약" ? `<span class="muted small">${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""}</span>` : ""}<span class="pd-r">${c.open ? `<span class="muted small">미확인 ${c.open}</span>` : ""}${sc ? badge(c.risk) : ""}</span></div>`).join("")}</div>` : `<div class="empty small">연결된 업체가 없습니다</div>`}
+    </section>
+    <section class="d-sec"><div class="d-sec-head"><h3>확인이 필요한 이슈</h3><span class="count">${hot.length}</span>${refN ? `<span class="d-sec-meta">참고 이력 ${refN}</span>` : ""}</div>
+      <div id="pFeed" class="feed">${hot.length ? "" : `<div class="empty small">${sc ? "위험·경고 이슈가 없습니다" : "아직 스캔하지 않았습니다"}</div>`}</div>
+    </section>`;
+  if (hot.length) renderGroups(hot, $("#pFeed"));
+  $$("[data-pc]", body).forEach((x) => { const go = () => openCompany(x.dataset.pc, "p:" + pid); x.onclick = go; x.onkeydown = (e) => { if (e.key === "Enter") go(); }; });
+  $("#pGeo").onclick = () => { closeDrawer(); $('#tabs [data-view="geo"]').click(); };
+  body.scrollTop = 0;
+  $("#drawer").classList.add("open"); $("#drawerBg").classList.add("open");
+}
 function openRiskList(lv, scroll = "top") {
   const list = scopeCompanies().filter((c) => c.risk === lv).sort((a, b) => b.open - a.open || a.name.localeCompare(b.name));
-  state.openCid = null; state.drawerBack = null; state.riskList = lv;
+  state.openCid = null; state.drawerBack = null; state.riskList = lv; state.openPid = null;
   $("#drawerTitle").innerHTML = `<div class="d-name"><span class="nm">${LEVEL[lv]} 업체</span><span class="cnt">${list.length}개</span><span class="tag">${scope === "mine" ? "내 담당 사업" : "EDCF 전체"}</span></div>
     <div class="d-sub">${LEVEL_DEF[lv]}</div>`;
   const body = $("#drawerBody");
@@ -983,12 +1032,12 @@ function openCompany(cid, back = null) {
   const c = state.companies.find((x) => x.id === cid);
   if (!c) return;
   const switching = state.openCid !== cid; // 다른 업체로 바꿀 때만 맨 위로 (다시 그릴 때는 보던 위치 유지)
-  state.openCid = cid; state.drawerBack = back; if (!back) state.riskList = null;
+  state.openCid = cid; state.drawerBack = back; state.openPid = null; if (!back || String(back).startsWith("p:")) state.riskList = null;
   const fs = state.findings.filter((f) => f.company_id === cid && f.status !== "dismissed");
   const dismissed = state.findings.filter((f) => f.company_id === cid && f.status === "dismissed");
   const groups = groupFindings(fs), sc = scanned();
   const hint = (t) => t ? `<em>${esc(t)}</em>` : "";
-  $("#drawerTitle").innerHTML = `${back ? `<button type="button" class="d-back" id="dBack">← ${LEVEL[back]} 업체 목록</button>` : ""}<div class="d-name"><span class="nm">${esc(c.name)}</span>${sc ? badge(c.risk) : ""}</div>
+  $("#drawerTitle").innerHTML = `${back ? `<button type="button" class="d-back" id="dBack">← ${String(back).startsWith("p:") ? "사업으로" : LEVEL[back] + " 업체 목록"}</button>` : ""}<div class="d-name"><span class="nm">${esc(c.name)}</span>${sc ? badge(c.risk) : ""}</div>
     ${c.engagements.length ? `<div class="d-engs">${byRole(c.engagements).map((e) => `<span class="d-eng">${roleTag(e.role)}<span>${esc(projName(e.project_id))}</span>${stageTag(e)}</span>`).join("")}</div>` : ""}`;
   $("#drawerBody").innerHTML = `
     <div class="d-actions">
@@ -1047,7 +1096,7 @@ function openCompany(cid, back = null) {
     c.engagements.splice(+b.dataset.dunlink, 1); await saveEngagements(c); toast("사업 연결을 뺐습니다"); rerender();
   });
   $("#dDelete").onclick = () => deleteCompanies([cid]);
-  $("#dBack")?.addEventListener("click", () => openRiskList(back, "back"));
+  $("#dBack")?.addEventListener("click", () => String(back).startsWith("p:") ? openProject(String(back).slice(2)) : openRiskList(back, "back"));
   if (switching) $("#drawerBody").scrollTop = 0;
   $("#advForm").onsubmit = async (ev) => {
     ev.preventDefault();
@@ -1069,7 +1118,7 @@ function openCompany(cid, back = null) {
   };
   $("#drawer").classList.add("open"); $("#drawerBg").classList.add("open");
 }
-function closeDrawer() { $("#drawer").classList.remove("open"); $("#drawerBg").classList.remove("open"); state.openCid = null; state.riskList = null; state.drawerBack = null; }
+function closeDrawer() { $("#drawer").classList.remove("open"); $("#drawerBg").classList.remove("open"); state.openCid = null; state.riskList = null; state.drawerBack = null; state.openPid = null; }
 $("#drawerClose").onclick = closeDrawer; $("#drawerBg").onclick = closeDrawer;
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeDrawer(); closeModal(); } });
 
@@ -1586,11 +1635,11 @@ function bindDnd() {
 }
 // 사업 수정 (사업명·수원국·담당) / 삭제
 function openProjectEdit(pid) {
-  const p = state.projects.find((x) => x.id === pid);
+  const isNew = !pid, p = isNew ? { name: "", country: "", owner: me() } : state.projects.find((x) => x.id === pid);
   if (!p) return;
   const owners = [...new Set([me(), p.owner, ...state.projects.map((x) => x.owner)].filter(Boolean))];
   const countries = Object.entries(COUNTRY).filter(([k]) => k !== "KR").sort((a, b) => a[1].localeCompare(b[1]));
-  modal(`<h2>사업 수정</h2>
+  modal(`<h2>${isNew ? "사업 등록" : "사업 수정"}</h2>
     <form id="pjEditForm" class="form" autocomplete="off">
       <label>사업명<input name="name" value="${esc(p.name)}" required></label>
       <div class="row">
@@ -1600,33 +1649,32 @@ function openProjectEdit(pid) {
       <div class="site-box">
         <div class="site-h"><b>사업지</b><span class="muted small">수원국 리스크 지도의 핀 자리입니다. 지도를 눌러 핀을 놓거나(끌어서 옮기기), 도시를 고르거나, 좌표를 붙여 넣으세요</span></div>
         <div class="row">
-          <label>도시에서 찾기 (한글·영문, Enter)<input name="city" list="siteCities" placeholder="예: 다카, Dhaka"></label>
+          <label class="city-box">도시에서 찾기 (한글·영문)<input name="city" placeholder="예: 다카, Dhaka" autocomplete="off"><div class="city-sug hidden" id="citySug"></div></label>
           <label>좌표 붙여넣기<input name="ll" placeholder="위도, 경도 (구글 지도에서 복사)" value="${Number.isFinite(p.lat) ? `${p.lat}, ${p.lng}` : ""}"></label>
           <label>지도에 보일 이름<input name="site_en" placeholder="예: Dhaka" value="${esc(p.site_en || "")}"></label>
         </div>
-        <datalist id="siteCities">${Object.entries(GEO_CITY).map(([k, v]) => `<option value="${esc(k)}">${esc(v[2])}</option>`).join("")}</datalist>
         <div id="sitePick" class="site-pick"></div>
         <div class="site-f"><span class="muted small" id="siteState"></span><button type="button" class="btn sm ghost" id="siteClear">핀 지우기</button></div>
       </div>
-      <div class="actions"><button type="button" class="btn ghost danger" id="pjDelete" style="margin-right:auto">사업 삭제</button><button class="btn primary">저장</button></div>
+      <div class="actions">${isNew ? "" : `<button type="button" class="btn ghost danger" id="pjDelete" style="margin-right:auto">사업 삭제</button>`}<button class="btn primary">${isNew ? "등록" : "저장"}</button></div>
     </form>`);
   // 사업지 고르기 (작은 지도)
   const f0 = $("#pjEditForm"), site = { lat: Number.isFinite(p.lat) ? p.lat : null, lng: Number.isFinite(p.lng) ? p.lng : null };
   const showSite = () => { $("#siteState").textContent = site.lat == null ? "핀 없음: 사업명 속 도시 이름이나 수원국 가운데에 표시됩니다" : `핀 위치 ${site.lat.toFixed(3)}, ${site.lng.toFixed(3)}`; };
   const picker = mountSitePicker($("#sitePick"), { ...site, country: p.country }, (lat, lng) => { site.lat = +lat.toFixed(4); site.lng = +lng.toFixed(4); f0.ll.value = `${site.lat}, ${site.lng}`; showSite(); });
   showSite();
-  const findCity = () => {
-    const q = f0.city.value.trim().toLowerCase().replace(/\s+/g, ""); if (!q) return;
-    const all = Object.entries(GEO_CITY), norm = (x) => String(x).toLowerCase().replace(/\s+/g, "");
-    const hit = all.find(([k, v]) => norm(k) === q || norm(v[2]) === q) || all.find(([k, v]) => norm(k).includes(q) || norm(v[2]).includes(q) || q.includes(norm(k)));
-    if (hit) { picker.set([hit[1][0], hit[1][1]]); if (!f0.site_en.value) f0.site_en.value = hit[1][2]; return; }
-    // 목록에 없는 도시: 나라 이름이면 그 나라로 지도만 옮김
-    const ctry = Object.entries(GEO_COUNTRY).find(([, v]) => norm(v[0]) === q || norm(v[1]) === q);
-    if (ctry) { picker.country(ctry[0]); return toast("나라 가운데로 옮겼습니다. 지도를 눌러 핀을 놓으세요"); }
-    toast("목록에 없는 도시입니다. 지도를 눌러 핀을 놓거나, 구글 지도에서 좌표를 복사해 붙여 넣으세요", 5000);
+  const normC = (x) => String(x).toLowerCase().replace(/\s+/g, "");
+  const cityHits = (q) => !q ? [] : Object.entries(GEO_CITY).filter(([k, v]) => normC(k).includes(q) || normC(v[2]).includes(q)).sort((a, b) => (normC(b[0]).startsWith(q) || normC(b[1][2]).startsWith(q)) - (normC(a[0]).startsWith(q) || normC(a[1][2]).startsWith(q))).slice(0, 8);
+  const pickCity = ([k, v]) => { picker.set([v[0], v[1]]); f0.city.value = k; if (!f0.site_en.value) f0.site_en.value = v[2]; $("#citySug").classList.add("hidden"); };
+  const showSug = () => {
+    const hits = cityHits(normC(f0.city.value)), el = $("#citySug");
+    el.innerHTML = hits.map(([k, v], i) => `<button type="button" data-ci="${i}"><b>${esc(k)}</b><span>${esc(v[2])}</span></button>`).join("") || (f0.city.value.trim() ? `<div class="muted small">목록에 없는 도시입니다. 지도를 누르거나 좌표를 붙여 넣으세요</div>` : "");
+    el.classList.toggle("hidden", !el.innerHTML);
+    $$("[data-ci]", el).forEach((b) => b.onmousedown = (e) => { e.preventDefault(); pickCity(hits[+b.dataset.ci]); });
   };
-  f0.city.onchange = findCity;
-  f0.city.onkeydown = (e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); findCity(); } }; // Enter 로 창이 저장되지 않게
+  f0.city.oninput = showSug; f0.city.onfocus = showSug; f0.city.addEventListener("compositionupdate", () => setTimeout(showSug, 0));
+  f0.city.onblur = () => setTimeout(() => $("#citySug")?.classList.add("hidden"), 150);
+  f0.city.onkeydown = (e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); const h = cityHits(normC(f0.city.value)); if (h.length) pickCity(h[0]); else toast("목록에 없는 도시입니다. 지도를 눌러 핀을 놓거나 좌표를 붙여 넣으세요", 5000); } }; // Enter 로 창이 저장되지 않게
   f0.ll.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); f0.ll.onchange(); } };
   f0.ll.onchange = () => {
     const m = f0.ll.value.match(/(-?\d+(?:\.\d+)?)[^\d-]+(-?\d+(?:\.\d+)?)/);
@@ -1642,10 +1690,12 @@ function openProjectEdit(pid) {
     if (!name) return;
     if (state.projects.some((x) => x.id !== pid && x.name === name)) return toast("같은 이름의 사업이 이미 있습니다");
     const patch = { name, country: fd.country || null, owner: fd.owner || null, lat: site.lat, lng: site.lng, site_en: String(fd.site_en || "").trim() || null };
-    await updateDoc(doc(db, "projects", pid), patch); Object.assign(p, patch);
-    closeModal(); toast("사업을 수정했습니다"); rerender();
+    if (isNew) { const data = { ...patch, created_at: nowStr() }, ref = await addDoc(collection(db, "projects"), data); state.projects.push({ id: ref.id, ...data }); }
+    else { await updateDoc(doc(db, "projects", pid), patch); Object.assign(p, patch); }
+    closeModal(); toast(isNew ? `'${name}' 사업을 등록했습니다` : "사업을 수정했습니다"); rerender();
   };
-  $("#pjDelete").onclick = () => deleteProject(pid);
+  if (isNew) f0.name.onchange = () => { if (!f0.country.value) { const g = guessCountry(f0.name.value); if (g) { f0.country.value = g; picker.country(g); } } }; // 사업명 속 나라 이름으로 수원국 자동 선택
+  $("#pjDelete")?.addEventListener("click", () => deleteProject(pid));
 }
 async function deleteProject(pid) {
   const p = state.projects.find((x) => x.id === pid);
@@ -1733,16 +1783,7 @@ $("#btnAddCompany").onclick = () => {
   setTimeout(() => $("#addCoForm input[name=name]")?.focus(), 50);
 };
 // 새 사업
-$("#projForm").onsubmit = async (ev) => {
-  ev.preventDefault();
-  const name = ev.target.elements.name.value.trim();
-  if (!name) return;
-  if (state.projects.some((p) => p.name === name)) return toast("이미 있는 사업입니다");
-  const data = { name, country: guessCountry(name), owner: me(), created_at: nowStr() };
-  const ref = await addDoc(collection(db, "projects"), data);
-  state.projects.push({ id: ref.id, ...data });
-  ev.target.reset(); toast(`'${name}' 사업을 추가했습니다`); rerender();
-};
+$("#btnAddProject").onclick = () => openProjectEdit(null);
 
 // 여러 줄 붙여넣기 등록
 async function registerRows(rows) {
@@ -2407,3 +2448,6 @@ initGeo({
   companyTally: (pid) => { const t = { red: 0, orange: 0, none: 0, total: 0 }; state.companies.forEach((c) => { if (c.engagements.some((e) => e.project_id === pid)) { t[scanned() ? c.risk : "none"]++; t.total++; } }); return t; },
 });
 $("#geoScan").onclick = () => $("#btnScan").click(); // 같은 스캔 (업체·수원국 정보를 함께 새로 받음)
+
+// 계정 메뉴: 바깥을 누르면 닫힘
+document.addEventListener("click", (e) => { const a = $("#acct"); if (a?.open && !a.contains(e.target)) a.open = false; });

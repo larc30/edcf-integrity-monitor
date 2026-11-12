@@ -20,7 +20,7 @@
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=42">
+<link rel="stylesheet" href="assets/style.css?v=43">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -51,11 +51,14 @@
       <button data-view="settings" class="adm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>설정</button>
     </nav>
     <div class="top-right">
-      <span class="user" id="userEmail"></span>
-      <div class="font-ctl" role="group" aria-label="글자 크기"><button class="btn sm" id="fontDown" title="글자 작게">가−</button><button class="btn sm ghost fsize" id="fontReset">보통</button><button class="btn sm" id="fontUp" title="글자 크게">가+</button></div>
-      <button class="btn sm" id="btnTheme">라이트</button>
       <button class="btn sm admin-btn hidden" id="btnAdmin" title="업체 관리·사업 관리·설정 (관리자 계정에만 보임)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg><span class="ab-t">관리자 모드</span><span class="ab-sw" aria-hidden="true"><i></i></span></button>
-      <button class="btn sm" id="btnLogout">로그아웃</button>
+      <details class="acct" id="acct"><summary title="계정 · 화면 설정"><span class="acct-av" id="acctAv">?</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary>
+        <div class="acct-menu">
+          <span class="user" id="userEmail"></span>
+          <div class="acct-row"><span>글자 크기</span><div class="font-ctl" role="group" aria-label="글자 크기"><button class="btn sm" id="fontDown" title="글자 작게">가−</button><button class="btn sm ghost fsize" id="fontReset">보통</button><button class="btn sm" id="fontUp" title="글자 크게">가+</button></div></div>
+          <div class="acct-row"><span>화면</span><button class="btn sm" id="btnTheme">라이트</button></div>
+          <button class="btn sm" id="btnLogout">로그아웃</button>
+        </div></details>
     </div>
   </div></header>
 
@@ -158,8 +161,6 @@
       <div class="page-head">
         <h1>업체 관리 <span class="h-count" id="coTotal">0</span></h1>
         <div class="head-actions">
-          <button class="btn warn hidden" id="btnDartPick">DART 후보 고르기</button>
-          <button class="btn" id="btnDartFill" title="사업자번호나 영문명이 빈 국내 업체를 DART에서 찾아 채웁니다. 이름이 1곳만 맞으면 바로 채우고, 여러 곳이면 고르게 합니다">DART로 빈 정보 채우기</button>
           <button class="btn" id="btnBulk">일괄 등록</button>
           <button class="btn primary" id="btnAddCompany">+ 업체 추가</button>
         </div>
@@ -167,6 +168,7 @@
       <div class="card co-card">
         <div class="co-top">
           <div class="co-views" id="coViews"></div>
+          <span class="co-tools"><span class="co-tools-l">정보 보완</span><button class="btn sm ghost" id="btnDartFill" title="사업자번호나 영문명이 빈 국내 업체를 DART에서 찾아 채웁니다. 이름이 1곳만 맞으면 바로 채우고, 여러 곳이면 고르게 합니다">DART로 빈 정보 채우기</button><button class="btn sm warn hidden" id="btnDartPick">DART 후보 고르기</button></span>
           <span class="co-shown" id="poolShown"></span>
         </div>
         <div class="co-filters">
@@ -197,7 +199,7 @@
     <section id="view-projects" class="view">
       <div class="page-head">
         <h1>사업 관리 <span class="h-count" id="pjTotal">0</span></h1>
-        <form id="projForm" class="head-actions" autocomplete="off"><input name="name" placeholder="새 사업명" required><button class="btn primary">+ 사업 추가</button></form>
+        <div class="head-actions"><button class="btn primary" id="btnAddProject">+ 사업 등록</button></div>
       </div>
       <div class="pj-layout">
         <aside class="card pj-side">
@@ -279,6 +281,6 @@
 <div id="toast" class="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
-<script type="module" src="assets/app.js?v=42"></script>
+<script type="module" src="assets/app.js?v=43"></script>
 </body>
 </html>
