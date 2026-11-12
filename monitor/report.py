@@ -1,6 +1,7 @@
 """일일 리포트 (HTML 메일) 생성 및 발송 — Firestore 기반"""
 import datetime
 import html
+import logging
 import re
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -8,6 +9,8 @@ from email.mime.text import MIMEText
 
 from . import config, grouping, store
 from .analyzer import LEVEL_ORDER
+
+log = logging.getLogger("report")
 
 # 대시보드(밝은 화면)와 같은 색·글꼴
 FONT = "Pretendard,'Pretendard Variable',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic','Segoe UI',sans-serif"
@@ -122,6 +125,12 @@ def build() -> tuple[str, str, list[str]]:
     skipped_html = (f'<div style="margin-top:14px;background:{BG};border-radius:10px;padding:10px 14px;font-size:13px;color:{TEXT2};">'
                     f'{skipped}은 참고용이라 메일에서 생략했습니다 → {dash}</div>') if skipped else ""
     weekday = "월화수목금토일"[now.weekday()]
+    # 보고서(PDF)와 같은 모양: 업체 등급 세 칸
+    n_ok = len(overview) - n_red - n_org
+    grade_boxes = "".join(
+        f'<td width="33%" style="padding:0 {4 if i < 2 else 0}px 0 {4 if i else 0}px;"><div style="border:1px solid {LINE};border-top:3px solid {COLORS[lv][0]};border-radius:10px;padding:8px 12px;">'
+        f'<div style="font-size:11px;font-weight:700;color:{MUTED};">{COLORS[lv][2]}</div><div style="font-size:22px;font-weight:800;color:{COLORS[lv][0]};line-height:1.3;">{n}</div></div></td>'
+        for i, (lv, n) in enumerate((("red", n_red), ("orange", n_org), ("none", n_ok))))
 
     body = f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;background:{BG};font-family:{FONT};color:{TEXT};">
@@ -130,8 +139,10 @@ def build() -> tuple[str, str, list[str]]:
 <tr><td style="background:{NAVY};padding:18px 24px;border-radius:13px 13px 0 0;">
   <div style="font-size:13px;font-weight:800;color:#FFFFFF;">◎ EDCF RADAR <span style="color:#22D3EE;font-weight:700;margin-left:6px;">{today} ({weekday})</span></div>
   <div style="margin-top:8px;font-size:22px;font-weight:800;color:#FFFFFF;line-height:1.3;">오늘 새로 확인할 이슈 <span style="color:#FFB4C2;">{E(head)}</span></div>
-  <div style="margin-top:4px;font-size:13px;color:#B3BCCD;">지금 위험 업체 {n_red}곳 · 경고 {n_org}곳 (모니터링 {len(overview)}곳)</div>
+  <div style="margin-top:4px;font-size:13px;color:#B3BCCD;">모니터링 업체 {len(overview)}</div>
 </td></tr>
+<tr><td style="padding:14px 24px 2px;"><table width="100%" cellpadding="0" cellspacing="0"><tr>{grade_boxes}</tr></table></td></tr>
+<tr><td style="padding:10px 24px 0;font-size:14px;font-weight:800;color:{TEXT};">확인이 필요한 이슈 <span style="font-weight:500;font-size:12px;color:{MUTED};">오늘 새로 나온 위험·경고 {len(hot)}건</span></td></tr>
 <tr><td style="padding:8px 24px 4px;"><table width="100%" cellpadding="0" cellspacing="0">{''.join(lines)}</table>{skipped_html}</td></tr>
 <tr><td style="padding:16px 24px 20px;">
   <a href="{E(config.DASHBOARD_URL)}" style="display:inline-block;background:{ACCENT};color:#FFFFFF;text-decoration:none;font-size:14px;font-weight:700;padding:10px 20px;border-radius:10px;">대시보드에서 보기 →</a>

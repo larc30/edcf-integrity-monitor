@@ -20,7 +20,7 @@
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=43">
+<link rel="stylesheet" href="assets/style.css?v=44">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -52,11 +52,11 @@
     </nav>
     <div class="top-right">
       <button class="btn sm admin-btn hidden" id="btnAdmin" title="업체 관리·사업 관리·설정 (관리자 계정에만 보임)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg><span class="ab-t">관리자 모드</span><span class="ab-sw" aria-hidden="true"><i></i></span></button>
-      <details class="acct" id="acct"><summary title="계정 · 화면 설정"><span class="acct-av" id="acctAv">?</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary>
+      <div class="font-ctl" role="group" aria-label="글자 크기"><button class="btn sm" id="fontDown" title="글자 작게">가−</button><button class="btn sm ghost fsize" id="fontReset">보통</button><button class="btn sm" id="fontUp" title="글자 크게">가+</button></div>
+      <button class="btn sm" id="btnTheme">라이트</button>
+      <details class="acct" id="acct"><summary title="계정 · 로그아웃"><span class="acct-av" id="acctAv">?</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary>
         <div class="acct-menu">
           <span class="user" id="userEmail"></span>
-          <div class="acct-row"><span>글자 크기</span><div class="font-ctl" role="group" aria-label="글자 크기"><button class="btn sm" id="fontDown" title="글자 작게">가−</button><button class="btn sm ghost fsize" id="fontReset">보통</button><button class="btn sm" id="fontUp" title="글자 크게">가+</button></div></div>
-          <div class="acct-row"><span>화면</span><button class="btn sm" id="btnTheme">라이트</button></div>
           <button class="btn sm" id="btnLogout">로그아웃</button>
         </div></details>
     </div>
@@ -229,14 +229,14 @@
         </div>
         <div class="set-side">
         <div class="card mail-card">
-          <div class="card-head"><h2>메일</h2><div class="head-actions"><button class="btn sm" id="btnPreview" title="내일 아침 갈 메일이 어떻게 보일지 화면에서만 봅니다 (발송 안 함)">미리보기</button><button class="btn sm" id="runTestMail" title="내 주소로만 1통 보냅니다. 제목에 [테스트]가 붙고, 받는 사람들에게 갈 내용에는 영향 없음">테스트 메일</button><button class="btn sm" id="runMailAll" title="받는 사람 전체에게 지금 바로 보냅니다. 보낸 이슈는 '보고됨'이 되어 내일 아침 메일에서는 빠집니다">지금 보내기</button></div></div>
-          <p class="card-desc">매일 아침 새로 발견된 이슈를 아래 주소로 보냅니다.</p>
+          <div class="card-head"><h2>메일</h2><div class="head-actions"><button class="btn sm primary" id="btnPreview" title="내일 아침 갈 메일을 미리 보고, 테스트로 받아 보거나 지금 보낼 수 있습니다">미리보기 · 보내기</button></div></div>
+          <p class="card-desc">매일 아침, 새로 나온 위험·경고 이슈를 아래 주소로 보냅니다.</p>
           <form id="rcForm" class="add-row"><input name="email" type="email" placeholder="받는 사람 이메일" required><button class="btn primary">추가</button></form>
           <div id="rcList" class="simple-list"></div>
         </div>
         <div class="card acc-card">
           <div class="card-head"><h2>로그인 계정</h2></div>
-          <p class="card-desc">여기 있는 Google 계정만 대시보드에 들어올 수 있습니다.</p>
+          <p class="card-desc">여기 있는 Google 계정만 들어올 수 있습니다. Google 계정이 아닌 메일 주소는 넣어도 로그인되지 않습니다. 관리자는 한 명으로 고정이고, 추가한 계정은 보기와 이슈 확인만 할 수 있습니다.</p>
           <form id="accForm" class="add-row"><input name="email" type="email" placeholder="추가할 Google 계정" required><button class="btn primary">추가</button></form>
           <div id="accList" class="simple-list"></div>
         </div>
@@ -244,15 +244,9 @@
       </div>
       <div class="card guide-card">
         <div class="card-head"><h2>AI 판정 지침</h2><span class="muted small" id="guideMeta"></span></div>
-        <p class="card-desc">AI가 기사를 판정할 때 함께 읽는 우리 팀 기준입니다. 이슈에서 누른 확인 완료, 관련 없음이 쌓이면 AI가 주 1회 스스로 정리하고, 직접 적은 기준은 항상 먼저 적용됩니다.</p>
-        <div class="guide-grid">
-          <div><h3>직접 적는 기준</h3>
-            <textarea id="guideManual" rows="6" maxlength="2000" placeholder="예) 자회사가 받은 처분은 모회사 등급에 넣지 않는다&#10;예) 하도급 대금 지연은 경고로 본다"></textarea>
-            <div class="actions left"><button class="btn sm primary" id="guideSave">저장</button></div></div>
-          <div><h3>AI가 정리한 기준</h3>
-            <div class="guide-auto" id="guideAuto"></div>
-            <div class="actions left"><button class="btn sm ghost" id="guideAutoClear">지우고 다시 만들기</button></div></div>
-        </div>
+        <p class="card-desc">이슈에서 누른 확인 완료, 관련 없음이 쌓이면 AI가 주 1회 스스로 기준을 정리해 다음 판정에 씁니다. 따로 적을 것은 없습니다.</p>
+        <div class="guide-auto" id="guideAuto"></div>
+        <div class="actions left"><button class="btn sm ghost" id="guideAutoClear">지우고 다시 만들기</button></div>
       </div>
       <details class="card adv-card" id="advCard">
         <summary><h2>고급</h2><span class="muted small">API 연결 · 실행 기록 · 화면</span></summary>
@@ -281,6 +275,6 @@
 <div id="toast" class="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
-<script type="module" src="assets/app.js?v=43"></script>
+<script type="module" src="assets/app.js?v=44"></script>
 </body>
 </html>
