@@ -149,6 +149,7 @@ export function seed() {
       ["별누리통상", "해지", "2023.06.01 ~ 2023.11.30", "계약 불이행"], ["윤슬바이오텍", "해지", "2020.09.01 ~ 2021.02.28", "허위 서류 제출"],
     ].map(([name, status, period, reason], i) => ["e" + (i + 1), { name, status, period, reason, biz_no: "" }])),
     meta: {
+      history: { days: Object.fromEntries(Array.from({ length: 30 }, (_, i) => { const d = kst(now - (30 - i) * 86400e3).slice(0, 10), w = Math.round(3 * Math.sin(i / 4)); return [d, { red: 5 + (i > 20 ? 1 : 0) + (i > 26 ? 1 : 0), orange: 13 + w + (i > 24 ? 1 : 0), none: 198 - w }]; })) },
       ai_guide: { manual: "- 자회사가 받은 처분은 모회사 등급에 넣지 않는다", auto: "- 이름만 같은 다른 회사(동명 기업) 기사는 관련 없음\n- 수주, 실적, 인사 기사에 과거 처분이 한 줄 언급된 것은 참고\n- 처분 확정 공시가 있으면 시작일 전이어도 위험", auto_at: kst(now - 3 * 86400e3), auto_n: 14 },
       status: {
         last_scan_at: kst(now - 2 * 3600e3), last_scan_seconds: 61.8, last_tick_at: kst(now - 4 * 60e3), last_daily_at: kst(now - 2 * 3600e3), analyzer: "claude", claude_model: "claude-haiku-5-5", claude_error: null,

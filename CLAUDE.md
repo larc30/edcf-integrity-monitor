@@ -26,7 +26,7 @@
 
 ## Firestore
 projects{name,country,owner,created_at} · companies{name,name_en,aliases,category,category_source,biz_no,corp_code,country,watch,engagements:[{project_id,role,stage,order}],last_check,...} · findings{company_id,source_type(news/official),source_name,title,url,published_at,level(red/orange/yellow/none),category,summary,rationale,analyzer,dedup_key,relevant,status(new/reviewed/dismissed),same_as,reported_at,review_note} · seen/{업체id}(이미 본 기사 키) · edcf_sanctions(EXIMIIS 명단) · keywords{word,lang}(추가 키워드) · recipients · requests · runs · meta/status·settings·access·geo.
-- meta/geo{updated_at, alerts{ISO2:{level 1~4, partial, regions, special}}, alerts_at, news_at, events[{id,type,country,lat,lng,title,url,at_ms,source,mag}]} — monitor/geo.py 가 daily 때 저장(문서 1개 = 대시보드 읽기 1회). projects.lat/lng(+site_en) 있으면 그 위치에 핀: 사업 수정 창의 사업지 지도(geo.js mountSitePicker)에서 눌러서 지정.
+- meta/geo{updated_at, alerts{ISO2:{level 1~4, partial, regions, special}}, alerts_at, news_at, events[{id,type,country,lat,lng,title,url,at_ms,source,mag}]} — monitor/geo.py 가 daily 때 저장(문서 1개 = 대시보드 읽기 1회). projects.lat/lng(+site_en) 있으면 그 위치에 핀: 사업 등록·수정 창(같은 팝업, openProjectEdit(null)=등록)의 사업지 지도(geo.js mountSitePicker)에서 눌러서 지정.
 - 내 사업 = projects.owner(로그인 이메일 1개). owner 없으면 모두에게 내 사업. watch=true 업체는 모두의 내 담당.
 
 ## 검사 (monitor/scanner.py)
@@ -65,6 +65,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 
 ## 화면 규칙
+- 디자인(v51, 2026-11-12 사용자 승인): 강조색 한 가지로 평평하게(그라데이션·빛 효과 없음, 빨강·주황은 등급에만), 제목 영역은 한 줄, 글자 크기·화면·로그아웃은 오른쪽 위 계정 메뉴, 이슈 카드의 ✓/✕ 버튼은 제목 줄 오른쪽, 오른쪽 사업 목록은 위험·경고 업체만 이름 + '정상 N', 사업 카드를 누르면 사업 상세(openProject, 오른쪽 창). 상세는 오른쪽 창(drawer), 팝업은 등록·설정용.
+- 어제와 비교·30일 추이: report.save_history 가 meta/history.days{날짜:{red,orange,none}}(전체 업체, 60일)에 기록 → 업체 등급 카드의 +N 과 추이 선(전체 범위에서만).
 - 다크 기본, 대시보드 배치 'B 관제실'. backdrop-filter·blur 애니메이션 금지(느려짐, 가벼운 모드 html.lite 있음).
 - 글자 크기는 var(--fs-xs·sm·base·md·lg·xl)만. 화면 문구에 '—' 쓰지 않기. 창 닫기 버튼은 마지막 .actions 줄 주 버튼 오른쪽.
 - 메일(report.py): 제목 '[EDCF RADAR] MM/DD 위험 N · 경고 N', 오늘 새 위험·경고만 한 줄씩. PDF 보고서: 기본 한 장 요약, [보고서] 창 오른쪽에 A4 미리보기(고르면 바로 바뀜, 인쇄 여백 13mm 12mm 같게).
@@ -76,6 +78,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
 ## 자료
 - 발표 자료(Slides Artifact): https://claude.ai/artifact/P8sKcUGGNPhx8tiRM22g61 — 14장, 사용자가 직접 순서·스크립트를 고침(업체 리스크가 기본, 수원국은 더해서 보는 기능). 순서: 표지 · 배경(200+, 5+, 계약 후 0회) · 흐름 · 시스템 구조 · 등급 · 업체 화면 · 수원국 화면 · 운영 · 추진 단계 · 정식 운영 준비(보안, 라이선스, 운영, 비용 네 칸, 지금 → 그래서 필요한 일, 비용은 10명 남짓 넘으면 유료 · 팀 전체 월 1~2만 원 예상) · 함께 쓰기(두 가지) · 시연 순서(카드 6개 한 장) · 질문 · 만든 과정. 밝은 톤, 화면 캡처는 다크, 선 아이콘, 가운뎃점(·)과 ● 쓰지 않기. 스크립트는 사용자 원문의 큰 축을 유지하고 다듬기만. 고칠 때는 반드시 Artifact read 로 최신본(사용자 편집 포함)을 받아 그 위에서 수정.
+- 즉시 스캔 함수(선택, 미배포·미검증): functions/index.js(requests 생성 → queue 디스패치), 설치 안내 docs/INSTANT.md. Blaze 요금제 필요.
 - 설계도(Artifact): https://claude.ai/artifact/JtxkBSsA5KA4Z2b57Nd8tU · 해커톤 키트: docs/HACKATHON.md
 - 팀 매뉴얼 기준: 필요자료 = 사업자번호·영문명. ① EXIMIIS 부정당업자(등록=위험, 해지=이력) ② MDB 5곳 영문명 조회 후 국적 한국 확인 ③ 나라장터 부정당제재(제재정지면 확인 필요).
 

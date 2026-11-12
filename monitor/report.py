@@ -72,6 +72,7 @@ def build() -> tuple[str, str, list[str]]:
     now = store.now_kst()
     today = now.strftime("%Y-%m-%d")
     overview, finds, engs = load_overview()
+    save_history(overview)  # 스캔 뒤 미리보기를 만들 때마다 오늘 숫자를 갱신
     new = [f for f in finds if not f.get("reported_at") and f.get("level") in ("red", "orange", "yellow")]
     # 같은 기사·같은 사건은 한 묶음으로 (대표 1건), 묶음 안 기록은 모두 '보고됨' 처리
     groups = grouping.group(new)
@@ -141,6 +142,19 @@ def build() -> tuple[str, str, list[str]]:
 </table></td></tr></table></body></html>"""
     body = re.sub(r">\s+<", "><", body)  # 태그 사이 공백 제거 (메일 크기 줄이기)
     return subject, body, [f["id"] for f in new]
+
+
+def save_history(overview: list[dict]) -> None:
+    """오늘 등급별 업체 수를 meta/history.days 에 남김 (최근 60일) — 대시보드의 '어제보다 +N'·30일 추이용"""
+    try:
+        cnt = {lv: sum(1 for c in overview if c.get("risk") == lv) for lv in ("red", "orange", "none")}
+        ref = store.db().collection("meta").document("history")
+        snap = ref.get()
+        days = (snap.to_dict() or {}).get("days") or {} if snap.exists else {}
+        days[store.now_str()[:10]] = cnt
+        ref.set({"days": dict(sorted(days.items())[-60:]), "updated_at": store.now_str()})
+    except Exception as e:  # 기록 실패가 스캔·메일을 막지 않게
+        log.warning("등급 기록 저장 실패: %s", type(e).__name__)
 
 
 def save_preview() -> dict:
