@@ -20,8 +20,15 @@ service cloud.firestore {
         && (owner() || added());
     }
 
+    // 읽기: 등록된 계정 모두 / 쓰기(업체·사업 등록·수정, 설정, 스캔 요청): 관리자만
     match /{document=**} {
-      allow read, write: if allowed();
+      allow read: if allowed();
+      allow write: if allowed() && owner();
+    }
+    // 팀원은 이슈의 '확인 완료 / 관련 없음' 처리만 할 수 있음 (다른 칸은 못 바꿈)
+    match /findings/{id} {
+      allow update: if allowed()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewed_by', 'reviewed_at', 'review_note']);
     }
   }
 }

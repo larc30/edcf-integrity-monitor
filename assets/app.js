@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=30";
-import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY } from "./geo.js?v=41";
+import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY } from "./geo.js?v=42";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -93,6 +93,7 @@ onAuthStateChanged(auth, async (user) => {
   // 관리자(firebase-config.js ALLOWED_EMAILS)만 [관리자 모드] 버튼이 보임 — 다른 계정은 업체·수원국 리스크 화면만
   state.admin = ALLOWED_EMAILS.includes(user.email);
   $("#btnAdmin").classList.toggle("hidden", !state.admin);
+  document.body.classList.toggle("viewer", !state.admin); // 일반 사용자: 스캔·등록·수정 버튼을 숨김 (Firestore 규칙도 관리자만 쓰기)
   setAdmin(state.admin && adminSaved());
   $("#lnkActions").href = ACTIONS_URL; $("#lnkSecrets").href = SECRETS_URL;
   try {
@@ -137,11 +138,12 @@ async function loadAll() {
   // 잘못된 명단(상태·제재기간 없음) 때문에 생긴 EDCF 기록은 바로 숨김 — 실제 삭제는 다음 스캔 또는 [잘못된 명단 비우기]
   const okEdcf = new Set(edcfMatches(state.edcf).map((x) => x.c.id));
   state.findings = state.findings.filter((f) => !String(f.dedup_key || "").startsWith("edcf-") || okEdcf.has(f.company_id));
+  state.findings.forEach((f) => { if (f.level === "red" && String(f.dedup_key || "").startsWith("edcf-") && edcfEnded({ period: String(f.title || "").split(" · ").pop() })) { f.level = "yellow"; f.title = String(f.title).replace("[EDCF 제재 등록]", "[EDCF 제재 기간 만료]"); f.summary = "EDCF 부정당업자 제재기간이 끝났습니다 (명단에는 아직 '등록'). 최신 EXIMIIS 명단으로 확인하세요."; } });
   state.mdbKorea = mk.exists() ? mk.data() : null;
   state.access = acc.exists() ? (acc.data().emails || []) : [];
   state.geo = geo.exists() ? geo.data() : null;
   state.loadedAt = Date.now();
-  if ((state.settings?.keywords_version || 0) < KEYWORDS_VERSION) await loadDefaultKeywords(); // 키워드를 모두 지워도 되살리지 않음
+  if (isAdmin() && (state.settings?.keywords_version || 0) < KEYWORDS_VERSION) await loadDefaultKeywords(); // 키워드를 모두 지워도 되살리지 않음
   compute();
 }
 function compute() {
@@ -647,7 +649,7 @@ function openOfficial(cs = scopeCompanies()) {
       ${bad ? `<div class="edcf-bad"><b>제재 기록이 아닌 행 ${bad}건</b>(상태·제재기간 없음)이 들어 있습니다. 대조에는 쓰지 않습니다. <button class="btn sm danger" id="edcfClear">잘못된 명단 비우기</button></div>` : ""}
       ${ev.length ? `<div class="tbl-wrap"><table class="tbl oc-tbl"><thead><tr><th>업체명</th><th>상태</th><th>제재기간</th><th>관련 사업</th><th>사업자번호</th><th>우리 업체</th></tr></thead><tbody>${ev.map((e) => {
         const c = matchBy.get(e);
-        return `<tr><td class="nowrap">${esc(e.name)}</td><td>${/등록/.test(e.status || "") ? `<span class="badge red">등록</span>` : `<span class="muted">${esc(e.status || "-")}</span>`}</td><td class="small nowrap">${esc(e.period || "")}</td><td class="small">${esc(e.project_name || "")}${e.country ? ` <span class="muted">(${esc(e.country)})</span>` : ""}</td><td class="small nowrap">${esc(fmtBiz(e.biz_no))}</td><td class="nowrap">${c ? `<a href="#" data-oc="${c.id}">${esc(c.name)}</a>` : `<span class="muted">-</span>`}</td></tr>`;
+        return `<tr><td class="nowrap">${esc(e.name)}</td><td>${edcfActive(e) ? `<span class="badge red">등록</span>` : `<span class="muted">${esc(e.status || "-")}${/등록/.test(e.status || "") ? " (기간 만료)" : ""}</span>`}</td><td class="small nowrap">${esc(e.period || "")}</td><td class="small">${esc(e.project_name || "")}${e.country ? ` <span class="muted">(${esc(e.country)})</span>` : ""}</td><td class="small nowrap">${esc(fmtBiz(e.biz_no))}</td><td class="nowrap">${c ? `<a href="#" data-oc="${c.id}">${esc(c.name)}</a>` : `<span class="muted">-</span>`}</td></tr>`;
       }).join("")}</tbody></table></div>` : ""}
     </details>
     <details class="oc-more"><summary>검사 범위 보기 (마지막 스캔 기준)</summary>
@@ -1598,7 +1600,7 @@ function openProjectEdit(pid) {
       <div class="site-box">
         <div class="site-h"><b>사업지</b><span class="muted small">수원국 리스크 지도의 핀 자리입니다. 지도를 눌러 핀을 놓거나(끌어서 옮기기), 도시를 고르거나, 좌표를 붙여 넣으세요</span></div>
         <div class="row">
-          <label>도시에서 찾기<input name="city" list="siteCities" placeholder="예: 다카, Dhaka"></label>
+          <label>도시에서 찾기 (한글·영문, Enter)<input name="city" list="siteCities" placeholder="예: 다카, Dhaka"></label>
           <label>좌표 붙여넣기<input name="ll" placeholder="위도, 경도 (구글 지도에서 복사)" value="${Number.isFinite(p.lat) ? `${p.lat}, ${p.lng}` : ""}"></label>
           <label>지도에 보일 이름<input name="site_en" placeholder="예: Dhaka" value="${esc(p.site_en || "")}"></label>
         </div>
@@ -1613,12 +1615,19 @@ function openProjectEdit(pid) {
   const showSite = () => { $("#siteState").textContent = site.lat == null ? "핀 없음: 사업명 속 도시 이름이나 수원국 가운데에 표시됩니다" : `핀 위치 ${site.lat.toFixed(3)}, ${site.lng.toFixed(3)}`; };
   const picker = mountSitePicker($("#sitePick"), { ...site, country: p.country }, (lat, lng) => { site.lat = +lat.toFixed(4); site.lng = +lng.toFixed(4); f0.ll.value = `${site.lat}, ${site.lng}`; showSite(); });
   showSite();
-  f0.city.onchange = () => {
-    const q = f0.city.value.trim().toLowerCase(); if (!q) return;
-    const hit = Object.entries(GEO_CITY).find(([k, v]) => k === q || String(v[2]).toLowerCase() === q) || Object.entries(GEO_CITY).find(([k, v]) => k.includes(q) || String(v[2]).toLowerCase().includes(q));
-    if (!hit) return toast("목록에 없는 도시입니다. 지도를 누르거나 좌표를 붙여 넣으세요");
-    picker.set([hit[1][0], hit[1][1]]); if (!f0.site_en.value) f0.site_en.value = hit[1][2];
+  const findCity = () => {
+    const q = f0.city.value.trim().toLowerCase().replace(/\s+/g, ""); if (!q) return;
+    const all = Object.entries(GEO_CITY), norm = (x) => String(x).toLowerCase().replace(/\s+/g, "");
+    const hit = all.find(([k, v]) => norm(k) === q || norm(v[2]) === q) || all.find(([k, v]) => norm(k).includes(q) || norm(v[2]).includes(q) || q.includes(norm(k)));
+    if (hit) { picker.set([hit[1][0], hit[1][1]]); if (!f0.site_en.value) f0.site_en.value = hit[1][2]; return; }
+    // 목록에 없는 도시: 나라 이름이면 그 나라로 지도만 옮김
+    const ctry = Object.entries(GEO_COUNTRY).find(([, v]) => norm(v[0]) === q || norm(v[1]) === q);
+    if (ctry) { picker.country(ctry[0]); return toast("나라 가운데로 옮겼습니다. 지도를 눌러 핀을 놓으세요"); }
+    toast("목록에 없는 도시입니다. 지도를 눌러 핀을 놓거나, 구글 지도에서 좌표를 복사해 붙여 넣으세요", 5000);
   };
+  f0.city.onchange = findCity;
+  f0.city.onkeydown = (e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); findCity(); } }; // Enter 로 창이 저장되지 않게
+  f0.ll.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); f0.ll.onchange(); } };
   f0.ll.onchange = () => {
     const m = f0.ll.value.match(/(-?\d+(?:\.\d+)?)[^\d-]+(-?\d+(?:\.\d+)?)/);
     if (!m || Math.abs(+m[1]) > 90 || Math.abs(+m[2]) > 180) return toast("좌표를 읽지 못했습니다. 예: 23.81, 90.41");
@@ -1994,6 +2003,9 @@ async function readExcel(file) {
   return window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: "" });
 }
 // 상태·제재기간이 없는 행은 제재 기록이 아님 (업체 명단을 잘못 올린 경우 등) → 대조에서 제외
+// 제재기간('2026.05.11~2026.11.10')의 끝 날짜가 지났는지
+const edcfEnded = (e) => { const d = [...String(e.period || "").matchAll(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/g)]; if (d.length < 2) return false; const [, y, m, dd] = d[d.length - 1]; return new Date(+y, +m - 1, +dd + 1) <= new Date(); };
+const edcfActive = (e) => /등록/.test(e.status || "") && !edcfEnded(e); // 명단에 '등록'이어도 기간이 끝났으면 과거 이력
 const edcfValid = (e) => !!(String(e.status || "").trim() || String(e.period || "").trim());
 function edcfMatches(list) {
   list = list.filter(edcfValid);
@@ -2004,12 +2016,12 @@ function edcfMatches(list) {
 // 같은 업체의 여러 제재 기록을 업체 하나로 묶음 (현재 '등록' 상태가 하나라도 있으면 제재 중)
 function edcfByCompany(hits) {
   const m = new Map();
-  for (const { e, c } of hits) { const x = m.get(c.id) || { c, n: 0, active: false }; x.n++; x.active = x.active || /등록/.test(e.status || ""); m.set(c.id, x); }
+  for (const { e, c } of hits) { const x = m.get(c.id) || { c, n: 0, active: false }; x.n++; x.active = x.active || edcfActive(e); m.set(c.id, x); }
   return [...m.values()].sort((a, b) => b.active - a.active || b.n - a.n || a.c.name.localeCompare(b.c.name));
 }
 const edcfHitText = (g) => g.map((x) => `${esc(x.c.name)} <span class="muted">(${x.active ? "제재 중" : "해지"}${x.n > 1 ? ` · ${x.n}건` : ""})</span>`).join(", ");
 function edcfPreview(list) {
-  const active = list.filter((e) => /등록/.test(e.status || "")).length;
+  const active = list.filter(edcfActive).length;
   const hits = edcfMatches(list), g = edcfByCompany(hits), act = g.filter((x) => x.active);
   modal(`<h2>EDCF 부정당업자 명단 확인</h2>
     <p><b>${list.length}건</b> · 등록 ${active} · 해지 ${list.length - active} · 사업자번호 있음 ${list.filter((e) => e.biz_no).length}</p>
@@ -2107,7 +2119,7 @@ function openEdcfPaste() {
 }
 function renderEdcfInfo() {
   const st = state.settings || {}, list = state.edcf, g = edcfByCompany(edcfMatches(list)), act = g.filter((x) => x.active);
-  const active = list.filter((e) => /등록/.test(e.status || "")).length, bad = list.filter((e) => !edcfValid(e)).length;
+  const active = list.filter(edcfActive).length, bad = list.filter((e) => !edcfValid(e)).length;
   if (!$("#edcfInfo")) return;
   if (bad) {
     $("#edcfInfo").innerHTML = `<div class="edcf-bad"><b>지금 명단 ${list.length}건 중 ${bad}건은 상태·제재기간이 없어 제재 기록이 아닙니다</b>${bad === list.length ? " — 감시 업체 명단이 잘못 올라간 것으로 보입니다" : ""}.
