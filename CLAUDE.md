@@ -13,7 +13,7 @@
 
 ## 구조
 - 화면: GitHub Pages `index.html` + `assets/app.js`·`style.css` / 데이터: Firebase Firestore(프로젝트 edcf-monitor) / 검사: GitHub Actions `monitor/`(Python). 저장소 larc30/edcf-integrity-monitor(public).
-- 로그인: Google. 관리자 = `assets/firebase-config.js` ALLOWED_EMAILS·`firestore.rules` owner(), 추가 계정 = meta/access.emails(설정 > 로그인 계정, 규칙 재게시 필요). 데이터 권한은 구분 없음(모두 읽기·쓰기).
+- 로그인: Google. 관리자 = `assets/firebase-config.js` ALLOWED_EMAILS·`firestore.rules` owner(), 추가 계정 = meta/access.emails(설정 > 로그인 계정, 규칙 재게시 필요). 데이터 권한(firestore.rules, 2026-11-12): 읽기는 등록 계정 모두, 쓰기는 관리자(owner)만. 팀원은 findings 의 확인 완료/관련 없음(status·reviewed_by·reviewed_at·review_note)만. 화면도 관리자가 아니면 body.viewer 로 스캔·등록·수정 버튼을 숨김. 규칙은 사용자가 Firebase 콘솔에 다시 게시해야 적용.
 - 화면 탭: 업체 리스크 ↔ 수원국 리스크(미끄러지는 스위치, 카드 뒤집기 전환 · 가벼운 모드면 바로 전환). 업체 관리·사업 관리·설정은 관리자 모드에서만(상단 오른쪽 주황 [관리자 모드] 버튼, 관리자 계정에만 보임). 관리자 모드는 별도 모드: 켜면 업체·수원국 스위치가 숨고 관리 탭만, [관리자 모드 나가기]나 로고로 나옴. 화면에서만 막은 것이고 Firestore 규칙은 그대로.
 - 기간 구분(업체 이슈·수원국 이벤트 같게): 전체 · 최근 7일 · 최근 30일 · 30일 이전. 공식 제재 기록은 기간과 무관하게 항상(30일 이전 제외).
 - 이슈 버튼: ✓ 확인 완료(맞음 · 등급 유지 · AI에 '관련 있음' 예시) / ✕ 관련 없음(아님 · 등급에서 빠짐 · AI에 '관련 없음' 예시). 둘 다 같은 기사는 다시 안 가져옴.
@@ -33,6 +33,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 매일: 기본 키워드 25개(TOPIC_QUERIES) + 추가 키워드(최대 12) 뉴스 검색 → 전체 명단 대조. MDB(OpenSanctions 5종, 비상업 라이선스)·조달청·EXIMIIS 대조는 모든 업체 매일.
 - 집중 감시(사업 연결 또는 watch): 매일 업체명 검색 + '업체명+추가 키워드' 심층. 기본 감시: 업체명 검색 주 1회. 다시 스캔(force)은 10년 범위.
 - 업체명 일치: textutil.name_matches(짧은 이름은 독립 단어·업종 문맥 필요).
+- EXIMIIS: 명단에 '등록'이어도 제재기간 끝 날짜가 지났으면 참고(기간 만료)로 내림(scanner._period_ended ↔ app.js edcfEnded).
 - 조달청: data.go.kr 15129466, 사업자번호로 현재 유효 제재만. 같은 부정당번호에 정지·해제 줄이 있거나, 저장된 제재가 기간 중 사라지면 경고(집행정지 확인).
 - 사업자번호·영문명·업종: DART corpCode 정확 일치 1건일 때만 자동, 아니면 수기. 업체 관리 [DART로 빈 정보 채우기](task dartfill): 1건이면 채우고 여러 건이면 companies.dart_cands 에 후보 저장 → [DART 후보 고르기]에서 선택.
 - AI 판정: Claude(config.CLAUDE_MODEL, 기본 Haiku), 키 없으면 analyzer.RULE_KEYWORDS 규칙 판정. 처분 대상이 모회사·자회사·계열사(다른 법인)면 이 업체는 참고(yellow) 이하. 확정된 처분은 시작일 전이어도 위험. 분류에 '영업정지·등록말소' 있음. 계속 배우기: 모든 업체의 ✓/✕ 사례(analyzer.SHARED)와 판정 지침(meta/ai_guide{manual 직접 적음, auto AI가 주 1회 요약})을 판정마다 함께 줌(설정 > AI 판정 지침). 업체별 '관련 없음'·'확인했음' 제목을 예시로 전달('과거 이력 일괄 정리'는 제외). 재판정은 monitor/rejudge.py.
@@ -45,7 +46,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 수원국 등급(assets/geo.js siteRisk · GEO_RULES 표): 사업지마다 정하고 나라 등급 = 그 나라 사업 중 가장 높은 등급. 위험 = 여행경보 4단계·특별여행주의보·전역 3단계, 사업지 예상 진도 6+ 지진(7일), 50km 안 테러·분쟁(14일) / 경고 = 일부 지역 3단계·전역 2단계, 예상 진도 5 지진(7일), 200km 안 테러·분쟁(14일), 100km 안 홍수·태풍·산불·화산(7일), 50km 안 시위·감염병(7일) / 정상. 사업 카드에 '근거' 줄. 예상 진도 = geo.js siteMMI (USGS 진도 예측식 Atkinson & Wald 2007, 규모·진앙 거리·깊이; 2026-11-11 사용자 예시 거리 기준에서 바꿈).
 
 ## 수원국 리스크 (초안, monitor/geo.py ↔ assets/geo.js)
-- 지도: Leaflet + 저장소 안 세계 지도 assets/world-50m.json(world-atlas · Natural Earth 1:50m, topojson 3.0.2 cdnjs)로 바다·육지·국경선만 그리는 완전 플랫(바깥 지도 서비스·키 없음). 색은 style.css --map-sea·--map-land·--map-border. 위험·경고 수원국만 육지 색에 등급 색을 섞어 칠함(정상은 안 칠함: 초록이 바다처럼 보임). 나라 이름은 그림자 없는 글자(사업 나라는 대문자 굵게, 그 밖은 확대할수록 큰→중간→작은 나라). Esri 타일·위성 버튼은 없앰.
+- 지도: Leaflet + 저장소 안 세계 지도 assets/world-50m.json(world-atlas · Natural Earth 1:50m, topojson 3.0.2 cdnjs)로 바다·육지·국경선만 그리는 완전 플랫(바깥 지도 서비스·키 없음). 색은 style.css --map-sea·--map-land·--map-border. 위험·경고 수원국만 육지 색에 등급 색을 섞어 칠함(정상은 안 칠함: 초록이 바다처럼 보임). 나라 이름은 그림자 없는 글자(사업 나라는 대문자 굵게, 그 밖은 확대할수록 큰→중간→작은 나라). Esri 타일·위성 버튼은 없앰. 남극은 빼고, 날짜변경선을 넘는 땅(피지·러시아 동쪽)은 경도를 이어 붙임(안 그러면 지도를 가로지르는 줄이 생김).
 - 여행경보: 공공데이터포털 '외교부_국가·지역별 여행경보'(TravelAlarmService2) + 특별여행주의보. 키는 조달청과 같은 DATA_GO_KR_KEY 그대로(따로 입력 안 함, 활용신청만). MOFA_TRAVEL_KEY 는 다른 키를 쓸 때만. 응답 필드명은 실제 키로 아직 확인 못 함. 연결 상태는 대시보드가 아니라 설정 > 고급 > API 연결에.
 - 지진: USGS 4.5_week(키 없음), 사업지·수원국 600km 안. 브라우저에서도 실시간으로 한 번 더 받음(회사망에서 막히면 저장본).
 - 뉴스: Google·네이버 '나라 이름 + 사건 단어', 제목에 나라 이름 있는 것만. 이벤트는 1년 보관, 최대 300건.

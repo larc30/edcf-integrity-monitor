@@ -86,6 +86,17 @@ def match_sweep(articles: list[dict], companies: list[dict]) -> dict[str, list[d
     return hits
 
 
+def _period_ended(period: str | None) -> bool:
+    """'2026.05.11~2026.11.10' 같은 제재기간의 끝 날짜가 오늘보다 앞이면 True (끝 날짜를 못 읽으면 False)"""
+    ds = re.findall(r"(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})", str(period or ""))
+    if len(ds) < 2:
+        return False
+    try:
+        return date(*map(int, ds[-1])) < date.today()
+    except ValueError:
+        return False
+
+
 def match_edcf(edcf: list[dict], company: dict) -> list[dict]:
     """EDCF 부정당업자 명단(EXIMIIS 엑셀 업로드) 대조: 사업자번호 우선, 없으면 업체명 정확 일치"""
     from .textutil import norm as _n
@@ -99,18 +110,22 @@ def match_edcf(edcf: list[dict], company: dict) -> list[dict]:
         hit = (biz and eb and biz == eb) or ((not biz or not eb) and _n(e.get("name", "")) in names)
         if not hit:
             continue
-        active = "등록" in (e.get("status") or "")
+        listed = "등록" in (e.get("status") or "")
+        expired = listed and _period_ended(e.get("period"))  # 명단에는 '등록'이지만 제재기간이 지남 → 과거 이력(참고)
+        active = listed and not expired
         out.append({
             "source_type": "official", "source_name": "EDCF 부정당업자 (EXIMIIS)",
-            "title": f"[EDCF 제재 {'등록' if active else '해지'}] {e.get('name')} · {e.get('period') or ''}",
+            "title": f"[EDCF 제재 {'등록' if active else '기간 만료' if expired else '해지'}] {e.get('name')} · {e.get('period') or ''}",
             "url": "", "published_at": (e.get("period") or "")[:10].replace(".", "-"),
             "snippet": f"제재사유: {e.get('reason') or '-'} / 관련사업: {e.get('project_name') or '-'} ({e.get('country') or '-'}) / 등록기관: {e.get('agency') or '-'} / 사업자번호 {e.get('biz_no') or '-'}",
             "matched_keywords": "사업자번호 일치" if (biz and eb and biz == eb) else "업체명 일치",
             "level": "red" if active else "yellow", "category": "부정당업자 제재",
             "summary": (f"EDCF 부정당업자로 현재 등록되어 있습니다 (제재기간 {e.get('period') or '-'}, 사유: {(e.get('reason') or '-')[:80]})." if active
+                        else f"EDCF 부정당업자 제재기간이 끝났습니다 (명단에는 아직 '등록', 제재기간 {e.get('period') or '-'}). 최신 EXIMIIS 명단으로 확인하세요." if expired
                         else f"과거 EDCF 부정당업자 제재 이력이 있습니다 (해지, 제재기간 {e.get('period') or '-'})."),
             "rationale": "EXIMIIS 부정당업자 명단 (경협평가부 관리)", "analyzer": "list-match",
-            "dedup_key": "edcf-" + hashlib.sha1(f"{e.get('biz_no')}|{e.get('name')}|{e.get('period')}".encode()).hexdigest()[:16],
+            # 기간이 끝나면 키가 달라져서, 예전 '등록(위험)' 기록은 지워지고 '기간 만료(참고)' 기록이 새로 생김
+            "dedup_key": "edcf-" + hashlib.sha1(f"{e.get('biz_no')}|{e.get('name')}|{e.get('period')}{'|만료' if expired else ''}".encode()).hexdigest()[:16],
         })
     return out
 

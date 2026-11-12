@@ -287,7 +287,10 @@ const cssv = (n) => getComputedStyle(document.documentElement).getPropertyValue(
 function loadWorld() {
   if (world || worldLoading) return worldLoading;
   worldLoading = fetch("assets/world-50m.json").then((r) => r.json()).then((t) => {
-    world = window.topojson.feature(t, t.objects.countries).features.filter((f) => f.id !== "010"); // 남극은 뺌 (지도 맨 아래에 가로줄로 보임)
+    world = window.topojson.feature(t, t.objects.countries).features.filter((f) => f.id !== "010"); // 남극은 뺌
+    // 날짜변경선(경도 180도)을 넘는 땅(피지·러시아 동쪽 끝)은 테두리가 지도 전체를 가로지르는 가로줄로 그려짐 → 서쪽 조각을 동쪽으로 이어 붙임
+    const unwrap = (ring) => { const xs = ring.map((p) => p[0]); if (Math.max(...xs) - Math.min(...xs) > 180) ring.forEach((p) => { if (p[0] < 0) p[0] += 360; }); };
+    world.forEach((f) => { const g = f.geometry; if (!g) return; (g.type === "Polygon" ? [g.coordinates] : g.type === "MultiPolygon" ? g.coordinates : []).forEach((poly) => poly.forEach(unwrap)); });
     if (map) { drawWorld(); if (last) drawMap(last.pins, last.evs, last.risk); }
   }).catch((e) => { console.warn("world map", e); });
   return worldLoading;
