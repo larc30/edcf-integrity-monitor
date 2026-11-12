@@ -1338,3 +1338,7 @@ html.lite .geo-sweep { display: none; }
 .sp-pin { position: absolute; left: -9px; top: -24px; width: 18px; height: 18px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--red); border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .45); }
 .sp-city { position: absolute; display: flex; align-items: center; gap: 4px; transform: translate(-3px, -50%); white-space: nowrap; font-size: var(--fs-xs); font-weight: 600; color: var(--map-name-2); pointer-events: none; }
 .sp-city i { width: 5px; height: 5px; border-radius: 50%; background: var(--map-name-2); flex: 0 0 auto; }
+
+/* v49 — 등급 숫자 칸 폭 고정(1~3자리 모두 같은 자리에서 시작) · 같은 숫자 되풀이 줄이기 */
+.rk { grid-template-columns: 4.6rem minmax(0, 1fr); }
+#issueCount { display: none; } /* 기간 버튼(전체 N · 최근 7일 N)에 이미 있음 */
