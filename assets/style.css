@@ -1352,15 +1352,9 @@ body.viewer #advForm input, body.viewer #advForm select { pointer-events: none; 
 /* =====================================================================
    v51 — 디자인 정리: 평평한 강조색 · 낮은 제목 · 계정 메뉴 · 촘촘한 이슈/사업 카드
    ===================================================================== */
-/* (3) 강조색은 한 가지로 평평하게, 빛 효과는 뺌. 빨강·주황은 등급에만 */
-:root, :root[data-theme="dark"] { --grad: #5B63F5; --glow: none; --muted: #8E99B3; }
-:root[data-theme="light"] { --grad: #4F46E5; --glow: none; --muted: #5B6680; }
-.btn.primary, .btn.primary:hover { box-shadow: none; } .btn.primary:hover { filter: brightness(1.1); }
-.btn.glow::after { display: none; }
-.hero-title .grad, .geo-dash .hero-title .grad, :root[data-theme="light"] .geo-dash .hero-title .grad { background: none; -webkit-background-clip: border-box; background-clip: border-box; color: var(--text); }
-.ms-thumb, .mode-switch[data-mode="geo"] .ms-thumb { background: var(--grad); box-shadow: none; }
-.d-radar::before, .d-map::before { display: none; }
-.logo-mark { box-shadow: none; }
+/* 작은 회색 글씨 대비 (그라데이션·빛 효과는 그대로 둠: 업체 리스크 보라·하늘, 수원국 리스크 하늘·초록) */
+:root, :root[data-theme="dark"] { --muted: #8E99B3; }
+:root[data-theme="light"] { --muted: #5B6680; }
 
 /* (2) 제목 영역을 한 줄로 낮게: 첫 화면에 이슈가 더 보이게 */
 .d-title .eyebrow { display: none; }
@@ -1413,3 +1407,27 @@ body.viewer #advForm input, body.viewer #advForm select { pointer-events: none; 
 .city-sug { position: absolute; left: 0; right: 0; top: 100%; z-index: 1200; margin-top: 4px; padding: 4px; border-radius: 10px; background: var(--panel-solid); border: 1px solid var(--line-2); box-shadow: var(--shadow); display: flex; flex-direction: column; max-height: 16em; overflow: auto; }
 .city-sug button { display: flex; justify-content: space-between; gap: 10px; padding: 7px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--text); font: inherit; font-size: var(--fs-sm); cursor: pointer; text-align: left; }
 .city-sug button:hover { background: var(--panel-2); } .city-sug button span { color: var(--muted); } .city-sug > div { padding: 7px 10px; }
+
+/* =====================================================================
+   v52 — 상단: 글자 크기·화면은 밖에, 계정 메뉴는 메일·로그아웃만 · i 표시 줄 맞춤 · 수원국 사업 카드 압축 · 메일 창
+   ===================================================================== */
+.acct-menu { min-width: 14em; }
+/* i 표시: 글자 줄 가운데에 오도록 (제목 안에서는 제목의 가운데 정렬을 따름) */
+.itip { margin-left: 6px; vertical-align: middle; position: relative; top: -1px; }
+h2 > .itip, h3 > .itip, .card-head h2 .itip, .oc-head h2 .itip { margin-left: 0; top: 0; }
+h2:has(> .itip), h3:has(> .itip) { display: flex; align-items: center; gap: 6px; }
+#scopeInfo { display: inline-flex; align-items: center; } #scopeInfo .itip { margin: 0 2px; top: 0; }
+.h2-sub + #actHelp, #actHelp { display: inline-flex; align-items: center; } #actHelp .itip { margin: 0; top: 0; }
+/* 수원국 사업 카드: 평소에는 두 줄(이름·등급 / 여행경보·근거 한 줄), 누르면 자세히 */
+.gp-brief { display: flex; align-items: center; gap: 8px; min-width: 0; margin-top: 6px; font-size: var(--fs-sm); }
+.gp-brief .gp-why1 { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-2); }
+.gp.red .gp-brief .gp-why1 { color: var(--red); } .gp.orange .gp-brief .gp-why1 { color: var(--orange); }
+.gp-brief .gp-co { margin-left: auto; flex: 0 0 auto; white-space: nowrap; }
+/* 메일 창 (보고서 창과 같은 배치: 왼쪽 할 일, 오른쪽 미리보기) */
+.ml-box { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--panel-2); display: flex; flex-direction: column; gap: 6px; }
+.ml-box b { font-size: var(--fs-base); } .ml-box .btn { justify-content: center; margin-top: 4px; }
+.ml-box .d { font-size: var(--fs-sm); color: var(--muted); line-height: 1.5; word-break: keep-all; }
+.ml-frame { display: block; width: 100%; max-width: 680px; height: 100%; min-height: 560px; border: 0; border-radius: 6px; background: #fff; box-shadow: 0 10px 30px rgba(0, 0, 0, .35); }
+/* 한 글자만 다음 줄로 넘어가지 않게: 설명 글은 단어 단위로 줄바꿈 */
+.card-desc, .tip, .muted.small, .d-sub, .site-h, .oc-src-h .d, .side-hint { word-break: keep-all; }
+.gp-brief .gp-alert { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; white-space: nowrap; }

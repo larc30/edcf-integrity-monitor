@@ -511,7 +511,7 @@ LEVEL_KO = {"red": "위험", "orange": "경고", "yellow": "참고"}
 
 
 def _load_guide(dis: list[str], conf: list[str], refresh: bool) -> str:
-    """팀 판정 지침 = 설정에서 직접 쓴 것(manual) + 담당자 판단을 AI가 요약한 것(auto, 전체 스캔 때 주 1회 갱신)"""
+    """팀 판정 지침 = 담당자 판단(확인 완료·관련 없음)을 AI가 요약한 것(auto, 전체 스캔 때 주 1회 갱신)"""
     try:
         g = store.get_many("meta", ["ai_guide"]).get("ai_guide") or {}
     except Exception:
@@ -526,7 +526,7 @@ def _load_guide(dis: list[str], conf: list[str], refresh: bool) -> str:
             log.info("판정 지침 갱신: 사례 %d건 → %d줄", n, len(auto.splitlines()))
         except Exception as e:
             log.warning("판정 지침 갱신 실패: %s", type(e).__name__)
-    return "\n".join(x for x in ((g.get("manual") or "").strip(), auto.strip()) if x)
+    return auto.strip()  # 직접 적는 칸은 없앰 (2026-11-12): AI가 정리한 기준만
 
 
 def run_scan(only_names: list[str] | None = None, progress=None, should_stop=None, quick: bool = False) -> dict:

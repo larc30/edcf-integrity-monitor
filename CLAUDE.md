@@ -36,7 +36,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - EXIMIIS: 명단에 '등록'이어도 제재기간 끝 날짜가 지났으면 참고(기간 만료)로 내림(scanner._period_ended ↔ app.js edcfEnded).
 - 조달청: data.go.kr 15129466, 사업자번호로 현재 유효 제재만. 같은 부정당번호에 정지·해제 줄이 있거나, 저장된 제재가 기간 중 사라지면 경고(집행정지 확인).
 - 사업자번호·영문명·업종: DART corpCode 정확 일치 1건일 때만 자동, 아니면 수기. 업체 관리 [DART로 빈 정보 채우기](task dartfill): 1건이면 채우고 여러 건이면 companies.dart_cands 에 후보 저장 → [DART 후보 고르기]에서 선택.
-- AI 판정: Claude(config.CLAUDE_MODEL, 기본 Haiku), 키 없으면 analyzer.RULE_KEYWORDS 규칙 판정. 처분 대상이 모회사·자회사·계열사(다른 법인)면 이 업체는 참고(yellow) 이하. 확정된 처분은 시작일 전이어도 위험. 분류에 '영업정지·등록말소' 있음. 계속 배우기: 모든 업체의 ✓/✕ 사례(analyzer.SHARED)와 판정 지침(meta/ai_guide{manual 직접 적음, auto AI가 주 1회 요약})을 판정마다 함께 줌(설정 > AI 판정 지침). 업체별 '관련 없음'·'확인했음' 제목을 예시로 전달('과거 이력 일괄 정리'는 제외). 재판정은 monitor/rejudge.py.
+- AI 판정: Claude(config.CLAUDE_MODEL, 기본 Haiku), 키 없으면 analyzer.RULE_KEYWORDS 규칙 판정. 처분 대상이 모회사·자회사·계열사(다른 법인)면 이 업체는 참고(yellow) 이하. 확정된 처분은 시작일 전이어도 위험. 분류에 '영업정지·등록말소' 있음. 계속 배우기: 모든 업체의 ✓/✕ 사례(analyzer.SHARED)와 판정 지침(meta/ai_guide.auto: AI가 주 1회 요약, 직접 적는 칸은 없앰)을 판정마다 함께 줌(설정 > AI 판정 지침). 업체별 '관련 없음'·'확인했음' 제목을 예시로 전달('과거 이력 일괄 정리'는 제외). 재판정은 monitor/rejudge.py.
 
 ## 등급 (3단계: 위험·경고·정상, 2026-11-11 결정)
 - 업체 등급: 위험 = 지금 유효한 제재(입찰제한·MDB·영업정지·등록말소·EXIMIIS 등록) / 경고 = 제재로 이어질 진행 중 사안(수사·기소·과징금·부도·회생, 집행정지) / 정상 = 그 밖.
@@ -65,11 +65,11 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 
 ## 화면 규칙
-- 디자인(v51, 2026-11-12 사용자 승인): 강조색 한 가지로 평평하게(그라데이션·빛 효과 없음, 빨강·주황은 등급에만), 제목 영역은 한 줄, 글자 크기·화면·로그아웃은 오른쪽 위 계정 메뉴, 이슈 카드의 ✓/✕ 버튼은 제목 줄 오른쪽, 오른쪽 사업 목록은 위험·경고 업체만 이름 + '정상 N', 사업 카드를 누르면 사업 상세(openProject, 오른쪽 창). 상세는 오른쪽 창(drawer), 팝업은 등록·설정용.
+- 디자인(v52, 2026-11-12 사용자 결정): 그라데이션·빛 효과는 유지(업체 리스크 보라·하늘, 수원국 리스크 하늘·초록으로 구분 — 평평한 단색으로 바꾸지 말 것). 제목 영역은 한 줄(부제는 '마지막 스캔/갱신'만). 글자 크기·다크/라이트 버튼은 상단에 그대로, 계정 메뉴에는 메일·로그아웃만. 이슈 카드의 ✓/✕ 버튼은 제목 줄 오른쪽. 오른쪽 사업 목록은 위험·경고 업체만 이름 + '정상 N', 사업 카드를 누르면 사업 상세(openProject, 오른쪽 창). 수원국 사업 카드는 평소 두 줄, 누르면 자세히. 상세는 오른쪽 창(drawer), 팝업은 등록·설정용. 설명 글은 word-break: keep-all(한 글자만 넘어가지 않게), i 표시는 제목 줄 가운데.
 - 어제와 비교·30일 추이: report.save_history 가 meta/history.days{날짜:{red,orange,none}}(전체 업체, 60일)에 기록 → 업체 등급 카드의 +N 과 추이 선(전체 범위에서만).
 - 다크 기본, 대시보드 배치 'B 관제실'. backdrop-filter·blur 애니메이션 금지(느려짐, 가벼운 모드 html.lite 있음).
 - 글자 크기는 var(--fs-xs·sm·base·md·lg·xl)만. 화면 문구에 '—' 쓰지 않기. 창 닫기 버튼은 마지막 .actions 줄 주 버튼 오른쪽.
-- 메일(report.py): 제목 '[EDCF RADAR] MM/DD 위험 N · 경고 N', 오늘 새 위험·경고만 한 줄씩. PDF 보고서: 기본 한 장 요약, [보고서] 창 오른쪽에 A4 미리보기(고르면 바로 바뀜, 인쇄 여백 13mm 12mm 같게).
+- 메일(report.py): 제목 '[EDCF RADAR] MM/DD 위험 N · 경고 N', 오늘 새 위험·경고만 한 줄씩. 본문 위에 보고서처럼 업체 등급 세 칸. 설정 > 메일 [미리보기 · 보내기] 창 안에서 '내 주소로 테스트'와 'N명에게 지금 보내기'(둘 다 확인 창). 데모 메일은 tools/demo 로 다시 만듦(pip firebase-admin httpx 필요). PDF 보고서: 기본 한 장 요약, [보고서] 창 오른쪽에 A4 미리보기(고르면 바로 바뀜, 인쇄 여백 13mm 12mm 같게).
 - 줄 맞춤: 업체 리스크 오른쪽 사업 목록은 이슈 목록 끝까지(contain: size, 넘치면 안에서 스크롤). 수원국 리스크는 가운데 줄(등급·지도·사업) 높이 같게, 최근 이벤트는 전체 폭 2열. 칸 폭은 글자 크기 따라가게 em 단위(가−/가+ 아주 크게에서도 안 깨짐).
 
 ## 테스트

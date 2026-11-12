@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=30";
-import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY } from "./geo.js?v=43";
+import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY } from "./geo.js?v=44";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -529,7 +529,7 @@ function renderHome() {
       return `<button class="rk ${lv} ${sc && l.length ? "on" : ""}" data-lv="${lv}" ${sc && l.length ? `title="누르면 ${LEVEL[lv]} 업체 ${l.length}개를 봅니다"` : "disabled"}>
         <div class="rk-num">${sc ? `<span data-count="${l.length}">0</span>` : "-"}</div>
         <div class="rk-lv">${LEVEL[lv]}${delta(lv)}</div>
-        <div class="rk-names ${sc && l.length && lv !== "none" ? "" : "zero"}">${!sc ? "스캔 전" : lv === "none" ? (l.length ? `위험·경고 이슈 없음${l.filter((c) => c.ref).length ? ` · 참고 이력 ${l.filter((c) => c.ref).length}` : ""}` : "해당 업체 없음") : l.length ? esc(who(l)) : "해당 업체 없음"}</div></button>`;
+        <div class="rk-names ${sc && l.length && lv !== "none" ? "" : "zero"}">${!sc ? "스캔 전" : lv === "none" ? (l.length ? `이슈 없음${l.filter((c) => c.ref).length ? ` · 참고 ${l.filter((c) => c.ref).length}` : ""}` : "해당 업체 없음") : l.length ? esc(who(l)) : "해당 업체 없음"}</div></button>`;
     }).join("") + spark();
   // ② 공식 제재 명단 대조: 출처별(EXIMIIS·조달청·MDB) 현황만 — 아래 이슈 목록과 겹치지 않게
   const off = state.findings.filter((f) => ids.has(f.company_id) && f.source_type !== "news" && f.status !== "dismissed");
@@ -990,7 +990,6 @@ function openProject(pid) {
     <div class="d-engs"><span class="d-eng">${esc(COUNTRY[p.country] || "수원국 미지정")}</span>${al?.level ? `<span class="d-eng">여행경보 ${AL[al.level]}${al.partial ? " (일부 지역)" : ""}</span>` : ""}${p.owner ? `<span class="d-eng">담당 ${esc(p.owner.split("@")[0])}</span>` : ""}</div>`;
   const body = $("#drawerBody");
   body.innerHTML = `
-    <div class="d-actions"><button class="btn sm" id="pGeo">수원국 리스크에서 보기</button></div>
     <section class="d-sec"><div class="d-sec-head"><h3>참여 업체</h3><span class="count">${cs.length}</span></div>
       ${rows.length ? `<div class="rl">${rows.map(({ c, e }) => `<div class="pd-row" data-pc="${c.id}" role="button" tabindex="0">${roleTag(e.role)}<b>${esc(c.name)}</b>${e.stage && e.stage !== "계약" ? `<span class="muted small">${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""}</span>` : ""}<span class="pd-r">${c.open ? `<span class="muted small">미확인 ${c.open}</span>` : ""}${sc ? badge(c.risk) : ""}</span></div>`).join("")}</div>` : `<div class="empty small">연결된 업체가 없습니다</div>`}
     </section>
@@ -999,7 +998,6 @@ function openProject(pid) {
     </section>`;
   if (hot.length) renderGroups(hot, $("#pFeed"));
   $$("[data-pc]", body).forEach((x) => { const go = () => openCompany(x.dataset.pc, "p:" + pid); x.onclick = go; x.onkeydown = (e) => { if (e.key === "Enter") go(); }; });
-  $("#pGeo").onclick = () => { closeDrawer(); $('#tabs [data-view="geo"]').click(); };
   body.scrollTop = 0;
   $("#drawer").classList.add("open"); $("#drawerBg").classList.add("open");
 }
@@ -2178,7 +2176,6 @@ const hoursSince = (t) => t ? (Date.now() - Date.parse(String(t).replace(" ", "T
 // ---------- 설정 ----------
 function renderGuide() {
   const g = state.guide || {}, fbN = state.findings.filter((f) => f.source_type === "news" && ((f.status === "dismissed" && f.reviewed_by && f.reviewed_by !== "자동 정리") || (f.status === "reviewed" && f.review_note !== "과거 이력 일괄 정리"))).length;
-  if (document.activeElement !== $("#guideManual")) $("#guideManual").value = g.manual || "";
   $("#guideAuto").innerHTML = g.auto ? esc(g.auto).replace(/\n/g, "<br>") : `<span class="muted">아직 없습니다. 확인 완료, 관련 없음을 5건 이상 누르면 다음 아침 스캔 때 만들어집니다.</span>`;
   $("#guideMeta").textContent = `지금까지 누른 판단 ${fbN}건${g.auto_at ? ` · ${String(g.auto_at).slice(0, 10)} 정리` : ""} · 주 1회 다시 정리`;
 }
@@ -2335,11 +2332,6 @@ function renderAdvanced() {
     }).join("")}${(d.errors?.length || 0) >= 50 ? `<div class="muted small">오류가 많아 앞의 50건만 보관했습니다.</div>` : ""}</div></details>`;
   }).join("") || `<div class="muted small">아직 실행 기록이 없습니다.</div>`;
 }
-$("#guideSave").onclick = async () => {
-  const manual = $("#guideManual").value.trim().slice(0, 2000);
-  await setDoc(doc(db, "meta", "ai_guide"), { manual, manual_at: nowStr(), manual_by: me() }, { merge: true });
-  state.guide = { ...(state.guide || {}), manual }; toast("판정 지침을 저장했습니다. 다음 스캔부터 적용됩니다");
-};
 $("#guideAutoClear").onclick = async () => {
   if (!confirm("AI가 정리한 지침을 지울까요? 다음 아침 스캔 때 지금까지 누른 판단으로 다시 만듭니다.")) return;
   await setDoc(doc(db, "meta", "ai_guide"), { auto: "", auto_at: "", auto_n: 0 }, { merge: true });
@@ -2393,11 +2385,21 @@ function openDartPick() {
 }
 
 $("#advCard").addEventListener("toggle", (e) => { if (e.target.open) renderAdvanced(); });
-$("#runTestMail").onclick = () => runWorkflow({ task: "report-test", test_to: me() }, "테스트 메일 발송");
-$("#runMailAll").onclick = () => { if (confirm(`받는 사람 ${state.recipients.length}명에게 지금 기준 리포트를 보낼까요?`)) runWorkflow({ task: "report" }, "리포트 발송"); };
 $("#btnPreview").onclick = async () => {
-  modal(`<h2>메일 미리보기</h2><p class="muted small" id="reportMeta">불러오는 중…</p><iframe id="reportFrame" class="report-frame" sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe>`);
-  $("#modal").classList.add("wide");
+  const n = state.recipients.length, mine = me();
+  modal(`<div class="rp-wrap">
+    <div class="form rp-opts">
+      <h2>아침 메일</h2>
+      <p class="muted small">매일 아침 받는 사람 ${n}명에게 자동으로 갑니다. 오른쪽은 지금 기준으로 내일 아침에 갈 내용입니다.</p>
+      <div class="ml-box"><b>나에게만 테스트</b><span class="d">${esc(mine)} 로 1통만 보냅니다. 제목에 [테스트]가 붙고, 받는 사람들에게는 가지 않습니다.</span><button type="button" class="btn" id="runTestMail">내 주소로 테스트 메일 받기</button></div>
+      <div class="ml-box"><b>받는 사람 모두에게</b><span class="d">내일 아침을 기다리지 않고 ${n}명에게 지금 보냅니다. 보낸 이슈는 내일 아침 메일에서 빠집니다.</span><button type="button" class="btn primary" id="runMailAll" ${n ? "" : "disabled"}>${n}명에게 지금 보내기</button></div>
+      <div class="actions"></div>
+    </div>
+    <div class="rp-prev"><div class="rp-prev-h"><span>미리보기</span><span class="muted small" id="reportMeta">불러오는 중…</span></div><div class="rp-scroll"><iframe id="reportFrame" class="ml-frame" title="메일 미리보기" sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe></div></div>
+  </div>`);
+  $("#modal").classList.add("report");
+  $("#runTestMail").onclick = () => { if (confirm(`${mine} 로 테스트 메일 1통을 보낼까요?\n받는 사람들에게는 가지 않습니다.`)) { closeModal(); runWorkflow({ task: "report-test", test_to: mine }, "테스트 메일 발송"); } };
+  $("#runMailAll").onclick = () => { if (confirm(`받는 사람 ${n}명에게 지금 메일을 보낼까요?\n보낸 이슈는 내일 아침 메일에서 빠집니다.`)) { closeModal(); runWorkflow({ task: "report" }, "메일 발송"); } };
   await loadReportPreview();
 };
 
