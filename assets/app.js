@@ -529,9 +529,9 @@ function renderHome() {
   const spark = () => {
     if (!sc) return "";
     const wk = series.slice(-7).map((x) => ({ r: x.r, o: x.v - x.r })), max = Math.max(...wk.map((x) => Math.max(x.r, x.o)), 1), WD = "일월화수목금토";
-    const W = 280, H = 104, px = 16, X = (i) => px + (i / 6) * (W - px * 2), Y = (v) => H - 10 - (v / max) * (H - 40);
+    const W = 280, H = 62, px = 14, X = (i) => px + (i / 6) * (W - px * 2), Y = (v) => H - 7 - (v / max) * (H - 26);
     const line = (k) => wk.map((x, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(x[k]).toFixed(1)}`).join("");
-    const pts = (k) => wk.map((x, i) => `<circle class="${k}" cx="${X(i).toFixed(1)}" cy="${Y(x[k]).toFixed(1)}" r="${i === 6 ? 4.6 : 3.4}"/><text class="${k}" x="${X(i).toFixed(1)}" y="${(Y(x[k]) - 9).toFixed(1)}">${x[k]}</text>`).join("");
+    const pts = (k) => wk.map((x, i) => `<circle class="${k}" cx="${X(i).toFixed(1)}" cy="${Y(x[k]).toFixed(1)}" r="${i === 6 ? 3.6 : 2.8}"/><text class="${k}" x="${X(i).toFixed(1)}" y="${(Y(x[k]) - 6).toFixed(1)}">${x[k]}</text>`).join("");
     const days = wk.map((_, i) => { const d = new Date(Date.now() - (6 - i) * DAY); return `<span class="${i === 6 ? "today" : ""}">${i === 6 ? "오늘" : WD[d.getDay()]}</span>`; }).join("");
     return `<div class="rk-trend"><div class="rk-trend-h"><span>최근 7일</span><span class="wk-lg"><i class="r"></i>위험<i class="o"></i>경고</span></div>
       <svg class="wk-line" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path class="o" d="${line("o")}"/><path class="r" d="${line("r")}"/>${pts("o")}${pts("r")}</svg><div class="wk-days">${days}</div></div>`;

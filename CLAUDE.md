@@ -13,7 +13,7 @@
 
 ## 구조
 - 화면: GitHub Pages `index.html` + `assets/app.js`·`style.css` / 데이터: Firebase Firestore(프로젝트 edcf-monitor) / 검사: GitHub Actions `monitor/`(Python). 저장소 larc30/edcf-integrity-monitor(public).
-- 로그인: Google. 관리자 = `assets/firebase-config.js` ALLOWED_EMAILS·`firestore.rules` owner(), 추가 계정 = meta/access.emails(설정 > 로그인 계정, 규칙 재게시 필요). 데이터 권한(firestore.rules, 2026-11-12): 읽기는 등록 계정 모두, 쓰기는 관리자(owner)만. 팀원은 findings 의 확인 완료/관련 없음(status·reviewed_by·reviewed_at·review_note)만. 화면도 관리자가 아니면 body.viewer 로 스캔·등록·수정 버튼을 숨김. 규칙은 사용자가 Firebase 콘솔에 다시 게시해야 적용.
+- 로그인: Google. 관리자(2026-11-12 기준 3명: 사용자 + 팀원 2명) = `assets/firebase-config.js` ALLOWED_EMAILS·`firestore.rules` owner() 두 곳에 같게, 추가 계정 = meta/access.emails(설정 > 로그인 계정, 규칙 재게시 필요). 데이터 권한(firestore.rules, 2026-11-12): 읽기는 등록 계정 모두, 쓰기는 관리자(owner)만. 팀원은 findings 의 확인 완료/관련 없음(status·reviewed_by·reviewed_at·review_note)만. 화면도 관리자가 아니면 body.viewer 로 스캔·등록·수정 버튼을 숨김. 규칙은 사용자가 Firebase 콘솔에 다시 게시해야 적용.
 - 상단 업체 검색(#coFind, 모든 사용자): 업체명·별칭·영문명·사업자번호로 찾아 업체 상세를 엶(팀원은 읽기 전용).
 - 화면 탭: 업체 리스크 ↔ 수원국 리스크(미끄러지는 스위치, 카드 뒤집기 전환 · 가벼운 모드면 바로 전환). 업체 관리·사업 관리·설정은 관리자 모드에서만(상단 오른쪽 주황 [관리자 모드] 버튼, 관리자 계정에만 보임). 관리자 모드는 별도 모드: 켜면 업체·수원국 스위치가 숨고 관리 탭만, [관리자 모드 나가기]나 로고로 나옴. 화면에서만 막은 것이고 Firestore 규칙은 그대로.
 - 기간 구분(업체 이슈·수원국 이벤트 같게): 전체 · 24시간(처음 잡힌 때 기준) · 최근 7일 · 최근 30일 · 30일 이전. 공식 제재 기록은 기간과 무관하게 항상(30일 이전 제외).
