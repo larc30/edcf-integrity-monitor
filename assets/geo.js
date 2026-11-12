@@ -199,7 +199,7 @@ export async function renderGeo() {
     <div class="tip-row"><span class="badge red">위험</span><span>여행경보 4단계, 특별여행주의보, 전역 3단계<br>${ruleRows("red")}</span></div>
     <div class="tip-row"><span class="badge orange">경고</span><span>여행경보 일부 지역 3단계, 전역 2단계<br>${ruleRows("orange")}</span></div>
     <div class="tip-row"><span class="badge none">정상</span><span>그 밖 (여행경보 1단계, 일부 지역 2단계 포함)</span></div>`;
-  $("#gboard").innerHTML = `<div class="card-head"><h2>수원국 등급 ${info(tip)}</h2><span class="muted small">${codes.length}개국 중 ${byLv.red.length + byLv.orange.length}개국</span></div>`
+  $("#gboard").innerHTML = `<div class="card-head"><h2>수원국 등급 ${info(tip)}</h2></div>`
     + ["red", "orange", "none"].map((lv) => {
       const l = byLv[lv];
       const names = l.length ? l.map(cname).slice(0, 4).join(" · ") + (l.length > 4 ? ` 외 ${l.length - 4}` : "") : "해당 국가 없음";
@@ -233,7 +233,7 @@ export async function renderGeo() {
       ${a?.regions ? `<div class="gp-reg">${esc(String(a.regions).slice(0, 120))}</div>` : ""}
       ${r.why.length ? `<div class="gp-row"><span class="gp-k">근거</span><span class="gp-why">${r.why.slice(0, sel ? 4 : 2).map((w) => `<span>${esc(w)}</span>`).join("")}</span></div>` : ""}
       <div class="gp-row"><span class="gp-k">${sel ? "가까운 사건" : "이벤트"}</span><span class="gp-evs">${near.length ? near.map((e) => `<span class="gp-ev" title="${esc(e.title)}">${ibadge(e.type, "xs")}<span class="gp-ev-t">${esc(e.title)}</span>${e.d != null ? `<b class="gp-km">${fmtKm(e.d)}</b>` : ""}</span>`).join("") : `<span class="muted small">${pl} · ${NEAR_KM}km 안 없음</span>`}</span></div>
-      <div class="gp-row"><span class="gp-k">참여 업체</span><span class="pj-sum">${co.total ? (["red", "orange"].filter((lv) => co[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${co[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) + `<span class="tot">/ ${co.total}곳</span>` : `<span class="tot">연결된 업체 없음</span>`}</span></div>
+      <div class="gp-row"><span class="gp-k">참여 업체</span><span class="pj-sum">${co.total ? (["red", "orange"].filter((lv) => co[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${co[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) + `<span class="tot">/ ${co.total}</span>` : `<span class="tot">연결된 업체 없음</span>`}</span></div>
     </div>`;
   }).join("") || `<div class="empty small">${scope === "mine" ? "내가 담당하는 사업이 없습니다." : "등록된 사업이 없습니다."}</div>`;
 
