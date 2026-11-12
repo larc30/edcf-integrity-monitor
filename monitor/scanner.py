@@ -241,8 +241,9 @@ def _identify(company: dict, errors: list) -> dict:
 def scan_company(company: dict, projects: dict, keywords: list[dict], entries: list[dict], lists_ok: int,
                  sweep_hits: list[dict] | None = None, sweep_engines: list[str] | None = None, sweep_total: int = 0,
                  edcf: list[dict] | None = None, existing: list[dict] | None = None, seen_doc: dict | None = None,
-                 force: bool = False) -> dict:
-    """existing: 이 업체의 관련 이슈(relevant) 목록, seen_doc: 이미 본 기사 키 요약(seen/{업체 id}),
+                 force: bool = False, quick: bool = False) -> dict:
+    """quick: 빠른 스캔 — 업체명 검색은 건너뛰고 제재 키워드 기사 대조 + 공식 명단만 (업체명 검색은 매일 아침 전체 스캔이 함)
+    existing: 이 업체의 관련 이슈(relevant) 목록, seen_doc: 이미 본 기사 키 요약(seen/{업체 id}),
     force: 업체 하나만 '다시 스캔' — 주간 제한 없이 업체명 검색, 10년 범위, 예전에 관련 없다고 본 기사도 다시 판정"""
     t0 = time.time()
     errors: list[str] = []
@@ -262,6 +263,8 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         qs = _queries(company, keywords, False)
         queries = [q for q in qs if q[0] == "google"][:1] + [q for q in qs if q[0] == "naver"][:1]
     else:
+        queries = []
+    if quick:
         queries = []
 
     # 1) 뉴스 수집 (제재 키워드 검색에서 이 업체가 나온 기사 + 업체명 검색)
@@ -478,8 +481,42 @@ def _safe(fn):
         log.warning("DART 기업목록 미리 받기 실패: %s", e)
 
 
-def run_scan(only_names: list[str] | None = None, progress=None, should_stop=None) -> dict:
-    """progress(done, total, current_name) 콜백으로 진행 상황을 알리고, should_stop()이 True면 남은 업체를 건너뛴다."""
+def _shared_feedback(rel_by: dict) -> tuple[list[str], list[str]]:
+    """모든 업체에서 담당자가 누른 '관련 없음' / '확인 완료' 사례 (최근 것부터). 자동 정리·일괄 정리는 제외"""
+    allf = sorted((f for l in rel_by.values() for f in l if f.get("source_type") == "news"), key=lambda f: f.get("reviewed_at") or "", reverse=True)
+    note = lambda f: f" (메모: {str(f.get('review_note'))[:60]})" if f.get("review_note") else ""
+    dis = [f"{f.get('company_name') or ''}: {(f.get('title') or '')[:100]}{note(f)}" for f in allf
+           if f.get("status") == "dismissed" and f.get("reviewed_by") not in (None, "", "자동 정리")]
+    conf = [f"{LEVEL_KO.get(f.get('level'), '참고')} · {f.get('company_name') or ''}: {(f.get('title') or '')[:100]}" for f in allf
+            if f.get("status") == "reviewed" and f.get("review_note") != "과거 이력 일괄 정리"]
+    return dis, conf
+
+
+LEVEL_KO = {"red": "위험", "orange": "경고", "yellow": "참고"}
+
+
+def _load_guide(dis: list[str], conf: list[str], refresh: bool) -> str:
+    """팀 판정 지침 = 설정에서 직접 쓴 것(manual) + 담당자 판단을 AI가 요약한 것(auto, 전체 스캔 때 주 1회 갱신)"""
+    try:
+        g = store.get_many("meta", ["ai_guide"]).get("ai_guide") or {}
+    except Exception:
+        g = {}
+    auto = g.get("auto") or ""
+    n = len(dis) + len(conf)
+    if (refresh and config.ANTHROPIC_API_KEY and not analyzer.CLAUDE_ERROR and n >= 5
+            and _days_since(g.get("auto_at")) >= 7 and n != g.get("auto_n")):
+        try:
+            auto = analyzer.summarize_guide(dis[:60], conf[:60], auto) or auto
+            store.update("meta", "ai_guide", {"auto": auto, "auto_at": store.now_str(), "auto_n": n})
+            log.info("판정 지침 갱신: 사례 %d건 → %d줄", n, len(auto.splitlines()))
+        except Exception as e:
+            log.warning("판정 지침 갱신 실패: %s", type(e).__name__)
+    return "\n".join(x for x in ((g.get("manual") or "").strip(), auto.strip()) if x)
+
+
+def run_scan(only_names: list[str] | None = None, progress=None, should_stop=None, quick: bool = False) -> dict:
+    """progress(done, total, current_name) 콜백으로 진행 상황을 알리고, should_stop()이 True면 남은 업체를 건너뛴다.
+    quick: 빠른 스캔 (제재 키워드 기사 + 공식 명단만, 업체명 검색 없음)"""
     t_start = time.time()
     analyzer.CLAUDE_ERROR = None
     analyzer.check()
@@ -494,7 +531,7 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
         progress(0, total, "제재 키워드 검색·제재리스트 준비")
 
     # DART 기업목록이 필요한 업체가 있으면 시작하자마자 백그라운드로 받기 시작
-    needs_dart = config.DART_API_KEY and any(
+    needs_dart = not quick and config.DART_API_KEY and any(
         c.get("country", "KR") in ("KR", "", None) and not c.get("biz_no") and not c.get("corp_code")
         and _days_since(c.get("dart_checked_at")) >= 30 for c in companies)
     if needs_dart:
@@ -522,6 +559,9 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
         log.warning("seen 요약 읽기 실패 → 업체별로 읽음: %s", e)
         seen_docs = {}
     force = bool(only_names) and len(companies) <= 3  # 업체 1~3곳만 다시 스캔: 꼼꼼하게
+    # AI가 계속 배우도록: 모든 업체에서 담당자가 누른 판단 사례 + 그것을 요약한 판정 지침을 판정마다 함께 줌
+    fb_dis, fb_conf = _shared_feedback(rel_by)
+    analyzer.SHARED = {"dismissed": fb_dis[:40], "confirmed": fb_conf[:40], "guide": _load_guide(fb_dis, fb_conf, refresh=not only_names and not quick)}
     # 매뉴얼: MDB는 영문명 조회 후 국적 대한민국으로 최종 확인 → 한국 국적 제재 기업 목록을 따로 기록
     korea = [{"name": e["name"], "dataset": e["dataset"], "sanctions": (e.get("sanctions") or "")[:200],
               "url": f"https://www.opensanctions.org/entities/{e['entity_id']}/"}
@@ -538,7 +578,7 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
         futs = {ex.submit(scan_company, c, projects, keywords, entries, lists_ok,
                           hits.get(c["id"], []), sweep_engines, len(sweep_articles), edcf,
                           rel_by.get(c["id"], []) if c["id"] in seen_docs and seen_docs[c["id"]] is not None else None,
-                          seen_docs.get(c["id"]), force): c for c in companies}
+                          seen_docs.get(c["id"]), force, quick): c for c in companies}
         for fut in as_completed(futs):
             c = futs[fut]
             try:
@@ -579,6 +619,8 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
     totals["sanction_lists"] = list_status
     if only_names:
         totals["only"] = only_names
+    if quick:
+        totals["quick"] = True
 
     store.update("meta", "status", {
         "last_scan_at": store.now_str(),
@@ -591,6 +633,55 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
     })
     store.log_run("scan", not errors, totals)
     return totals
+
+
+def dart_fill() -> dict:
+    """업체 관리 [DART로 빈 정보 채우기]: 사업자번호·영문명이 빈 국내 업체를 DART 이름으로 찾음.
+    이름이 정확히 1곳이면 바로 채우고, 여러 곳이면 후보(dart_cands)를 저장해 화면에서 고르게 함."""
+    if not config.DART_API_KEY:
+        raise RuntimeError("DART_API_KEY 가 등록돼 있지 않습니다")
+    res = {"filled": 0, "choose": 0, "none": 0, "count": 0}
+    patches: dict[str, dict] = {}
+    for c in store.all_docs("companies"):
+        if c.get("country", "KR") not in ("KR", "", None) or (c.get("biz_no") and c.get("name_en")):
+            continue
+        res["count"] += 1
+        try:
+            code = c.get("corp_code")
+            cands = [] if code else dart.match_by_name(c["name"])[0]
+            if not code and len(cands) == 1:
+                code = cands[0][0]
+            if code:
+                d = dart.company_detail(code)
+                p = {"corp_code": code, "dart_cands": None, "dart_note": None}
+                if d.get("biz_no") and not c.get("biz_no"):
+                    p.update(biz_no=pps.biz_digits(d["biz_no"]), bizno_source="DART 자동")
+                if d.get("name_en") and not c.get("name_en"):
+                    p["name_en"] = d["name_en"]
+                if d.get("ceo") and not c.get("ceo"):
+                    p["ceo"] = d["ceo"]
+                cat = category.from_ksic(d.get("induty_code"))
+                if cat and (not c.get("category") or c.get("category_source") == "이름 추정"):
+                    p.update(category=cat, category_source="DART 업종", induty_code=d.get("induty_code"))
+                patches[c["id"]] = p
+                res["filled"] += 1
+            elif cands:  # 같은 이름이 여러 곳: 후보마다 대표자·사업자번호를 받아 두고 화면에서 고름
+                opts = []
+                for r in cands[:8]:
+                    d = dart.company_detail(r[0])
+                    opts.append({"corp_code": r[0], "name": r[1], "name_en": d.get("name_en") or r[2] or "", "ceo": d.get("ceo") or "",
+                                 "biz_no": pps.biz_digits(d.get("biz_no") or ""), "listed": bool(r[3]), "induty_code": d.get("induty_code") or ""})
+                patches[c["id"]] = {"dart_cands": opts, "dart_checked_at": store.now_str()}
+                res["choose"] += 1
+            else:
+                patches[c["id"]] = {"dart_checked_at": store.now_str(), "dart_note": "DART 기업목록에 없음 (비상장·소규모·건축사사무소 등) — 사업자번호 직접 입력 필요"}
+                res["none"] += 1
+        except Exception as e:
+            log.warning("DART 채움 실패: %s", type(e).__name__)
+    if patches:
+        store.update_many("companies", patches)
+    store.log_run("dartfill", True, res)
+    return res
 
 
 def connections() -> dict:

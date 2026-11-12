@@ -93,16 +93,16 @@ def group(findings: list[dict]) -> list[list[dict]]:
         st = f.get("status") or "new"
         t = norm_title(f.get("title"))
         if len(t) >= 8:
-            buckets.setdefault(("t", st, t), []).append(i)
+            buckets.setdefault(("t", st, (f.get("company_id"), t)), []).append(i)  # 업체가 다르면 묶지 않음(제재는 법인 단위)
         u = _url_key(f.get("url"))
         if u:
-            buckets.setdefault(("u", st, u), []).append(i)
+            buckets.setdefault(("u", st, (f.get("company_id"), u)), []).append(i)
         buckets.setdefault(("c", st, f.get("company_id")), []).append(i)
     # AI가 '같은 사건'으로 표시한 기록끼리 (same_as = 다른 기록 id)
     by_id = {f.get("id"): i for i, f in enumerate(findings) if f.get("id")}
     for i, f in enumerate(findings):
         j = by_id.get(f.get("same_as"))
-        if j is not None and (findings[j].get("status") or "new") == (f.get("status") or "new"):
+        if j is not None and findings[j].get("company_id") == f.get("company_id") and (findings[j].get("status") or "new") == (f.get("status") or "new"):
             union(j, i)
     for (kind, _, _), idx in buckets.items():
         if kind != "c":

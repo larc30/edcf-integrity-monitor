@@ -75,9 +75,10 @@ def process_queue() -> int:
         store.update("requests", r["id"], {"status": "done" if ok else "error", "finished_at": store.now_str(), "result": result})
 
     # 스캔 요청은 한 번에 묶어서: 전체 스캔이 하나라도 있으면 전체, 아니면 요청된 업체만
-    scans = [r for r in reqs if r.get("task") in ("scan", "daily")]
+    scans = [r for r in reqs if r.get("task") in ("scan", "daily", "quick")]
     if scans:
         full = any(not (r.get("companies") or "").strip() for r in scans)
+        quick = all(r.get("task") == "quick" for r in scans)  # 빠른 스캔만 있을 때만 빠르게 (전체 요청이 섞이면 전체)
         names = None if full else sorted({n.strip() for r in scans for n in r["companies"].split(",") if n.strip()})
         def progress(done, total, current):
             data = {"progress": {"done": done, "total": total, "current": current, "at": store.now_str()}}
@@ -92,7 +93,7 @@ def process_queue() -> int:
             return False
 
         try:
-            res = scanner.run_scan(names, progress=progress, should_stop=should_stop)
+            res = scanner.run_scan(names, progress=progress, should_stop=should_stop, quick=quick)
             report.save_preview()
             if full and not res.get("stopped"):
                 update_geo()  # [지금 스캔]은 업체·수원국 리스크를 함께
@@ -111,7 +112,7 @@ def process_queue() -> int:
 
     for r in reqs:
         task = r.get("task")
-        if task in ("scan", "daily"):
+        if task in ("scan", "daily", "quick"):
             if task == "daily":
                 try:
                     report.send()
@@ -128,6 +129,9 @@ def process_queue() -> int:
                 res = report.send()
             elif task == "dart":
                 res = {"count": sync_dart()}
+            elif task == "dartfill":
+                res = scanner.dart_fill()
+                log.info("DART 채움: 대상 %d · 채움 %d · 고르기 %d · 없음 %d", res["count"], res["filled"], res["choose"], res["none"])
             elif task == "preview":
                 res = report.save_preview()
             elif task == "check":
@@ -139,7 +143,7 @@ def process_queue() -> int:
                 res = {}
             else:
                 raise RuntimeError(f"알 수 없는 작업: {task}")
-            finish(r, True, {k: v for k, v in res.items() if k in ("items", "subject", "count", "test")})
+            finish(r, True, {k: v for k, v in res.items() if k in ("items", "subject", "count", "test", "filled", "choose", "none")})
         except Exception as e:
             log.exception("요청 처리 실패: %s", task)
             finish(r, False, {"error": str(e)[:300]})

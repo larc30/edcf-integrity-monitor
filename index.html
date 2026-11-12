@@ -20,7 +20,7 @@
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=38">
+<link rel="stylesheet" href="assets/style.css?v=40">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -91,6 +91,7 @@
         <div class="d-radar">
           <div class="radar" id="radar" title="빈 곳을 누르면 다시 훑어봅니다"></div>
           <span class="radar-info" id="radarInfo"></span>
+          <div class="radar-hud" id="radarHud"></div>
         </div>
         <!-- 담당 사업 (오른쪽, 세로로 길게) -->
         <div class="card d-projects">
@@ -100,9 +101,11 @@
         <!-- 확인이 필요한 이슈 -->
         <div class="card d-issues" id="issuesCard">
           <div class="card-head"><h2>확인이 필요한 이슈 <span class="count" id="issueCount">0</span> <span class="h2-sub">위험·경고</span> <span id="actHelp"></span></h2><div class="seg" id="periodSeg"></div></div>
+          <div class="issue-scroll">
           <div id="feed" class="feed"></div>
           <details id="refWrap" class="more hidden"><summary>참고 이력 <span id="refN">0</span>건 <span class="muted small">(확인하지 않아도 됩니다)</span></summary><div id="feedRef" class="feed" style="margin-top:8px"></div></details>
           <details id="doneWrap" class="more hidden"><summary>확인 완료한 이슈 보기</summary><div id="feedDone" class="feed" style="margin-top:8px"></div></details>
+          </div>
         </div>
       </div>
     </section>
@@ -155,6 +158,8 @@
       <div class="page-head">
         <h1>업체 관리 <span class="h-count" id="coTotal">0</span></h1>
         <div class="head-actions">
+          <button class="btn warn hidden" id="btnDartPick">DART 후보 고르기</button>
+          <button class="btn" id="btnDartFill" title="사업자번호나 영문명이 빈 국내 업체를 DART에서 찾아 채웁니다. 이름이 1곳만 맞으면 바로 채우고, 여러 곳이면 고르게 합니다">DART로 빈 정보 채우기</button>
           <button class="btn" id="btnBulk">일괄 등록</button>
           <button class="btn primary" id="btnAddCompany">+ 업체 추가</button>
         </div>
@@ -235,6 +240,18 @@
         </div>
         </div>
       </div>
+      <div class="card guide-card">
+        <div class="card-head"><h2>AI 판정 지침</h2><span class="muted small" id="guideMeta"></span></div>
+        <p class="card-desc">AI가 기사를 판정할 때 함께 읽는 우리 팀 기준입니다. 이슈에서 누른 확인 완료, 관련 없음이 쌓이면 AI가 주 1회 스스로 정리하고, 직접 적은 기준은 항상 먼저 적용됩니다.</p>
+        <div class="guide-grid">
+          <div><h3>직접 적는 기준</h3>
+            <textarea id="guideManual" rows="6" maxlength="2000" placeholder="예) 자회사가 받은 처분은 모회사 등급에 넣지 않는다&#10;예) 하도급 대금 지연은 경고로 본다"></textarea>
+            <div class="actions left"><button class="btn sm primary" id="guideSave">저장</button></div></div>
+          <div><h3>AI가 정리한 기준</h3>
+            <div class="guide-auto" id="guideAuto"></div>
+            <div class="actions left"><button class="btn sm ghost" id="guideAutoClear">지우고 다시 만들기</button></div></div>
+        </div>
+      </div>
       <details class="card adv-card" id="advCard">
         <summary><h2>고급</h2><span class="muted small">API 연결 · 실행 기록 · 화면</span></summary>
         <div class="adv-grid">
@@ -245,7 +262,7 @@
             <div class="actions left"><a class="btn sm" id="lnkActions" target="_blank" rel="noopener">GitHub Actions ↗</a><a class="btn sm" id="lnkSecrets" target="_blank" rel="noopener">키 관리 (Secrets) ↗</a></div>
           </div>
           <div>
-            <div class="conn-head"><h3>최근 실행</h3></div>
+            <div class="conn-head"><h3>최근 실행</h3><button class="btn sm" id="btnFullScan" title="업체명으로 하나씩 뉴스를 찾는 전체 스캔 (4~5분). 매일 아침 자동으로 한 번 돕니다">전체 스캔</button></div>
             <div id="runList" class="run-list"></div>
             <h3>화면</h3>
             <label class="check"><input type="checkbox" id="liteToggle"> 가벼운 모드 (레이더 효과 줄이기)</label>
@@ -262,6 +279,6 @@
 <div id="toast" class="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
-<script type="module" src="assets/app.js?v=39"></script>
+<script type="module" src="assets/app.js?v=40"></script>
 </body>
 </html>

@@ -17,14 +17,16 @@
 - 화면 탭: 업체 리스크 ↔ 수원국 리스크(미끄러지는 스위치, 카드 뒤집기 전환 · 가벼운 모드면 바로 전환). 업체 관리·사업 관리·설정은 관리자 모드에서만(상단 오른쪽 주황 [관리자 모드] 버튼, 관리자 계정에만 보임). 관리자 모드는 별도 모드: 켜면 업체·수원국 스위치가 숨고 관리 탭만, [관리자 모드 나가기]나 로고로 나옴. 화면에서만 막은 것이고 Firestore 규칙은 그대로.
 - 기간 구분(업체 이슈·수원국 이벤트 같게): 전체 · 최근 7일 · 최근 30일 · 30일 이전. 공식 제재 기록은 기간과 무관하게 항상(30일 이전 제외).
 - 이슈 버튼: ✓ 확인 완료(맞음 · 등급 유지 · AI에 '관련 있음' 예시) / ✕ 관련 없음(아님 · 등급에서 빠짐 · AI에 '관련 없음' 예시). 둘 다 같은 기사는 다시 안 가져옴.
-- [지금 스캔]: 업체 리스크·수원국 리스크 같은 버튼(같은 작업). 전체 스캔이면 run.py 가 geo.update 도 함께.
+- [지금 스캔]: 업체 리스크·수원국 리스크 같은 버튼 = 빠른 스캔(task quick: 제재 키워드 기사 + 공식 명단 3종 + geo, 업체명 검색 없음). 업체명 검색까지 하는 전체 스캔은 매일 아침 자동 + 설정 > 고급 > [전체 스캔]. quick·dartfill 은 monitor.yml 선택지에 없어서 항상 requests(queue)로만 실행.
+- 이슈 카드는 업체별로 따로(같은 기사라도 업체가 다르면 묶지 않음: 제재는 법인 단위). 이슈 목록은 화면 높이 안에서 스크롤(.issue-scroll).
+- 업체 수 표기는 '곳' 대신 '업체 N'. 공식 제재 명단 창은 출처별 세 칸(EDCF·조달청·MDB) + 접힌 EXIMIIS 올리기·검사 범위.
 - 보기 범위 버튼 숫자: 업체 리스크는 '업체 N', 수원국 리스크는 '사업 N'으로 단위를 붙여 표시.
 - 실행: 회사망은 api.github.com·script.google.com 차단 → [지금 스캔]은 Firestore requests 에 저장 → Apps Script(tools/relay.gs) tick(평일 08~19시 5분마다)이 queue 디스패치. 매일 아침은 Apps Script daily()(07~08시) + GitHub cron(30 22 UTC). run.py 는 자동 실행이면 하루 한 번만(meta/status.last_daily_at).
 - 데모: `index.html?demo=1` (demo/fb-*.js 가짜 Firebase + demo/data.js 가상 데이터, 216곳 규모). `&guest` 붙이면 관리자 아닌 팀원 화면. demo/mail.js 는 tools/demo 스크립트로 생성.
 
 ## Firestore
 projects{name,country,owner,created_at} · companies{name,name_en,aliases,category,category_source,biz_no,corp_code,country,watch,engagements:[{project_id,role,stage,order}],last_check,...} · findings{company_id,source_type(news/official),source_name,title,url,published_at,level(red/orange/yellow/none),category,summary,rationale,analyzer,dedup_key,relevant,status(new/reviewed/dismissed),same_as,reported_at,review_note} · seen/{업체id}(이미 본 기사 키) · edcf_sanctions(EXIMIIS 명단) · keywords{word,lang}(추가 키워드) · recipients · requests · runs · meta/status·settings·access·geo.
-- meta/geo{updated_at, alerts{ISO2:{level 1~4, partial, regions, special}}, alerts_at, news_at, events[{id,type,country,lat,lng,title,url,at_ms,source,mag}]} — monitor/geo.py 가 daily 때 저장(문서 1개 = 대시보드 읽기 1회). projects.lat/lng 있으면 그 위치에 핀.
+- meta/geo{updated_at, alerts{ISO2:{level 1~4, partial, regions, special}}, alerts_at, news_at, events[{id,type,country,lat,lng,title,url,at_ms,source,mag}]} — monitor/geo.py 가 daily 때 저장(문서 1개 = 대시보드 읽기 1회). projects.lat/lng(+site_en) 있으면 그 위치에 핀: 사업 수정 창의 사업지 지도(geo.js mountSitePicker)에서 눌러서 지정.
 - 내 사업 = projects.owner(로그인 이메일 1개). owner 없으면 모두에게 내 사업. watch=true 업체는 모두의 내 담당.
 
 ## 검사 (monitor/scanner.py)
@@ -32,8 +34,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 집중 감시(사업 연결 또는 watch): 매일 업체명 검색 + '업체명+추가 키워드' 심층. 기본 감시: 업체명 검색 주 1회. 다시 스캔(force)은 10년 범위.
 - 업체명 일치: textutil.name_matches(짧은 이름은 독립 단어·업종 문맥 필요).
 - 조달청: data.go.kr 15129466, 사업자번호로 현재 유효 제재만. 같은 부정당번호에 정지·해제 줄이 있거나, 저장된 제재가 기간 중 사라지면 경고(집행정지 확인).
-- 사업자번호·영문명·업종: DART corpCode 정확 일치 1건일 때만 자동, 아니면 수기.
-- AI 판정: Claude(config.CLAUDE_MODEL, 기본 Haiku), 키 없으면 analyzer.RULE_KEYWORDS 규칙 판정. 처분 대상이 모회사·자회사·계열사(다른 법인)면 이 업체는 참고(yellow) 이하. 분류에 '영업정지·등록말소' 있음. 업체별 '관련 없음'·'확인했음' 제목을 예시로 전달('과거 이력 일괄 정리'는 제외). 재판정은 monitor/rejudge.py.
+- 사업자번호·영문명·업종: DART corpCode 정확 일치 1건일 때만 자동, 아니면 수기. 업체 관리 [DART로 빈 정보 채우기](task dartfill): 1건이면 채우고 여러 건이면 companies.dart_cands 에 후보 저장 → [DART 후보 고르기]에서 선택.
+- AI 판정: Claude(config.CLAUDE_MODEL, 기본 Haiku), 키 없으면 analyzer.RULE_KEYWORDS 규칙 판정. 처분 대상이 모회사·자회사·계열사(다른 법인)면 이 업체는 참고(yellow) 이하. 확정된 처분은 시작일 전이어도 위험. 분류에 '영업정지·등록말소' 있음. 계속 배우기: 모든 업체의 ✓/✕ 사례(analyzer.SHARED)와 판정 지침(meta/ai_guide{manual 직접 적음, auto AI가 주 1회 요약})을 판정마다 함께 줌(설정 > AI 판정 지침). 업체별 '관련 없음'·'확인했음' 제목을 예시로 전달('과거 이력 일괄 정리'는 제외). 재판정은 monitor/rejudge.py.
 
 ## 등급 (3단계: 위험·경고·정상, 2026-11-11 결정)
 - 업체 등급: 위험 = 지금 유효한 제재(입찰제한·MDB·영업정지·등록말소·EXIMIIS 등록) / 경고 = 제재로 이어질 진행 중 사안(수사·기소·과징금·부도·회생, 집행정지) / 정상 = 그 밖.
@@ -47,7 +49,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 여행경보: 공공데이터포털 '외교부_국가·지역별 여행경보'(TravelAlarmService2) + 특별여행주의보. 키는 조달청과 같은 DATA_GO_KR_KEY 그대로(따로 입력 안 함, 활용신청만). MOFA_TRAVEL_KEY 는 다른 키를 쓸 때만. 응답 필드명은 실제 키로 아직 확인 못 함. 연결 상태는 대시보드가 아니라 설정 > 고급 > API 연결에.
 - 지진: USGS 4.5_week(키 없음), 사업지·수원국 600km 안. 브라우저에서도 실시간으로 한 번 더 받음(회사망에서 막히면 저장본).
 - 뉴스: Google·네이버 '나라 이름 + 사건 단어', 제목에 나라 이름 있는 것만. 이벤트는 1년 보관, 최대 300건.
-- 지도 표시: 이벤트는 종류별 색 아이콘 배지(이모티콘 안 씀), 지명은 영어(Esri 이름 층 + 'Nairobi, Kenya'). 오른쪽 사업을 누르면 사업지 둘레 100~500km 점선 원 + 600km 안 이벤트까지 거리선·거리, 근거와 가까운 사건은 오른쪽 사업 카드 안에 펼침(지도 위 안내 상자는 안 씀). 다시 누르거나 지도 오른쪽 위 [‹ 전체 지도](사업 골랐을 때만 보임)로 해제.
+- 지도 표시: 이벤트는 종류별 색 아이콘 배지(이모티콘 안 씀), 지명은 영어(Esri 이름 층 + 'Nairobi, Kenya'). 오른쪽 사업을 누르면 사업지 둘레 100~500km 레이더 모양 원(실선·십자선·도는 빛) + 600km 안 이벤트까지 거리선·거리, 근거와 가까운 사건은 오른쪽 사업 카드 안에 펼침(지도 위 안내 상자는 안 씀). 다시 누르거나 지도 오른쪽 위 [‹ 전체 지도](사업 골랐을 때만 보임)로 해제.
 - 핀 옆 사업명(나라 이름·'사업' 뺀 짧은 이름). 겹치면 declutter(): 원래 쪽 → 반대쪽 → 아래 → 위, 모두 막히면 숨김(위험 순서대로 자리 차지, 지도 밖 잘림도 막힘으로 봄). 나라 이름도 핀·사업명·이벤트와 겹치면 숨김.
 - 첫 실제 수집(11/11 스캔): 여행경보 145개국 · 지진 2 · 뉴스 이벤트 62 (수원국 6개국). 특별여행주의보 API 는 HTTP 오류(활용신청 또는 주소 확인 필요).
 

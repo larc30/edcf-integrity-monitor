@@ -53,7 +53,9 @@ EDCF 사업에 참여 중인 업체(컨설턴트, 본구매 계약자, 입찰참
 2. risk_level (담당자 기준: '위험'은 실제로 지금 제재를 받고 있는 경우만):
    - red(위험): 지금 유효한 제재 처분 — 입찰참가자격 제한(부정당업자 제재) 기간 중, MDB 제재(debarment) 중,
           영업정지·등록말소 처분 중. 처분이 확정·집행 중인 사실이 기사에 있을 때만 (예고·청문·소송 중이면 red 아님,
-          법원 집행정지·효력정지 결정으로 처분이 멈춘 상태면 red 아님 → orange)
+          법원 집행정지·효력정지 결정으로 처분이 멈춘 상태면 red 아님 → orange).
+          처분이 확정(처분 통보·공시)됐으면 시작일이 아직 오지 않았어도 red. 업체가 '가처분·소송으로 대응할 계획'이라고만
+          밝힌 단계도 red (법원이 실제로 집행정지를 결정한 뒤에만 orange)
    - orange(경고): 제재로 이어질 수 있는 진행 중 사안 — 최근 1년 내 입찰담합·뇌물·사기·횡령 등의
              수사·압수수색·기소·유죄판결, 공정위 제재·과징금, 제재 처분 예고·청문, 부도·회생절차·법정관리
    - yellow(주의): 참고할 이력 — 1년 이상 지난 과거 제재·처분, 의혹 제기·고발 단계, 소송·분쟁,
@@ -188,7 +190,7 @@ def _claude(company: dict, engagements: list[dict], articles: list[dict], keywor
         f"오늘 날짜: {date.today().isoformat()}\n\n"
         f"[업체 프로필]\n{json.dumps(profile, ensure_ascii=False, indent=1)}\n\n"
         f"[담당자 관심 키워드]\n{', '.join(k['word'] for k in keywords)}\n\n"
-        + _feedback_text(feedback) + recent_txt +
+        + _shared_text(company["name"]) + _feedback_text(feedback) + recent_txt +
         f"[기사 목록]\n{json.dumps(payload, ensure_ascii=False, indent=1)}\n\n"
         "모든 기사(idx)에 대해 판정 결과를 반환하세요."
     )
@@ -227,6 +229,48 @@ def _claude(company: dict, engagements: list[dict], articles: list[dict], keywor
             }
         )
     return out
+
+
+# 스캔 한 번 동안 모든 업체 판정에 함께 주는 것 (scanner.run_scan 이 채움)
+# guide: 팀 판정 지침(설정에서 쓴 것 + 담당자 판단을 AI가 요약한 것), dismissed/confirmed: 다른 업체에서 담당자가 누른 사례
+SHARED: dict = {}
+
+
+def _shared_text(company_name: str) -> str:
+    parts = []
+    guide = (SHARED.get("guide") or "").strip()
+    if guide:
+        parts.append("[팀 판정 지침: 담당자들이 지금까지 내린 판단에서 정리한 기준입니다. 기사에 해당하면 이 기준을 따르세요]\n" + guide)
+    dis = [x for x in SHARED.get("dismissed") or [] if not x.startswith(company_name + ":")][:12]
+    if dis:
+        parts.append("[다른 업체에서 담당자가 '관련 없음'으로 표시한 사례 (업체: 제목) — 같은 유형이면 관련 없음]\n" + "\n".join(f"- {t}" for t in dis))
+    conf = [x for x in SHARED.get("confirmed") or [] if company_name + ":" not in x][:12]
+    if conf:
+        parts.append("[다른 업체에서 담당자가 '확인 완료'(판정이 맞음)로 표시한 사례 (등급 · 업체: 제목)]\n" + "\n".join(f"- {t}" for t in conf))
+    return "\n\n".join(parts) + "\n\n" if parts else ""
+
+
+def summarize_guide(dismissed: list[str], confirmed: list[str], current: str) -> str:
+    """담당자 판단 사례를 '판정 지침' 몇 줄로 요약 (주 1회). 실패하면 예외."""
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+    user = (
+        "EDCF 사업 참여 업체의 뉴스 리스크 판정에서, 담당자가 직접 내린 판단 사례입니다.\n\n"
+        "[담당자가 '관련 없음'으로 표시 (업체: 제목 (메모))]\n" + "\n".join(f"- {t}" for t in dismissed) + "\n\n"
+        "[담당자가 '확인 완료'(판정이 맞음)로 표시 (등급 · 업체: 제목)]\n" + "\n".join(f"- {t}" for t in confirmed) + "\n\n"
+        "[지금 쓰고 있는 지침]\n" + (current or "(없음)") + "\n\n"
+        "이 사례에서 되풀이되는 판단 기준을 뽑아, 다음 판정에 쓸 지침을 한국어로 고쳐 써 주세요.\n"
+        "- 한 줄에 기준 하나, '- '로 시작, 최대 10줄, 한 줄 80자 이내\n"
+        "- 사례 여러 건에서 보이는 유형만 (한 건뿐인 것은 넣지 않기). 사례에 근거가 없는 기준은 만들지 않기\n"
+        "- 특정 업체 이름은 쓰지 말고 유형으로 (예: 동명이인, 계열사 처분, 과거 기사 재인용)\n"
+        "- 지금 지침에서 여전히 맞는 줄은 유지하고, 사례와 어긋나는 줄은 고치기\n"
+        "지침 줄만 출력하세요."
+    )
+    resp = client.messages.create(model=config.CLAUDE_MODEL, max_tokens=1200, messages=[{"role": "user", "content": user}])
+    text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text").strip()
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip().startswith("-")][:10]
+    return "\n".join(ln[:120] for ln in lines)
 
 
 def _feedback_text(feedback: dict | None) -> str:
