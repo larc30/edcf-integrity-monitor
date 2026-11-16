@@ -1603,3 +1603,10 @@ html.lite .rdot.red, html.lite .rdot.orange { animation: none; }
 .wk2 .day { font-size: 10px; text-anchor: middle; fill: var(--muted); } .wk2 .day.now { fill: var(--text); font-weight: 800; }
 .wk2 .pt { cursor: default; }
 html.lite .rk-trend .wk2 path.line { filter: none; }
+
+/* v63 — 최근 7일 = 그날 새로 잡힌 위험·경고: 지난 날 점은 작고 꽉 찬 점, 숫자는 매일 작게(0은 흐리게), 오늘만 크게 */
+.wk2 .dot.r { fill: var(--red); } .wk2 .dot.o { fill: var(--orange); }
+.wk2 .pt:not(.now) .dot { stroke: none; opacity: .85; }
+.wk2 .val { font-size: 10px; font-weight: 650; fill: var(--muted); }
+.wk2 .val.zero { opacity: .55; }
+.wk2 .val.now { font-size: 13px; font-weight: 850; fill: var(--text); opacity: 1; }
