@@ -29,7 +29,7 @@
 projects{name,country,owner,created_at} · companies{name,name_en,aliases,category,category_source,biz_no,corp_code,country,watch,engagements:[{project_id,role,stage,order}],last_check,...} · findings{company_id,source_type(news/official),source_name,title,url,published_at,level(red/orange/yellow/none),category,summary,rationale,analyzer,dedup_key,relevant,status(new/reviewed/dismissed),same_as,reported_at,review_note} · seen/{업체id}(이미 본 기사 키) · edcf_sanctions(EXIMIIS 명단) · keywords{word,lang}(추가 키워드) · recipients · requests · runs · meta/status·settings·access·geo.
 - meta/geo{updated_at, alerts{ISO2:{level 1~4, partial, regions, special}}, alerts_at, news_at, events[{id,type,country,lat,lng,title,url,at_ms,source,mag}]} — monitor/geo.py 가 daily 때 저장(문서 1개 = 대시보드 읽기 1회). projects.lat/lng(+site_en) 있으면 그 위치에 핀: 사업 등록·수정 창(같은 팝업, openProjectEdit(null)=등록)의 사업지 지도(geo.js mountSitePicker)에서 눌러서 지정.
 - 사업 완료: projects.status="done"(사업 수정 창의 체크). 대시보드 두 곳·내 담당·집중 감시·geo 수집에서 빠지고 사업 관리에는 흐리게 남음(app.js live() ↔ scanner·geo.py).
-- 내 사업 = projects.owner(로그인 이메일 1개). owner 없으면 모두에게 내 사업. watch=true 업체는 모두의 내 담당.
+- 내 사업 = projects.owner(로그인 이메일 1개)가 나인 사업만(2026-11-16 변경: 담당 미지정 사업은 EDCF 전체에서만 보임). 집중 감시(watch)는 검사 강도(매일 업체명 검색)만 바꾸고 내 담당에는 넣지 않음.
 
 ## 검사 (monitor/scanner.py)
 - 매일: 기본 키워드 25개(TOPIC_QUERIES) + 추가 키워드(최대 12) 뉴스 검색 → 전체 명단 대조. MDB(OpenSanctions 5종, 비상업 라이선스)·조달청·EXIMIIS 대조는 모든 업체 매일.
@@ -68,7 +68,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
 ## 화면 규칙
 - 디자인(v52, 2026-11-12 사용자 결정): 그라데이션·빛 효과는 유지(업체 리스크 보라·하늘, 수원국 리스크 하늘·초록으로 구분 — 평평한 단색으로 바꾸지 말 것). 제목 영역은 한 줄(부제는 '마지막 스캔/갱신'만). 글자 크기·다크/라이트 버튼은 상단에 그대로, 계정 메뉴에는 메일·로그아웃만. 이슈 카드의 ✓/✕ 버튼은 제목 줄 오른쪽. 오른쪽 사업 목록은 위험·경고 업체만 이름 + '정상 N', 사업 카드를 누르면 사업 상세(openProject, 오른쪽 창). 수원국 사업 카드는 평소 두 줄, 누르면 자세히. 상세는 오른쪽 창(drawer), 팝업은 등록·설정용. 설명 글은 word-break: keep-all(한 글자만 넘어가지 않게), i 표시는 제목 줄 가운데.
-- 어제와 비교·최근 7일 선 그래프(위험 빨강·경고 주황, 날마다 점과 숫자. 막대보다 선을 원함): 화면에서 이슈의 first_seen_ms 로 날짜별 위험·경고 업체 수를 되짚어 계산(지금 보는 범위 기준). 30일 선 그래프는 뜻이 안 보인다고 해서 뺌. report.save_history 의 meta/history 기록은 계속 쌓지만 화면은 아직 안 씀.
+- 어제와 비교·최근 7일 선 그래프(위험 빨강·경고 주황. 막대보다 선을 원함. v62: 위험·경고를 위아래 두 줄로 나눠 겹침 없앰, 부드러운 곡선+채움, 숫자는 첫날·바뀐 날·오늘만, 오늘 칸 강조): 화면에서 이슈의 first_seen_ms 로 날짜별 위험·경고 업체 수를 되짚어 계산(지금 보는 범위 기준). 30일 선 그래프는 뜻이 안 보인다고 해서 뺌. report.save_history 의 meta/history 기록은 계속 쌓지만 화면은 아직 안 씀.
 - 칸 폭: 업체 리스크는 3 : 4 : 5(등급 · 레이더 · 사업, 레이더 칸을 레이더 크기에 맞춰 여백이 남지 않게), 수원국 리스크는 지도가 넓게. 왼쪽 칸은 가볍게: 공식 제재 명단 카드는 출처별 제재 중 수 한 줄(자세한 것은 카드를 누르면), 최근 7일 선은 글자 크게. 레이더 위험 점은 같은 색 점선 테두리가 천천히 돌고 은은하게 깜빡임(흰 호는 과하다고 함), 경고 점은 반짝임, 지도 최근 사건도 점선 테두리가 돎(가벼운 모드에서는 꺼짐. 회사 PC의 '애니메이션 효과 끄기'(prefers-reduced-motion)에서도 점 움직임은 유지하도록 예외를 둠). 계정 메뉴: 메일·가벼운 모드·[설정 (관리자)]·로그아웃. 지도는 4 이상 확대하면 주요 도시(GEO_CITY) 점·이름. 사업명 표시는 어느 쪽이든 왼쪽 등급 색 띠. 이벤트 요약은 [전체] + 다섯 묶음(GEO_GROUPS: 지진·화산 / 분쟁·테러 / 시위·정치 / 기상재해 / 감염병).
 - 다크 기본, 대시보드 배치 'B 관제실'. backdrop-filter·blur 애니메이션 금지(느려짐, 가벼운 모드 html.lite 있음).
 - 글자 크기는 var(--fs-xs·sm·base·md·lg·xl)만. 화면 문구에 '—' 쓰지 않기. 창 닫기 버튼은 마지막 .actions 줄 주 버튼 오른쪽.

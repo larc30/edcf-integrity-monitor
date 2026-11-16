@@ -1583,3 +1583,23 @@ html.lite .rdot.red, html.lite .rdot.orange { animation: none; }
 .wk-line text { font-size: 11.5px; font-weight: 750; }
 .rk-trend svg.wk-line { max-height: 4.6rem; }
 .wk-days { font-size: var(--fs-xs); }
+
+/* v62 — 최근 7일: 위험·경고를 위아래 두 줄로 (겹침 없음), 부드러운 곡선 + 채움 + 오늘 칸 강조 */
+.rk-trend-h .wk-sub { font-size: var(--fs-xs); color: var(--muted); font-weight: 500; }
+.rk-trend svg.wk2 { display: block; width: 100%; height: auto; max-height: none; overflow: visible; margin-top: 2px; }
+.rk-trend .wk2 path.line { fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.rk-trend .wk2 path.line.r { stroke: var(--red); filter: drop-shadow(0 0 4px color-mix(in srgb, var(--red) 55%, transparent)); }
+.rk-trend .wk2 path.line.o { stroke: var(--orange); filter: drop-shadow(0 0 4px color-mix(in srgb, var(--orange) 55%, transparent)); }
+.rk-trend .wk2 path.area { stroke: none; }
+.wk2 .base { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 3; }
+.wk2 .today { fill: color-mix(in srgb, var(--text) 6%, transparent); }
+.wk2 .dot { fill: var(--panel-solid); stroke-width: 2; } .wk2 .dot.r { stroke: var(--red); } .wk2 .dot.o { stroke: var(--orange); }
+.wk2 .now .dot.r { fill: var(--red); } .wk2 .now .dot.o { fill: var(--orange); }
+.wk2 .halo { fill: none; stroke-width: 1.5; opacity: .45; } .wk2 .halo.r { stroke: var(--red); } .wk2 .halo.o { stroke: var(--orange); }
+.wk2 .val { font-size: 10.5px; font-weight: 750; text-anchor: middle; fill: var(--text-2); font-variant-numeric: tabular-nums; }
+.wk2 .val.now { font-size: 13px; font-weight: 850; fill: var(--text); }
+.wk2 .ln { font-size: 10.5px; font-weight: 700; fill: var(--text-2); }
+.wk2 .sw { font-size: 8px; } .wk2 .sw.r { fill: var(--red); } .wk2 .sw.o { fill: var(--orange); }
+.wk2 .day { font-size: 10px; text-anchor: middle; fill: var(--muted); } .wk2 .day.now { fill: var(--text); font-weight: 800; }
+.wk2 .pt { cursor: default; }
+html.lite .rk-trend .wk2 path.line { filter: none; }
