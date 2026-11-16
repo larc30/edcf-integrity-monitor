@@ -526,26 +526,31 @@ function renderHome() {
   const series = sc ? Array.from({ length: 30 }, (_, i) => (i === 29 ? { v: riskyN, r: byLv.red.length } : at(dayEnd(29 - i)))) : [];
   const yd = sc ? at(dayEnd(1)) : null, prevN = yd ? { red: yd.r, orange: yd.v - yd.r, none: cs.length - yd.v } : null;
   const delta = (lv) => { if (!prevN) return ""; const d = byLv[lv].length - prevN[lv]; return d ? `<span class="rk-d ${lv !== "none" ? (d > 0 ? "up" : "down") : ""}" title="어제 ${prevN[lv]}">${d > 0 ? "+" : "−"}${Math.abs(d)}</span>` : ""; };
-  // 최근 7일: 위험(빨강)·경고(주황) 업체 수를 위아래 두 줄로 (겹치지 않게), 부드러운 곡선 + 은은한 채움
-  // 숫자는 첫날·바뀐 날·오늘만 (모든 점에 숫자를 달면 서로 부딪침), 점에 마우스를 올리면 그날 숫자
+  // 최근 7일: 그날 새로 잡힌 위험·경고 이슈 수 (처음 잡힌 때 기준, 같은 사건은 1건, '관련 없음'은 뺌)
+  // 위험·경고를 위아래 두 줄로 (겹치지 않게), 부드러운 곡선 + 은은한 채움, 숫자는 매일 작게 · 오늘만 크게
+  const newByDay = (k) => {
+    const end = dayEnd(k), start = end - DAY + 1;
+    const list = state.findings.filter((f) => ids.has(f.company_id) && f.status !== "dismissed" && (f.level === "red" || f.level === "orange")
+      && (f.first_seen_ms || pubMs(f)) >= start && (f.first_seen_ms || pubMs(f)) <= end).map((f) => ({ ...f, status: "new" })); // 처리 상태와 관계없이 그날 잡힌 것
+    return groupFindings(list).reduce((a, g) => (g.items.some((f) => f.level === "red") ? a.r++ : a.o++, a), { r: 0, o: 0 });
+  };
   const spark = () => {
     if (!sc) return "";
-    const wk = series.slice(-7).map((x) => ({ r: x.r, o: x.v - x.r })), max = Math.max(...wk.map((x) => Math.max(x.r, x.o)), 1), WD = "일월화수목금토";
-    const W = 300, LH = 40, H = LH * 2 + 18, L0 = 42, R0 = 14, X = (i) => L0 + (i / 6) * (W - L0 - R0);
+    const wk = Array.from({ length: 7 }, (_, i) => newByDay(6 - i)), max = Math.max(...wk.map((x) => Math.max(x.r, x.o)), 1), WD = "일월화수목금토";
+    const W = 300, LH = 50, H = LH * 2 + 18, L0 = 42, R0 = 14, X = (i) => L0 + (i / 6) * (W - L0 - R0);
     const dayN = (i) => { const d = new Date(Date.now() - (6 - i) * DAY); return i === 6 ? "오늘" : WD[d.getDay()]; };
     const lane = (k, name, top) => {
-      const base = top + LH - 6, Y = (v) => base - (v / max) * (LH - 20), P = wk.map((x, i) => [X(i), Y(x[k])]);
+      const base = top + LH - 6, Y = (v) => base - (v / max) * (LH - 28), P = wk.map((x, i) => [X(i), Y(x[k])]);
       const d = P.map(([x, y], i) => { if (!i) return `M${x.toFixed(1)},${y.toFixed(1)}`; const [px0, py0] = P[i - 1], mx = ((px0 + x) / 2).toFixed(1); return `C${mx},${py0.toFixed(1)} ${mx},${y.toFixed(1)} ${x.toFixed(1)},${y.toFixed(1)}`; }).join("");
       const area = `${d}L${X(6).toFixed(1)},${base}L${X(0).toFixed(1)},${base}Z`;
-      const lbl = (i) => i === 0 || i === 6 || wk[i][k] !== wk[i - 1][k];
-      const dots = P.map(([x, y], i) => `<g class="pt ${i === 6 ? "now" : ""}"><title>${dayN(i)} ${name} ${wk[i][k]}</title>${i === 6 ? `<circle class="halo ${k}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7"/>` : ""}<circle class="dot ${k}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${i === 6 ? 3.8 : 2.6}"/>${lbl(i) ? `<text class="val ${i === 6 ? "now" : ""}" x="${x.toFixed(1)}" y="${(y - 7).toFixed(1)}">${wk[i][k]}</text>` : ""}</g>`).join("");
+      const dots = P.map(([x, y], i) => `<g class="pt ${i === 6 ? "now" : ""}"><title>${dayN(i)} 새 ${name} ${wk[i][k]}건</title>${i === 6 ? `<circle class="halo ${k}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7"/>` : ""}<circle class="dot ${k}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${i === 6 ? 3.8 : 2.2}"/><text class="val ${i === 6 ? "now" : ""} ${wk[i][k] ? "" : "zero"}" x="${x.toFixed(1)}" y="${(y - 7).toFixed(1)}">${wk[i][k]}</text></g>`).join("");
       return `<line class="base" x1="${L0 - 6}" x2="${W - R0 + 6}" y1="${base}" y2="${base}"/>
         <text class="ln" x="0" y="${(base - 4).toFixed(1)}"><tspan class="sw ${k}">●</tspan> ${name}</text>
         <path class="area ${k}" d="${area}" fill="url(#wkg-${k})"/><path class="line ${k}" d="${d}"/>${dots}`;
     };
     const days = wk.map((_, i) => `<text class="day ${i === 6 ? "now" : ""}" x="${X(i).toFixed(1)}" y="${H - 3}">${dayN(i)}</text>`).join("");
-    return `<div class="rk-trend"><div class="rk-trend-h"><span>최근 7일</span><span class="wk-sub">위험·경고 업체 수</span></div>
-      <svg class="wk2" viewBox="0 0 ${W} ${H}" role="img" aria-label="최근 7일 위험 업체 ${wk.map((x) => x.r).join(", ")}, 경고 업체 ${wk.map((x) => x.o).join(", ")}">
+    return `<div class="rk-trend"><div class="rk-trend-h"><span>최근 7일</span><span class="wk-sub">새로 잡힌 위험·경고 (건)</span></div>
+      <svg class="wk2" viewBox="0 0 ${W} ${H}" role="img" aria-label="최근 7일 새로 잡힌 위험 ${wk.map((x) => x.r).join(", ")}건, 경고 ${wk.map((x) => x.o).join(", ")}건">
         <defs><linearGradient id="wkg-r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--red)" stop-opacity=".38"/><stop offset="1" stop-color="var(--red)" stop-opacity="0"/></linearGradient>
         <linearGradient id="wkg-o" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--orange)" stop-opacity=".38"/><stop offset="1" stop-color="var(--orange)" stop-opacity="0"/></linearGradient></defs>
         <rect class="today" x="${(X(6) - 15).toFixed(1)}" y="2" width="30" height="${H - 4}" rx="8"/>
