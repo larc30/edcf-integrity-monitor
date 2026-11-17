@@ -124,7 +124,7 @@ def sanctions(company: dict) -> list[dict]:
             {
                 "source_type": "official",
                 "source_name": "조달청 나라장터 부정당제재",
-                "title": f"[조달청 부정당제재] {corp} — {instt} · {bgn} ~ {end}",
+                "title": f"[조달청 부정당제재] {corp} · {instt} · {bgn} ~ {end}",
                 "url": "https://www.g2b.go.kr",
                 "published_at": (bgn or "")[:10],
                 "snippet": f"사업자번호 {bizno} / 제재기간 {bgn} ~ {end} / 통보기관 {instt} / 근거 {law or '-'} / 상태 {status or '-'}",
@@ -132,7 +132,7 @@ def sanctions(company: dict) -> list[dict]:
                 "level": "orange" if suspended else "red",
                 "category": "부정당업자 제재",
                 "summary": (f"나라장터에 부정당업자 제재가 조회되나 상태가 '{status}'입니다(집행정지 등). 상세정보·집행정지 조회로 현황 확인 필요. 기간 {bgn} ~ {end}." if suspended
-                            else "※ 법원 집행정지가 나면 나라장터 '부정당제재 이력'에 '제재정지' 줄이 생깁니다 — 계약 전 한 번 확인. " + f"{instt or '수요기관'}이(가) 통보한 부정당업자 제재(입찰참가자격 제한)가 현재 유효합니다. 기간 {bgn} ~ {end}. 근거: {law or '-'}."),
+                            else "※ 법원 집행정지가 나면 나라장터 '부정당제재 이력'에 '제재정지' 줄이 생깁니다 · 계약 전 한 번 확인. " + f"{instt or '수요기관'}이(가) 통보한 부정당업자 제재(입찰참가자격 제한)가 현재 유효합니다. 기간 {bgn} ~ {end}. 근거: {law or '-'}."),
                 "rationale": "조달청 나라장터 공식 데이터 (조회 시점 유효 제재)",
                 "analyzer": "list-match",
                 "rstt_end": end,
