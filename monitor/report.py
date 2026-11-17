@@ -1,4 +1,4 @@
-"""일일 리포트 (HTML 메일) 생성 및 발송 — Firestore 기반"""
+"""일일 리포트 (HTML 메일) 생성 및 발송 · Firestore 기반"""
 import datetime
 import html
 import logging
@@ -156,7 +156,7 @@ def build() -> tuple[str, str, list[str]]:
 
 
 def save_history(overview: list[dict]) -> None:
-    """오늘 등급별 업체 수를 meta/history.days 에 남김 (최근 60일) — 대시보드의 '어제보다 +N'·30일 추이용"""
+    """오늘 등급별 업체 수를 meta/history.days 에 남김 (최근 60일) · 대시보드의 '어제보다 +N'·30일 추이용"""
     try:
         cnt = {lv: sum(1 for c in overview if c.get("risk") == lv) for lv in ("red", "orange", "none")}
         ref = store.db().collection("meta").document("history")

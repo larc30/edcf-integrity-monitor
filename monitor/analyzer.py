@@ -183,8 +183,8 @@ def _claude(company: dict, engagements: list[dict], articles: list[dict], keywor
         for i, a in enumerate(articles)
     ]
     recent = (feedback or {}).get("recent") or []
-    recent_txt = ("[이미 수집된 이 업체 이슈 — 같은 사건이면 same_event_as 에 E번호]\n" + "\n".join(
-        f"- E{n + 1}: {r.get('date') or ''} {(r.get('title') or '')[:120]}" + (f" — {r['summary'][:80]}" if r.get("summary") else "")
+    recent_txt = ("[이미 수집된 이 업체 이슈 · 같은 사건이면 same_event_as 에 E번호]\n" + "\n".join(
+        f"- E{n + 1}: {r.get('date') or ''} {(r.get('title') or '')[:120]}" + (f" · {r['summary'][:80]}" if r.get("summary") else "")
         + {"reviewed": " [담당자 확인 완료]", "dismissed": " [담당자가 관련 없음]"}.get(r.get("status") or "", "")
         for n, r in enumerate(recent)) + "\n\n") if recent else ""
     user = (
@@ -305,7 +305,7 @@ def _shared_text(company_name: str) -> str:
         parts.append("[팀 판정 지침: 담당자들이 지금까지 내린 판단에서 정리한 기준입니다. 기사에 해당하면 이 기준을 따르세요]\n" + guide)
     dis = [x for x in SHARED.get("dismissed") or [] if not x.startswith(company_name + ":")][:12]
     if dis:
-        parts.append("[다른 업체에서 담당자가 '관련 없음'으로 표시한 사례 (업체: 제목) — 같은 유형이면 관련 없음]\n" + "\n".join(f"- {t}" for t in dis))
+        parts.append("[다른 업체에서 담당자가 '관련 없음'으로 표시한 사례 (업체: 제목) · 같은 유형이면 관련 없음]\n" + "\n".join(f"- {t}" for t in dis))
     conf = [x for x in SHARED.get("confirmed") or [] if company_name + ":" not in x][:12]
     if conf:
         parts.append("[다른 업체에서 담당자가 '확인 완료'(판정이 맞음)로 표시한 사례 (등급 · 업체: 제목)]\n" + "\n".join(f"- {t}" for t in conf))
@@ -341,10 +341,10 @@ def _feedback_text(feedback: dict | None) -> str:
         return ""
     parts = []
     if feedback.get("dismissed"):
-        parts.append("[담당자가 '관련 없음'으로 표시한 기사 — 이와 같은 유형(동명이인·다른 회사·단순 언급·무관한 문맥)은 관련 없음으로 판정]\n"
+        parts.append("[담당자가 '관련 없음'으로 표시한 기사 · 이와 같은 유형(동명이인·다른 회사·단순 언급·무관한 문맥)은 관련 없음으로 판정]\n"
                      + "\n".join(f"- {t}" for t in feedback["dismissed"]))
     if feedback.get("confirmed"):
-        parts.append("[담당자가 '확인했음'(실제 이 업체의 리스크)으로 표시한 기사 — 이와 같은 유형은 관련 있음]\n"
+        parts.append("[담당자가 '확인했음'(실제 이 업체의 리스크)으로 표시한 기사 · 이와 같은 유형은 관련 있음]\n"
                      + "\n".join(f"- {t}" for t in feedback["confirmed"]))
     return "\n\n".join(parts) + "\n\n"
 

@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO, SUPER_ADMIN, TEAMS } from "./firebase-config.js?v=31";
-import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint } from "./geo.js?v=54";
+import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint } from "./geo.js?v=55";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -17,7 +17,8 @@ const SECRETS_URL = `https://github.com/${GITHUB_REPO}/settings/secrets/actions`
 // ---------- 공통 ----------
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+// 화면 문구에 '—'는 쓰지 않음: 예전에 저장된 문구(서버 메모·기록 제목)도 보여 줄 때 ' · '로
+const esc = (s) => String(s ?? "").replace(/\s—\s/g, " · ").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 // 등급은 3단계(위험·경고·정상). yellow 는 등급이 아니라 "참고 이력"으로만 남김 (업체 등급에는 넣지 않음)
 const LEVEL = { red: "위험", orange: "경고", yellow: "참고", none: "정상" };
 const LEVEL_DESC = { red: "지금 제재 중", orange: "제재로 이어질 수 있는 진행 중 사안", yellow: "참고 이력 (등급에 넣지 않음)", none: "위험·경고 이슈 없음" };
@@ -65,6 +66,7 @@ const canReview = (cid) => {
 const isMine = (p) => live(p) && !!p.team && p.team === myTeam(); // 우리 팀 사업 (팀 미지정 사업은 'EDCF 전체'에서만 보임)
 
 function toast(msg, ms = 2800) {
+  msg = String(msg).replace(/\s—\s/g, " · ");
   const t = $("#toast"); t.textContent = msg; t.classList.add("show");
   clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), ms);
 }
@@ -616,8 +618,7 @@ function renderHome() {
   // ③ 레이더 + 귀퉁이 정보 (범위 · 범례 · 마지막 스캔)
   renderRadar(cs);
   $("#radarHud").innerHTML = `<span class="hud tl"><b>RISK RADAR</b><i>${scope === "mine" ? mineLabel() : "EDCF 전체"}</i></span>
-    <span class="hud bl"><span><i class="lg red"></i>위험</span><span><i class="lg orange"></i>경고</span><span><i class="lg none"></i>정상</span></span>
-    <span class="hud br"><i>마지막 스캔</i><b>${sc ? esc(String(state.status.last_scan_at || "-").slice(5, 16)) : "스캔 전"}</b></span>`;
+    <span class="hud bl"><span><i class="lg red"></i>위험</span><span><i class="lg orange"></i>경고</span><span><i class="lg none"></i>정상</span></span>`;
   $("#radarInfo").innerHTML = info(`<b>${scope === "mine" ? esc(mineLabel()) : "전체"} 업체 ${cs.length}</b>: 가운데로 갈수록 위험합니다.<br>점은 위험·경고 업체만 표시하고(최대 ${RADAR_MAX}개), 정상 업체는 바깥 원에 숫자로만 보여줍니다.<br>점을 누르면 업체 상세, 빈 곳을 누르면 다시 훑어봅니다.`, "r");
 
   // ④ 확인이 필요한 이슈 (위험 → 공식 제재 → 최신)
@@ -1600,7 +1601,7 @@ function renderCompanies() {
   const list = state.companies.filter(poolMatches).sort((a, b) => CO_SORT[coState.sort](a, b) * coState.dir);
   for (const id of [...coState.sel]) if (!state.companies.some((c) => c.id === id)) coState.sel.delete(id);
   $("#fReset").classList.toggle("hidden", !CO_FILTERS.some((id) => $(id).value));
-  $("#poolShown").textContent = list.length === state.companies.length ? `${list.length}개` : `${state.companies.length}개 중 ${list.length}개`;
+  $("#poolShown").textContent = list.length === state.companies.length ? "" : `${state.companies.length}개 중 ${list.length}개`;
   $$("#coTable th[data-sort]").forEach((th) => { th.classList.toggle("on", th.dataset.sort === coState.sort); th.classList.toggle("desc", th.dataset.sort === coState.sort && coState.dir < 0); });
   const engChip = (e) => `<span class="ej" title="${esc(projName(e.project_id))} · ${esc(e.role)} · ${esc(e.stage || "계약")}">${roleTag(e.role)}<span class="ej-p">${esc(projName(e.project_id))}</span>${stageTag(e)}</span>`;
   $("#pool").innerHTML = !list.length ? `<tr><td colspan="9" class="empty">${state.companies.length ? "조건에 맞는 업체가 없습니다." : "업체가 없습니다. [일괄 등록] 또는 [+ 업체 추가]를 이용하세요."}</td></tr>`
@@ -1937,7 +1938,7 @@ const companyData = (c) => { const { id, risk, open, total, focus, mine, cat, ca
 // 새 업체: 매뉴얼 기준 사업자등록번호·영문명을 함께 입력
 $("#btnAddCompany").onclick = () => {
   modal(`<h2>업체 추가</h2>
-    <p class="muted small">한글 업체명을 넣고 [DART에서 가져오기]를 누르면 사업자등록번호·영문명·업종을 채웁니다. 사업자등록번호와 영문명이 있어야 조달청·MDB 제재 조회가 정확해집니다. 안 누르고 추가해도 DART에서 자동으로 한 번 찾아 봅니다.</p>
+    <p class="muted small">업체명을 넣고 [DART에서 가져오기]를 누르면 사업자번호·영문명·업종이 채워집니다.</p>
     <form id="addCoForm" class="form" autocomplete="off">
       <label>업체명 *<span class="dl-row"><input name="name" required placeholder="예: 서마루엔지니어링"><button type="button" class="btn sm" id="dlBtn">DART에서 가져오기</button></span></label>
       <div id="dlRes" class="dl-res hidden"></div>

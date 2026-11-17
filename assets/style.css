@@ -1657,4 +1657,45 @@ body:not(.role-super) .super-only { display: none !important; }
 .guide-new { font-style: normal; font-size: .72em; font-weight: 800; letter-spacing: .02em; padding: .05em .45em; border-radius: 999px;
   background: #FF5A5F; color: #fff; margin-left: .15em; }
 #issuesCard h2 .guide-btn b { font-weight: inherit; }
-@media (max-width: 1700px) { #issuesCard h2 .guide-btn .gb-long { display: none; } #issuesCard h2 .guide-btn { padding: .25em .6em; margin-left: .4em; } }
+/* 이슈 카드가 좁으면(노트북·큰 글자) 가이드 버튼을 '가이드'로 줄이고 NEW 를 숨겨 기간 버튼이 한 줄에 남게 */
+#issuesCard { container-type: inline-size; }
+@container (max-width: 60em) { #issuesCard h2 .guide-btn .gb-long { display: none; } #issuesCard h2 .guide-btn { padding: .25em .6em; margin-left: .4em; } }
+@container (max-width: 54em) { #issuesCard h2 .guide-btn .guide-new, #issuesCard h2 .h2-sub { display: none; } }
+
+/* 레이더 범례: 아래 가운데 한 줄, 글자 배율(가−/가+)을 따라 커짐 */
+.radar-hud .bl { left: 0; right: 0; bottom: 14px; flex-direction: row; justify-content: center; gap: 1.4em; font-size: var(--fs-base); }
+.radar-hud .bl span { gap: .45em; font-weight: 700; }
+.radar-hud .lg { width: .7em; height: .7em; }
+
+/* 수원국 이벤트 요약: 칸이 좁으면(노트북) 한 줄에 하나씩 → 이름이 잘리지 않게 */
+.geo-dash #evSummary { container-type: inline-size; }
+@container (max-width: 18em) { .geo-dash .ev-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* ===== 휴대폰 (2026-11-18 점검) ===== */
+@media (max-width: 640px) {
+  /* 머리글: 따라 내려오지 않고, 로고와 오른쪽 버튼을 한 줄에. 글자 크기 버튼은 휴대폰 확대로 대신해 숨김 */
+  .topbar { position: static; height: auto; }
+  .topbar-in { flex-wrap: wrap; padding: 10px 14px; gap: 10px; }
+  .logo { order: 1; }
+  .top-right { order: 2; margin-left: auto; flex-wrap: nowrap; gap: 5px; }
+  .topbar-in { column-gap: 6px; }
+  .logo-t { font-size: var(--fs-md); }
+  .logo-mark { width: 34px; height: 34px; }
+  .topbar-in { padding-left: 12px; padding-right: 12px; }
+  .tabs { order: 3; width: 100%; }
+  .top-search { order: 4; width: 100%; max-width: none; }
+  .font-ctl { display: none; }
+  .tabs button.adm { padding: 8px 9px; gap: 6px; }
+  /* 제목이 한 글자만 다음 줄로 넘어가지 않게 */
+  .d-title .hero-title, .page-head h1 { word-break: keep-all; }
+  /* 업체 관리: 정보 보완 버튼은 아래 줄로 감싸고 '정보 보완' 글자는 숨김 */
+  .co-tools { margin-left: 0; width: 100%; flex-wrap: wrap; }
+  .co-tools-l { display: none; }
+  /* 사업 관리: 휴대폰에서는 끌어놓기를 못 하니 업체 목록을 숨기고 사업 카드만 */
+  .pj-side { display: none; }
+  /* 계정·권한: 메일은 한 줄 전체, 팀·역할은 그 아래 */
+  .acc-row { flex-wrap: wrap; }
+  .acc-row .acc-mail { flex-basis: 100%; }
+  .acc-form { flex-wrap: wrap; }
+  .acc-form input { flex-basis: 100%; }
+}

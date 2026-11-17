@@ -184,7 +184,7 @@ def _identify(company: dict, errors: list) -> dict:
     want_cat = (not company.get("category") or company.get("category_source") == "이름 추정") and _days_since(company.get("cat_checked_at")) >= 30
     need_dart = config.DART_API_KEY and domestic and (not company.get("biz_no") or want_cat)
     if need_dart and not company.get("corp_code") and _days_since(company.get("dart_checked_at")) < 30:
-        info["notes"].append(company.get("dart_note") or "DART에서 찾지 못함 — 사업자번호 직접 입력 필요")
+        info["notes"].append(company.get("dart_note") or "DART에서 찾지 못함 · 사업자번호 직접 입력 필요")
         need_dart = False
     if need_dart:
         try:
@@ -198,8 +198,8 @@ def _identify(company: dict, errors: list) -> dict:
                     if pick[2] and not company.get("name_en"):
                         patch["name_en"] = pick[2]
                 else:
-                    note = (f"DART에 같은 이름 기업이 {len(cands)}곳 있어 자동 매칭하지 않음 — 사업자번호 직접 입력 필요" if cands
-                            else "DART 기업목록에 없음 (비상장·소규모·건축사사무소 등) — 사업자번호 직접 입력 필요")
+                    note = (f"DART에 같은 이름 기업이 {len(cands)}곳 있어 자동 매칭하지 않음 · 사업자번호 직접 입력 필요" if cands
+                            else "DART 기업목록에 없음 (비상장·소규모·건축사사무소 등) · 사업자번호 직접 입력 필요")
                     info["notes"].append(note)
                     patch["dart_checked_at"] = store.now_str()
                     patch["dart_note"] = note
@@ -263,9 +263,9 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
                  sweep_hits: list[dict] | None = None, sweep_engines: list[str] | None = None, sweep_total: int = 0,
                  edcf: list[dict] | None = None, existing: list[dict] | None = None, seen_doc: dict | None = None,
                  force: bool = False, quick: bool = False) -> dict:
-    """quick: 빠른 스캔 — 업체명 검색은 건너뛰고 제재 키워드 기사 대조 + 공식 명단만 (업체명 검색은 매일 아침 전체 스캔이 함)
+    """quick: 빠른 스캔 · 업체명 검색은 건너뛰고 제재 키워드 기사 대조 + 공식 명단만 (업체명 검색은 매일 아침 전체 스캔이 함)
     existing: 이 업체의 관련 이슈(relevant) 목록, seen_doc: 이미 본 기사 키 요약(seen/{업체 id}),
-    force: 업체 하나만 '다시 스캔' — 주간 제한 없이 업체명 검색, 10년 범위, 예전에 관련 없다고 본 기사도 다시 판정"""
+    force: 업체 하나만 '다시 스캔' · 주간 제한 없이 업체명 검색, 10년 범위, 예전에 관련 없다고 본 기사도 다시 판정"""
     t0 = time.time()
     errors: list[str] = []
     stats = {"fetched": 0, "candidates": 0, "new_findings": 0, "official": 0, "cleaned": 0, "auto_same": 0}
@@ -428,6 +428,7 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
             pps_st = {"status": "error", "bizno": bizno, "error": str(e)[:200]}
 
     for f in official:
+        # 주의: MDB 기록은 제목으로 같은 기록을 판단 → sanctions.py 제목 형식을 바꾸면 기존 기록이 새로 한 번 더 생김
         f.setdefault("dedup_key", "official-" + hashlib.sha1((f["url"] + f["title"]).encode()).hexdigest()[:16])
     still = {f["dedup_key"] for f in official}
     stale = {f["id"]: {"status": "dismissed", "reviewed_by": "자동 정리", "reviewed_at": store.now_str(),
@@ -458,10 +459,10 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
                 end = re.sub(r"\D", "", str(e.get("rstt_end") or (re.search(r"제재기간 \S* ~ (\S+)", e.get("snippet") or "") or [None, ""])[1]))[:8]
                 if len(end) == 8 and end >= store.now_kst().strftime("%Y%m%d"):  # 기간이 남았는데 사라짐 → 법원 집행정지·해제 가능성
                     fix[e["id"]] = {"level": "orange", "pps_state": "missing_active", "pps_updated_at": store.now_str(),
-                                    "summary": "제재 기간이 남았는데 나라장터에서 '현재 유효 제재'로 조회되지 않습니다 — 법원 집행정지·해제 가능성. 나라장터 '부정당제재 이력'에서 확인하세요. (처음 조회: " + (e.get("summary") or "")[:80] + ")"}
+                                    "summary": "제재 기간이 남았는데 나라장터에서 '현재 유효 제재'로 조회되지 않습니다 · 법원 집행정지·해제 가능성. 나라장터 '부정당제재 이력'에서 확인하세요. (처음 조회: " + (e.get("summary") or "")[:80] + ")"}
                 else:  # 기간이 끝나서 사라짐 → 지난 이력
                     fix[e["id"]] = {"level": "yellow", "pps_state": "expired", "pps_updated_at": store.now_str(),
-                                    "summary": (e.get("summary") or "") + " (제재 기간이 끝나 지금은 조회되지 않음 — 지난 이력)"}
+                                    "summary": (e.get("summary") or "") + " (제재 기간이 끝나 지금은 조회되지 않음 · 지난 이력)"}
         if fix:
             store.update_many("findings", fix)
     for f in official:
@@ -641,8 +642,8 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
     totals["seconds"] = round(time.time() - t_start, 1)
     totals["lists_seconds"] = lists_sec
     err = analyzer.CLAUDE_ERROR or ""
-    claude_error = ("크레딧 부족 — Anthropic Console > Billing에서 크레딧 충전 필요" if "credit" in err
-                    else "API 키 오류 — ANTHROPIC_API_KEY 확인 필요" if ("authentication" in err or "x-api-key" in err)
+    claude_error = ("크레딧 부족 · Anthropic Console > Billing에서 크레딧 충전 필요" if "credit" in err
+                    else "API 키 오류 · ANTHROPIC_API_KEY 확인 필요" if ("authentication" in err or "x-api-key" in err)
                     else err[:200] if err else None)
     totals["analyzer"] = "claude" if config.ANTHROPIC_API_KEY and not claude_error else "rule"
     if claude_error:
@@ -772,7 +773,7 @@ def dart_fill(ids: list[str] | None = None) -> dict:
                 patches[c["id"]] = {"dart_cands": opts, "dart_checked_at": store.now_str()}
                 res["choose"] += 1
             else:
-                patches[c["id"]] = {"dart_checked_at": store.now_str(), "dart_note": "DART 기업목록에 없음 (비상장·소규모·건축사사무소 등) — 사업자번호 직접 입력 필요"}
+                patches[c["id"]] = {"dart_checked_at": store.now_str(), "dart_note": "DART 기업목록에 없음 (비상장·소규모·건축사사무소 등) · 사업자번호 직접 입력 필요"}
                 res["none"] += 1
         except Exception as e:
             log.warning("DART 채움 실패: %s", type(e).__name__)
