@@ -1636,7 +1636,6 @@ body:not(.role-super) .super-only { display: none !important; }
 .tag.super { background: var(--accent, #7c5cff); color: #fff; }
 .tag.admin { background: #F57C00; color: #2B1400; }
 /* 판단 가이드 · 관련 없음 이유 */
-.guide-btn { margin-left: auto; margin-right: .5em; }
 .gd { font-size: var(--fs-sm); line-height: 1.6; word-break: keep-all; max-height: 62vh; overflow: auto; padding-right: .3em; }
 .gd h3 { font-size: var(--fs-base); margin: 1em 0 .35em; }
 .gd-lead { margin: 0 0 .4em; }
@@ -1645,3 +1644,17 @@ body:not(.role-super) .super-only { display: none !important; }
 .gd-t th { width: 26%; white-space: nowrap; font-weight: 700; }
 .dr-form .dp-opt { display: flex; gap: .5em; align-items: flex-start; flex-direction: row; font-weight: 400; margin: .25em 0; }
 .dr-form .dp-opt input { width: auto; margin-top: .3em; }
+
+/* 판단 가이드 버튼: 제목 바로 옆, 눈에 띄는 보라 알약 */
+.guide-btn { margin-left: auto; margin-right: .5em; }
+#issuesCard h2 .guide-btn { display: inline-flex; align-items: center; gap: .35em; margin: 0 0 0 .6em; padding: .28em .8em .28em .65em;
+  border-radius: 999px; border: 1px solid color-mix(in srgb, var(--accent, #7c5cff) 70%, transparent);
+  background: color-mix(in srgb, var(--accent, #7c5cff) 22%, transparent); color: var(--text, #fff);
+  font: inherit; font-size: var(--fs-sm); font-weight: 700; cursor: pointer; position: relative; vertical-align: middle; white-space: nowrap; }
+#issuesCard h2 .guide-btn svg { width: 1.05em; height: 1.05em; color: var(--accent, #9b87ff); }
+#issuesCard h2 .guide-btn:hover { background: color-mix(in srgb, var(--accent, #7c5cff) 38%, transparent); }
+:root[data-theme="light"] #issuesCard h2 .guide-btn { background: color-mix(in srgb, var(--accent, #6d4cff) 12%, #fff); color: #3b2a99; }
+.guide-new { font-style: normal; font-size: .72em; font-weight: 800; letter-spacing: .02em; padding: .05em .45em; border-radius: 999px;
+  background: #FF5A5F; color: #fff; margin-left: .15em; }
+#issuesCard h2 .guide-btn b { font-weight: inherit; }
+@media (max-width: 1700px) { #issuesCard h2 .guide-btn .gb-long { display: none; } #issuesCard h2 .guide-btn { padding: .25em .6em; margin-left: .4em; } }

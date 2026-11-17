@@ -889,6 +889,8 @@ const GUIDE_HTML = `
   <p class="muted small">초안 (2026-11-18). 4개 팀(정보통신·수자원에너지·교통·보건) 검토 후 확정합니다.</p>
 </div>`;
 function openGuide() {
+  try { localStorage.setItem("edcf_guide_seen", "1"); } catch {}
+  $("#guideNew")?.remove();
   modal(`<h2>이슈 판단 가이드 <span class="tag">초안</span></h2>${GUIDE_HTML}
     <div class="actions"><button class="btn" id="gdPrint">인쇄 · PDF로 저장</button></div>`);
   $("#modal").classList.add("wide");
@@ -1477,6 +1479,8 @@ setInterval(() => { if (state.job && !state.job.done) renderJob(); }, 1000);
 // [지금 스캔] = 빠른 스캔: 새 제재 기사 + 공식 명단만 (업체명 검색까지 하는 전체 스캔은 매일 아침 자동, 또는 설정 > 고급)
 $("#btnScan").onclick = () => runWorkflow({ task: "quick" }, "빠른 스캔");
 $("#btnGuide").onclick = openGuide;
+// 처음 한 번 열어 볼 때까지 NEW 표시
+try { if (localStorage.getItem("edcf_guide_seen")) $("#guideNew").remove(); } catch {}
 $("#btnScan").title = "새로 나온 제재 기사와 공식 명단(EXIMIIS, 조달청, MDB)만 빠르게 확인합니다. 업체명으로 하나씩 찾는 전체 스캔은 매일 아침 자동으로 돕니다";
 $("#btnFullScan").onclick = () => { if (confirm("업체명으로 하나씩 뉴스를 찾는 전체 스캔을 지금 돌릴까요? 4~5분쯤 걸립니다. (매일 아침 자동으로 한 번 돕니다)")) runWorkflow({ task: "scan" }, "전체 스캔"); };
 // 스캔 중지: 대기 중이면 바로 취소, 실행 중이면 '중지 요청' → 스캐너가 업체 몇 곳마다 확인해 멈춤
