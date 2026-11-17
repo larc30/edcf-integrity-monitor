@@ -3,6 +3,8 @@
 모든 결과는 출처(매체명, 원문 URL, 게시일)를 함께 반환한다.
 """
 import logging
+import threading
+import time
 import xml.etree.ElementTree as ET
 from urllib.parse import quote_plus, urlparse
 
@@ -21,6 +23,31 @@ _GNEWS_LOCALE = {
     "en": ("en-US", "US", "US:en"),
     "id": ("id", "ID", "ID:id"),
 }
+
+
+# Google 뉴스는 짧은 시간에 요청이 몰리면 429(Too Many Requests)로 잠시 막는다 (하루 한도가 아니라 '속도' 제한).
+# 여러 스레드가 동시에 불러도 Google 호출 사이에 최소 간격을 두고, 429면 잠깐 쉬었다가 두 번 더 시도한다.
+_G_GAP = 0.6  # 초
+_g_lock = threading.Lock()
+_g_last = [0.0]
+
+
+def _google_get(url: str):
+    for wait in (0, 4, 10):
+        if wait:
+            time.sleep(wait)
+        with _g_lock:
+            gap = _G_GAP - (time.monotonic() - _g_last[0])
+            if gap > 0:
+                time.sleep(gap)
+            _g_last[0] = time.monotonic()
+        r = httpx.get(url, timeout=_TIMEOUT, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"})
+        if r.status_code != 429:
+            break
+        with _g_lock:  # 막혔으면 다른 스레드도 같이 조금 쉬게
+            _g_last[0] = time.monotonic() + 3
+    r.raise_for_status()
+    return r
 
 
 def _domain(url: str) -> str:
@@ -83,8 +110,7 @@ def google_news(query: str, lang: str = "ko", limit: int | None = None) -> list[
         return []
     hl, gl, ceid = _GNEWS_LOCALE.get(lang, _GNEWS_LOCALE["en"])
     url = f"https://news.google.com/rss/search?q={quote_plus(query)}&hl={hl}&gl={gl}&ceid={ceid}"
-    r = httpx.get(url, timeout=_TIMEOUT, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"})
-    r.raise_for_status()
+    r = _google_get(url)
     root = ET.fromstring(r.content)
     out = []
     for item in list(root.iter("item"))[: limit or config.NEWS_PER_QUERY]:

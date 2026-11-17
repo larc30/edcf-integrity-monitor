@@ -185,6 +185,7 @@ def _claude(company: dict, engagements: list[dict], articles: list[dict], keywor
     recent = (feedback or {}).get("recent") or []
     recent_txt = ("[이미 수집된 이 업체 이슈 — 같은 사건이면 same_event_as 에 E번호]\n" + "\n".join(
         f"- E{n + 1}: {r.get('date') or ''} {(r.get('title') or '')[:120]}" + (f" — {r['summary'][:80]}" if r.get("summary") else "")
+        + {"reviewed": " [담당자 확인 완료]", "dismissed": " [담당자가 관련 없음]"}.get(r.get("status") or "", "")
         for n, r in enumerate(recent)) + "\n\n") if recent else ""
     user = (
         f"오늘 날짜: {date.today().isoformat()}\n\n"

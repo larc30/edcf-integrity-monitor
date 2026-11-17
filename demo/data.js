@@ -169,10 +169,11 @@ export function seed() {
         return {
           updated_at: kst(now - 2 * H), alerts_at: kst(now - 2 * H), news_at: kst(now - 2 * H),
           alerts: {
-            PH: { level: 3, partial: true, regions: "(데모 예시) 민다나오 일부 지역 3단계, 그 밖 1~2단계" },
-            BD: { level: 2, partial: false, regions: "" },
-            KE: { level: 2, partial: true, regions: "(데모 예시) 북동부 접경 지역 2단계, 그 밖 1단계" },
-            TZ: { level: 1 }, MN: { level: 1 }, LA: { level: 1 }, VN: { level: 1 }, KH: { level: 1 }, UZ: { level: 1 },
+            PH: { level: 4, base: 2, partial: true, zones: [{ lv: 4, text: "(데모 예시) 민다나오의 잠보앙가, 술루 군도", rest: false }, { lv: 2, text: "(데모 예시) 4단계 지정 지역을 제외한 지역", rest: true }] },
+            BD: { level: 2, base: 2, partial: false, zones: [{ lv: 2, text: "전 지역", rest: true }] },
+            KE: { level: 3, base: 2, partial: true, zones: [{ lv: 3, text: "(데모 예시) 만데라주, 와지르주", rest: false }, { lv: 2, text: "(데모 예시) 3단계 지정 지역을 제외한 지역", rest: true }] },
+            LA: { level: 4, base: 1, partial: true, zones: [{ lv: 4, text: "(데모 예시) 골든트라이앵글 경제특구", rest: false }, { lv: 1, text: "(데모 예시) 4단계 지정 지역을 제외한 지역", rest: true }] },
+            TZ: { level: 1, base: 1 }, MN: { level: 1, base: 1 }, VN: { level: 1, base: 1 }, KH: { level: 1, base: 1 }, UZ: { level: 1, base: 1 },
           },
           events: [
             ev("d1", "quake", "PH", 30, 7.4, 125.3, "필리핀 민다나오 다바오 북쪽 규모 6.8 지진", "USGS", { mag: 6.8, depth: 15 }),

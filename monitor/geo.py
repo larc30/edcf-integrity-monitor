@@ -12,6 +12,7 @@
 import hashlib
 import logging
 import math
+import re
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 
@@ -134,6 +135,22 @@ def _rows(j) -> list[dict]:
     return []
 
 
+def _is_rest(text: str) -> bool:
+    """'4단계 지정 지역을 제외한 지역', '2·3 단계 발령 지역 외 전 지역', '전 지역' 처럼 '나머지 지역' 줄인지"""
+    t = re.sub(r"\s+", " ", text or "")
+    return bool(re.search(r"(제외한|발령 지역 외|지정 지역 외)\s*(전\s*)?지역|^전\s*지역$|나머지\s*지역", t))
+
+
+def _finish_alert(a: dict) -> None:
+    """base = 사업지가 특정 지역에 들지 않을 때의 단계(나머지 지역 단계), partial = 나라 안에서 단계가 다름
+    regions = 예전 화면용 요약"""
+    zones = a["zones"]
+    rest = [z["lv"] for z in zones if z["rest"]]
+    a["base"] = min(rest) if rest else min(z["lv"] for z in zones)
+    a["partial"] = len({z["lv"] for z in zones}) > 1 or not rest
+    a["regions"] = " / ".join(f"{z['lv']}단계 {z['text']}" for z in sorted(zones, key=lambda z: -z["lv"]) if z["text"])[:300]
+
+
 def fetch_alerts(get=httpx.get) -> dict:
     key = config.MOFA_TRAVEL_KEY
     if not key:
@@ -149,25 +166,23 @@ def fetch_alerts(get=httpx.get) -> dict:
             lvl = 0
         if not code or not lvl:
             continue
-        a = out.setdefault(code, {"level": 0, "min": 9, "regions": []})
-        a["level"], a["min"] = max(a["level"], lvl), min(a["min"], lvl)
-        reg = " ".join(str(row.get(k) or "").strip() for k in ("region_ty", "remark")).strip()
-        if reg and reg not in a["regions"]:
-            a["regions"].append(reg)
+        a = out.setdefault(code, {"level": 0, "zones": []})
+        a["level"] = max(a["level"], lvl)
+        text = str(row.get("remark") or "").strip()
+        whole = str(row.get("region_ty") or "").strip() == "전체"
+        a["zones"].append({"lv": lvl, "text": text[:200], "rest": whole or _is_rest(text)})
         a["written"] = max(a.get("written", ""), str(row.get("written_dt") or ""))
     for a in out.values():
-        a["partial"] = a["min"] < a["level"]
-        a["regions"] = " / ".join(a["regions"])[:300]
-        a.pop("min", None)
+        _finish_alert(a)
     try:  # 특별여행주의보 (같은 키, 별도 활용신청). 실패해도 여행경보는 저장
         r2 = get(SPECIAL_URL, params={"serviceKey": key, "returnType": "JSON", "numOfRows": 300, "pageNo": 1}, timeout=30)
         r2.raise_for_status()
         for row in _rows(r2.json()):
             code = (row.get("country_iso_alp2") or "").upper()
             if code:
-                a = out.setdefault(code, {"level": 0, "partial": False, "regions": ""})
+                a = out.setdefault(code, {"level": 0, "base": 0, "partial": False, "regions": "", "zones": []})
                 a["special"] = True
-                a["special_text"] = str(row.get("splimit_note") or row.get("remark") or "")[:120]
+                a["special_text"] = str(row.get("splimit_note") or row.get("remark") or row.get("txt_origin_cn") or "")[:200]
     except Exception as e:
         log.warning("특별여행주의보 실패: %s", type(e).__name__)
     return out

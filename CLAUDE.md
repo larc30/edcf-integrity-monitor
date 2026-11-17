@@ -34,10 +34,12 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 ## 검사 (monitor/scanner.py)
 - 매일: 기본 키워드 25개(TOPIC_QUERIES) + 추가 키워드(최대 12) 뉴스 검색 → 전체 명단 대조. MDB(OpenSanctions 5종, 비상업 라이선스)·조달청·EXIMIIS 대조는 모든 업체 매일.
 - 집중 감시(사업 연결 또는 watch): 매일 업체명 검색 + '업체명+추가 키워드' 심층. 기본 감시: 업체명 검색 주 1회. 다시 스캔(force)은 10년 범위.
+- 같은 사건 자동 처리(2026-11-17, scanner._inherit_review): AI same_as 가 담당자가 처리한 기록(확인 완료·관련 없음)을 가리키면 새 기사도 같은 상태(reviewed_by '자동 (같은 사건: …)', auto_same=true). 새 기사 등급이 더 높으면(수사→처분) 새 이슈로 둠. 메일에서도 빠짐. AI 에 주는 recent 에 처리 상태 표시.
+- Google 뉴스 429(속도 제한, 하루 한도 아님): news._google_get 이 호출 간격 0.6초·429면 4초/10초 뒤 재시도.
 - 업체명 일치: textutil.name_matches(짧은 이름은 독립 단어·업종 문맥 필요).
 - EXIMIIS: 명단에 '등록'이어도 제재기간 끝 날짜가 지났으면 참고(기간 만료)로 내림(scanner._period_ended ↔ app.js edcfEnded).
 - 조달청: data.go.kr 15129466, 사업자번호로 현재 유효 제재만. 오류 줄이기: 동시 2건·지연/5xx/429 는 두 번 더 시도(pps._call), 빠른 스캔은 오늘 이미 정상 조회한 업체를 다시 부르지 않음(last_check.pps.reused). 같은 부정당번호에 정지·해제 줄이 있거나, 저장된 제재가 기간 중 사라지면 경고(집행정지 확인).
-- 사업자번호·영문명·업종: DART corpCode 정확 일치 1건일 때만 자동, 아니면 수기. 업체 관리 [DART로 빈 정보 채우기](task dartfill): 1건이면 채우고 여러 건이면 companies.dart_cands 에 후보 저장 → [DART 후보 고르기]에서 선택.
+- 사업자번호·영문명·업종: DART corpCode 정확 일치 1건일 때만 자동, 아니면 수기. 업체 관리 [DART 일괄 조회](task dartfill, ids 주면 그 업체만): 1건이면 채우고 여러 건이면 companies.dart_cands 에 후보 저장 → [DART 동명 기업 고르기]에서 선택. 업체 추가 창: 업체명 옆 [DART에서 가져오기](task dartlookup → requests.result.cands, 화면이 4초마다 확인, 회사망은 tick 대기로 최대 5분 남짓) · 안 누르고 추가하면 그 업체만 dartfill 자동 요청.
 - AI 판정: Claude(config.CLAUDE_MODEL, 기본 Haiku), 키 없으면 analyzer.RULE_KEYWORDS 규칙 판정. 처분 대상이 모회사·자회사·계열사(다른 법인)면 이 업체는 참고(yellow) 이하. 확정된 처분은 시작일 전이어도 위험. 분류에 '영업정지·등록말소' 있음. 계속 배우기: 모든 업체의 ✓/✕ 사례(analyzer.SHARED)와 판정 지침(meta/ai_guide.auto: AI가 주 1회 요약, 직접 적는 칸은 없앰)을 판정마다 함께 줌(화면에는 보이지 않음: 사용자가 설정 카드도 빼 달라고 함). 업체별 '관련 없음'·'확인했음' 제목을 예시로 전달('과거 이력 일괄 정리'는 제외). 재판정은 monitor/rejudge.py.
 
 ## 등급 (3단계: 위험·경고·정상, 2026-11-11 결정)
@@ -45,11 +47,11 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 기록의 level 값은 그대로 red/orange/yellow/none. yellow 는 등급이 아니라 '참고 이력'(회색 '참고' 배지) — 업체 등급 계산(app.js compute·report.load_overview)에서 정상으로 봄. AI 판정 기준(analyzer)은 안 바꿈.
 - 확인할 이슈·메일·업체 미확인 수는 위험·경고만. 참고는 접힌 '참고 이력'.
 - 배지(모두 꽉 찬 색): 밝은 화면 위험 #D92D20/흰 · 경고 #F57C00/#2B1400 · 참고 #E2E8F0/#475569, 어두운 화면 #FF5A5F · #FF9F1C · 참고 #334155/#CBD5E1. style.css .badge ↔ report.BADGE ↔ app.js BF 같게.
-- 수원국 등급(assets/geo.js siteRisk · GEO_RULES 표): 사업지마다 정하고 나라 등급 = 그 나라 사업 중 가장 높은 등급. 위험 = 여행경보 4단계·특별여행주의보·전역 3단계, 사업지 예상 진도 6+ 지진(7일), 50km 안 테러·분쟁(14일) / 경고 = 일부 지역 3단계·전역 2단계, 예상 진도 5 지진(7일), 200km 안 테러·분쟁(14일), 100km 안 홍수·태풍·산불·화산(7일), 50km 안 시위·감염병(7일) / 정상. 사업 카드에 '근거' 줄. 예상 진도 = geo.js siteMMI (USGS 진도 예측식 Atkinson & Wald 2007, 규모·진앙 거리·깊이; 2026-11-11 사용자 예시 거리 기준에서 바꿈).
+- 수원국 등급(assets/geo.js siteRisk · GEO_RULES 표): 사업지마다 정하고 나라 등급 = 그 나라 사업 중 가장 높은 등급. 여행경보는 '사업지 단계'(geo.js siteAlert, 2026-11-17): 나라 안 일부 지역만 높으면 사업지가 그 지역일 때만 그 단계(라오스 골든트라이앵글 4단계 때문에 비엔티안이 위험 되던 문제). 판단 순서 = 사업 수정 창에서 고른 단계(projects.alert_lv) → 핀·도시 좌표가 GEO_ZONES(지역 대략 원)·문구 속 GEO_CITY 30km 안 → 사업명 글자 → 없으면 '나머지 지역' 단계(alerts.base). 높은 지역은 카드에 '참고'로만. 위험 = 사업지 3·4단계·전 지역 특별여행주의보, 사업지 예상 진도 6+ 지진(7일), 50km 안 테러·분쟁(14일) / 경고 = 사업지 2단계·일부 지역 특별여행주의보, 예상 진도 5 지진(7일), 200km 안 테러·분쟁(14일), 100km 안 홍수·태풍·산불·화산(7일), 50km 안 시위·감염병(7일) / 정상. 사업 카드에 '근거' 줄. 예상 진도 = geo.js siteMMI (USGS 진도 예측식 Atkinson & Wald 2007, 규모·진앙 거리·깊이; 2026-11-11 사용자 예시 거리 기준에서 바꿈).
 
 ## 수원국 리스크 (초안, monitor/geo.py ↔ assets/geo.js)
 - 지도: Leaflet + 저장소 안 세계 지도 assets/world-50m.json(world-atlas · Natural Earth 1:50m, topojson 3.0.2 cdnjs)로 바다·육지·국경선만 그리는 완전 플랫(바깥 지도 서비스·키 없음). 색은 style.css --map-sea·--map-land·--map-border. 위험·경고 수원국만 육지 색에 등급 색을 섞어 칠함(정상은 안 칠함: 초록이 바다처럼 보임). 나라 이름은 그림자 없는 글자(사업 나라는 대문자 굵게, 그 밖은 확대할수록 큰→중간→작은 나라). Esri 타일·위성 버튼은 없앰. 남극은 빼고, 날짜변경선을 넘는 땅(피지·러시아 동쪽)은 경도를 이어 붙임(안 그러면 지도를 가로지르는 줄이 생김).
-- 여행경보: 공공데이터포털 '외교부_국가·지역별 여행경보'(TravelAlarmService2) + 특별여행주의보. 키는 조달청과 같은 DATA_GO_KR_KEY 그대로(따로 입력 안 함, 활용신청만). MOFA_TRAVEL_KEY 는 다른 키를 쓸 때만. 응답 필드명은 실제 키로 아직 확인 못 함. 연결 상태는 대시보드가 아니라 설정 > 고급 > API 연결에.
+- 여행경보: 공공데이터포털 '외교부_국가·지역별 여행경보'(TravelAlarmService2) + 특별여행주의보. 키는 조달청과 같은 DATA_GO_KR_KEY 그대로(따로 입력 안 함, 활용신청만). MOFA_TRAVEL_KEY 는 다른 키를 쓸 때만. 응답 확인함(2026-11-17, 210줄): alarm_lvl·region_ty(전체/일부)·remark(지역 문구, '…제외한 지역'이 나머지 지역)·country_iso_alp2 → meta/geo.alerts{level(최고), base(나머지 지역), partial, zones[{lv,text,rest}], regions}. 특별여행주의보 API 는 403 SERVICE_KEY_IS_NOT_REGISTERED(활용신청 필요). 연결 상태는 대시보드가 아니라 설정 > 고급 > API 연결에.
 - 지진: USGS 4.5_week(키 없음) 가운데 규모 5.5 이상만(QUAKE_MIN, geo.py ↔ geo.js), 사업지·수원국 600km 안. 브라우저에서도 실시간으로 한 번 더 받음(회사망에서 막히면 저장본).
 - 뉴스: Google·네이버 '나라 이름 + 사건 단어', 제목에 나라 이름 있는 것만 단어로 잡은 뒤 AI가 최종 판정(analyzer.judge_events: 사업에 영향 줄 사건만 남기고 종류·한 줄 요약(note)·ai=true 저장, 영향 없음은 meta/geo.rejected 에 id 를 남겨 다시 판정 안 함, 한 번에 60건, 키 없거나 실패하면 단어 분류 유지 후 다음에 재시도). 정치·선거(politics: 선거·정권 교체·탄핵 등)는 참고용으로 등급에 안 넣음. 이벤트는 1년 보관, 최대 300건.
 - 지도 표시: 이벤트는 종류별 색 아이콘 배지(이모티콘 안 씀), 지명은 영어(Esri 이름 층 + 'Nairobi, Kenya'). 오른쪽 사업을 누르면 사업지 둘레 100~500km 레이더 모양 원(실선·십자선·도는 빛) + 600km 안 이벤트까지 거리선·거리, 근거와 가까운 사건은 오른쪽 사업 카드 안에 펼침(지도 위 안내 상자는 안 씀). 다시 누르거나 지도 오른쪽 위 [‹ 전체 지도](사업 골랐을 때만 보임)로 해제.
@@ -86,7 +88,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 팀 매뉴얼 기준: 필요자료 = 사업자번호·영문명. ① EXIMIIS 부정당업자(등록=위험, 해지=이력) ② MDB 5곳 영문명 조회 후 국적 한국 확인 ③ 나라장터 부정당제재(제재정지면 확인 필요).
 
 ## 남은 일
-- 보류: 세계은행 제재 목록 직접 연결(작업 환경에서 worldbank.org 차단, 사용자가 '지금 중요하지 않음'). 원인 후보: 제재 종료일 미확인·국적 미확인.
+- 세계은행 직접 연결은 불필요로 판단(2026-11-17): OpenSanctions worldbank_debarred 가 매일 갱신(1,409곳, 교차제재 포함), 한국 국적은 롯데정보통신 계열 3곳뿐이라 'MDB 0'은 정상. 대조 정확도는 영문명 보완이 핵심. worldbank.org 는 작업 환경에서 차단.
 - 수원국 리스크 초안 다음: 외교부 키 연결·응답 확인, 사업지 좌표 입력(사업 관리), 지역별 여행경보와 사업지 대조.
 - 사용자: 추가 계정 4개(팀 대표 계정 권장) + Firebase 규칙 재게시 확인, 사업자번호 88곳 보완, 11/5 이전 공개 실행 로그 삭제(다음 주).
 - 발표 후: 라이트 버전, 보완 엑셀.

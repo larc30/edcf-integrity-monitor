@@ -64,7 +64,7 @@ def _finding_doc(company: dict, f: dict) -> tuple[str, dict]:
         "company_id": company["id"],
         "company_name": company["name"],
         "relevant": bool(f.get("relevant", 1)),
-        "status": "new",
+        "status": f.get("status") or "new",  # 같은 사건을 이미 처리했으면 그 처리를 물려받음 (scanner._inherit_review)
         "first_seen": now.strftime("%Y-%m-%d %H:%M:%S"),
         "first_seen_ms": int(now.timestamp() * 1000),
         "reported_at": None,

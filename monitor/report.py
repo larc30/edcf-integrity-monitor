@@ -76,7 +76,7 @@ def build() -> tuple[str, str, list[str]]:
     today = now.strftime("%Y-%m-%d")
     overview, finds, engs = load_overview()
     save_history(overview)  # 스캔 뒤 미리보기를 만들 때마다 오늘 숫자를 갱신
-    new = [f for f in finds if not f.get("reported_at") and f.get("level") in ("red", "orange", "yellow")]
+    new = [f for f in finds if not f.get("reported_at") and not f.get("auto_same") and f.get("level") in ("red", "orange", "yellow")]
     # 같은 기사·같은 사건은 한 묶음으로 (대표 1건), 묶음 안 기록은 모두 '보고됨' 처리
     groups = grouping.group(new)
     cutoff = (now.date() - datetime.timedelta(days=30)).isoformat()

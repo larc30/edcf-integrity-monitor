@@ -1610,3 +1610,14 @@ html.lite .rk-trend .wk2 path.line { filter: none; }
 .wk2 .val { font-size: 10px; font-weight: 650; fill: var(--muted); }
 .wk2 .val.zero { opacity: .55; }
 .wk2 .val.now { font-size: 13px; font-weight: 850; fill: var(--text); opacity: 1; }
+/* 사업 수정 창: 사업지 여행경보 (지역마다 단계가 다른 나라) */
+.zone-box:empty { display: none; }
+.zone-box { margin-top: .7em; }
+.zone-box label .muted { display: block; font-weight: 400; margin: .2em 0 .35em; word-break: keep-all; }
+/* 업체 추가: 업체명 옆 [DART에서 가져오기] */
+.dl-row { display: flex; gap: .5em; align-items: stretch; }
+.dl-row input { flex: 1; min-width: 0; }
+.dl-row .btn { white-space: nowrap; }
+.dl-res { font-size: var(--fs-sm); line-height: 1.5; padding: .6em .8em; border: 1px solid var(--line, rgba(148,163,184,.3)); border-radius: 8px; margin: -.2em 0 .4em; word-break: keep-all; }
+.dl-res .dp-opt { display: flex; gap: .5em; align-items: flex-start; margin-top: .35em; font-weight: 400; flex-direction: row; }
+.dl-res .dp-opt input { width: auto; margin-top: .25em; }

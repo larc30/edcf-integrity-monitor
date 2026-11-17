@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO } from "./firebase-config.js?v=30";
-import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY } from "./geo.js?v=52";
+import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint } from "./geo.js?v=53";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -1021,7 +1021,7 @@ function openProject(pid) {
   const al = state.geo?.alerts?.[p.country], AL = ["", "1단계 여행유의", "2단계 여행자제", "3단계 출국권고", "4단계 여행금지"];
   state.openCid = null; state.drawerBack = null; state.riskList = null; state.openPid = pid;
   $("#drawerTitle").innerHTML = `<div class="d-name"><span class="nm">${esc(p.name)}</span>${sc && cs.length ? badge(top) : ""}</div>
-    <div class="d-engs"><span class="d-eng">${esc(COUNTRY[p.country] || "수원국 미지정")}</span>${al?.level ? `<span class="d-eng">여행경보 ${AL[al.level]}${al.partial ? " (일부 지역)" : ""}</span>` : ""}${p.owner ? `<span class="d-eng">담당 ${esc(p.owner.split("@")[0])}</span>` : ""}</div>`;
+    <div class="d-engs"><span class="d-eng">${esc(COUNTRY[p.country] || "수원국 미지정")}</span>${al?.level ? (() => { const sa = siteAlert(al, { ll: projectPoint(p)?.ll, country: p.country, ...siteOpt(p, projectPoint(p)) }); return sa.lv ? `<span class="d-eng" title="${esc(sa.refs.length ? "일부 지역은 더 높음: " + sa.refs.join(" / ") : "")}">여행경보 ${AL[sa.lv]}${sa.refs.length ? " (사업지 기준)" : ""}</span>` : ""; })() : ""}${p.owner ? `<span class="d-eng">담당 ${esc(p.owner.split("@")[0])}</span>` : ""}</div>`;
   const body = $("#drawerBody");
   body.innerHTML = `
     <section class="d-sec"><div class="d-sec-head"><h3>참여 업체</h3><span class="count">${cs.length}</span></div>
@@ -1243,6 +1243,30 @@ async function queueRequest(full, label) {
   }
 }
 // 즉시 실행 중계(Google Apps Script): 로그인 토큰을 보내면 중계기가 GitHub 실행을 바로 시작
+// 화면 진행 표시 없이 요청만 남김 (결과는 다음 화면 갱신 때 반영)
+async function queueQuiet(data) {
+  try {
+    const ref = await addDoc(collection(db, "requests"), { companies: "", test_to: "", ...data, status: "pending", requested_by: auth.currentUser?.email || "", requested_at: nowStr(), requested_ms: Date.now() });
+    pingRelay();
+    return ref.id;
+  } catch (e) { console.warn("request failed:", e); return null; }
+}
+// DART에서 이름으로 찾기: 요청을 남기고 끝날 때까지 기다림 (최대 10분, 창을 닫으면 그만 기다림)
+async function dartLookup(name) {
+  const id = await queueQuiet({ task: "dartlookup", name, label: "DART 찾기" });
+  if (!id) throw new Error("요청을 남기지 못했습니다");
+  if (ghToken() && !(await pingRelay())) { try { await gh("/actions/workflows/monitor.yml/dispatches", { method: "POST", body: JSON.stringify({ ref: "main", inputs: { task: "queue", companies: "", test_to: "" } }) }); } catch {} }
+  const t0 = Date.now();
+  while (Date.now() - t0 < 10 * 60e3) {
+    await new Promise((res) => setTimeout(res, 4000));
+    if (!document.getElementById("dlRes")) return null;
+    const d = await getDoc(doc(db, "requests", id));
+    const r = d.exists() ? d.data() : null;
+    if (r?.status === "done") return r.result || {};
+    if (r?.status === "error") throw new Error(r.result?.error || "오류");
+  }
+  throw new Error("시간이 오래 걸려 기다리기를 멈췄습니다");
+}
 async function pingRelay() {
   const url = (state.settings?.relay_url || "").trim();
   if (!url) return false;
@@ -1688,12 +1712,28 @@ function openProjectEdit(pid) {
         </div>
         <div id="sitePick" class="site-pick"></div>
         <div class="site-f"><span class="muted small" id="siteState"></span><button type="button" class="btn sm ghost" id="siteClear">핀 지우기</button></div>
+        <div id="zoneBox" class="zone-box"></div>
       </div>
       <div class="actions">${isNew ? "" : `<button type="button" class="btn ghost danger" id="pjDelete" style="margin-right:auto">사업 삭제</button>`}<button class="btn primary">${isNew ? "등록" : "저장"}</button></div>
     </form>`);
   // 사업지 고르기 (작은 지도)
   const f0 = $("#pjEditForm"), site = { lat: Number.isFinite(p.lat) ? p.lat : null, lng: Number.isFinite(p.lng) ? p.lng : null };
-  const showSite = () => { $("#siteState").textContent = site.lat == null ? "핀 없음: 사업명 속 도시 이름이나 수원국 가운데에 표시됩니다" : `핀 위치 ${site.lat.toFixed(3)}, ${site.lng.toFixed(3)}`; };
+  // 여행경보가 나라 안에서 지역마다 다르면: 사업지가 어느 지역인지 (자동 판단 + 직접 고르기)
+  let zoneSel = Number.isFinite(p.alert_lv) ? String(p.alert_lv) : "";
+  const showZone = () => {
+    const box = $("#zoneBox"), cc = f0.country.value, al = state.geo?.alerts?.[cc];
+    const zs = (al?.zones || []).slice().sort((a, b) => b.lv - a.lv);
+    if (!al || new Set(zs.map((z) => z.lv)).size < 2) { box.innerHTML = ""; zoneSel = ""; return; }
+    const pl = { ...p, name: f0.name.value, site_en: f0.site_en.value, lat: site.lat, lng: site.lng, alert_lv: null };
+    const pt = projectPoint(pl), auto = siteAlert(al, { ll: pt?.ll, country: cc, ...siteOpt(pl, pt) });
+    const AL = ["", "1단계 여행유의", "2단계 여행자제", "3단계 출국권고", "4단계 여행금지"];
+    const lvs = [...new Set(zs.map((z) => z.lv))];
+    box.innerHTML = `<label>사업지 여행경보 <span class="muted small">이 나라는 지역마다 단계가 다릅니다. 사업지가 높은 단계 지역에 들 때만 그 단계로 봅니다</span>
+      <select name="alert_lv"><option value="">자동: ${auto.lv ? esc(AL[auto.lv]) : "없음"}${auto.how === "base" ? " (사업지 위치 미상, 나머지 지역 기준)" : auto.zone ? " (사업지가 이 지역 안)" : " (사업지 위치로 판단)"}</option>
+      ${lvs.map((lv) => `<option value="${lv}" ${zoneSel === String(lv) ? "selected" : ""}>${esc(AL[lv])}: ${esc(zs.filter((z) => z.lv === lv).map((z) => z.text).join(" / ").slice(0, 70))}</option>`).join("")}</select></label>`;
+    box.querySelector("select").onchange = (e) => { zoneSel = e.target.value; };
+  };
+  const showSite = () => { $("#siteState").textContent = site.lat == null ? "핀 없음: 사업명 속 도시 이름이나 수원국 가운데에 표시됩니다" : `핀 위치 ${site.lat.toFixed(3)}, ${site.lng.toFixed(3)}`; showZone(); };
   const picker = mountSitePicker($("#sitePick"), { ...site, country: p.country }, (lat, lng) => { site.lat = +lat.toFixed(4); site.lng = +lng.toFixed(4); f0.ll.value = `${site.lat}, ${site.lng}`; showSite(); });
   showSite();
   const normC = (x) => String(x).toLowerCase().replace(/\s+/g, "");
@@ -1714,7 +1754,7 @@ function openProjectEdit(pid) {
     if (!m || Math.abs(+m[1]) > 90 || Math.abs(+m[2]) > 180) return toast("좌표를 읽지 못했습니다. 예: 23.81, 90.41");
     picker.set([+m[1], +m[2]]);
   };
-  f0.country.onchange = () => { if (site.lat == null) picker.country(f0.country.value); };
+  f0.country.onchange = () => { if (site.lat == null) picker.country(f0.country.value); zoneSel = ""; showZone(); };
   $("#siteClear").onclick = () => { site.lat = site.lng = null; f0.ll.value = ""; picker.clear(); showSite(); };
   $("#pjEditForm").onsubmit = async (ev) => {
     ev.preventDefault();
@@ -1722,7 +1762,7 @@ function openProjectEdit(pid) {
     const name = String(fd.name || "").trim();
     if (!name) return;
     if (state.projects.some((x) => x.id !== pid && x.name === name)) return toast("같은 이름의 사업이 이미 있습니다");
-    const patch = { name, country: fd.country || null, owner: fd.owner || null, lat: site.lat, lng: site.lng, site_en: String(fd.site_en || "").trim() || null, status: fd.done ? "done" : null };
+    const patch = { name, country: fd.country || null, owner: fd.owner || null, lat: site.lat, lng: site.lng, site_en: String(fd.site_en || "").trim() || null, status: fd.done ? "done" : null, alert_lv: zoneSel ? +zoneSel : null };
     if (isNew) { const data = { ...patch, created_at: nowStr() }, ref = await addDoc(collection(db, "projects"), data); state.projects.push({ id: ref.id, ...data }); }
     else { await updateDoc(doc(db, "projects", pid), patch); Object.assign(p, patch); }
     closeModal(); toast(isNew ? `'${name}' 사업을 등록했습니다` : "사업을 수정했습니다"); rerender();
@@ -1775,9 +1815,10 @@ const companyData = (c) => { const { id, risk, open, total, focus, mine, cat, ca
 // 새 업체: 매뉴얼 기준 사업자등록번호·영문명을 함께 입력
 $("#btnAddCompany").onclick = () => {
   modal(`<h2>업체 추가</h2>
-    <p class="muted small">사업자등록번호와 영문명(사업자등록증 영문)이 있으면 조달청·MDB 제재 조회가 정확해집니다. 모르면 비워두세요. DART에 있는 업체는 스캔 때 자동으로 채워집니다.</p>
+    <p class="muted small">한글 업체명을 넣고 [DART에서 가져오기]를 누르면 사업자등록번호·영문명·업종을 채웁니다. 사업자등록번호와 영문명이 있어야 조달청·MDB 제재 조회가 정확해집니다. 안 누르고 추가해도 DART에서 자동으로 한 번 찾아 봅니다.</p>
     <form id="addCoForm" class="form" autocomplete="off">
-      <label>업체명 *<input name="name" required placeholder="예: 서마루엔지니어링"></label>
+      <label>업체명 *<span class="dl-row"><input name="name" required placeholder="예: 서마루엔지니어링"><button type="button" class="btn sm" id="dlBtn">DART에서 가져오기</button></span></label>
+      <div id="dlRes" class="dl-res hidden"></div>
       <div class="row">
         <label>사업자등록번호<input name="biz_no" placeholder="000-00-00000"></label>
         <label>영문명<input name="name_en" placeholder="예: GANADA ENGINEERING CO., LTD."></label>
@@ -1791,6 +1832,34 @@ $("#btnAddCompany").onclick = () => {
         <label>역할<select name="role">${ROLES.map((r) => `<option>${r}</option>`).join("")}</select></label></div>` : ""}
       <div class="actions"><button class="btn primary">추가</button></div>
     </form>`);
+  // DART에서 가져오기: 키가 서버(GitHub)에만 있어서 '요청'으로 남기고 결과를 기다림 (회사망에서는 5분 남짓)
+  const f1 = $("#addCoForm"); let picked = null, dlBusy = false;
+  const fillFrom = (o) => {
+    picked = o;
+    if (o.biz_no) f1.biz_no.value = fmtBiz(o.biz_no);
+    if (o.name_en) f1.name_en.value = o.name_en;
+    if (o.category && CATS.includes(o.category)) f1.category.value = o.category;
+  };
+  const candLine = (o) => esc([o.ceo && "대표 " + o.ceo, o.biz_no && fmtBiz(o.biz_no), o.name_en].filter(Boolean).join(" · ") || "상세 정보 없음");
+  $("#dlBtn").onclick = async () => {
+    const { name } = cleanCompanyName(f1.name.value || ""), box = $("#dlRes");
+    if (!name) return toast("업체명을 먼저 넣어 주세요");
+    if (dlBusy) return;
+    dlBusy = true; $("#dlBtn").disabled = true; box.classList.remove("hidden");
+    box.innerHTML = `DART에서 '${esc(name)}'을(를) 찾는 중입니다. 보통 1~2분, 회사망에서는 5분 남짓 걸릴 수 있습니다. 기다리는 동안 다른 칸을 적어도 됩니다.`;
+    try {
+      const r = await dartLookup(name);
+      if (!r) return;
+      const cands = r.cands || [];
+      if (!cands.length) box.innerHTML = `DART에 '${esc(name)}'과(와) 이름이 같은 기업이 없습니다 (비상장·소규모·건축사사무소 등). 사업자등록번호를 직접 넣어 주세요.`;
+      else if (cands.length === 1) { fillFrom(cands[0]); box.innerHTML = `DART에서 찾아 채웠습니다: <b>${esc(cands[0].name)}</b> <span class="muted">${candLine(cands[0])}</span>`; }
+      else {
+        box.innerHTML = `<div class="muted small">DART에 같은 이름이 ${cands.length}곳 있습니다. 대표자·사업자번호를 보고 맞는 곳을 고르세요</div>` + cands.map((o, i) => `<label class="dp-opt"><input type="radio" name="dl-pick" value="${i}"><span><b>${esc(o.name)}</b>${o.listed ? ` <span class="tag">상장</span>` : ""} <span class="muted">${candLine(o)}</span></span></label>`).join("");
+        $$("input[name=dl-pick]", box).forEach((x) => x.onchange = () => fillFrom(cands[+x.value]));
+      }
+    } catch (e) { if (box.isConnected) box.innerHTML = `DART에서 찾지 못했습니다: ${esc(e.message || e)}. 그대로 추가하면 나중에 자동으로 다시 찾습니다.`; }
+    finally { dlBusy = false; const b = $("#dlBtn"); if (b) b.disabled = false; }
+  };
   $("#addCoForm").onsubmit = async (ev) => {
     ev.preventDefault();
     const fd = Object.fromEntries(new FormData(ev.target));
@@ -1807,10 +1876,20 @@ $("#btnAddCompany").onclick = () => {
     applyCat(c, fd.category, "직접 입력");
     if (fd.aliases?.trim()) c.aliases = fd.aliases.trim();
     if (fd.pid) c.engagements.push({ project_id: fd.pid, role: fd.role || "컨설턴트", stage: "계약", rank: null });
+    if (picked && !fd.foreign) {
+      c.corp_code = picked.corp_code || null;
+      if (picked.ceo) c.ceo = picked.ceo;
+      if (biz && picked.biz_no === biz) c.bizno_source = "DART 선택";
+      if (picked.induty_code) c.induty_code = picked.induty_code;
+      if (picked.category && fd.category === picked.category) c.category_source = "DART 업종";
+    }
     await setDoc(ref, companyData(c));
     state.companies.push(c);
     closeModal();
-    toast(`'${name}'을(를) 추가했습니다${fd.pid ? "" : ": 사업 관리에서 사업에 연결할 수 있습니다"}`, 4000);
+    // DART에서 고르지 않았고 사업자번호·영문명이 비었으면 그 업체만 DART에서 한 번 찾아 둠 (1곳이면 채우고, 여러 곳이면 'DART 동명 기업 고르기')
+    const autoDart = !fd.foreign && !picked && !(c.biz_no && c.name_en);
+    if (autoDart) queueQuiet({ task: "dartfill", ids: [ref.id], label: "DART 채움 (새 업체)" });
+    toast(`'${name}'을(를) 추가했습니다${autoDart ? ". DART에서 빈 정보를 찾아 채웁니다" : ""}${fd.pid ? "" : ". 사업 관리에서 사업에 연결할 수 있습니다"}`, 4500);
     rerender();
   };
   setTimeout(() => $("#addCoForm input[name=name]")?.focus(), 50);
@@ -2338,13 +2417,14 @@ function errGroups(errs) {
   return [...m.values()].sort((a, b) => b.who.length - a.who.length);
 }
 const errHint = (msg) => /timed? ?out|timeout|시간 초과/i.test(msg) ? "응답이 늦어 건너뜀: 다음 스캔 때 다시 확인합니다"
-  : /429|too many|limit|한도|quota/i.test(msg) ? "하루 호출 한도를 넘음: 다음 날 자동으로 다시 확인합니다"
+  : /429|too many/i.test(msg) ? "요청이 한꺼번에 몰려 잠시 막힘: 다음 스캔 때 다시 확인합니다"
+  : /limit|한도|quota/i.test(msg) ? "하루 호출 한도를 넘음: 다음 날 자동으로 다시 확인합니다"
   : /401|403|unauthor|forbidden|key|인증/i.test(msg) ? "키(인증) 문제: GitHub Secrets의 키를 확인하세요"
   : /credit|balance/i.test(msg) ? "API 잔액 부족: Anthropic Console에서 충전"
   : /50[0-9]|bad gateway|unavailable/i.test(msg) ? "상대 서버 일시 오류: 다음 스캔 때 다시 확인합니다"
   : /판정을 주지 않음|예전 등급/.test(msg) ? "등급이 바뀌지 않았을 뿐 이슈는 그대로 보입니다: 따로 할 일은 없습니다" : "";
 function renderAdvanced() {
-  const KIND = { scan: "스캔", report: "메일 발송", dart: "DART 갱신", dartfill: "DART 채움", rejudge: "재판정(새 등급 기준)" };
+  const KIND = { scan: "스캔", report: "메일 발송", dart: "DART 기업목록 갱신", dartfill: "DART 일괄 조회", dartlookup: "DART 찾기 (업체 추가)", rejudge: "재판정(새 등급 기준)" };
   renderConnections();
   $("#runList").innerHTML = state.runs.slice(0, 8).map((r) => {
     const d = r.detail || {};
@@ -2361,23 +2441,23 @@ function renderAdvanced() {
     }).join("")}${(d.errors?.length || 0) >= 50 ? `<div class="muted small">오류가 많아 앞의 50건만 보관했습니다.</div>` : ""}</div></details>`;
   }).join("") || `<div class="muted small">아직 실행 기록이 없습니다.</div>`;
 }
-// ---------- DART로 빈 정보 채우기 ----------
+// ---------- DART 일괄 조회 (빈 정보 채우기) · 동명 기업 고르기 ----------
 // 이름이 DART에 정확히 1곳이면 스캔 쪽에서 바로 채우고, 여러 곳이면 후보(dart_cands)를 남김 → 여기서 고름
 const dartPending = () => state.companies.filter((c) => Array.isArray(c.dart_cands) && c.dart_cands.length);
 function renderDartBar() {
   const n = dartPending().length, b = $("#btnDartPick");
-  b.classList.toggle("hidden", !n); b.textContent = `DART 후보 고르기 ${n}`;
+  b.classList.toggle("hidden", !n); b.textContent = `DART 동명 기업 고르기 ${n}`;
 }
 $("#btnDartFill").onclick = () => {
   const n = state.companies.filter((c) => (c.country || "KR") === "KR" && !(c.biz_no && c.name_en)).length;
   if (!n) return toast("사업자번호와 영문명이 빈 국내 업체가 없습니다");
-  if (confirm(`사업자번호나 영문명이 빈 국내 업체 ${n}개를 DART에서 찾아 채울까요?\n\n이름이 DART에 1곳만 있으면 바로 채우고, 같은 이름이 여러 곳이면 후보를 보여 드립니다. 몇 분 걸립니다.`)) runWorkflow({ task: "dartfill" }, "DART 채움");
+  if (confirm(`DART 일괄 조회: 사업자번호나 영문명이 빈 국내 업체 ${n}개를 DART에서 한꺼번에 찾아 채울까요?\n\n이름이 DART에 1곳만 있으면 바로 채우고, 같은 이름이 여러 곳이면 [DART 동명 기업 고르기]에 모아 둡니다. 몇 분 걸립니다.`)) runWorkflow({ task: "dartfill" }, "DART 일괄 조회");
 };
 $("#btnDartPick").onclick = openDartPick;
 function openDartPick() {
   const list = dartPending();
   if (!list.length) return toast("고를 후보가 없습니다");
-  modal(`<h2>DART 후보 고르기 <span class="count">${list.length}</span></h2>
+  modal(`<h2>DART 동명 기업 고르기 <span class="count">${list.length}</span></h2>
     <p class="muted small">DART에 같은 이름의 기업이 여러 곳 있는 업체입니다. 맞는 기업을 고르면 사업자번호, 영문명, 대표자가 채워집니다. 모르면 '나중에'로 두세요.</p>
     <form id="dartPickForm"><div class="dp-list">${list.map((c) => `<div class="dp-co"><div class="dp-name"><b>${esc(c.name)}</b>${c.engagements?.length ? ` <span class="muted small">${esc(c.engagements.map((e) => state.projects.find((p) => p.id === e.project_id)?.name).filter(Boolean).slice(0, 2).join(", "))}</span>` : ""}</div>
       ${c.dart_cands.map((o, i) => `<label class="dp-opt"><input type="radio" name="dp-${c.id}" value="${i}"><span><b>${esc(o.name)}</b>${o.listed ? ` <span class="tag">상장</span>` : ""} <span class="muted">${esc([o.ceo && "대표 " + o.ceo, o.biz_no && fmtBiz(o.biz_no), o.name_en].filter(Boolean).join(" · ") || "상세 정보 없음")}</span></span></label>`).join("")}

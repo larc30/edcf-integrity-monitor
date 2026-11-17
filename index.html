@@ -20,7 +20,7 @@
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=53">
+<link rel="stylesheet" href="assets/style.css?v=54">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -171,7 +171,7 @@
       <div class="card co-card">
         <div class="co-top">
           <div class="co-views" id="coViews"></div>
-          <span class="co-tools"><span class="co-tools-l">정보 보완</span><button class="btn sm ghost" id="btnDartFill" title="사업자번호나 영문명이 빈 국내 업체를 DART에서 찾아 채웁니다. 이름이 1곳만 맞으면 바로 채우고, 여러 곳이면 고르게 합니다">DART로 빈 정보 채우기</button><button class="btn sm warn hidden" id="btnDartPick">DART 후보 고르기</button></span>
+          <span class="co-tools"><span class="co-tools-l">정보 보완</span><button class="btn sm ghost" id="btnDartFill" title="사업자번호나 영문명이 빈 국내 업체 전체를 DART에서 한꺼번에 찾습니다. 이름이 1곳만 맞으면 바로 채우고, 같은 이름이 여러 곳이면 [DART 동명 기업 고르기]에 모아 둡니다">DART 일괄 조회</button><button class="btn sm warn hidden" id="btnDartPick" title="DART에 같은 이름이 여러 곳 있어 자동으로 못 채운 업체입니다. 대표자·사업자번호를 보고 맞는 곳을 고릅니다">DART 동명 기업 고르기</button></span>
           <span class="co-shown" id="poolShown"></span>
         </div>
         <div class="co-filters">
@@ -270,6 +270,6 @@
 <div id="toast" class="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
-<script type="module" src="assets/app.js?v=53"></script>
+<script type="module" src="assets/app.js?v=54"></script>
 </body>
 </html>

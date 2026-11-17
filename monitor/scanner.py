@@ -268,7 +268,7 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
     force: 업체 하나만 '다시 스캔' — 주간 제한 없이 업체명 검색, 10년 범위, 예전에 관련 없다고 본 기사도 다시 판정"""
     t0 = time.time()
     errors: list[str] = []
-    stats = {"fetched": 0, "candidates": 0, "new_findings": 0, "official": 0, "cleaned": 0}
+    stats = {"fetched": 0, "candidates": 0, "new_findings": 0, "official": 0, "cleaned": 0, "auto_same": 0}
     engagements = [
         {**e, "project_name": projects.get(e.get("project_id"), {}).get("name", "(삭제된 사업)")}
         for e in company.get("engagements") or []
@@ -360,9 +360,12 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         "dismissed": [f.get("title", "")[:120] for f in fb_src if f.get("status") == "dismissed" and f.get("reviewed_by") != "자동 정리"][:12],
         "confirmed": [f.get("title", "")[:120] for f in fb_src if f.get("status") == "reviewed" and f.get("review_note") != "과거 이력 일괄 정리"][:8],
         # 같은 사건 판단용: 이 업체의 최근 이슈 (AI가 새 기사와 비교해 same_event_as 로 표시)
-        "recent": [{"id": f["id"], "title": f.get("title", ""), "date": f.get("published_at") or "", "summary": f.get("summary") or ""}
-                   for f in sorted((x for x in existing if x.get("relevant") and x.get("status") != "dismissed" and x.get("source_type") == "news"),
-                                   key=lambda x: x.get("published_at") or "", reverse=True)[:20]],
+        # 담당자가 이미 처리한 사건(확인 완료·관련 없음)도 넣어서, 같은 사건의 새 기사는 자동으로 같은 처리를 받게 함
+        "recent": [{"id": f["id"], "title": f.get("title", ""), "date": f.get("published_at") or "", "summary": f.get("summary") or "",
+                    "status": f.get("status") if f.get("reviewed_by") != "자동 정리" else "new"}
+                   for f in sorted((x for x in existing if x.get("source_type") == "news" and (
+                       (x.get("relevant") and x.get("status") != "dismissed") or (x.get("status") == "dismissed" and x.get("reviewed_by") not in (None, "", "자동 정리")))),
+                                   key=lambda x: x.get("published_at") or "", reverse=True)[:25]],
     }
     judgements, used = analyzer.analyze(company, engagements, cands, keywords, feedback)
     by_idx = {j["idx"]: j for j in judgements}
@@ -393,6 +396,8 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         })
         if j.get("relevant"):
             stats["new_findings"] += 1
+
+    stats["auto_same"] = _inherit_review(to_save, existing, company)
 
     # 3-1) 업체 식별 (사업자번호·영문명) — 뉴스 검색 뒤에 해서, 그동안 DART 목록을 백그라운드로 받아 둠
     ident = _identify(company, errors)
@@ -595,7 +600,7 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
     if progress:
         progress(0, total, f"제재 키워드 기사 {len(sweep_articles)}건 대조 완료")
 
-    totals = {"companies": total, "fetched": 0, "candidates": 0, "new_findings": 0, "official": 0, "cleaned": 0, "deep": 0,
+    totals = {"companies": total, "fetched": 0, "candidates": 0, "new_findings": 0, "official": 0, "cleaned": 0, "auto_same": 0, "deep": 0,
               "sweep_articles": len(sweep_articles), "sweep_matched_companies": len(hits),
               "focus": sum(1 for c in companies if c.get("engagements") or c.get("watch"))}
     lock, done = threading.Lock(), 0
@@ -609,8 +614,8 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
             try:
                 s = fut.result()
                 with lock:
-                    for k in ("fetched", "candidates", "new_findings", "official", "cleaned"):
-                        totals[k] += s[k]
+                    for k in ("fetched", "candidates", "new_findings", "official", "cleaned", "auto_same"):
+                        totals[k] += s.get(k, 0)
                     totals["deep"] += 1 if s["deep"] else 0
                     errors += s["errors"]
             except Exception as e:
@@ -660,7 +665,49 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
     return totals
 
 
-def dart_fill() -> dict:
+_RANK = {"none": 0, "yellow": 1, "orange": 2, "red": 3}
+
+
+def _inherit_review(to_save: list[dict], existing: list[dict], company: dict) -> int:
+    """담당자가 이미 처리한 사건과 같은 사건(AI same_as)의 새 기사는 같은 처리를 물려받음 → 매일 다시 확인하지 않게.
+    - 이전 기록이 '확인 완료'이고 새 기사 등급이 더 높지 않으면 → 확인 완료 (등급에는 그대로 반영, 확인할 이슈·메일에서는 빠짐)
+    - 이전 기록이 '관련 없음'이면 → 관련 없음
+    - 새 기사 등급이 더 높으면(예: 수사 → 처분 확정) 새 이슈로 남겨 다시 보게 함"""
+    by_id = {f["id"]: f for f in existing}
+    mine = {f"{company['id']}_{f['dedup_key']}".replace("/", "_")[:1400]: f for f in to_save}
+    n = 0
+    for _ in range(3):  # 이번에 같이 들어온 기사끼리 이어진 경우(A→B→처리된 기록)도 따라감
+        for f in to_save:
+            if f.get("status") or not f.get("same_as") or not f.get("relevant"):
+                continue
+            t = by_id.get(f["same_as"]) or mine.get(f["same_as"])
+            if not t:
+                continue
+            st, who = t.get("status"), t.get("reviewed_by")
+            if who in (None, "", "자동 정리") and not t.get("auto_same"):
+                continue
+            if st == "dismissed" or (st == "reviewed" and _RANK.get(f.get("level"), 0) <= _RANK.get(t.get("level"), 0)):
+                f.update(status=st, reviewed_by=(who if str(who).startswith("자동 (같은 사건") else f"자동 (같은 사건: {who})")[:80],
+                         reviewed_at=store.now_str(), auto_same=True,
+                         review_note=("같은 사건을 이미 '확인 완료'로 처리" if st == "reviewed" else "같은 사건을 이미 '관련 없음'으로 처리"))
+                n += 1
+    return n
+
+
+def dart_lookup(name: str) -> dict:
+    """업체 추가 창 [DART에서 찾기]: 이름이 같은 DART 기업 후보(최대 8곳)와 상세(사업자번호·영문명·대표자·업종)"""
+    if not config.DART_API_KEY:
+        raise RuntimeError("DART_API_KEY 가 등록돼 있지 않습니다")
+    out = []
+    for r in dart.match_by_name(name)[0][:8]:
+        d = dart.company_detail(r[0])
+        out.append({"corp_code": r[0], "name": r[1], "name_en": d.get("name_en") or r[2] or "", "ceo": d.get("ceo") or "",
+                    "biz_no": pps.biz_digits(d.get("biz_no") or ""), "listed": bool(r[3]), "induty_code": d.get("induty_code") or "",
+                    "category": category.from_ksic(d.get("induty_code")) or ""})
+    return {"cands": out, "count": len(out)}
+
+
+def dart_fill(ids: list[str] | None = None) -> dict:
     """업체 관리 [DART로 빈 정보 채우기]: 사업자번호·영문명이 빈 국내 업체를 DART 이름으로 찾음.
     이름이 정확히 1곳이면 바로 채우고, 여러 곳이면 후보(dart_cands)를 저장해 화면에서 고르게 함."""
     if not config.DART_API_KEY:
@@ -668,6 +715,8 @@ def dart_fill() -> dict:
     res = {"filled": 0, "choose": 0, "none": 0, "count": 0}
     patches: dict[str, dict] = {}
     for c in store.all_docs("companies"):
+        if ids and c["id"] not in ids:  # 업체 추가 직후 그 업체만
+            continue
         if c.get("country", "KR") not in ("KR", "", None) or (c.get("biz_no") and c.get("name_en")):
             continue
         res["count"] += 1
