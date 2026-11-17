@@ -20,6 +20,8 @@ def coll(name):
 store.all_docs = lambda n: coll(n)
 store.where = lambda n, f, op, v: [x for x in coll(n) if x.get(f) == v]
 store.now_kst = lambda: now
+store.get_many = lambda n, ids: {i: (db.get(n) or {}).get(i) for i in ids}
+report.save_history = lambda o: None
 subject, body, ids = report.build()
 
 # 날짜 자리표시: 오늘~60일 전 (긴 것부터 바꿔 겹침 방지는 필요 없음 — 날짜 형식이 고정)

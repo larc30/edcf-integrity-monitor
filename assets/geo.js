@@ -225,6 +225,13 @@ export function siteRisk(pt, country, evs, alerts, opt = {}) {
   return { lv, why: [...why, ...warn], alert: a, site: sa };
 }
 const worse = (x, y) => (LV[y.lv] > LV[x.lv] ? y : x);
+// 보고서용: 사업 하나의 수원국 등급과 근거 (지도 화면과 같은 기준)
+export function projectGeoRisk(p) {
+  if (!ctx || !p?.country) return null;
+  const pt = projectPoint(p, 0), r = siteRisk(pt?.ll, p.country, allEvents(), geoDoc().alerts || {}, siteOpt(p, pt));
+  const sa = r.site || {};
+  return { lv: r.lv, alert: sa.lv ? `여행경보 ${ALERT[sa.lv][0]}` : "", why: r.why.filter((w) => !/^(여행경보|특별여행주의보)/.test(w)) };
+}
 
 // ---------- 화면 ----------
 export function initGeo(c) { ctx = c; }
