@@ -12,15 +12,15 @@ export function seed() {
   const now = Date.now(), ME = ALLOWED_EMAILS[0], OTHER = "colleague@example.com";
   // 사업 9개 (실제 운영 규모와 같게) — 사업명·업체명은 모두 지어낸 이름
   const projects = {
-    p1: { name: "케냐 나이로비 스마트시티 구축사업", country: "KE", owner: ME, created_at: "1" },
-    p2: { name: "탄자니아 국가공간정보 기반 구축사업", country: "TZ", owner: ME, created_at: "2" },
-    p3: { name: "몽골 울란바토르 교통관제센터 확충사업", country: "MN", owner: ME, created_at: "3" },
-    p4: { name: "라오스 비엔티안 국립병원 현대화사업", country: "LA", owner: ME, created_at: "4" },
-    p7: { name: "방글라데시 다카 행정정보망 고도화사업", country: "BD", owner: ME, created_at: "5" },
-    p5: { name: "베트남 메콩델타 상수도 확충사업", country: "VN", owner: OTHER, created_at: "6" },
-    p6: { name: "캄보디아 프놈펜 철도 신호체계 개선사업", country: "KH", owner: OTHER, created_at: "7" },
-    p8: { name: "우즈베키스탄 타슈켄트 변전소 현대화사업", country: "UZ", owner: OTHER, created_at: "8" },
-    p9: { name: "필리핀 민다나오 홍수 조기경보 시스템 구축사업", country: "PH", owner: OTHER, created_at: "9" },
+    p1: { name: "케냐 나이로비 스마트시티 구축사업", country: "KE", team: "ict", owner: ME, created_at: "1" },
+    p2: { name: "탄자니아 국가공간정보 기반 구축사업", country: "TZ", team: "ict", owner: ME, created_at: "2" },
+    p3: { name: "몽골 울란바토르 교통관제센터 확충사업", country: "MN", team: "ict", owner: ME, created_at: "3" },
+    p4: { name: "라오스 비엔티안 국립병원 현대화사업", country: "LA", team: "ict", owner: ME, created_at: "4" },
+    p7: { name: "방글라데시 다카 행정정보망 고도화사업", country: "BD", team: "ict", owner: ME, created_at: "5" },
+    p5: { name: "베트남 메콩델타 상수도 확충사업", country: "VN", team: "water", owner: OTHER, created_at: "6" },
+    p6: { name: "캄보디아 프놈펜 철도 신호체계 개선사업", country: "KH", team: "transport", owner: OTHER, created_at: "7" },
+    p8: { name: "우즈베키스탄 타슈켄트 변전소 현대화사업", country: "UZ", team: "water", owner: OTHER, created_at: "8" },
+    p9: { name: "필리핀 민다나오 홍수 조기경보 시스템 구축사업", country: "PH", team: "water", owner: OTHER, created_at: "9" },
   };
   const lc = (o = {}) => ({
     at: kst(now - 2 * 3600e3), mode: o.base ? "기본·데일리" : "집중·데일리", analyzer: "claude",
@@ -134,6 +134,12 @@ export function seed() {
   return {
     projects, companies, findings,
     keywords: {}, recipients: { r1: { email: "team@example.com", active: true } },
+    // 계정·권한 (데모): ?guest = 정보통신팀 팀원, ?teamadmin = 수자원에너지팀 관리자
+    users: {
+      "teammate@example.com": { role: "member", team: "ict" },
+      "water.lead@example.com": { role: "admin", team: "water" },
+      "colleague@example.com": { role: "member", team: "water" },
+    },
     runs: {
       run1: { kind: "scan", at: kst(now - 2 * 3600e3), at_ms: now - 2 * 3600e3, ok: true, detail: { companies: 216, fetched: 2930, new_findings: 6, seconds: 61.8 } },
       run0: { kind: "scan", at: kst(now - 26 * 3600e3), at_ms: now - 26 * 3600e3, ok: false, detail: { companies: 216, fetched: 2870, new_findings: 4, seconds: 64.3, errors: [
@@ -169,10 +175,11 @@ export function seed() {
         return {
           updated_at: kst(now - 2 * H), alerts_at: kst(now - 2 * H), news_at: kst(now - 2 * H),
           alerts: {
-            PH: { level: 3, partial: true, regions: "(데모 예시) 민다나오 일부 지역 3단계, 그 밖 1~2단계" },
-            BD: { level: 2, partial: false, regions: "" },
-            KE: { level: 2, partial: true, regions: "(데모 예시) 북동부 접경 지역 2단계, 그 밖 1단계" },
-            TZ: { level: 1 }, MN: { level: 1 }, LA: { level: 1 }, VN: { level: 1 }, KH: { level: 1 }, UZ: { level: 1 },
+            PH: { level: 4, base: 2, partial: true, zones: [{ lv: 4, text: "(데모 예시) 민다나오의 잠보앙가, 술루 군도", rest: false }, { lv: 2, text: "(데모 예시) 4단계 지정 지역을 제외한 지역", rest: true }] },
+            BD: { level: 2, base: 2, partial: false, zones: [{ lv: 2, text: "전 지역", rest: true }] },
+            KE: { level: 3, base: 2, partial: true, zones: [{ lv: 3, text: "(데모 예시) 만데라주, 와지르주", rest: false }, { lv: 2, text: "(데모 예시) 3단계 지정 지역을 제외한 지역", rest: true }] },
+            LA: { level: 4, base: 1, partial: true, zones: [{ lv: 4, text: "(데모 예시) 골든트라이앵글 경제특구", rest: false }, { lv: 1, text: "(데모 예시) 4단계 지정 지역을 제외한 지역", rest: true }] },
+            TZ: { level: 1, base: 1 }, MN: { level: 1, base: 1 }, VN: { level: 1, base: 1 }, KH: { level: 1, base: 1 }, UZ: { level: 1, base: 1 },
           },
           events: [
             ev("d1", "quake", "PH", 30, 7.4, 125.3, "필리핀 민다나오 다바오 북쪽 규모 6.8 지진", "USGS", { mag: 6.8, depth: 15 }),

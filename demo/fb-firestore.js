@@ -47,6 +47,17 @@ function simulate(id) {
     }, 3000);
     return;
   }
+  if (r.task === "dartlookup") { // [DART에서 찾기] 흉내: 같은 이름 가상 기업 2곳 (데모 예시, 실제 DART 자료 아님)
+    setTimeout(() => {
+      const n = r.name || "가상기업";
+      Object.assign(r, { status: "done", finished_at: kst(Date.now()), result: { count: 2, cands: [
+        { corp_code: "00000001", name: n, name_en: "DEMO ENGINEERING CO., LTD.", ceo: "홍길동", biz_no: "1234567890", listed: false, category: "엔지니어링·설계·감리" },
+        { corp_code: "00000002", name: n, name_en: "DEMO CONSTRUCTION CO., LTD.", ceo: "김예시", biz_no: "2345678901", listed: true, category: "건설·시공" },
+      ] } });
+    }, 2500);
+    return;
+  }
+  if (r.task === "dartfill") { setTimeout(() => Object.assign(r, { status: "done", finished_at: kst(Date.now()), result: { count: 0, filled: 0, choose: 0, none: 0 } }), 2500); return; }
   const names = Object.values(coll("companies")).map((c) => c.name);
   const total = names.length;
   setTimeout(() => {

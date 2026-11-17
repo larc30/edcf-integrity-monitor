@@ -85,6 +85,15 @@ def check(get=httpx.get) -> dict:
         r.raise_for_status()
         return _ok(f"지진 {len(r.json().get('features', []))}건")
 
+    def gdacs():
+        from . import geo
+        geo.fetch_gdacs([((0.0, 0.0), "XX")], get)
+        return _ok("연결 정상")
+
+    def who():
+        from . import geo
+        return _ok(f"최근 발표 {len(geo.fetch_who(get))}건 (수원국 해당분)")
+
     def smtp():
         if not (config.SMTP_USER and config.SMTP_PASSWORD):
             return _no("SMTP_USER · SMTP_PASSWORD 없음")
@@ -94,7 +103,7 @@ def check(get=httpx.get) -> dict:
         return _ok("로그인 성공")
 
     for k, fn in (("google_news", gnews), ("naver", naver), ("claude", claude), ("dart", dart), ("pps", pps_),
-                  ("mdb", mdb), ("mofa", mofa), ("usgs", usgs), ("smtp", smtp)):
+                  ("mdb", mdb), ("mofa", mofa), ("usgs", usgs), ("gdacs", gdacs), ("who", who), ("smtp", smtp)):
         run(k, fn)
     return out
 

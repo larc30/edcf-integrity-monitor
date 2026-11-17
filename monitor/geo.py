@@ -3,6 +3,8 @@
 1) 외교부 여행경보: 공공데이터포털 '외교부_국가·지역별 여행경보'(+ 특별여행주의보)
    - 키: MOFA_TRAVEL_KEY, 없으면 DATA_GO_KR_KEY(조달청과 같은 공공데이터포털 키, 해당 API 활용신청 필요)
 2) 지진: USGS 규모 4.5 이상 최근 7일 (키 없음) — 사업지·수원국에서 600km 안
+2-1) GDACS(UN·EU) 태풍·홍수·화산·산불 주황·빨강 경보 (키 없음) — 600km 안
+2-2) WHO 감염병 발생 소식(Disease Outbreak News, 키 없음) — 나라 단위
 3) 뉴스 이벤트: Google 뉴스·네이버 뉴스에서 '나라 이름 + 사건 단어' 제목만 (분쟁·테러·홍수·태풍 등)
 
 대시보드(assets/geo.js)가 이 문서를 읽어 지도·여행경보·이벤트 목록을 그린다.
@@ -12,6 +14,7 @@
 import hashlib
 import logging
 import math
+import re
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 
@@ -134,6 +137,22 @@ def _rows(j) -> list[dict]:
     return []
 
 
+def _is_rest(text: str) -> bool:
+    """'4단계 지정 지역을 제외한 지역', '2·3 단계 발령 지역 외 전 지역', '전 지역' 처럼 '나머지 지역' 줄인지"""
+    t = re.sub(r"\s+", " ", text or "")
+    return bool(re.search(r"(제외한|발령 지역 외|지정 지역 외)\s*(전\s*)?지역|^전\s*지역$|나머지\s*지역", t))
+
+
+def _finish_alert(a: dict) -> None:
+    """base = 사업지가 특정 지역에 들지 않을 때의 단계(나머지 지역 단계), partial = 나라 안에서 단계가 다름
+    regions = 예전 화면용 요약"""
+    zones = a["zones"]
+    rest = [z["lv"] for z in zones if z["rest"]]
+    a["base"] = min(rest) if rest else min(z["lv"] for z in zones)
+    a["partial"] = len({z["lv"] for z in zones}) > 1 or not rest
+    a["regions"] = " / ".join(f"{z['lv']}단계 {z['text']}" for z in sorted(zones, key=lambda z: -z["lv"]) if z["text"])[:300]
+
+
 def fetch_alerts(get=httpx.get) -> dict:
     key = config.MOFA_TRAVEL_KEY
     if not key:
@@ -149,25 +168,23 @@ def fetch_alerts(get=httpx.get) -> dict:
             lvl = 0
         if not code or not lvl:
             continue
-        a = out.setdefault(code, {"level": 0, "min": 9, "regions": []})
-        a["level"], a["min"] = max(a["level"], lvl), min(a["min"], lvl)
-        reg = " ".join(str(row.get(k) or "").strip() for k in ("region_ty", "remark")).strip()
-        if reg and reg not in a["regions"]:
-            a["regions"].append(reg)
+        a = out.setdefault(code, {"level": 0, "zones": []})
+        a["level"] = max(a["level"], lvl)
+        text = str(row.get("remark") or "").strip()
+        whole = str(row.get("region_ty") or "").strip() == "전체"
+        a["zones"].append({"lv": lvl, "text": text[:200], "rest": whole or _is_rest(text)})
         a["written"] = max(a.get("written", ""), str(row.get("written_dt") or ""))
     for a in out.values():
-        a["partial"] = a["min"] < a["level"]
-        a["regions"] = " / ".join(a["regions"])[:300]
-        a.pop("min", None)
+        _finish_alert(a)
     try:  # 특별여행주의보 (같은 키, 별도 활용신청). 실패해도 여행경보는 저장
         r2 = get(SPECIAL_URL, params={"serviceKey": key, "returnType": "JSON", "numOfRows": 300, "pageNo": 1}, timeout=30)
         r2.raise_for_status()
         for row in _rows(r2.json()):
             code = (row.get("country_iso_alp2") or "").upper()
             if code:
-                a = out.setdefault(code, {"level": 0, "partial": False, "regions": ""})
+                a = out.setdefault(code, {"level": 0, "base": 0, "partial": False, "regions": "", "zones": []})
                 a["special"] = True
-                a["special_text"] = str(row.get("splimit_note") or row.get("remark") or "")[:120]
+                a["special_text"] = str(row.get("splimit_note") or row.get("remark") or row.get("txt_origin_cn") or "")[:200]
     except Exception as e:
         log.warning("특별여행주의보 실패: %s", type(e).__name__)
     return out
@@ -200,6 +217,85 @@ def fetch_quakes(tg, get=httpx.get) -> list[dict]:
                     "mag": round(float(p["mag"]), 1), "title": f"규모 {float(p['mag']):.1f} 지진 · {p.get('place') or ''}".strip(),
                     "url": p.get("url") or "", "at_ms": int(p.get("time") or 0), "source": "USGS", "dist_km": round(d),
                     **({"depth": round(float(depth))} if depth is not None else {})})
+    return out
+
+
+# ---------- 2-1) GDACS (UN·EU 재난 경보, 키 없음) ----------
+# 태풍·홍수·화산·산불의 공식 경보 등급(초록·주황·빨강). 주황·빨강만 받음. 지진은 USGS 로 따로(진도 계산), 가뭄은 기간이 길고 범위가 넓어 뺌
+GDACS_URL = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH"
+GDACS_TYPE = {"TC": "storm", "FL": "flood", "VO": "volcano", "WF": "fire"}
+GDACS_KO = {"Red": "빨강", "Orange": "주황"}
+GDACS_DAYS = 30
+
+
+def _iso_ms(t: str) -> int:
+    try:
+        return int(datetime.fromisoformat(str(t)[:19]).replace(tzinfo=timezone.utc).timestamp() * 1000)
+    except ValueError:
+        return 0
+
+
+def fetch_gdacs(tg, get=httpx.get) -> list[dict]:
+    if not tg:
+        return []
+    now = datetime.now(timezone.utc)
+    r = get(GDACS_URL, params={"eventlist": ";".join(GDACS_TYPE), "alertlevel": "orange;red",
+                               "fromdate": (now - timedelta(days=GDACS_DAYS * 3)).strftime("%Y-%m-%d"), "todate": now.strftime("%Y-%m-%d")}, timeout=40)
+    r.raise_for_status()
+    out = []
+    for f in r.json().get("features") or []:
+        p, g = f.get("properties") or {}, f.get("geometry") or {}
+        kind, lvl = GDACS_TYPE.get(p.get("eventtype")), p.get("alertlevel")
+        co = g.get("coordinates") or []
+        if not kind or lvl not in GDACS_KO or g.get("type") != "Point" or len(co) < 2:
+            continue
+        lng, lat = float(co[0]), float(co[1])
+        at = _iso_ms(p.get("todate") or p.get("fromdate"))
+        if at < (now - timedelta(days=GDACS_DAYS)).timestamp() * 1000:  # 오래전에 시작했어도 최근까지 이어진 사건은 남김
+            continue
+        d, code = min((_km((lat, lng), ll), c) for ll, c in tg)
+        if d > QUAKE_KM:
+            continue
+        sev = p.get("severitydata") if isinstance(p.get("severitydata"), dict) else {}
+        url = (p.get("url") or {}).get("report", "") if isinstance(p.get("url"), dict) else ""
+        out.append({"id": f"gdacs-{p.get('eventtype')}-{p.get('eventid')}", "type": kind, "country": code, "lat": round(lat, 3), "lng": round(lng, 3),
+                    "title": " ".join(f"GDACS {GDACS_KO[lvl]} 경보 · {p.get('name') or p.get('eventname') or ''}".split())[:140],
+                    "note": str(sev.get("severitytext") or "")[:120], "url": url, "at_ms": at,
+                    "source": "GDACS", "gdacs": lvl, "dist_km": round(d)})
+    return out
+
+
+# ---------- 2-2) WHO 감염병 발생 소식 (Disease Outbreak News, 키 없음) ----------
+# 좌표 없이 나라 단위로 옴 → 그 나라 가운데에 표시하고, 등급은 '같은 나라 사업' 기준 (assets/geo.js GEO_RULES country 규칙)
+WHO_URL = "https://www.who.int/api/news/diseaseoutbreaknews"
+WHO_DAYS = 90
+WHO_ALIAS = {"Viet Nam": "VN", "Lao People's Democratic Republic": "LA", "United Republic of Tanzania": "TZ", "Türkiye": "TR",
+             "Turkiye": "TR", "Republic of Korea": "KR", "Bolivia (Plurinational State of)": "BO", "Kyrgyz Republic": "KG"}
+
+
+def who_countries(title: str) -> list[str]:
+    t = title or ""
+    out = [c for name, c in WHO_ALIAS.items() if name in t]
+    out += [c for c, v in COUNTRY.items() if re.search(rf"\b{re.escape(v[1])}\b", t) and c not in out and c != "KR"]
+    return out
+
+
+def fetch_who(get=httpx.get) -> list[dict]:
+    r = get(WHO_URL, params={"$top": 40, "$orderby": "PublicationDate desc", "$select": "Title,PublicationDate,ItemDefaultUrl,DonId"}, timeout=40)
+    r.raise_for_status()
+    since = int((datetime.now(KST) - timedelta(days=WHO_DAYS)).timestamp() * 1000)
+    out = []
+    for v in r.json().get("value") or []:
+        ms = _iso_ms(v.get("PublicationDate"))
+        if ms < since:
+            continue
+        title = str(v.get("Title") or "")
+        for code in who_countries(title):
+            c = COUNTRY[code]
+            out.append({"id": f"who-{v.get('DonId') or str(v.get('ItemDefaultUrl') or '').strip('/')}-{code}", "type": "disease", "country": code,
+                        "lat": c[2], "lng": c[3], "country_level": True, "title": f"WHO 발표 · {title}"[:140],
+                        "url": "https://www.who.int/emergencies/disease-outbreak-news/item" + str(v.get("ItemDefaultUrl") or ""),
+                        "at_ms": ms, "source": "WHO"})
     return out
 
 
@@ -274,6 +370,16 @@ def update(projects: list[dict] | None = None, get=httpx.get, gnews=news.google_
         res["quakes"] = len(quakes)
     except Exception as e:
         quakes, res["quakes"] = [], f"오류 {type(e).__name__}"
+    try:
+        gd = fetch_gdacs(tg, get)
+        res["gdacs"] = len(gd)
+    except Exception as e:
+        gd, res["gdacs"] = [], f"오류 {type(e).__name__}"
+    try:
+        who = [e for e in fetch_who(get) if e["country"] in codes]
+        res["who"] = len(who)
+    except Exception as e:
+        who, res["who"] = [], f"오류 {type(e).__name__}"
     evs, errs = news_events(codes, gnews, naver)
     res["news"], res["news_errors"] = len(evs), errs
     if evs or not errs:
@@ -284,7 +390,7 @@ def update(projects: list[dict] | None = None, get=httpx.get, gnews=news.google_
     merged = {e["id"]: e for e in prev.get("events") or [] if (e.get("at_ms") or 0) >= since}
     rejected = list(prev.get("rejected") or [])  # AI가 '사업에 영향 없음'으로 본 기사 id (다시 판정하지 않음)
     rej = set(rejected)
-    merged.update({e["id"]: e for e in quakes})
+    merged.update({e["id"]: e for e in quakes + gd + who})
     for e in evs:
         if e["id"] not in rej and not (merged.get(e["id"]) or {}).get("ai"):
             merged[e["id"]] = e

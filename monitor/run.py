@@ -130,8 +130,11 @@ def process_queue() -> int:
             elif task == "dart":
                 res = {"count": sync_dart()}
             elif task == "dartfill":
-                res = scanner.dart_fill()
+                res = scanner.dart_fill([x for x in (r.get("ids") or []) if isinstance(x, str)] or None)
                 log.info("DART 채움: 대상 %d · 채움 %d · 고르기 %d · 없음 %d", res["count"], res["filled"], res["choose"], res["none"])
+            elif task == "dartlookup":
+                res = scanner.dart_lookup(str(r.get("name") or "").strip())
+                log.info("DART 찾기: 후보 %d", res["count"])
             elif task == "preview":
                 res = report.save_preview()
             elif task == "check":
@@ -143,7 +146,7 @@ def process_queue() -> int:
                 res = {}
             else:
                 raise RuntimeError(f"알 수 없는 작업: {task}")
-            finish(r, True, {k: v for k, v in res.items() if k in ("items", "subject", "count", "test", "filled", "choose", "none")})
+            finish(r, True, {k: v for k, v in res.items() if k in ("items", "subject", "count", "test", "filled", "choose", "none", "cands")})
         except Exception as e:
             log.exception("요청 처리 실패: %s", task)
             finish(r, False, {"error": str(e)[:300]})
@@ -195,7 +198,7 @@ def main() -> int:
         only = [x for x in a.companies.split(",") if x.strip()] or None
         res = scanner.run_scan(only, progress=lambda d, t, c: store.update("meta", "progress", {"done": d, "total": t, "current": c, "running": d < t, "at": store.now_str()}))
         # 공개 로그: 건수만 (오류 내용·업체 이름은 Firestore 실행 기록에만 — 대시보드 설정 > 고급에서 확인)
-        log.info("스캔 결과: %s", json.dumps({k: res.get(k) for k in ("companies", "fetched", "candidates", "new_findings", "official", "cleaned", "deep", "sweep_articles", "focus", "seconds", "analyzer")} | {"errors": len(res.get("errors") or [])}, ensure_ascii=False))
+        log.info("스캔 결과: %s", json.dumps({k: res.get(k) for k in ("companies", "fetched", "candidates", "new_findings", "auto_same", "official", "cleaned", "deep", "sweep_articles", "focus", "seconds", "analyzer")} | {"errors": len(res.get("errors") or [])}, ensure_ascii=False))
         if a.task == "daily":  # 예약(매일) 실행이 실제로 돌았는지 대시보드에서 확인하기 위함
             store.update("meta", "status", {"last_daily_at": store.now_str()})
         # 전체 스캔이면 대시보드에서 기다리던 스캔 요청도 함께 완료 처리 (Actions에서 직접 실행한 경우 포함)
