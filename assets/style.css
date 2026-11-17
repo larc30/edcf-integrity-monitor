@@ -1658,3 +1658,11 @@ body:not(.role-super) .super-only { display: none !important; }
   background: #FF5A5F; color: #fff; margin-left: .15em; }
 #issuesCard h2 .guide-btn b { font-weight: inherit; }
 @media (max-width: 1700px) { #issuesCard h2 .guide-btn .gb-long { display: none; } #issuesCard h2 .guide-btn { padding: .25em .6em; margin-left: .4em; } }
+
+/* 레이더 아래 등급 기준 (범례 대신) */
+.radar-hud .hud.bc { left: 16px; right: 16px; bottom: 12px; pointer-events: auto; gap: 4px; }
+.rd-crit .rc-row { display: flex; align-items: center; gap: .55em; font-size: var(--fs-xs); color: var(--text); word-break: keep-all; }
+.rd-crit .rc-row .badge { flex: none; min-width: 3.4em; justify-content: center; }
+.rd-crit .rc-row i { font-style: normal; color: var(--muted); margin-left: .3em; }
+.rd-crit .rc-guide { margin-left: auto; flex: none; background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: var(--accent-2); cursor: pointer; }
+.rd-crit .rc-guide:hover { text-decoration: underline; }

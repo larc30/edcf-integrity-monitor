@@ -616,8 +616,12 @@ function renderHome() {
   // ③ 레이더 + 귀퉁이 정보 (범위 · 범례 · 마지막 스캔)
   renderRadar(cs);
   $("#radarHud").innerHTML = `<span class="hud tl"><b>RISK RADAR</b><i>${scope === "mine" ? mineLabel() : "EDCF 전체"}</i></span>
-    <span class="hud bl"><span><i class="lg red"></i>위험: 가운데</span><span><i class="lg orange"></i>경고: 중간</span><span><i class="lg none"></i>정상: 바깥 (숫자만)</span></span>
-    <span class="hud br"><i>마지막 스캔</i><b>${sc ? esc(String(state.status.last_scan_at || "-").slice(5, 16)) : "스캔 전"}</b></span>`;
+    <div class="hud bc rd-crit">
+      <div class="rc-row"><span class="badge red">위험</span><span>지금 유효한 제재 <i>입찰제한 · MDB · 영업정지 · EXIMIIS 등록</i></span></div>
+      <div class="rc-row"><span class="badge orange">경고</span><span>제재로 이어질 진행 중 사안 <i>수사 · 기소 · 과징금 · 부도 · 집행정지</i></span></div>
+      <div class="rc-row"><span class="badge none">정상</span><span>그 밖 <i>참고 이력(계열사·끝난 처분)은 정상</i></span><button type="button" class="rc-guide" id="btnGuide">판단 가이드 ›</button></div>
+    </div>`;
+  $("#btnGuide").onclick = openGuide;
   $("#radarInfo").innerHTML = info(`<b>${scope === "mine" ? esc(mineLabel()) : "전체"} 업체 ${cs.length}</b>: 가운데로 갈수록 위험합니다.<br>점은 위험·경고 업체만 표시하고(최대 ${RADAR_MAX}개), 정상 업체는 바깥 원에 숫자로만 보여줍니다.<br>점을 누르면 업체 상세, 빈 곳을 누르면 다시 훑어봅니다.`, "r");
 
   // ④ 확인이 필요한 이슈 (위험 → 공식 제재 → 최신)
@@ -889,8 +893,7 @@ const GUIDE_HTML = `
   <p class="muted small">초안 (2026-11-18). 4개 팀(정보통신·수자원에너지·교통·보건) 검토 후 확정합니다.</p>
 </div>`;
 function openGuide() {
-  try { localStorage.setItem("edcf_guide_seen", "1"); } catch {}
-  $("#guideNew")?.remove();
+
   modal(`<h2>이슈 판단 가이드 <span class="tag">초안</span></h2>${GUIDE_HTML}
     <div class="actions"><button class="btn" id="gdPrint">인쇄 · PDF로 저장</button></div>`);
   $("#modal").classList.add("wide");
@@ -1478,9 +1481,7 @@ function renderJob0() {
 setInterval(() => { if (state.job && !state.job.done) renderJob(); }, 1000);
 // [지금 스캔] = 빠른 스캔: 새 제재 기사 + 공식 명단만 (업체명 검색까지 하는 전체 스캔은 매일 아침 자동, 또는 설정 > 고급)
 $("#btnScan").onclick = () => runWorkflow({ task: "quick" }, "빠른 스캔");
-$("#btnGuide").onclick = openGuide;
-// 처음 한 번 열어 볼 때까지 NEW 표시
-try { if (localStorage.getItem("edcf_guide_seen")) $("#guideNew").remove(); } catch {}
+
 $("#btnScan").title = "새로 나온 제재 기사와 공식 명단(EXIMIIS, 조달청, MDB)만 빠르게 확인합니다. 업체명으로 하나씩 찾는 전체 스캔은 매일 아침 자동으로 돕니다";
 $("#btnFullScan").onclick = () => { if (confirm("업체명으로 하나씩 뉴스를 찾는 전체 스캔을 지금 돌릴까요? 4~5분쯤 걸립니다. (매일 아침 자동으로 한 번 돕니다)")) runWorkflow({ task: "scan" }, "전체 스캔"); };
 // 스캔 중지: 대기 중이면 바로 취소, 실행 중이면 '중지 요청' → 스캐너가 업체 몇 곳마다 확인해 멈춤
