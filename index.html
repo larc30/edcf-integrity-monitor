@@ -20,7 +20,7 @@
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=55">
+<link rel="stylesheet" href="assets/style.css?v=56">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -106,7 +106,7 @@
         </div>
         <!-- 확인이 필요한 이슈 -->
         <div class="card d-issues" id="issuesCard">
-          <div class="card-head"><h2>확인이 필요한 이슈 <span class="count" id="issueCount">0</span> <span class="h2-sub">위험·경고</span> <span id="actHelp"></span></h2><button class="btn sm ghost guide-btn" id="btnGuide" title="확인 완료·관련 없음을 누를 때의 공통 기준">판단 가이드</button><div class="seg" id="periodSeg"></div></div>
+          <div class="card-head"><h2>확인이 필요한 이슈 <span class="count" id="issueCount">0</span> <span class="h2-sub">위험·경고</span> <span id="actHelp"></span><button type="button" class="guide-btn" id="btnGuide" title="확인 완료·관련 없음을 누를 때의 공통 기준 (4개 팀 공통)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h7M9 11h5"/></svg><span><b class="gb-long">판단 </b>가이드</span><i class="guide-new" id="guideNew">NEW</i></button></h2><div class="seg" id="periodSeg"></div></div>
           <div class="issue-scroll">
           <div id="feed" class="feed"></div>
           <details id="refWrap" class="more hidden"><summary>참고 이력 <span id="refN">0</span>건 <span class="muted small">(확인하지 않아도 됩니다)</span></summary><div id="feedRef" class="feed" style="margin-top:8px"></div></details>
@@ -270,6 +270,6 @@
 <div id="toast" class="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
-<script type="module" src="assets/app.js?v=55"></script>
+<script type="module" src="assets/app.js?v=56"></script>
 </body>
 </html>
