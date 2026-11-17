@@ -1,7 +1,7 @@
 // 수원국 리스크 대시보드 (초안)
 // - 지도: Leaflet + Esri 회색 무료 지도(키 없음)
 // - 사업 위치: 사업명 속 도시 이름 → 도시 좌표, 없으면 수원국 중심 (projects.lat/lng 가 있으면 그 값)
-// - 이벤트: Firestore meta/geo (매일 아침 monitor/geo.py 가 외교부 여행경보·USGS 지진·Google/네이버 뉴스로 저장)
+// - 이벤트: Firestore meta/geo (매일 아침 monitor/geo.py 가 외교부 여행경보·USGS 지진·GDACS 재난경보·WHO 감염병·Google/네이버 뉴스로 저장)
 //           + 브라우저에서 USGS 지진 실시간 (키 없음, 회사망에서 막히면 저장본만)
 // - 수원국 등급: 사업지 기준 여행경보(3·4단계 위험, 2단계 경고, 일부 지역만 높은 단계는 사업지가 그 지역일 때만) + 사업지 둘레 사건(GEO_RULES)
 // 국가·도시 좌표와 이벤트 분류 단어는 monitor/geo.py 와 같게 유지
@@ -60,10 +60,13 @@ export const QUAKE_MIN = 5.5; // 이보다 작은 지진은 보여 주지 않음
 export const GEO_RULES = [
   { lv: "red", types: ["quake"], mmi: 6, days: 7, text: "지진: 사업지 예상 진도 6 이상 (건물 피해가 생기기 시작하는 흔들림)" },
   { lv: "red", types: ["terror", "war"], km: 50, days: 14, text: "테러, 분쟁 (같은 도시권)" },
+  { lv: "red", types: ["storm", "flood", "volcano", "fire"], gdacs: "Red", km: 300, days: 7, text: "GDACS 빨강 경보 (태풍, 홍수, 화산, 산불)" },
   { lv: "orange", types: ["quake"], mmi: 5, days: 7, text: "지진: 사업지 예상 진도 5 (거의 모든 사람이 느끼고 물건이 떨어지는 흔들림)" },
   { lv: "orange", types: ["terror", "war"], km: 200, days: 14, text: "테러, 분쟁 (같은 지역권)" },
   { lv: "orange", types: ["flood", "storm", "fire", "volcano"], km: 100, days: 7, text: "홍수, 태풍, 산불, 화산" },
   { lv: "orange", types: ["unrest", "disease"], km: 50, days: 7, text: "시위, 감염병" },
+  { lv: "orange", types: ["storm", "flood", "volcano", "fire"], gdacs: "Orange", km: 300, days: 7, text: "GDACS 주황 경보 (태풍, 홍수, 화산, 산불)" },
+  { lv: "orange", types: ["disease"], who: true, country: true, days: 30, text: "WHO 감염병 발생 발표 (같은 나라)" },
 ];
 
 let ctx = null, map = null, layers = null, live = { quakes: null, at: null, err: null, loading: false };
@@ -209,11 +212,13 @@ export function siteRisk(pt, country, evs, alerts, opt = {}) {
   const a = alerts[country] || null, sa = siteAlert(a, { ll: pt, country, ...opt }), base = alertRisk(a, sa);
   let lv = base.lv; const why = base.lv === "red" ? [...base.why] : [], warn = base.lv === "orange" ? [...base.why] : [];
   if (pt) for (const r of GEO_RULES) {
-    const hit = evs.filter((e) => r.types.includes(e.type) && Number.isFinite(e.lat) && Date.now() - e.ms <= r.days * DAY && (!r.mmi || e.mag))
+    const hit = evs.filter((e) => r.types.includes(e.type) && Number.isFinite(e.lat) && Date.now() - e.ms <= r.days * DAY && (!r.mmi || e.mag)
+        && (r.gdacs ? e.gdacs === r.gdacs : true) && (r.who ? e.source === "WHO" && e.country === country : !e.country_level))
       .map((e) => { const d = km(pt, [e.lat, e.lng]); return { e, d, mmi: r.mmi ? Math.round(siteMMI(+e.mag, d, e.depth)) : 0 }; })
-      .filter((x) => (r.mmi ? x.mmi >= r.mmi : x.d <= r.km)).sort((x, y) => y.mmi - x.mmi || x.d - y.d)[0];
+      .filter((x) => (r.country ? true : r.mmi ? x.mmi >= r.mmi : x.d <= r.km)).sort((x, y) => y.mmi - x.mmi || x.d - y.d)[0];
     if (!hit) continue;
-    const t = `${GEO_TYPES[hit.e.type][0]}${hit.e.mag ? ` M${(+hit.e.mag).toFixed(1)}` : ""}, 사업지 ${fmtKm(hit.d)}${hit.mmi ? `, 예상 진도 ${hit.mmi}` : ""} (${rel(hit.e.ms)})`;
+    const t = r.country ? `${hit.e.title.replace(/^WHO 발표 · /, "WHO 발표: ").slice(0, 70)} (${rel(hit.e.ms)})`
+      : `${hit.e.gdacs ? `GDACS ${hit.e.gdacs === "Red" ? "빨강" : "주황"} · ` : ""}${GEO_TYPES[hit.e.type][0]}${hit.e.mag ? ` M${(+hit.e.mag).toFixed(1)}` : ""}, 사업지 ${fmtKm(hit.d)}${hit.mmi ? `, 예상 진도 ${hit.mmi}` : ""} (${rel(hit.e.ms)})`;
     if (r.lv === "red") { lv = "red"; if (!why.includes(t)) why.push(t); }
     else { if (lv === "none") lv = "orange"; if (!warn.includes(t) && !why.includes(t)) warn.push(t); }
   }
@@ -248,7 +253,7 @@ export async function renderGeo() {
   $("#geoDate").textContent = `COUNTRY RISK · ${now.toISOString().slice(0, 10).replace(/-/g, ".")} (${"일월화수목금토"[now.getUTCDay()]})`;
   $("#geoSub").textContent = g.updated_at ? `마지막 갱신 ${String(g.updated_at).slice(5, 16).replace("-", "/")}` : "아직 저장된 수원국 정보가 없습니다";
   const mineN = state.projects.filter(ctx.isMine).length;
-  $("#geoScope").innerHTML = [["mine", "내 담당 사업", mineN, ctx.ICON_USER], ["all", "EDCF 전체", state.projects.length, ctx.ICON_ORG]]
+  $("#geoScope").innerHTML = [["mine", ctx.mineLabel(), mineN, ctx.ICON_USER], ["all", "EDCF 전체", state.projects.length, ctx.ICON_ORG]]
     .map(([k, l, n, ic]) => `<button data-s="${k}" class="sc-btn ${k} ${k === scope ? "active" : ""}" title="${l}: 사업 ${n}개"><span class="sc-ic">${ic}</span>${l}<span class="sc-n">사업 ${n}</span></button>`).join("");
   $$("#geoScope button").forEach((b) => b.onclick = () => { ctx.setScope(b.dataset.s); renderGeo(); });
   const aOk = Object.keys(alerts).length; // 연결 상태는 설정 > 고급 > API 연결에서
@@ -276,13 +281,13 @@ export async function renderGeo() {
 
   // 왼쪽 아래: 이벤트 종류별 건수 (누르면 지도·목록 거르기)
   const tc = {}; evs.forEach((e) => (tc[e.type] = (tc[e.type] || 0) + 1));
-  $("#evSummary").innerHTML = `<div class="card-head"><h2>이벤트 요약 ${info("수원국 안팎에서 최근 일어난 지진·분쟁·테러·재난입니다.<br><b>지진</b> USGS(미국지질조사국) 규모 5.5 이상, 사업지·수원국에서 600km 안<br><b>그 밖</b> Google·네이버 뉴스에서 나라 이름과 사건 단어로 찾은 뒤, AI가 사업에 영향을 줄 만한 사건인지 판정해 남김<br><b>정치·선거</b>는 참고용이라 등급에는 넣지 않습니다.<br>종류를 누르면 지도와 목록이 그 종류만 보여줍니다.")}</h2><span class="muted small">${pl}</span></div>
+  $("#evSummary").innerHTML = `<div class="card-head"><h2>이벤트 요약 ${info("수원국 안팎에서 최근 일어난 지진·분쟁·테러·재난입니다.<br><b>지진</b> USGS(미국지질조사국) 규모 5.5 이상, 사업지·수원국에서 600km 안<br><b>재난 경보</b> GDACS(UN·EU 공동 재난경보) 태풍·홍수·화산·산불 주황·빨강 경보<br><b>감염병</b> WHO 감염병 발생 소식(Disease Outbreak News), 나라 단위<br><b>그 밖</b> Google·네이버 뉴스에서 나라 이름과 사건 단어로 찾은 뒤, AI가 사업에 영향을 줄 만한 사건인지 판정해 남김<br><b>정치·선거</b>는 참고용이라 등급에는 넣지 않습니다.<br>종류를 누르면 지도와 목록이 그 종류만 보여줍니다.")}</h2><span class="muted small">${pl}</span></div>
     <div class="ev-grid"><button class="ev-chip all on ${ui.type ? "" : "sel"}" data-et=""><span class="lb">전체</span><b>${Object.values(tc).reduce((x, y) => x + y, 0)}</b></button>${Object.entries(GEO_GROUPS).map(([k, [label, types]]) => { const n = types.reduce((x, t) => x + (tc[t] || 0), 0); return `<button class="ev-chip ${n ? "on" : ""} ${ui.type === k ? "sel" : ""}" data-et="${k}" ${n ? "" : "disabled"}>${ibadge(k, "sm")}<span class="lb">${label}</span><b>${n}</b></button>`; }).join("")}</div>`;
   $$("#evSummary [data-et]:not(:disabled)").forEach((b) => b.onclick = () => { ui.type = !b.dataset.et || ui.type === b.dataset.et ? null : b.dataset.et; renderGeo(); });
 
   // 오른쪽: 사업별 내역 + 여행경보
   pins.sort((a, b) => LV[b.r.lv] - LV[a.r.lv] || (b.r.site?.lv || 0) - (a.r.site?.lv || 0) || a.p.name.localeCompare(b.p.name));
-  $("#geoProjTitle").textContent = scope === "mine" ? "내 담당 사업" : "전체 사업";
+  $("#geoProjTitle").textContent = scope === "mine" ? ctx.mineLabel() : "전체 사업";
   $("#geoProjN").textContent = ps.length;
   if (ui.focus && !pins.some((x) => x.p.id === ui.focus)) ui.focus = null;
   $("#geoProjects").innerHTML = pins.map(({ p, pt, r }, idx) => {
@@ -301,7 +306,7 @@ export async function renderGeo() {
       <div class="gp-row"><span class="gp-k">${sel ? "가까운 사건" : "이벤트"}</span><span class="gp-evs">${near.length ? near.map((e) => `<span class="gp-ev" title="${esc(e.title)}">${ibadge(e.type, "xs")}<span class="gp-ev-t">${esc(e.title)}</span>${e.d != null ? `<b class="gp-km">${fmtKm(e.d)}</b>` : ""}</span>`).join("") : `<span class="muted small">${pl} · ${NEAR_KM}km 안 없음</span>`}</span></div>
       <div class="gp-row"><span class="gp-k">참여 업체</span><span class="pj-sum">${co.total ? (["red", "orange"].filter((lv) => co[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${co[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) + `<span class="tot">/ ${co.total}</span>` : `<span class="tot">연결된 업체 없음</span>`}</span></div>` : `<div class="gp-brief"><span class="gp-alert">${alertHtml}</span>${r.why.length ? `<span class="gp-why1" title="${esc(r.why.join(" / "))}">${esc(r.why[0])}</span>` : ""}${co.total && (co.red || co.orange) ? `<span class="gp-co pj-sum">업체 ${["red", "orange"].filter((lv) => co[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${co[lv]}</span>`).join("")}</span>` : ""}</div>`}
     </div>`;
-  }).join("") || `<div class="empty small">${scope === "mine" ? "내가 담당하는 사업이 없습니다." : "등록된 사업이 없습니다."}</div>`;
+  }).join("") || `<div class="empty small">${scope === "mine" ? "우리 팀 사업이 없습니다." : "등록된 사업이 없습니다."}</div>`;
 
   // 아래: 최근 이벤트 목록
   const shown = evs.filter((e) => inGroup(e, ui.type)).filter((e) => !ui.lv || risk[e.country]?.lv === ui.lv);

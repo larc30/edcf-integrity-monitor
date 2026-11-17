@@ -9,7 +9,11 @@ export const firebaseConfig = {
   appId: "1:90133314405:web:57c0fa8ed97763d2837f8c",
 };
 
-// 대시보드 접근 허용 이메일 — firestore.rules 의 목록과 같이 수정하세요.
+// 슈퍼관리자 (전체 권한, 계정·팀 지정). firestore.rules 의 isSuper() 와 같게
+export const SUPER_ADMIN = "larc30730@gmail.com";
+// 팀 (사업은 한 팀에만 속함). 코드 → 이름
+export const TEAMS = { ict: "정보통신팀", water: "수자원에너지팀", transport: "교통팀", health: "보건팀" };
+// 예전 방식 관리자 목록: 슈퍼관리자가 처음 들어올 때 users(계정·권한)로 옮김. 그 뒤로는 쓰지 않음
 export const ALLOWED_EMAILS = ["larc30730@gmail.com", "juliana0513m@gmail.com", "ahra.bella@gmail.com"];
 
 // GitHub 저장소 (Actions 실행 링크용)

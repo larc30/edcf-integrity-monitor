@@ -568,6 +568,8 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
         threading.Thread(target=lambda: _safe(dart.load_master), daemon=True).start()
 
     errors: list[str] = []
+    if not quick and not only_names and config.DART_API_KEY:
+        _safe(lambda: _name_changes(companies))
     t_lists = time.time()
     with ThreadPoolExecutor(max_workers=2) as ex:
         f_lists = ex.submit(sanctions.load_lists)
@@ -692,6 +694,28 @@ def _inherit_review(to_save: list[dict], existing: list[dict], company: dict) ->
                          review_note=("같은 사건을 이미 '확인 완료'로 처리" if st == "reviewed" else "같은 사건을 이미 '관련 없음'으로 처리"))
                 n += 1
     return n
+
+
+def _name_changes(companies: list[dict]) -> int:
+    """업체명 변경 알림: DART 고유번호가 있는 업체의 지금 DART 기업명이 등록 이름·별칭과 다르면 companies.name_change 에 기록.
+    자동으로 바꾸지 않음 (화면에서 확인하면 새 이름으로 바꾸고 옛 이름은 별칭에). 이미 확인했거나 무시한 이름은 다시 알리지 않음"""
+    from .textutil import norm
+    if not any(c.get("corp_code") for c in companies):
+        return 0
+    cur = dart.names_by_code()
+    patches = {}
+    for c in companies:
+        new = cur.get(c.get("corp_code") or "")
+        if not new:
+            continue
+        known = {norm(c["name"]), *(norm(a) for a in (c.get("aliases") or "").split(",") if a.strip())}
+        if norm(new) in known or norm(new) == norm(c.get("name_change_ignored") or "") or (c.get("name_change") or {}).get("name") == new:
+            continue
+        patches[c["id"]] = {"name_change": {"name": new, "source": "DART", "at": store.now_str()}}
+    if patches:
+        store.update_many("companies", patches)
+    log.info("업체명 변경 의심: %d", len(patches))
+    return len(patches)
 
 
 def dart_lookup(name: str) -> dict:

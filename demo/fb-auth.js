@@ -3,7 +3,9 @@ import { ALLOWED_EMAILS } from "../assets/firebase-config.js";
 
 // ?demo=1&guest → 관리자가 아닌 팀원 계정으로 보기 (관리자 모드 버튼이 없는 화면)
 const GUEST = /[?&]guest\b/.test(location.search);
-const auth = { currentUser: { email: GUEST ? "teammate@example.com" : ALLOWED_EMAILS[0], getIdToken: async () => "demo-token" } };
+// ?demo=1&teamadmin → 다른 팀(수자원에너지팀) 관리자 계정으로 보기
+const TEAMADMIN = /[?&]teamadmin\b/.test(location.search);
+const auth = { currentUser: { email: GUEST ? "teammate@example.com" : TEAMADMIN ? "water.lead@example.com" : ALLOWED_EMAILS[0], getIdToken: async () => "demo-token" } };
 export const getAuth = () => auth;
 export class GoogleAuthProvider {}
 export const signInWithPopup = async () => {};

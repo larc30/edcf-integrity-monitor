@@ -76,6 +76,11 @@ def load_master() -> dict:
     return _master
 
 
+def names_by_code() -> dict:
+    """{고유번호: 지금 DART 기업명} (업체명 변경 알림용, 기업목록에서 바로 만듦: API 호출 없음)"""
+    return {r[0]: r[1] for rows in load_master().values() for r in rows}
+
+
 def match_by_name(name: str) -> tuple[list, list]:
     """업체명 정확 일치(법인표기·공백 무시) 후보. (후보 목록, 상장사 후보)"""
     target = norm(name)

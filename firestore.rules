@@ -2,35 +2,66 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 대시보드에 접근할 수 있는 Google 계정 (팀원은 대시보드 설정 > 로그인 계정에서 추가)
-    // 관리자(고정) — 여기 이메일은 대시보드 설정에서 지울 수 없음
-    function owner() {
-      return request.auth.token.email in [
-          'larc30730@gmail.com',
-          'juliana0513m@gmail.com',
-          'ahra.bella@gmail.com'
-        ];
-    }
-    // 대시보드 설정 > 로그인 계정에서 추가한 계정 (meta/access 문서의 emails)
-    function added() {
+    // ---------- 계정·권한 ----------
+    // 슈퍼관리자(고정, assets/firebase-config.js SUPER_ADMIN 과 같게): 전부
+    // users/{메일} = { role: 'admin'(팀 관리자) | 'member'(팀원), team: 'ict' | 'water' | 'transport' | 'health' }
+    // 예전 방식(meta/access emails)은 슈퍼관리자가 처음 들어올 때 users 로 옮김. 그 전까지는 보기만 허용
+    function email() { return request.auth.token.email; }
+    function isSuper() { return email() == 'larc30730@gmail.com'; }
+    function userDoc() { return /databases/$(database)/documents/users/$(email()); }
+    function hasUser() { return exists(userDoc()); }
+    function me() { return get(userDoc()).data; }
+    function legacy() {
       return exists(/databases/$(database)/documents/meta/access)
-        && request.auth.token.email in get(/databases/$(database)/documents/meta/access).data.emails;
+        && email() in get(/databases/$(database)/documents/meta/access).data.emails;
     }
     function allowed() {
-      return request.auth != null
-        && request.auth.token.email_verified == true
-        && (owner() || added());
+      return request.auth != null && request.auth.token.email_verified == true
+        && (isSuper() || hasUser() || legacy());
     }
+    function isTeamAdmin() { return hasUser() && me().role == 'admin' && me().team is string; }
+    function myTeam() { return hasUser() ? me().get('team', '') : ''; }
+    function canManage() { return isSuper() || isTeamAdmin(); }
 
-    // 읽기: 등록된 계정 모두 / 쓰기(업체·사업 등록·수정, 설정, 스캔 요청): 관리자만
+    // 기본: 읽기는 등록 계정 모두, 쓰기는 슈퍼관리자만 (설정·메일·키워드·EXIMIIS 명단 등)
     match /{document=**} {
       allow read: if allowed();
-      allow write: if allowed() && owner();
+      allow write: if allowed() && isSuper();
     }
-    // 팀원은 이슈의 '확인 완료 / 관련 없음' 처리만 할 수 있음 (다른 칸은 못 바꿈)
+
+    // 사업: 팀 관리자는 자기 팀 사업만 등록·수정·삭제 (다른 팀으로 옮길 수 없음)
+    match /projects/{id} {
+      allow create: if allowed() && isTeamAdmin() && request.resource.data.team == myTeam();
+      allow update: if allowed() && isTeamAdmin() && resource.data.get('team', '') == myTeam() && request.resource.data.team == myTeam();
+      allow delete: if allowed() && isTeamAdmin() && resource.data.get('team', '') == myTeam();
+    }
+
+    // 업체: 기본정보는 팀 관리자 누구나 (여러 팀 사업에 참여하는 공통 명단). 삭제는 슈퍼관리자만
+    match /companies/{id} {
+      allow create, update: if allowed() && isTeamAdmin();
+    }
+
+    // 이슈: 확인 완료 / 관련 없음 처리 칸만. 자기 팀 사업에 참여한 업체만 (사업 미연결 업체는 팀 관리자 누구나)
     match /findings/{id} {
+      function company() { return get(/databases/$(database)/documents/companies/$(resource.data.company_id)).data; }
+      function teams() { return company().get('teams', []); }
       allow update: if allowed()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewed_by', 'reviewed_at', 'review_note']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewed_by', 'reviewed_at', 'review_note', 'review_reason', 'auto_same'])
+        && (isSuper() || (myTeam() != '' && myTeam() in teams()) || (isTeamAdmin() && teams().size() == 0));
+    }
+
+    // 스캔·DART 요청: 슈퍼관리자·팀 관리자
+    match /requests/{id} {
+      allow create, update: if allowed() && canManage();
+    }
+
+    // 계정: 팀 관리자는 자기 팀 '팀원'만 추가·삭제 (역할·팀을 바꿀 수 없음)
+    match /users/{uid} {
+      allow create: if allowed() && isTeamAdmin() && uid != 'larc30730@gmail.com'
+        && request.resource.data.role == 'member' && request.resource.data.team == myTeam();
+      allow update: if allowed() && isTeamAdmin() && resource.data.role == 'member' && resource.data.get('team', '') == myTeam()
+        && request.resource.data.role == 'member' && request.resource.data.team == myTeam();
+      allow delete: if allowed() && isTeamAdmin() && resource.data.role == 'member' && resource.data.get('team', '') == myTeam();
     }
   }
 }

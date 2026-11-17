@@ -13,17 +13,17 @@
 
 ## 구조
 - 화면: GitHub Pages `index.html` + `assets/app.js`·`style.css` / 데이터: Firebase Firestore(프로젝트 edcf-monitor) / 검사: GitHub Actions `monitor/`(Python). 저장소 larc30/edcf-integrity-monitor(public).
-- 로그인: Google. 관리자(2026-11-12 기준 3명: 사용자 + 팀원 2명) = `assets/firebase-config.js` ALLOWED_EMAILS·`firestore.rules` owner() 두 곳에 같게, 추가 계정 = meta/access.emails(설정 > 로그인 계정, 규칙 재게시 필요). 데이터 권한(firestore.rules, 2026-11-12): 읽기는 등록 계정 모두, 쓰기는 관리자(owner)만. 팀원은 findings 의 확인 완료/관련 없음(status·reviewed_by·reviewed_at·review_note)만. 화면도 관리자가 아니면 body.viewer 로 스캔·등록·수정 버튼을 숨김. 규칙은 사용자가 Firebase 콘솔에 다시 게시해야 적용.
+- 로그인: Google 유지(2026-11-18 결정). 팀 권한(2026-11-18): 슈퍼관리자 1명 고정(firebase-config.js SUPER_ADMIN ↔ firestore.rules isSuper()) · 팀 관리자(팀당 1명 권장) · 팀원. 계정 = users/{메일}{role admin|member, team}, 설정 > 계정·권한에서 관리(슈퍼: 누구나·팀·역할 / 팀 관리자: 자기 팀 팀원만). 팀 = TEAMS{ict 정보통신팀, water 수자원에너지팀, transport 교통팀, health 보건팀}. 사업은 한 팀에만(projects.team), '내 사업' = 우리 팀 사업(isMine: p.team == 내 팀, owner 는 선택 담당자). 팀 관리자는 자기 팀 사업만 등록·수정·삭제·업체 연결(다른 팀 사업 카드는 .ro 보기 전용), 업체 기본정보는 팀 관리자 누구나(공통 명단). 이슈 ✓/✕ 는 자기 팀 사업에 참여한 업체만(사업 미연결 업체는 관리자 누구나): 규칙이 companies.teams(참여 팀, app 이 저장·syncCompanyTeams 로 맞춤)로 확인. 메일·키워드·고급 설정은 슈퍼만(.super-only). 처음 슈퍼관리자 로그인 때 migrateRoles(): 예전 ALLOWED_EMAILS·meta/access 계정을 users 로(팀원), 팀 없는 사업은 정보통신팀으로. 규칙은 사용자가 Firebase 콘솔에 다시 게시해야 적용(옮기기가 끝난 뒤 게시).
 - 상단 업체 검색(#coFind, 모든 사용자): 업체명·별칭·영문명·사업자번호로 찾아 업체 상세를 엶(팀원은 읽기 전용).
 - 화면 탭: 업체 리스크 ↔ 수원국 리스크(미끄러지는 스위치, 카드 뒤집기 전환 · 가벼운 모드면 바로 전환). 업체 관리·사업 관리·설정은 관리자 모드에서만(상단 오른쪽 주황 [관리자 모드] 버튼, 관리자 계정에만 보임). 관리자 모드는 별도 모드: 켜면 업체·수원국 스위치가 숨고 관리 탭만, [관리자 모드 나가기]나 로고로 나옴. 화면에서만 막은 것이고 Firestore 규칙은 그대로.
 - 기간 구분(업체 이슈·수원국 이벤트 같게): 전체 · 24시간(처음 잡힌 때 기준) · 최근 7일 · 최근 30일 · 30일 이전. 공식 제재 기록은 기간과 무관하게 항상(30일 이전 제외).
-- 이슈 버튼: ✓ 확인 완료(맞음 · 등급 유지 · AI에 '관련 있음' 예시) / ✕ 관련 없음(아님 · 등급에서 빠짐 · AI에 '관련 없음' 예시). 둘 다 같은 기사는 다시 안 가져옴.
+- 이슈 버튼: ✓ 확인 완료(맞음 · 등급 유지 · AI에 '관련 있음' 예시) / ✕ 관련 없음(아님 · 등급에서 빠짐 · AI에 '관련 없음' 예시, 이유를 꼭 고름: DISMISS_REASONS 동명이인·다른 법인·단순 언급·과거 일·기타 → review_reason·review_note, review_note 는 AI 예시에 같이 감). 둘 다 같은 기사는 다시 안 가져옴. 되돌리기는 같은 사건으로 자동 처리된 기사(auto_same)도 함께 풀고, AI 예시는 다음 스캔부터 빠짐(주간 요약 지침에는 최대 1주 남을 수 있음). 이슈 목록 머리 [판단 가이드](GUIDE_HTML, 초안, 인쇄·PDF): 4개 팀 공통 기준 검토용.
 - [지금 스캔]: 업체 리스크·수원국 리스크 같은 버튼 = 빠른 스캔(task quick: 제재 키워드 기사 + 공식 명단 3종 + geo, 업체명 검색 없음). 업체명 검색까지 하는 전체 스캔은 매일 아침 자동 + 설정 > 고급 > [전체 스캔]. quick·dartfill 은 monitor.yml 선택지에 없어서 항상 requests(queue)로만 실행.
 - 이슈 카드는 업체별로 따로(같은 기사라도 업체가 다르면 묶지 않음: 제재는 법인 단위). 이슈 목록은 화면 높이 안에서 스크롤(.issue-scroll).
 - 업체 수 표기는 '곳' 대신 '업체 N'. 공식 제재 명단 창은 출처별 세 칸(EDCF·조달청·MDB) + 접힌 EXIMIIS 올리기·검사 범위.
 - 보기 범위 버튼 숫자: 업체 리스크는 '업체 N', 수원국 리스크는 '사업 N'으로 단위를 붙여 표시.
 - 실행: 회사망은 api.github.com·script.google.com 차단 → [지금 스캔]은 Firestore requests 에 저장 → Apps Script(tools/relay.gs) tick(평일 08~19시 5분마다)이 queue 디스패치. 매일 아침은 Apps Script daily()(07~08시) + GitHub cron(30 22 UTC). run.py 는 자동 실행이면 하루 한 번만(meta/status.last_daily_at).
-- 데모: `index.html?demo=1` (demo/fb-*.js 가짜 Firebase + demo/data.js 가상 데이터, 216곳 규모). `&guest` 붙이면 관리자 아닌 팀원 화면. demo/mail.js 는 tools/demo 스크립트로 생성.
+- 데모: `index.html?demo=1` (demo/fb-*.js 가짜 Firebase + demo/data.js 가상 데이터, 216곳 규모). `&guest` = 정보통신팀 팀원, `&teamadmin` = 수자원에너지팀 관리자 화면. demo/mail.js 는 tools/demo 스크립트로 생성.
 
 ## Firestore
 projects{name,country,owner,created_at} · companies{name,name_en,aliases,category,category_source,biz_no,corp_code,country,watch,engagements:[{project_id,role,stage,order}],last_check,...} · findings{company_id,source_type(news/official),source_name,title,url,published_at,level(red/orange/yellow/none),category,summary,rationale,analyzer,dedup_key,relevant,status(new/reviewed/dismissed),same_as,reported_at,review_note} · seen/{업체id}(이미 본 기사 키) · edcf_sanctions(EXIMIIS 명단) · keywords{word,lang}(추가 키워드) · recipients · requests · runs · meta/status·settings·access·geo.
@@ -39,6 +39,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 업체명 일치: textutil.name_matches(짧은 이름은 독립 단어·업종 문맥 필요).
 - EXIMIIS: 명단에 '등록'이어도 제재기간 끝 날짜가 지났으면 참고(기간 만료)로 내림(scanner._period_ended ↔ app.js edcfEnded).
 - 조달청: data.go.kr 15129466, 사업자번호로 현재 유효 제재만. 오류 줄이기: 동시 2건·지연/5xx/429 는 두 번 더 시도(pps._call), 빠른 스캔은 오늘 이미 정상 조회한 업체를 다시 부르지 않음(last_check.pps.reused). 같은 부정당번호에 정지·해제 줄이 있거나, 저장된 제재가 기간 중 사라지면 경고(집행정지 확인).
+- 사업자번호는 업체마다 하나(2026-11-18): 업체 추가·수정·일괄 등록·DART 고르기에서 같은 번호면 막음(app.js bizOwner), 일괄 등록은 이름이 달라도 번호가 같으면 같은 업체로. 기존 중복은 업체 관리 [사업자번호 중복 N]. 업체명 변경 알림: 전체 스캔 때 DART 기업목록(고유번호 → 지금 이름, API 호출 없음)과 비교해 companies.name_change → 업체 관리 [업체명 변경 N]에서 [새 이름으로](옛 이름은 별칭) / [무시](name_change_ignored). 고유번호(corp_code) 없는 업체는 못 찾음.
 - 사업자번호·영문명·업종: DART corpCode 정확 일치 1건일 때만 자동, 아니면 수기. 업체 관리 [DART 일괄 조회](task dartfill, ids 주면 그 업체만): 1건이면 채우고 여러 건이면 companies.dart_cands 에 후보 저장 → [DART 동명 기업 고르기]에서 선택. 업체 추가 창: 업체명 옆 [DART에서 가져오기](task dartlookup → requests.result.cands, 화면이 4초마다 확인, 회사망은 tick 대기로 최대 5분 남짓) · 안 누르고 추가하면 그 업체만 dartfill 자동 요청.
 - AI 판정: Claude(config.CLAUDE_MODEL, 기본 Haiku), 키 없으면 analyzer.RULE_KEYWORDS 규칙 판정. 처분 대상이 모회사·자회사·계열사(다른 법인)면 이 업체는 참고(yellow) 이하. 확정된 처분은 시작일 전이어도 위험. 분류에 '영업정지·등록말소' 있음. 계속 배우기: 모든 업체의 ✓/✕ 사례(analyzer.SHARED)와 판정 지침(meta/ai_guide.auto: AI가 주 1회 요약, 직접 적는 칸은 없앰)을 판정마다 함께 줌(화면에는 보이지 않음: 사용자가 설정 카드도 빼 달라고 함). 업체별 '관련 없음'·'확인했음' 제목을 예시로 전달('과거 이력 일괄 정리'는 제외). 재판정은 monitor/rejudge.py.
 
@@ -53,6 +54,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 지도: Leaflet + 저장소 안 세계 지도 assets/world-50m.json(world-atlas · Natural Earth 1:50m, topojson 3.0.2 cdnjs)로 바다·육지·국경선만 그리는 완전 플랫(바깥 지도 서비스·키 없음). 색은 style.css --map-sea·--map-land·--map-border. 위험·경고 수원국만 육지 색에 등급 색을 섞어 칠함(정상은 안 칠함: 초록이 바다처럼 보임). 나라 이름은 그림자 없는 글자(사업 나라는 대문자 굵게, 그 밖은 확대할수록 큰→중간→작은 나라). Esri 타일·위성 버튼은 없앰. 남극은 빼고, 날짜변경선을 넘는 땅(피지·러시아 동쪽)은 경도를 이어 붙임(안 그러면 지도를 가로지르는 줄이 생김).
 - 여행경보: 공공데이터포털 '외교부_국가·지역별 여행경보'(TravelAlarmService2) + 특별여행주의보. 키는 조달청과 같은 DATA_GO_KR_KEY 그대로(따로 입력 안 함, 활용신청만). MOFA_TRAVEL_KEY 는 다른 키를 쓸 때만. 응답 확인함(2026-11-17, 210줄): alarm_lvl·region_ty(전체/일부)·remark(지역 문구, '…제외한 지역'이 나머지 지역)·country_iso_alp2 → meta/geo.alerts{level(최고), base(나머지 지역), partial, zones[{lv,text,rest}], regions}. 특별여행주의보 API 는 403 SERVICE_KEY_IS_NOT_REGISTERED(활용신청 필요). 연결 상태는 대시보드가 아니라 설정 > 고급 > API 연결에.
 - 지진: USGS 4.5_week(키 없음) 가운데 규모 5.5 이상만(QUAKE_MIN, geo.py ↔ geo.js), 사업지·수원국 600km 안. 브라우저에서도 실시간으로 한 번 더 받음(회사망에서 막히면 저장본).
+- GDACS(2026-11-18, geo.fetch_gdacs): gdacsapi events/geteventlist/SEARCH 태풍·홍수·화산·산불(TC·FL·VO·WF) 주황·빨강만, 최근 30일까지 이어진 사건, 600km 안 → events{source GDACS, gdacs Red|Orange}. 지진은 USGS, 가뭄은 뺌. 등급: 빨강 300km·7일 위험, 주황 300km·7일 경고.
+- WHO Disease Outbreak News(geo.fetch_who): who.int/api/news/diseaseoutbreaknews 최근 90일, 제목 속 나라 이름(WHO_ALIAS 포함)으로 수원국만 → 나라 가운데 점(country_level, 거리 규칙에서 빠짐). 등급: 같은 나라 사업 30일 경고.
 - 뉴스: Google·네이버 '나라 이름 + 사건 단어', 제목에 나라 이름 있는 것만 단어로 잡은 뒤 AI가 최종 판정(analyzer.judge_events: 사업에 영향 줄 사건만 남기고 종류·한 줄 요약(note)·ai=true 저장, 영향 없음은 meta/geo.rejected 에 id 를 남겨 다시 판정 안 함, 한 번에 60건, 키 없거나 실패하면 단어 분류 유지 후 다음에 재시도). 정치·선거(politics: 선거·정권 교체·탄핵 등)는 참고용으로 등급에 안 넣음. 이벤트는 1년 보관, 최대 300건.
 - 지도 표시: 이벤트는 종류별 색 아이콘 배지(이모티콘 안 씀), 지명은 영어(Esri 이름 층 + 'Nairobi, Kenya'). 오른쪽 사업을 누르면 사업지 둘레 100~500km 레이더 모양 원(실선·십자선·도는 빛) + 600km 안 이벤트까지 거리선·거리, 근거와 가까운 사건은 오른쪽 사업 카드 안에 펼침(지도 위 안내 상자는 안 씀). 다시 누르거나 지도 오른쪽 위 [‹ 전체 지도](사업 골랐을 때만 보임)로 해제.
 - 핀 옆 사업명(나라 이름·'사업' 뺀 짧은 이름). 겹치면 declutter(): 원래 쪽 → 반대쪽 → 아래 → 위, 모두 막히면 숨김(위험 순서대로 자리 차지, 지도 밖 잘림도 막힘으로 봄). 나라 이름도 핀·사업명·이벤트와 겹치면 숨김.
@@ -88,7 +91,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 팀 매뉴얼 기준: 필요자료 = 사업자번호·영문명. ① EXIMIIS 부정당업자(등록=위험, 해지=이력) ② MDB 5곳 영문명 조회 후 국적 한국 확인 ③ 나라장터 부정당제재(제재정지면 확인 필요).
 
 ## 남은 일
-- 세계은행 직접 연결은 불필요로 판단(2026-11-17): OpenSanctions worldbank_debarred 가 매일 갱신(1,409곳, 교차제재 포함), 한국 국적은 롯데정보통신 계열 3곳뿐이라 'MDB 0'은 정상. 대조 정확도는 영문명 보완이 핵심. worldbank.org 는 작업 환경에서 차단.
+- 세계은행 직접 연결 불가(2026-11-18 확인): apigwext.worldbank.org 제재 API 는 구독 키(subscription key)가 있어야 하고 공개 발급이 없음(세계은행 웹페이지 안에 든 키를 가져다 쓰는 것은 하지 않음). OpenSanctions worldbank_debarred 가 매일 갱신(1,409곳, 교차제재 포함), 한국 국적은 롯데정보통신 계열 3곳뿐이라 'MDB 0'은 정상. 대조 정확도는 영문명 보완이 핵심.
+- 다음 후보: 뉴스 키워드 AI 추천(설명회 7번, 사용자 '하면 좋을듯'), 집행정지 기사로 조달청 위험 기록을 경고로 내리는 연결(설명회 4번, 고민 중), 동의 붙임자료(양식 받으면), 매뉴얼 PPT(요청 시).
 - 수원국 리스크 초안 다음: 외교부 키 연결·응답 확인, 사업지 좌표 입력(사업 관리), 지역별 여행경보와 사업지 대조.
 - 사용자: 추가 계정 4개(팀 대표 계정 권장) + Firebase 규칙 재게시 확인, 사업자번호 88곳 보완, 11/5 이전 공개 실행 로그 삭제(다음 주).
 - 발표 후: 라이트 버전, 보완 엑셀.
