@@ -20,7 +20,7 @@
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=65">
+<link rel="stylesheet" href="assets/style.css?v=66">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -239,9 +239,10 @@
         </div>
         <div class="card acc-card">
           <div class="card-head"><h2>계정·권한</h2></div>
-          <p class="card-desc">여기 있는 Google 계정만 들어옵니다. 슈퍼관리자는 전부, 팀 관리자는 자기 팀 사업·팀원, 팀원은 보기와 이슈 확인.</p>
+          <p class="card-desc acc-desc">등록된 Google 계정만 접속 · 슈퍼관리자 전체 · 팀 관리자 우리 팀 · 팀원 보기·이슈 확인</p>
           <form id="accForm" class="add-row acc-form"><input name="email" type="email" placeholder="추가할 Google 계정" required><select name="team"></select><select name="role"></select><button class="btn primary">추가</button></form>
-          <div id="accList" class="simple-list"></div>
+          <div id="accTools" class="acc-tools"></div>
+          <div id="accList" class="simple-list acc-list"></div>
         </div>
         </div>
       </div>
@@ -270,6 +271,6 @@
 <div id="toast" class="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
-<script type="module" src="assets/app.js?v=67"></script>
+<script type="module" src="assets/app.js?v=68"></script>
 </body>
 </html>
