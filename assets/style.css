@@ -1699,3 +1699,7 @@ body:not(.role-super) .super-only { display: none !important; }
   .acc-form { flex-wrap: wrap; }
   .acc-form input { flex-basis: 100%; }
 }
+
+/* 계정·권한: 팀 이름 옆 슈퍼관리자급 체크 */
+.acc-sup { display: inline-flex; align-items: center; gap: .3em; margin-left: .6em; font-size: var(--fs-xs); font-weight: 600; color: var(--muted); cursor: pointer; flex-direction: row; }
+.acc-sup input { width: auto; margin: 0; }
