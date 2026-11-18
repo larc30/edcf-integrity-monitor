@@ -3,11 +3,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ---------- 계정·권한 ----------
-    // 슈퍼관리자(고정 2명, assets/firebase-config.js SUPER_ADMINS 와 같게): 전부
+    // 슈퍼관리자(고정 4명, assets/firebase-config.js SUPER_ADMINS 와 같게): 전부
     // users/{메일} = { role: 'admin'(팀 관리자) | 'member'(팀원), team: 'ict' | 'water' | 'transport' | 'health' }
     // 예전 방식(meta/access emails)은 슈퍼관리자가 처음 들어올 때 users 로 옮김. 그 전까지는 보기만 허용
     function email() { return request.auth.token.email; }
-    function superAdmins() { return ['larc30730@gmail.com', 'lical0331@gmail.com']; }
+    function superAdmins() { return ['larc30730@gmail.com', 'lical0331@gmail.com', 'ahra.bella@gmail.com', 'juliana0513m@gmail.com']; }
     function fixedSuper() { return email() in superAdmins(); }
     function userDoc() { return /databases/$(database)/documents/users/$(email()); }
     function hasUser() { return exists(userDoc()); }
