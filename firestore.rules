@@ -7,7 +7,12 @@ service cloud.firestore {
     // users/{메일} = { role: 'admin'(팀 관리자) | 'member'(팀원), team: 'ict' | 'water' | 'transport' | 'health' }
     // 예전 방식(meta/access emails)은 슈퍼관리자가 처음 들어올 때 users 로 옮김. 그 전까지는 보기만 허용
     function email() { return request.auth.token.email; }
-    function isSuper() { return email() == 'larc30730@gmail.com'; }
+    function fixedSuper() { return email() == 'larc30730@gmail.com'; }
+    // 슈퍼관리자급 팀 (meta/settings.super_teams, 없으면 정보통신팀): 그 팀 계정은 모두 슈퍼관리자 권한
+    function superTeams() {
+      return exists(/databases/$(database)/documents/meta/settings)
+        ? get(/databases/$(database)/documents/meta/settings).data.get('super_teams', ['ict']) : ['ict'];
+    }
     function userDoc() { return /databases/$(database)/documents/users/$(email()); }
     function hasUser() { return exists(userDoc()); }
     function me() { return get(userDoc()).data; }
@@ -19,6 +24,7 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.email_verified == true
         && (isSuper() || hasUser() || legacy());
     }
+    function isSuper() { return fixedSuper() || (hasUser() && me().get('team', '') in superTeams()); }
     function isTeamAdmin() { return hasUser() && me().role == 'admin' && me().team is string; }
     function myTeam() { return hasUser() ? me().get('team', '') : ''; }
     function canManage() { return isSuper() || isTeamAdmin(); }
@@ -26,7 +32,13 @@ service cloud.firestore {
     // 기본: 읽기는 등록 계정 모두, 쓰기는 슈퍼관리자만 (설정·메일·키워드·EXIMIIS 명단 등)
     match /{document=**} {
       allow read: if allowed();
-      allow write: if allowed() && isSuper();
+      allow write: if allowed() && isSuper() && request.path != /databases/$(database)/documents/meta/settings;
+    }
+
+    // meta/settings: 슈퍼관리자가 쓰되, super_teams(슈퍼관리자급 팀)는 고정 슈퍼관리자만 바꿈
+    match /meta/settings {
+      allow write: if allowed() && (fixedSuper() || (isSuper()
+        && request.resource.data.get('super_teams', ['ict']) == (resource == null ? ['ict'] : resource.data.get('super_teams', ['ict']))));
     }
 
     // 사업: 팀 관리자는 자기 팀 사업만 등록·수정·삭제 (다른 팀으로 옮길 수 없음)

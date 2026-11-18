@@ -134,9 +134,9 @@ export function seed() {
   return {
     projects, companies, findings,
     keywords: {}, recipients: { r1: { email: "team@example.com", active: true } },
-    // 계정·권한 (데모): ?guest = 정보통신팀 팀원, ?teamadmin = 수자원에너지팀 관리자
+    // 계정·권한 (데모): ?guest = 수자원에너지팀 팀원, ?teamadmin = 수자원에너지팀 관리자 (정보통신팀은 슈퍼관리자급이라 팀원 화면 예시로 못 씀)
     users: {
-      "teammate@example.com": { role: "member", team: "ict" },
+      "teammate@example.com": { role: "member", team: "water" },
       "water.lead@example.com": { role: "admin", team: "water" },
       "colleague@example.com": { role: "member", team: "water" },
     },
