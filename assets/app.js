@@ -2459,6 +2459,7 @@ function renderAccess() {
     return `<div class="acc-team"><div class="acc-team-h">${t ? TEAMS[t] : "팀 미지정"} <span class="muted small">${us.length}</span></div>${us.map((u) => `<div class="srow acc-row">
       <span class="acc-mail">${esc(u.id)}</span>
       ${isSuper() && !isSuperMail(u.id) ? `<select data-acc-team="${esc(u.id)}">${teamOpts(u.team)}</select><select data-acc-role="${esc(u.id)}"><option value="member" ${u.role !== "admin" ? "selected" : ""}>팀원</option><option value="admin" ${u.role === "admin" ? "selected" : ""}>팀 관리자</option></select>`
+        : isSuper() && isSuperMail(u.id) ? `<select data-acc-team="${esc(u.id)}" title="슈퍼관리자도 소속 팀은 바꿀 수 있음 (권한은 그대로)">${teamOpts(u.team)}</select><span class="tag super">슈퍼관리자</span>`
         : `<span class="tag ${u.role}">${ROLE_L[u.role] || "팀원"}</span>`}
       ${canEditUser(u) ? `<button class="xbtn" data-del-acc="${esc(u.id)}" title="삭제">✕</button>` : ""}</div>`).join("")}</div>`;
   }).join("");
@@ -2466,7 +2467,11 @@ function renderAccess() {
   f.classList.toggle("hidden", !canManage());
   f.team.innerHTML = isSuper() ? teamOpts(myTeam()) : `<option value="${myTeam() || ""}">${teamName(myTeam())}</option>`;
   f.role.innerHTML = `<option value="member">팀원</option>${isSuper() ? `<option value="admin">팀 관리자</option>` : ""}`;
-  $$("[data-acc-team]").forEach((s) => s.onchange = () => saveUser(s.dataset.accTeam, { team: s.value || null }));
+  $$("[data-acc-team]").forEach((s) => s.onchange = async () => {
+    const id = s.dataset.accTeam;
+    await saveUser(id, isSuperMail(id) ? { team: s.value || null, role: "super" } : { team: s.value || null });
+    if (id === me()) { state.me = { ...state.me, team: s.value || null }; toast("내 소속 팀을 바꿨습니다. 새로고침하면 '우리 팀 사업'에 반영됩니다", 5000); }
+  });
   $$("[data-acc-role]").forEach((s) => s.onchange = () => {
     const t = state.users.find((u) => u.id === s.dataset.accRole)?.team;
     if (s.value === "admin" && state.users.some((u) => u.role === "admin" && u.team === t && u.id !== s.dataset.accRole) && !confirm(`${teamName(t)}에 이미 팀 관리자가 있습니다. 한 명 더 지정할까요?`)) { s.value = "member"; return; }
