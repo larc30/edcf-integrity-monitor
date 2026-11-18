@@ -3,13 +3,12 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ---------- 계정·권한 ----------
-    // 슈퍼관리자(고정, assets/firebase-config.js SUPER_ADMIN 과 같게): 전부
+    // 슈퍼관리자(고정 2명, assets/firebase-config.js SUPER_ADMINS 와 같게): 전부
     // users/{메일} = { role: 'admin'(팀 관리자) | 'member'(팀원), team: 'ict' | 'water' | 'transport' | 'health' }
     // 예전 방식(meta/access emails)은 슈퍼관리자가 처음 들어올 때 users 로 옮김. 그 전까지는 보기만 허용
     function email() { return request.auth.token.email; }
-    function fixedSuper() { return email() == 'larc30730@gmail.com'; }
-    // 정보통신팀 계정은 모두 슈퍼관리자 권한 (assets/app.js SUPER_TEAMS 와 같게)
-    function superTeams() { return ['ict']; }
+    function superAdmins() { return ['larc30730@gmail.com', 'lical0331@gmail.com']; }
+    function fixedSuper() { return email() in superAdmins(); }
     function userDoc() { return /databases/$(database)/documents/users/$(email()); }
     function hasUser() { return exists(userDoc()); }
     function me() { return get(userDoc()).data; }
@@ -21,7 +20,7 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.email_verified == true
         && (isSuper() || hasUser() || legacy());
     }
-    function isSuper() { return fixedSuper() || (hasUser() && me().get('team', '') in superTeams()); }
+    function isSuper() { return fixedSuper(); }
     function isTeamAdmin() { return hasUser() && me().role == 'admin' && me().team is string; }
     function myTeam() { return hasUser() ? me().get('team', '') : ''; }
     function canManage() { return isSuper() || isTeamAdmin(); }
@@ -60,7 +59,7 @@ service cloud.firestore {
 
     // 계정: 팀 관리자는 자기 팀 '팀원'만 추가·삭제 (역할·팀을 바꿀 수 없음)
     match /users/{uid} {
-      allow create: if allowed() && isTeamAdmin() && uid != 'larc30730@gmail.com'
+      allow create: if allowed() && isTeamAdmin() && !(uid in superAdmins())
         && request.resource.data.role == 'member' && request.resource.data.team == myTeam();
       allow update: if allowed() && isTeamAdmin() && resource.data.role == 'member' && resource.data.get('team', '') == myTeam()
         && request.resource.data.role == 'member' && request.resource.data.team == myTeam();
