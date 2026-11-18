@@ -2457,7 +2457,11 @@ function renderAccess() {
   $("#accList").innerHTML = order.map((t) => {
     const us = users.filter((u) => (u.team || "") === t).sort((a, b) => ["super", "admin", "member"].indexOf(a.role) - ["super", "admin", "member"].indexOf(b.role) || a.id.localeCompare(b.id));
     if (!us.length) return "";
-    return `<div class="acc-team"><div class="acc-team-h">${t ? TEAMS[t] : "팀 미지정"} <span class="muted small">${us.length}</span></div>`;
+    return `<div class="acc-team"><div class="acc-team-h">${t ? TEAMS[t] : "팀 미지정"} <span class="muted small">${us.length}</span></div>${us.map((u) => `<div class="srow acc-row">
+      <span class="acc-mail">${esc(u.id)}</span>
+      ${isSuper() && u.id !== SUPER_ADMIN ? `<select data-acc-team="${esc(u.id)}">${teamOpts(u.team)}</select><select data-acc-role="${esc(u.id)}"><option value="member" ${u.role !== "admin" ? "selected" : ""}>팀원</option><option value="admin" ${u.role === "admin" ? "selected" : ""}>팀 관리자</option></select>`
+        : `<span class="tag ${u.role}">${ROLE_L[u.role] || "팀원"}</span>`}
+      ${canEditUser(u) ? `<button class="xbtn" data-del-acc="${esc(u.id)}" title="삭제">✕</button>` : ""}</div>`).join("")}</div>`;
   }).join("");
   const f = $("#accForm");
   f.classList.toggle("hidden", !canManage());
