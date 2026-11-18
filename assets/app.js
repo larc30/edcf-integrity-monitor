@@ -2449,20 +2449,38 @@ function renderSettings() {
 // ---------- 계정·권한 (users/{메일}) ----------
 // 슈퍼관리자: 누구나 추가·팀·역할 변경 / 팀 관리자: 자기 팀 팀원만 추가·삭제
 const canEditUser = (u) => !isSuperMail(u.id) && (isSuper() || (isTeamAdmin() && u.team === myTeam() && u.role !== "admin"));
+const TEAM_C = { ict: "#8B7CFF", water: "#38BDF8", transport: "#F472B6", health: "#2DD4BF", "": "#94A3B8" };
+const accF = { q: "", team: null, role: "" }; // 계정 목록 거르기 (화면에서만)
 function renderAccess() {
   const users = [...SUPER_ADMINS.map((id) => ({ id, role: "super", team: state.users.find((u) => u.id === id)?.team || "ict" })), ...state.users.filter((u) => !isSuperMail(u.id))];
   const order = [...Object.keys(TEAMS), ""];
+  const RO = ["super", "admin", "member"];
   const teamOpts = (sel) => order.map((t) => `<option value="${t}" ${(sel || "") === t ? "selected" : ""}>${t ? TEAMS[t] : "팀 미지정"}</option>`).join("");
-  $("#accList").innerHTML = order.map((t) => {
-    const us = users.filter((u) => (u.team || "") === t).sort((a, b) => ["super", "admin", "member"].indexOf(a.role) - ["super", "admin", "member"].indexOf(b.role) || a.id.localeCompare(b.id));
-    if (!us.length) return "";
-    return `<div class="acc-team"><div class="acc-team-h">${t ? TEAMS[t] : "팀 미지정"} <span class="muted small">${us.length}</span></div>${us.map((u) => `<div class="srow acc-row">
-      <span class="acc-mail">${esc(u.id)}</span>
-      ${isSuper() && !isSuperMail(u.id) ? `<select data-acc-team="${esc(u.id)}">${teamOpts(u.team)}</select><select data-acc-role="${esc(u.id)}"><option value="member" ${u.role !== "admin" ? "selected" : ""}>팀원</option><option value="admin" ${u.role === "admin" ? "selected" : ""}>팀 관리자</option></select>`
-        : isSuper() && isSuperMail(u.id) ? `<select data-acc-team="${esc(u.id)}" title="슈퍼관리자도 소속 팀은 바꿀 수 있음 (권한은 그대로)">${teamOpts(u.team)}</select><span class="tag super">슈퍼관리자</span>`
-        : `<span class="tag ${u.role}">${ROLE_L[u.role] || "팀원"}</span>`}
-      ${canEditUser(u) ? `<button class="xbtn" data-del-acc="${esc(u.id)}" title="삭제">✕</button>` : ""}</div>`).join("")}</div>`;
+  if (accF.team === null) accF.team = isSuper() ? "all" : (myTeam() || "all");
+  const cnt = (t) => users.filter((u) => t === "all" || (u.team || "") === t).length;
+  const chips = ["all", ...order.filter((t) => t || cnt("") > 0)];
+  $("#accTools").innerHTML = `<div class="acc-chips">${chips.map((t) => `<button type="button" class="acc-chip ${accF.team === t ? "on" : ""}" data-acc-f="${t}" style="--tc:${t === "all" ? "var(--accent-2)" : TEAM_C[t]}">${t === "all" ? "전체" : esc((TEAMS[t] || "팀 미지정").replace(/팀$/, ""))} <b>${cnt(t)}</b></button>`).join("")}</div>
+    <div class="acc-find"><input id="accQ" type="search" placeholder="메일 검색" value="${esc(accF.q)}"><select id="accRoleF"><option value="">모든 권한</option>${RO.map((r) => `<option value="${r}" ${accF.role === r ? "selected" : ""}>${ROLE_L[r]}</option>`).join("")}</select></div>`;
+  const q = accF.q.trim().toLowerCase();
+  const pass = (u) => (!q || u.id.includes(q)) && (!accF.role || u.role === accF.role);
+  const teams = order.filter((t) => (accF.team === "all" || accF.team === t) && (t || cnt("") > 0));
+  const roleCtl = (u) => isSuper() && !isSuperMail(u.id) ? `<select data-acc-team="${esc(u.id)}">${teamOpts(u.team)}</select><select data-acc-role="${esc(u.id)}"><option value="member" ${u.role !== "admin" ? "selected" : ""}>팀원</option><option value="admin" ${u.role === "admin" ? "selected" : ""}>팀 관리자</option></select>`
+    : isSuper() ? `<select data-acc-team="${esc(u.id)}" title="슈퍼관리자도 소속 팀은 바꿀 수 있음 (권한은 그대로)">${teamOpts(u.team)}</select><span class="tag super">슈퍼관리자</span>`
+    : `<span class="tag ${u.role}">${ROLE_L[u.role] || "팀원"}</span>`;
+  const html = teams.map((t) => {
+    const all = users.filter((u) => (u.team || "") === t);
+    const us = all.filter(pass).sort((a, b) => RO.indexOf(a.role) - RO.indexOf(b.role) || a.id.localeCompare(b.id));
+    if ((q || accF.role) && !us.length) return "";
+    const n = (r) => all.filter((u) => u.role === r).length;
+    const sum = RO.filter((r) => n(r)).map((r) => `${ROLE_L[r]} ${n(r)}`).join(" · ");
+    const noAdmin = t && all.some((u) => u.role === "member") && !n("admin");
+    return `<section class="acc-team" style="--tc:${TEAM_C[t]}"><div class="acc-team-h"><i class="acc-dot"></i><b>${t ? TEAMS[t] : "팀 미지정"}</b><span class="acc-n">${all.length}</span><span class="acc-sum">${sum}</span>${noAdmin ? `<span class="acc-warn">팀 관리자 없음</span>` : ""}</div>
+      ${us.length ? us.map((u) => `<div class="srow acc-row${u.id === me() ? " me" : ""}"><span class="acc-mail" title="${esc(u.id)}">${esc(u.id)}${u.id === me() ? ` <em>나</em>` : ""}</span><span class="acc-ctl">${roleCtl(u)}</span><span class="acc-x">${canEditUser(u) ? `<button class="xbtn" data-del-acc="${esc(u.id)}" title="삭제">✕</button>` : ""}</span></div>`).join("") : `<div class="acc-empty">아직 계정이 없습니다</div>`}</section>`;
   }).join("");
+  $("#accList").innerHTML = html || `<div class="acc-empty">맞는 계정이 없습니다</div>`;
+  $$("[data-acc-f]").forEach((b) => b.onclick = () => { accF.team = b.dataset.accF; renderAccess(); });
+  $("#accQ").oninput = (e) => { accF.q = e.target.value; const pos = e.target.selectionStart; renderAccess(); const n = $("#accQ"); n.focus(); n.setSelectionRange(pos, pos); };
+  $("#accRoleF").onchange = (e) => { accF.role = e.target.value; renderAccess(); };
   const f = $("#accForm");
   f.classList.toggle("hidden", !canManage());
   f.team.innerHTML = isSuper() ? teamOpts(myTeam()) : `<option value="${myTeam() || ""}">${teamName(myTeam())}</option>`;
