@@ -13,7 +13,7 @@
 
 ## 구조
 - 화면: GitHub Pages `index.html` + `assets/app.js`·`style.css` / 데이터: Firebase Firestore(프로젝트 edcf-monitor) / 검사: GitHub Actions `monitor/`(Python). 저장소 larc30/edcf-integrity-monitor(public).
-- 로그인: Google 유지(2026-11-18 결정). 팀 권한(2026-11-18): 슈퍼관리자 2명 고정(firebase-config.js SUPER_ADMINS ↔ firestore.rules superAdmins(), 그 밖 슈퍼 권한 경로 없음) · 팀 관리자(팀당 1명 권장) · 팀원. 계정 = users/{메일}{role admin|member, team}, 설정 > 계정·권한에서 관리(슈퍼: 누구나·팀·역할 / 팀 관리자: 자기 팀 팀원만). 팀 = TEAMS{ict 정보통신팀, water 수자원에너지팀, transport 교통팀, health 보건팀}. 사업은 한 팀에만(projects.team), '내 사업' = 우리 팀 사업(isMine: p.team == 내 팀, owner 는 선택 담당자). 팀 관리자는 자기 팀 사업만 등록·수정·삭제·업체 연결(다른 팀 사업 카드는 .ro 보기 전용), 업체 기본정보는 팀 관리자 누구나(공통 명단). 이슈 ✓/✕ 는 자기 팀 사업에 참여한 업체만(사업 미연결 업체는 관리자 누구나): 규칙이 companies.teams(참여 팀, app 이 저장·syncCompanyTeams 로 맞춤)로 확인. 메일·키워드·고급 설정은 슈퍼만(.super-only). 정보통신팀 자동 슈퍼 권한은 없앰(2026-11-18 사용자 결정: 슈퍼는 고정 2명뿐, 나머지는 계정·권한에서 정한 팀 관리자·팀원). 처음 슈퍼관리자 로그인 때 migrateRoles(): 예전 ALLOWED_EMAILS·meta/access 계정을 users 로(팀원), 팀 없는 사업은 정보통신팀으로. 규칙은 사용자가 Firebase 콘솔에 다시 게시해야 적용(옮기기가 끝난 뒤 게시).
+- 로그인: Google 유지(2026-11-18 결정). 팀 권한(2026-11-18): 슈퍼관리자 2명 고정(firebase-config.js SUPER_ADMINS ↔ firestore.rules superAdmins(), 그 밖 슈퍼 권한 경로 없음, 슈퍼도 소속 팀은 계정·권한에서 바꿈 = users/{메일}.team) · 팀 관리자(팀당 1명 권장) · 팀원. 계정 = users/{메일}{role admin|member, team}, 설정 > 계정·권한에서 관리(슈퍼: 누구나·팀·역할 / 팀 관리자: 자기 팀 팀원만). 팀 = TEAMS{ict 정보통신팀, water 수자원에너지팀, transport 교통팀, health 보건팀}. 사업은 한 팀에만(projects.team), '내 사업' = 우리 팀 사업(isMine: p.team == 내 팀, owner 는 선택 담당자). 팀 관리자는 자기 팀 사업만 등록·수정·삭제·업체 연결(다른 팀 사업 카드는 .ro 보기 전용), 업체 기본정보는 팀 관리자 누구나(공통 명단). 이슈 ✓/✕ 는 자기 팀 사업에 참여한 업체만(사업 미연결 업체는 관리자 누구나): 규칙이 companies.teams(참여 팀, app 이 저장·syncCompanyTeams 로 맞춤)로 확인. 메일·키워드·고급 설정은 슈퍼만(.super-only). 정보통신팀 자동 슈퍼 권한은 없앰(2026-11-18 사용자 결정: 슈퍼는 고정 2명뿐, 나머지는 계정·권한에서 정한 팀 관리자·팀원). 처음 슈퍼관리자 로그인 때 migrateRoles(): 예전 ALLOWED_EMAILS·meta/access 계정을 users 로(팀원), 팀 없는 사업은 정보통신팀으로. 규칙은 사용자가 Firebase 콘솔에 다시 게시해야 적용(옮기기가 끝난 뒤 게시).
 - 상단 업체 검색(#coFind, 모든 사용자): 업체명·별칭·영문명·사업자번호로 찾아 업체 상세를 엶(팀원은 읽기 전용).
 - 화면 탭: 업체 리스크 ↔ 수원국 리스크(미끄러지는 스위치, 카드 뒤집기 전환 · 가벼운 모드면 바로 전환). 업체 관리·사업 관리·설정은 관리자 모드에서만(상단 오른쪽 주황 [관리자 모드] 버튼, 관리자 계정에만 보임). 관리자 모드는 별도 모드: 켜면 업체·수원국 스위치가 숨고 관리 탭만, [관리자 모드 나가기]나 로고로 나옴. 화면에서만 막은 것이고 Firestore 규칙은 그대로.
 - 기간 구분(업체 이슈·수원국 이벤트 같게): 전체 · 24시간(처음 잡힌 때 기준) · 최근 7일 · 최근 30일 · 30일 이전. 공식 제재 기록은 기간과 무관하게 항상(30일 이전 제외).
@@ -88,7 +88,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
 ## 자료
 - 발표 자료(Slides Artifact): https://claude.ai/artifact/P8sKcUGGNPhx8tiRM22g61 — 14장, 사용자가 직접 순서·스크립트를 고침(업체 리스크가 기본, 수원국은 더해서 보는 기능). 순서: 표지 · 배경(200+, 5+, 계약 후 0회) · 흐름 · 시스템 구조 · 등급 · 업체 화면 · 수원국 화면 · 운영 · 추진 단계 · 정식 운영 준비(보안, 라이선스, 운영, 비용 네 칸, 지금 → 그래서 필요한 일, 비용은 10명 남짓 넘으면 유료 · 팀 전체 월 1~2만 원 예상) · 함께 쓰기(두 가지) · 시연 순서(카드 6개 한 장) · 질문 · 만든 과정. 밝은 톤, 화면 캡처는 다크, 선 아이콘, 가운뎃점(·)과 ● 쓰지 않기. 스크립트는 사용자 원문의 큰 축을 유지하고 다듬기만. 고칠 때는 반드시 Artifact read 로 최신본(사용자 편집 포함)을 받아 그 위에서 수정.
-- 즉시 스캔 함수(선택, 미배포·미검증): functions/index.js(requests 생성 → queue 디스패치), 설치 안내 docs/INSTANT.md, 배포 설정 firebase.json·.firebaserc. Blaze 요금제 필요.
+- 즉시 스캔 함수(kickQueue 배포됨 2026-11-18 확인, 하지만 함수 호출 뒤 GitHub 실행이 안 생김 → 로그의 queue dispatch status 확인 중): functions/index.js(requests 생성 → queue 디스패치), 설치 안내 docs/INSTANT.md, 배포 설정 firebase.json·.firebaserc. Blaze 요금제 필요.
 - 설계도(Artifact): https://claude.ai/artifact/JtxkBSsA5KA4Z2b57Nd8tU · 해커톤 키트: docs/HACKATHON.md
 - 팀 매뉴얼 기준: 필요자료 = 사업자번호·영문명. ① EXIMIIS 부정당업자(등록=위험, 해지=이력) ② MDB 5곳 영문명 조회 후 국적 한국 확인 ③ 나라장터 부정당제재(제재정지면 확인 필요).
 
