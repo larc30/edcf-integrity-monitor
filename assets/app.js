@@ -1000,7 +1000,7 @@ function buildReport({ scope: sc0, period, done, detail = false }) {
   const hotG = groups.filter((g) => g.rep.level === "red" || g.rep.level === "orange"), yelN = groups.length - hotG.length;
   const pStat = (p) => { const s = new Set(); state.companies.forEach((c) => { if (c.engagements.some((e) => e.project_id === p.id)) s.add(c); }); const k = { red: 0, orange: 0 }; s.forEach((c) => { if (sc && k[c.risk] != null) k[c.risk]++; }); return { n: s.size, k }; };
   const simpleBody = `<h2>확인이 필요한 이슈 <span class="mu">위험·경고 ${hotG.length}건${yelN ? ` · 참고 이력 ${yelN}건은 생략` : ""}</span></h2>
-${hotG.length ? `<table><tr><th style="width:9%">등급</th><th style="width:21%">업체 · 관련 사업</th><th>내용</th><th style="width:15%">출처</th><th class="c" style="width:11%">날짜</th></tr>${hotG.slice(0, 20).map((g) => `<tr><td>${bd(g.rep.level)}</td><td><b>${esc(g.companies.map((c) => c.name).join(" · "))}</b><div class="mu">${engShort(g)}</div></td><td>${esc(g.rep.summary || g.rep.title || "")}</td><td>${g.rep.source_type !== "news" ? `<span class="tg red">공식 명단</span><div class="mu">${esc(srcName(g.rep))}</div>` : `<span class="mu">${esc(srcName(g.rep))}</span>`}${g.rep.url ? ` <a href="${esc(g.rep.url)}">원문</a>` : ""}</td><td class="c">${esc(g.rep.published_at || "-")}</td></tr>`).join("")}</table>${hotG.length > 20 ? `<div class="mu" style="margin-top:6px">외 ${hotG.length - 20}건은 대시보드 또는 '자세한 목록 포함'으로 확인</div>` : ""}` : `<div class="empty">해당 기간에 확인할 위험·경고 이슈가 없습니다</div>`}
+${hotG.length ? `<table><tr><th style="width:9%">등급</th><th style="width:21%">업체 · 관련 사업</th><th>내용</th><th style="width:15%">출처</th><th class="c" style="width:11%">날짜</th></tr>${hotG.slice(0, 20).map((g) => `<tr class="lv-${g.rep.level}"><td>${bd(g.rep.level)}</td><td><b>${esc(g.companies.map((c) => c.name).join(" · "))}</b><div class="mu">${engShort(g)}</div></td><td>${esc(g.rep.summary || g.rep.title || "")}</td><td>${g.rep.source_type !== "news" ? `<span class="tg red">공식 명단</span><div class="mu">${esc(srcName(g.rep))}</div>` : `<span class="mu">${esc(srcName(g.rep))}</span>`}${g.rep.url ? ` <a href="${esc(g.rep.url)}">원문</a>` : ""}</td><td class="c">${esc(g.rep.published_at || "-")}</td></tr>`).join("")}</table>${hotG.length > 20 ? `<div class="mu" style="margin-top:6px">외 ${hotG.length - 20}건은 대시보드 또는 '자세한 목록 포함'으로 확인</div>` : ""}` : `<div class="empty">해당 기간에 확인할 위험·경고 이슈가 없습니다</div>`}
 ${ps.length ? `<h2>사업별 현황 <span class="mu">${ps.length}개</span></h2><table><tr><th>사업</th><th class="c" style="width:9%">업체</th><th class="c" style="width:19%">업체 리스크</th><th style="width:27%">수원국 리스크</th></tr>${ps.map((p) => { const { n, k } = pStat(p); return `<tr><td><b>${esc(p.name)}</b>${p.country ? ` <span class="mu">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</td><td class="c">${n}</td><td class="c">${["red", "orange"].map((lv) => k[lv] ? `<span style="color:${C[lv][0]};font-weight:700">${C[lv][2]} ${k[lv]}</span>` : "").filter(Boolean).join(" · ") || `<span style="color:${C.none[0]}">이상 없음</span>`}</td><td>${geoCell(p)}</td></tr>`; }).join("")}</table>` : ""}
 `;
   const detailBody = `<h2>${done ? "이슈" : "확인할 이슈"} <span class="mu">${groups.length}건 · 등급 높은 순${groups.length > MAX ? ` · 앞의 ${MAX}건` : ""}</span></h2>
@@ -1018,10 +1018,12 @@ ${ps.length ? `<h2>사업별 현황 <span class="mu">${ps.length}개</span></h2>
 * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 body { margin: 0; color: #0B1220; font: 12.5px/1.55 "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
 a { color: #5B5BF0; text-decoration: none; }
-.hd { border-bottom: 2px solid #0B1220; padding: 0 0 10px; }
-.hd .top { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; color: #6B7690; font-weight: 700; }
-.hd h1 { margin: 6px 0 8px; font-size: 21px; letter-spacing: -.02em; color: #0B1220; }
-.hd table.mt { width: 100%; font-size: 11.5px; } .hd table.mt td { border: 0; padding: 1px 0; color: #3D4A63; } .hd table.mt td.k { width: 14%; color: #6B7690; font-weight: 700; }
+.hd { background: #0A0F1E; background-image: linear-gradient(120deg, #0A0F1E 0%, #141B3A 60%, #0B2A3A 100%); color: #fff; border-radius: 12px; padding: 14px 18px 12px; }
+.hd .top { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 800; }
+.hd .top .mk { display: inline-block; width: 18px; height: 18px; border-radius: 6px; background: linear-gradient(135deg, #7C83FF, #22D3EE); vertical-align: -4px; margin-right: 7px; }
+.hd .top .dt { color: #9FB0C8; font-weight: 700; }
+.hd h1 { margin: 8px 0 8px; font-size: 21px; letter-spacing: -.02em; color: #fff; } .hd h1 .a { color: #9AA3FF; } .hd h1 .b { color: #7DD3FC; }
+.hd table.mt { width: 100%; font-size: 11px; } .hd table.mt td { border: 0; padding: 1px 0; color: #D5DCE8; } .hd table.mt td.k { width: 12%; color: #8C9AB3; font-weight: 700; }
 ul.sum { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.7; }
 td a { white-space: nowrap; }
 .hd .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 13px; }
@@ -1038,6 +1040,7 @@ table { width: 100%; border-collapse: collapse; font-size: 12px; }
 th { text-align: left; font-size: 11px; color: #6B7690; font-weight: 700; background: #F3F5FA; padding: 6px 8px; border-bottom: 1px solid #E3E7EF; }
 td { padding: 7px 8px; border-bottom: 1px solid #EEF1F6; vertical-align: top; } td.c, th.c { text-align: center; white-space: nowrap; }
 tr { break-inside: avoid; }
+tr.lv-red td:first-child { box-shadow: inset 3px 0 0 #D92D20; } tr.lv-orange td:first-child { box-shadow: inset 3px 0 0 #F57C00; }
 .mu { color: #6B7690; font-size: 11.5px; }
 .bd { display: inline-block; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 700; line-height: 17px; white-space: nowrap; }
 .role { font-weight: 700; font-size: 11px; }
@@ -1048,12 +1051,12 @@ tr { break-inside: avoid; }
 .empty { border: 1px dashed #E3E7EF; border-radius: 10px; padding: 14px; text-align: center; color: #0D9488; }
 .ft { margin-top: 18px; padding-top: 10px; border-top: 1px solid #E3E7EF; font-size: 10.5px; color: #6B7690; }
 </style></head><body>
-<div class="hd"><div class="top"><span>EDCF RADAR</span><span>${esc(now.slice(0, 10))}</span></div>
-  <h1>EDCF 참여 업체 리스크 보고서</h1>
+<div class="hd"><div class="top"><span><span class="mk"></span>EDCF RADAR</span><span class="dt">${esc(now.slice(0, 10))}</span></div>
+  <h1><span class="a">EDCF</span> <span class="b">업체 리스크</span> 보고서</h1>
   <table class="mt"><tr><td class="k">범위</td><td>${esc(scopeL)} (업체 ${cs.length} · 사업 ${ps.length})</td><td class="k">이슈 기간</td><td>${esc(periodL)}${done ? " · 확인 완료 포함" : ""}</td></tr>
   <tr><td class="k">기준</td><td>자동 검사 ${esc((state.status.last_scan_at || "-").slice(0, 16))}</td><td class="k">작성</td><td>${esc(now.slice(0, 16))} · ${esc(me().split("@")[0])}${myTeam() ? ` (${esc(teamName(myTeam()))})` : ""}</td></tr></table></div>
 <h2>업체 등급 <span class="mu">업체 ${cs.length}</span></h2>
-<div class="kpi">${["red", "orange", "none"].map((lv) => { const l = cs.filter((c) => sc && c.risk === lv).sort((a, b) => b.open - a.open || a.name.localeCompare(b.name)); return `<div style="border-top:3px solid ${C[lv][0]}"><small>${C[lv][2]}</small><b style="color:${C[lv][0]}">${t[lv]}</b><p>${lv === "none" ? "위험·경고 이슈 없음" : l.length ? esc(l.slice(0, 6).map((c) => c.name).join(", ")) + (l.length > 6 ? ` 외 ${l.length - 6}` : "") : "해당 업체 없음"}</p></div>`; }).join("")}</div>
+<div class="kpi">${["red", "orange", "none"].map((lv) => { const l = cs.filter((c) => sc && c.risk === lv).sort((a, b) => b.open - a.open || a.name.localeCompare(b.name)); return `<div style="border-left:4px solid ${C[lv][0]}"><small style="color:${C[lv][0]}">${C[lv][2]}</small><b style="color:${C[lv][0]}">${t[lv]}</b><p>${lv === "none" ? "위험·경고 이슈 없음" : l.length ? esc(l.slice(0, 6).map((c) => c.name).join(", ")) + (l.length > 6 ? ` 외 ${l.length - 6}` : "") : "해당 업체 없음"}</p></div>`; }).join("")}</div>
 ${summaryHtml}
 ${detail ? detailBody : simpleBody}
 <div class="ft">등급 기준: 위험 = 지금 유효한 제재(입찰참가자격 제한·MDB 제재·영업정지·EXIMIIS 등록) / 경고 = 제재로 이어질 수 있는 진행 중 사안(수사·기소·과징금·부도·집행정지) / 정상 = 그 밖.<br>뉴스 항목은 제재 확정이 아니라 검토가 필요한 신호입니다. 원문과 공식 자료로 확인하시기 바랍니다.<br>출처: EXIMIIS 부정당업자 · 조달청 나라장터 · OpenSanctions(World Bank·ADB·AfDB·IDB·EBRD) · Google·네이버 뉴스 · AI 판정(Claude) · 외교부 여행경보 · USGS · GDACS · WHO</div>
