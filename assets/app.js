@@ -5,7 +5,7 @@ import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO, SUPER_ADMIN, TEAMS } from "./firebase-config.js?v=31";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO, SUPER_ADMIN, SUPER_ADMINS, TEAMS } from "./firebase-config.js?v=32";
 import { initGeo, renderGeo, mountSitePicker, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=56";
 
 const fbApp = initializeApp(firebaseConfig);
@@ -48,8 +48,8 @@ const live = (p) => p.status !== "done"; // 완료한 사업은 대시보드·�
 // ---------- 권한 (users/{메일}: role super·admin·member, team) ----------
 // 슈퍼관리자: 전부 / 팀 관리자: 자기 팀 사업·업체 연결·팀원 / 팀원: 보기 + 자기 팀 업체 이슈의 확인 완료·관련 없음
 const ROLE_L = { super: "슈퍼관리자", admin: "팀 관리자", member: "팀원" };
-// 정보통신팀 계정은 모두 슈퍼관리자 권한 (화면에는 따로 표시하지 않음, firestore.rules isSuper() 와 같게)
-const SUPER_TEAMS = ["ict"];
+// 슈퍼관리자는 firebase-config.js SUPER_ADMINS 2명 고정, 나머지는 설정 > 계정·권한에서 정한 대로 (팀 관리자 · 팀원)
+const isSuperMail = (e) => SUPER_ADMINS.includes(String(e || "").toLowerCase());
 const isFixedSuper = () => !!state.me?.fixed;
 const myTeam = () => state.me?.team || null;
 const isSuper = () => state.me?.role === "super";
@@ -113,8 +113,7 @@ onAuthStateChanged(auth, async (user) => {
     const u = await getDoc(doc(db, "users", email));
     if (u.exists()) meRole = { role: u.data().role === "admin" ? "admin" : "member", team: u.data().team || null };
   } catch {}
-  if (email === SUPER_ADMIN) meRole = { role: "super", team: meRole?.team || "ict", fixed: true };
-  else if (meRole?.team && SUPER_TEAMS.includes(meRole.team)) meRole = { ...meRole, role: "super", via: "team" }; // 정보통신팀
+  if (isSuperMail(email)) meRole = { role: "super", team: meRole?.team || "ict", fixed: true };
   if (!meRole && ALLOWED_EMAILS.includes(email)) meRole = { role: "member", team: "ict", legacy: true };
   if (!meRole) {
     try { const a = await getDoc(doc(db, "meta", "access")); if (a.exists() && (a.data().emails || []).includes(email)) meRole = { role: "member", team: null, legacy: true }; } catch {}
@@ -2449,9 +2448,9 @@ function renderSettings() {
 }
 // ---------- 계정·권한 (users/{메일}) ----------
 // 슈퍼관리자: 누구나 추가·팀·역할 변경 / 팀 관리자: 자기 팀 팀원만 추가·삭제
-const canEditUser = (u) => u.id !== SUPER_ADMIN && (isSuper() || (isTeamAdmin() && u.team === myTeam() && u.role !== "admin"));
+const canEditUser = (u) => !isSuperMail(u.id) && (isSuper() || (isTeamAdmin() && u.team === myTeam() && u.role !== "admin"));
 function renderAccess() {
-  const users = [{ id: SUPER_ADMIN, role: "super", team: state.users.find((u) => u.id === SUPER_ADMIN)?.team || "ict" }, ...state.users.filter((u) => u.id !== SUPER_ADMIN)];
+  const users = [...SUPER_ADMINS.map((id) => ({ id, role: "super", team: state.users.find((u) => u.id === id)?.team || "ict" })), ...state.users.filter((u) => !isSuperMail(u.id))];
   const order = [...Object.keys(TEAMS), ""];
   const teamOpts = (sel) => order.map((t) => `<option value="${t}" ${(sel || "") === t ? "selected" : ""}>${t ? TEAMS[t] : "팀 미지정"}</option>`).join("");
   $("#accList").innerHTML = order.map((t) => {
@@ -2459,7 +2458,7 @@ function renderAccess() {
     if (!us.length) return "";
     return `<div class="acc-team"><div class="acc-team-h">${t ? TEAMS[t] : "팀 미지정"} <span class="muted small">${us.length}</span></div>${us.map((u) => `<div class="srow acc-row">
       <span class="acc-mail">${esc(u.id)}</span>
-      ${isSuper() && u.id !== SUPER_ADMIN ? `<select data-acc-team="${esc(u.id)}">${teamOpts(u.team)}</select><select data-acc-role="${esc(u.id)}"><option value="member" ${u.role !== "admin" ? "selected" : ""}>팀원</option><option value="admin" ${u.role === "admin" ? "selected" : ""}>팀 관리자</option></select>`
+      ${isSuper() && !isSuperMail(u.id) ? `<select data-acc-team="${esc(u.id)}">${teamOpts(u.team)}</select><select data-acc-role="${esc(u.id)}"><option value="member" ${u.role !== "admin" ? "selected" : ""}>팀원</option><option value="admin" ${u.role === "admin" ? "selected" : ""}>팀 관리자</option></select>`
         : `<span class="tag ${u.role}">${ROLE_L[u.role] || "팀원"}</span>`}
       ${canEditUser(u) ? `<button class="xbtn" data-del-acc="${esc(u.id)}" title="삭제">✕</button>` : ""}</div>`).join("")}</div>`;
   }).join("");
@@ -2489,7 +2488,7 @@ async function saveUser(email, patch) {
 $("#accForm").onsubmit = async (ev) => {
   ev.preventDefault();
   const f = ev.target, email = f.email.value.trim().toLowerCase();
-  if (!email || email === SUPER_ADMIN || state.users.some((u) => u.id === email)) return toast("이미 있는 계정입니다");
+  if (!email || isSuperMail(email) || state.users.some((u) => u.id === email)) return toast("이미 있는 계정입니다");
   const team = isSuper() ? (f.team.value || null) : myTeam(), role = isSuper() ? f.role.value : "member";
   await saveUser(email, { team, role, added_by: me(), added_at: nowStr() });
   f.email.value = ""; toast(`${email} 추가 (${teamName(team)} ${ROLE_L[role]}): 그 계정으로 Google 로그인하면 들어올 수 있습니다`, 5000);
@@ -2500,7 +2499,7 @@ async function migrateRoles() {
   const b = writeBatch(db); let n = 0;
   const msgs = [];
   if (!state.users.length) {
-    const add = (email, data) => { if (email === SUPER_ADMIN || state.users.some((u) => u.id === email)) return; const d = { ...data, added_by: me(), added_at: nowStr(), note: "예전 방식에서 옮김" }; b.set(doc(db, "users", email), d); state.users.push({ id: email, ...d }); n++; };
+    const add = (email, data) => { if (isSuperMail(email) || state.users.some((u) => u.id === email)) return; const d = { ...data, added_by: me(), added_at: nowStr(), note: "예전 방식에서 옮김" }; b.set(doc(db, "users", email), d); state.users.push({ id: email, ...d }); n++; };
     add(SUPER_ADMIN, { role: "super", team: "ict" });
     ALLOWED_EMAILS.forEach((e) => add(e, { role: "member", team: "ict" }));
     (state.access || []).forEach((e) => add(String(e).toLowerCase(), { role: "member", team: null }));
