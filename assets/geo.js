@@ -1,4 +1,4 @@
-// 수원국 리스크 대시보드 (초안)
+// 수원국 리스크 대시보드
 // - 지도: Leaflet + Esri 회색 무료 지도(키 없음)
 // - 사업 위치: 사업명 속 도시 이름 → 도시 좌표, 없으면 수원국 중심 (projects.lat/lng 가 있으면 그 값)
 // - 이벤트: Firestore meta/geo (매일 아침 monitor/geo.py 가 외교부 여행경보·USGS 지진·GDACS 재난경보·WHO 감염병·Google/네이버 뉴스로 저장)
@@ -575,6 +575,8 @@ function declutter() {
   };
   $$("#geoMap .pin-lb").forEach((el) => {
     el.style.visibility = "";
+    const pb = el.previousElementSibling?.getBoundingClientRect(); // 핀이 지금 화면 밖이면 이름표도 숨김 (가장자리에 화면 밖 사업 이름이 모이지 않게)
+    if (!pb || pb.right < edge.left || pb.left > edge.right || pb.bottom < edge.top || pb.top > edge.bottom) { el.style.marginLeft = ""; el.style.visibility = "hidden"; return; }
     if (!el.dataset.side) el.dataset.side = el.classList.contains("l") ? "l" : "r";
     const order = [el.dataset.side, ...SIDES.filter((k) => k !== el.dataset.side)];
     let q = null;

@@ -133,7 +133,7 @@ def process_queue() -> int:
                 res = scanner.dart_fill([x for x in (r.get("ids") or []) if isinstance(x, str)] or None)
                 log.info("DART 채움: 대상 %d · 채움 %d · 고르기 %d · 없음 %d", res["count"], res["filled"], res["choose"], res["none"])
             elif task == "dartlookup":
-                res = scanner.dart_lookup(str(r.get("name") or "").strip())
+                res = scanner.dart_lookup(str(r.get("name") or "").strip(), str(r.get("biz") or ""))
                 log.info("DART 찾기: 후보 %d", res["count"])
             elif task == "preview":
                 res = report.save_preview()
