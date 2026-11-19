@@ -96,6 +96,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
 - DART 찾기 3차(2026-11-19 밤, '여전히 안 빠름 · 롯데로 찾으면 호텔롯데가 안 나옴'): 업체명을 적는 동안 후보를 바로 보여 줌(dartFind {q, limit 30} = 이름 목록만, 상세 조회 없음 → 고르면 {code} 로 그 한 곳만 company.json). 찾기 순서 = 정확 일치 → 그 글자가 든 곳(앞·뒤 모두, 2자부터) 중 상장사 → 짧은 이름 순. 버튼도 같은 방식(직접 적은 사업자번호가 있을 때만 예전 번호 대조 방식 8곳). 함수에 못 닿으면(dartOk=false) 버튼의 예전 길만. 점검용 window.__dartMock. 함수 재배포 필요.
 
+- 버튼·색 정리(2026-11-19 밤, style.css 맨 아래 '버튼 · 색 정리' 블록): 번쩍이는 그림자·지나가는 빛·꽉 찬 강조색을 빼고 옅은 색 면(틴트)으로. 버튼 굵기 600·모서리 10px, 관리자 모드 버튼은 옅은 주황 면(스위치만 주황), 업체 관리 보기 버튼은 알약 대신 모서리 10px + 고른 것만 틴트, 주의 버튼·단계 표시는 주황 테두리 대신 주황 면, NEW 는 깜빡임 없는 틴트, 필터 줄의 겹 상자 없앰. 그대로 둔 것: 제목 그라데이션·레이더·등급 배지·화면 배치.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 
