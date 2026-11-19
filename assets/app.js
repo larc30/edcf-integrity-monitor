@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch, increment,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO, SUPER_ADMIN, SUPER_ADMINS, TEAMS } from "./firebase-config.js?v=33";
-import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=57";
+import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=58";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -36,7 +36,7 @@ const info = (html, cls = "") => `<span class="itip ${cls}" tabindex="0" role="n
 const LV = { red: 3, orange: 2, yellow: 1, none: 0 };
 const ROLE_CLS = { 컨설턴트: "consult", 본구매: "buy", "F/S": "fs" };
 const ROLE_ORDER = ["F/S", "컨설턴트", "본구매"];
-const COUNTRY = { TZ: "탄자니아", PK: "파키스탄", KE: "케냐", MN: "몽골", LA: "라오스", ID: "인도네시아", KR: "한국", VN: "베트남", KH: "캄보디아", BD: "방글라데시", PH: "필리핀", UZ: "우즈베키스탄", ET: "에티오피아", GH: "가나", MM: "미얀마", LK: "스리랑카", NP: "네팔", RW: "르완다", UG: "우간다", TN: "튀니지", EG: "이집트", BO: "볼리비아", PY: "파라과이", CO: "콜롬비아", PE: "페루", EC: "에콰도르", GT: "과테말라", SN: "세네갈", MZ: "모잠비크", CM: "카메룬", NG: "나이지리아", TR: "튀르키예", UA: "우크라이나", GE: "조지아", AZ: "아제르바이잔", KZ: "카자흐스탄", KG: "키르기스스탄", TJ: "타지키스탄", TL: "동티모르" };
+const COUNTRY = { TZ: "탄자니아", PK: "파키스탄", KE: "케냐", MN: "몽골", LA: "라오스", ID: "인도네시아", KR: "한국", VN: "베트남", KH: "캄보디아", BD: "방글라데시", PH: "필리핀", UZ: "우즈베키스탄", ET: "에티오피아", GH: "가나", MM: "미얀마", LK: "스리랑카", NP: "네팔", RW: "르완다", UG: "우간다", TN: "튀니지", EG: "이집트", BO: "볼리비아", PY: "파라과이", CO: "콜롬비아", PE: "페루", EC: "에콰도르", GT: "과테말라", SN: "세네갈", MZ: "모잠비크", CM: "카메룬", NG: "나이지리아", TR: "튀르키예", UA: "우크라이나", GE: "조지아", AZ: "아제르바이잔", KZ: "카자흐스탄", KG: "키르기스스탄", TJ: "타지키스탄", TL: "동티모르", HN: "온두라스", NI: "니카라과", SV: "엘살바도르", CR: "코스타리카", PA: "파나마", DO: "도미니카공화국", BR: "브라질" };
 const COUNTRY_BY_NAME = { ...Object.fromEntries(Object.entries(COUNTRY).map(([k, v]) => [v, k])), 카라치: "PK", 이슬라마바드: "PK", 나이로비: "KE", 다르에스살람: "TZ", 울란바토르: "MN", 비엔티안: "LA", 자카르타: "ID", 하노이: "VN", 프놈펜: "KH", 다카: "BD", 마닐라: "PH", 타슈켄트: "UZ" };
 const byRole = (es) => [...es].sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role));
 const badge = (lv) => `<span class="badge ${lv || "none"}">${LEVEL[lv || "none"]}</span>`;

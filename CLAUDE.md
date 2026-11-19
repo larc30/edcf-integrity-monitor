@@ -71,6 +71,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 ## 사용량 · 요금 (2026-11-19, monitor/usage.py ↔ app.js renderUsage)
 - meta/usage: claude{월{모델{in,out,calls}}}·claude_days, actions{월{runs,minutes}}, batch{월{reads}}·batch_days(store 질의 함수가 셈), web{월{loads,reads}}·web_days(화면 loadAll 이 increment, 규칙에서 web·web_days 칸만 누구나). run.py 끝에서 usage.flush(). 설정 > 고급 오른쪽 '사용량 · 요금'(추정치, 콘솔 링크·예산 알림 권장). 단가: usage.PRICE ↔ app.js AI_PRICE.
 - API 연결 목록은 묶음(실행·데이터 / 업체 검사 / 수원국 / 알림), 줄 형식 통일(이름 · 하는 일 / 상태 한 줄 / 배지 · 확인 시각).
+- 세계 지도는 ±360도 복사본(worldWrap)을 같이 그려 태평양을 가로질러 끌어도 땅이 끊기지 않음(나라 이름은 가운데 한 벌). 중남미 나라 추가(2026-11-19): 온두라스·니카라과·엘살바도르·코스타리카·파나마·도미니카공화국·브라질 + 중남미 수도·주요 도시(app COUNTRY ↔ geo.js GEO_COUNTRY·ISO_NUM·GEO_CITY ↔ geo.py COUNTRY·CITY). 사업명 라벨이 위·아래 자리에서 지도 가장자리에 걸리면 안쪽으로 밀어 넣음(declutter).
 - 지도 라이브러리(Leaflet·topojson)는 geo.js ensureGeoLibs 로 수원국 화면·사업지 지도를 처음 열 때만 받음(index.html 에서 뺌).
 
 ## API 연결 확인 (monitor/conncheck.py)
