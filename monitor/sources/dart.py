@@ -81,6 +81,21 @@ def names_by_code() -> dict:
     return {r[0]: r[1] for rows in load_master().values() for r in rows}
 
 
+def search_by_name(name: str, limit: int = 8) -> list[tuple[list, bool]]:
+    """업체 추가 창의 찾기용: 정확히 같은 이름 먼저 → 그 이름으로 시작 → 이름에 포함(3자 이상). [(기업, 정확 일치 여부)]
+    functions/index.js searchMaster 와 같게. 자동 채움(dart_fill·스캔)은 여전히 match_by_name(정확 일치)만 씀."""
+    target = norm(name)
+    if len(target) < 2:
+        return []
+    m = load_master()
+    out = [(r, True) for r in m.get(target, [])[:limit]]
+    if len(out) < limit:
+        part = [(k, r) for k, rows in m.items() if k != target and (k.startswith(target) or (len(target) >= 3 and target in k)) for r in rows]
+        part.sort(key=lambda x: (not (x[1][3] or "").strip(), not x[0].startswith(target), len(x[0])))
+        out += [(r, False) for _, r in part[:limit - len(out)]]
+    return out
+
+
 def match_by_name(name: str) -> tuple[list, list]:
     """업체명 정확 일치(법인표기·공백 무시) 후보. (후보 목록, 상장사 후보)"""
     target = norm(name)

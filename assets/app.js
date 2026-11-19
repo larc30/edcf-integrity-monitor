@@ -1383,7 +1383,21 @@ async function queueQuiet(data) {
   } catch (e) { console.warn("request failed:", e); return null; }
 }
 // DART에서 이름으로 찾기: 요청을 남기고 끝날 때까지 기다림 (최대 10분, 창을 닫으면 그만 기다림)
+// DART 바로 찾기 함수(functions/index.js dartFind)를 화면에서 직접 부름. 함수가 없거나 회사망에서 막히면 null → 요청을 남기는 예전 길로
+const DART_FN = `https://asia-northeast3-${firebaseConfig.projectId}.cloudfunctions.net/dartFind`;
+async function dartCall(data, ms = 25000) {
+  if (new URLSearchParams(location.search).has("demo") || !auth.currentUser) return null;
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), ms);
+  try {
+    const r = await fetch(DART_FN, { method: "POST", signal: ctl.signal, headers: { "Content-Type": "application/json", Authorization: `Bearer ${await auth.currentUser.getIdToken()}` }, body: JSON.stringify({ data }) });
+    if (!r.ok) return null;
+    return (await r.json()).result || null;
+  } catch { return null; } finally { clearTimeout(timer); }
+}
 async function dartLookup(name, biz = "") {
+  const direct = await dartCall({ name, biz });
+  if (direct && Array.isArray(direct.cands)) return direct;
+  if (!document.getElementById("dlRes")) return null;
   const id = await queueQuiet({ task: "dartlookup", name, biz, label: "DART 찾기" });
   if (!id) throw new Error("요청을 남기지 못했습니다");
   if (ghToken() && !(await pingRelay())) { try { await gh("/actions/workflows/monitor.yml/dispatches", { method: "POST", body: JSON.stringify({ ref: "main", inputs: { task: "queue", companies: "", test_to: "" } }) }); } catch {} }
@@ -2046,6 +2060,7 @@ function openCompanyForm(cid = null) {
     el.classList.toggle("hidden", !el.innerHTML);
   };
   f1.name.oninput = showNameNote; showNameNote();
+  dartCall({ warm: true }, 20000); // 창을 열 때 함수를 미리 깨워 둠 (버튼을 누를 때는 바로 답하게)
   f1.biz_no.oninput = () => { const d = f1.biz_no.value.replace(/\D/g, "").slice(0, 10); f1.biz_no.value = d.length > 5 ? `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}` : d.length > 3 ? `${d.slice(0, 3)}-${d.slice(3)}` : d; };
   // DART에서 가져오기: 키가 서버(GitHub)에만 있어서 '요청'으로 남기고 결과를 기다림
   const fillFrom = (o) => {
@@ -2070,10 +2085,15 @@ function openCompanyForm(cid = null) {
       const r = await dartLookup(name, biz.length === 10 ? biz : "");
       if (!r) return;
       const cands = r.cands || [], same = biz.length === 10 ? cands.find((o) => o.biz_no === biz) : null;
-      if (!cands.length) box.innerHTML = `DART에 '${esc(name)}'과(와) 이름이 같은 기업이 없습니다 (비상장·소규모·건축사사무소 등). 사업자등록번호와 대표자를 직접 넣어 주세요.`;
-      else if (same || cands.length === 1) { const o = same || cands[0]; fillFrom(o); box.innerHTML = `DART에서 찾아 채웠습니다: <b>${esc(o.name)}</b> <span class="muted">${candLine(o)}</span>${same && cands.length > 1 ? ` <span class="muted">(사업자번호가 같은 곳)</span>` : ""}`; }
+      // 바로 채우는 경우: 사업자번호가 같은 곳, 또는 이름이 정확히 같은 곳이 1곳뿐일 때. 비슷한 이름은 목록에서 고르게 함
+      const exact = cands.filter((o) => o.exact !== false), auto = same || (exact.length === 1 ? exact[0] : null);
+      const took = r.ms ? ` <span class="muted small">(${(r.ms / 1000).toFixed(1)}초)</span>` : "";
+      if (!cands.length) box.innerHTML = `DART에 '${esc(name)}'이(가) 들어간 기업이 없습니다 (비상장·소규모·건축사사무소 등). 사업자등록번호와 대표자를 직접 넣어 주세요.`;
       else {
-        box.innerHTML = `<div class="muted small">DART에 같은 이름이 ${cands.length}곳 있습니다. 대표자·사업자번호를 보고 맞는 곳을 고르세요</div>` + cands.map((o, i) => `<label class="dp-opt"><input type="radio" name="dl-pick" value="${i}"><span><b>${esc(o.name)}</b>${o.listed ? ` <span class="tag">상장</span>` : ""} <span class="muted">${candLine(o)}</span></span></label>`).join("");
+        if (auto) fillFrom(auto);
+        const head = auto ? `DART에서 찾아 채웠습니다: <b>${esc(auto.name)}</b>${same ? ` <span class="muted">(사업자번호가 같은 곳)</span>` : ""}${took}${cands.length > 1 ? `<div class="muted small">다른 곳이면 아래에서 고르세요</div>` : ` <span class="muted">${candLine(auto)}</span>`}`
+          : `<div class="muted small">${exact.length ? `DART에 같은 이름이 ${exact.length}곳 있습니다` : `이름이 정확히 같은 곳은 없고, 비슷한 이름이 ${cands.length}곳 있습니다`}. 대표자·사업자번호를 보고 맞는 곳을 고르세요${took}</div>`;
+        box.innerHTML = head + (cands.length > 1 || !auto ? cands.map((o, i) => `<label class="dp-opt"><input type="radio" name="dl-pick" value="${i}" ${o === auto ? "checked" : ""}><span><b>${esc(o.name)}</b>${o.listed ? ` <span class="tag">상장</span>` : ""}${o.exact === false ? ` <span class="tag">비슷한 이름</span>` : ""} <span class="muted">${candLine(o)}</span></span></label>`).join("") : "");
         $$("input[name=dl-pick]", box).forEach((x) => x.onchange = () => fillFrom(cands[+x.value]));
       }
     } catch (e) { if (box.isConnected) box.innerHTML = `DART에서 찾지 못했습니다: ${esc(e.message || e)}. 직접 적어서 ${isNew ? "추가" : "저장"}해도 됩니다.`; }

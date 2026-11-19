@@ -736,11 +736,11 @@ def dart_lookup(name: str, biz: str = "") -> dict:
     if not config.DART_API_KEY:
         raise RuntimeError("DART_API_KEY 가 등록돼 있지 않습니다")
     out = []
-    for r in dart.match_by_name(name)[0][:8]:
+    for r, exact in dart.search_by_name(name):
         d = dart.company_detail(r[0])
         out.append({"corp_code": r[0], "name": r[1], "name_en": d.get("name_en") or r[2] or "", "ceo": d.get("ceo") or "",
-                    "biz_no": pps.biz_digits(d.get("biz_no") or ""), "listed": bool(r[3]), "induty_code": d.get("induty_code") or "",
-                    "category": category.from_ksic(d.get("induty_code")) or ""})
+                    "biz_no": pps.biz_digits(d.get("biz_no") or ""), "listed": bool((r[3] or "").strip()), "induty_code": d.get("induty_code") or "",
+                    "category": category.from_ksic(d.get("induty_code")) or "", "exact": exact})
     same = [o for o in out if biz and o["biz_no"] == pps.biz_digits(biz)]  # 사업자번호를 함께 적었으면 그 번호와 맞는 곳만
     out = same or out
     return {"cands": out, "count": len(out)}
