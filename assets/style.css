@@ -1789,3 +1789,14 @@ body:not(.role-super) .set-grid { grid-template-columns: minmax(0, 1fr); }
 #nameNote { margin: -.3em 0 .1em; line-height: 1.5; word-break: keep-all; }
 #nameNote .miss { color: var(--red, #FF5A5F); font-weight: 600; }
 .gd-note { margin: .5em 0 0; color: var(--muted); font-size: var(--fs-sm); }
+
+/* 레이아웃 손질 (2026-11-19): 사업이 적으면 오른쪽 칸을 내용 높이까지만 · 이벤트 요약은 한 줄씩 카드 높이를 채움 · 오른쪽 창 업체 정보 요약 · 일괄 등록 창의 DART 줄 */
+.dash > .d-projects.fit { align-self: start; contain: none; }
+.geo-dash .ev-card { display: flex; flex-direction: column; }
+.geo-dash .ev-card .ev-grid { flex: 1; grid-template-columns: minmax(0, 1fr); grid-auto-rows: minmax(min-content, 1fr); }
+.d-info { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: .7em 1em; }
+.d-info > div { min-width: 0; } .d-info dt { font-size: var(--fs-xs); color: var(--muted); font-weight: 700; margin-bottom: .2em; }
+.d-info dd { margin: 0; font-size: var(--fs-base); overflow-wrap: anywhere; } .d-info dd em { font-style: normal; color: var(--muted); font-size: var(--fs-xs); margin-left: .4em; } .d-info .miss { color: var(--orange, #FF9F1C); }
+.d-sec-head #dEdit { margin-left: auto; }
+.bulk-dart { display: flex; align-items: center; justify-content: space-between; gap: 1em; margin-top: 1em; padding-top: .9em; border-top: 1px dashed var(--line-2); }
+.co-table .t-ceo { white-space: nowrap; }
