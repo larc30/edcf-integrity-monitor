@@ -1776,3 +1776,10 @@ body:not(.role-super) .super-only { display: none !important; }
 @media (max-width: 760px) { .gd-lv, .gd-btns, .gd-qa, .gd-2 { grid-template-columns: minmax(0, 1fr); } }
 /* v69: 레이더 제목 크게 */
 .radar-hud .hud.tl b { font-size: var(--fs-md); letter-spacing: .12em; } .radar-hud .hud.tl i { font-size: var(--fs-sm); }
+/* v70: 설정 배치 · 수동 실행 줄 · 실행 기록 스크롤 */
+body:not(.role-super) .set-grid { grid-template-columns: minmax(0, 1fr); }
+.adv-run { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin: 0 20px 16px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
+.adv-run > b { font-size: var(--fs-base); }
+.adv-run-btns { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin-left: auto; }
+.adv-run-btns .btn + .muted { margin-right: 10px; }
+#runList { max-height: 26em; overflow-y: auto; padding-right: 4px; }
