@@ -8,6 +8,7 @@
 
 // 국가: [이름, 영문명(USGS 지명 대조), 위도, 경도]
 export const GEO_COUNTRY = {
+  HN: ["온두라스", "Honduras", 15.2, -86.2], NI: ["니카라과", "Nicaragua", 12.9, -85.2], SV: ["엘살바도르", "El Salvador", 13.8, -88.9], CR: ["코스타리카", "Costa Rica", 9.7, -83.8], PA: ["파나마", "Panama", 8.5, -80.8], DO: ["도미니카공화국", "Dominican Republic", 18.7, -70.2], BR: ["브라질", "Brazil", -14.2, -51.9],
   TZ: ["탄자니아", "Tanzania", -6.4, 34.9], PK: ["파키스탄", "Pakistan", 30.4, 69.3], KE: ["케냐", "Kenya", 0.2, 37.9],
   MN: ["몽골", "Mongolia", 46.9, 103.8], LA: ["라오스", "Laos", 19.9, 102.5], ID: ["인도네시아", "Indonesia", -2.5, 118.0],
   KR: ["한국", "South Korea", 36.5, 127.9], VN: ["베트남", "Vietnam", 14.1, 108.3], KH: ["캄보디아", "Cambodia", 12.6, 104.9],
@@ -23,10 +24,36 @@ export const GEO_COUNTRY = {
   KG: ["키르기스스탄", "Kyrgyzstan", 41.2, 74.8], TJ: ["타지키스탄", "Tajikistan", 38.9, 71.3], TL: ["동티모르", "Timor-Leste", -8.9, 125.7],
 };
 // 사업명에 들어 있으면 그 도시에 핀을 꽂음
-export const GEO_CITY = { // [위도, 경도, 영문명]
+export const GEO_CITY = { // [위도, 경도, 영문명, 다른 표기(선택)]
+  다카르: [14.72, -17.47, "Dakar"], 티에스: [14.79, -16.93, "Thies"], 생루이: [16.03, -16.5, "Saint-Louis"], 아루샤: [-3.37, 36.68, "Arusha"], 므완자: [-2.52, 32.9, "Mwanza"],
+  음베야: [-8.9, 33.46, "Mbeya"], 탕가: [-5.07, 39.1, "Tanga"], 페샤와르: [34.01, 71.58, "Peshawar"], 퀘타: [30.18, 66.99, "Quetta"], 파이살라바드: [31.42, 73.08, "Faisalabad"],
+  물탄: [30.2, 71.47, "Multan"], 라왈핀디: [33.6, 73.05, "Rawalpindi"], 키수무: [-0.09, 34.77, "Kisumu"], 나쿠루: [-0.3, 36.07, "Nakuru"], 엘도레트: [0.51, 35.27, "Eldoret"],
+  다르항: [49.49, 105.92, "Darkhan"], 에르데네트: [49.03, 104.08, "Erdenet"], 팍세: [15.12, 105.8, "Pakse"], 사반나켓: [16.57, 104.75, "Savannakhet"], 수라바야: [-7.25, 112.75, "Surabaya"],
+  반둥: [-6.91, 107.61, "Bandung"], 메단: [3.6, 98.67, "Medan"], 마카사르: [-5.15, 119.43, "Makassar"], 덴파사르: [-8.65, 115.22, "Denpasar", "발리"], 누산타라: [0.97, 116.7, "Nusantara"],
+  하이퐁: [20.86, 106.68, "Hai Phong"], 껀터: [10.03, 105.79, "Can Tho"], 후에: [16.46, 107.59, "Hue"], 냐짱: [12.24, 109.19, "Nha Trang"], 시엠레아프: [13.36, 103.86, "Siem Reap"],
+  시아누크빌: [10.63, 103.52, "Sihanoukville"], 바탐방: [13.1, 103.2, "Battambang"], 쿨나: [22.85, 89.54, "Khulna"], 실렛: [24.89, 91.87, "Sylhet"], 라지샤히: [24.37, 88.6, "Rajshahi"],
+  일로일로: [10.72, 122.56, "Iloilo"], 클라크: [15.19, 120.55, "Clark"], 바기오: [16.4, 120.6, "Baguio"], 부하라: [39.77, 64.42, "Bukhara"], 나망간: [41.0, 71.67, "Namangan"],
+  페르가나: [40.38, 71.79, "Fergana"], 누쿠스: [42.46, 59.6, "Nukus"], 디레다와: [9.6, 41.85, "Dire Dawa"], 메켈레: [13.5, 39.47, "Mekelle"], 바하르다르: [11.59, 37.39, "Bahir Dar"],
+  하와사: [7.06, 38.48, "Hawassa"], 쿠마시: [6.69, -1.62, "Kumasi"], 타말레: [9.4, -0.85, "Tamale"], 테마: [5.67, 0.0, "Tema"], 네피도: [19.76, 96.08, "Naypyidaw"],
+  만달레이: [21.96, 96.09, "Mandalay"], 캔디: [7.29, 80.63, "Kandy"], 함반토타: [6.12, 81.12, "Hambantota"], 자프나: [9.66, 80.02, "Jaffna"], 포카라: [28.21, 83.99, "Pokhara"],
+  비라트나가르: [26.45, 87.28, "Biratnagar"], 후예: [-2.6, 29.74, "Huye", "부타레"], 루바부: [-1.68, 29.26, "Rubavu"], 엔테베: [0.05, 32.46, "Entebbe"], 굴루: [2.77, 32.3, "Gulu"],
+  진자: [0.42, 33.2, "Jinja"], 튀니스: [36.81, 10.18, "Tunis"], 스팍스: [34.74, 10.76, "Sfax"], 알렉산드리아: [31.2, 29.92, "Alexandria"], 수에즈: [29.97, 32.55, "Suez"],
+  아스완: [24.09, 32.9, "Aswan"], 신행정수도: [30.02, 31.7, "New Administrative Capital"], 수크레: [-19.05, -65.26, "Sucre"], 코차밤바: [-17.39, -66.16, "Cochabamba"], 엘알토: [-16.5, -68.19, "El Alto"],
+  오루로: [-17.97, -67.11, "Oruro"], 타리하: [-21.53, -64.73, "Tarija"], 포토시: [-19.58, -65.75, "Potosi"], 시우다드델에스테: [-25.51, -54.61, "Ciudad del Este"], 엔카르나시온: [-27.33, -55.87, "Encarnacion"],
+  메데진: [6.24, -75.58, "Medellin", "메데인"], 바랑키야: [10.96, -74.8, "Barranquilla"], 카르타헤나: [10.39, -75.48, "Cartagena"], 아레키파: [-16.41, -71.54, "Arequipa"], 쿠스코: [-13.53, -71.97, "Cusco"],
+  트루히요: [-8.11, -79.03, "Trujillo", "트루히오"], 피우라: [-5.19, -80.63, "Piura"], 이키토스: [-3.75, -73.25, "Iquitos"], 쿠엥카: [-2.9, -79.0, "Cuenca"], 만타: [-0.95, -80.73, "Manta"],
+  케찰테낭고: [14.83, -91.52, "Quetzaltenango", "셸라"], 산페드로술라: [15.5, -88.03, "San Pedro Sula"], 레온: [12.44, -86.88, "Leon"], 산타아나: [13.99, -89.56, "Santa Ana"], 리몬: [9.99, -83.03, "Limon"],
+  콜론: [9.36, -79.9, "Colon"], 산티아고데로스카바예로스: [19.45, -70.7, "Santiago de los Caballeros"], 리우데자네이루: [-22.91, -43.17, "Rio de Janeiro"], 마나우스: [-3.12, -60.02, "Manaus"], 마푸토: [-25.97, 32.57, "Maputo"],
+  베이라: [-19.84, 34.84, "Beira"], 나칼라: [-14.56, 40.69, "Nacala"], 남풀라: [-15.12, 39.27, "Nampula"], 야운데: [3.85, 11.5, "Yaounde"], 두알라: [4.05, 9.7, "Douala"],
+  아부자: [9.08, 7.4, "Abuja"], 라고스: [6.52, 3.38, "Lagos"], 카노: [12.0, 8.52, "Kano"], 포트하커트: [4.82, 7.03, "Port Harcourt"], 앙카라: [39.93, 32.86, "Ankara"],
+  이스탄불: [41.01, 28.98, "Istanbul"], 이즈미르: [38.42, 27.14, "Izmir"], 키이우: [50.45, 30.52, "Kyiv", "키예프"], 리비우: [49.84, 24.03, "Lviv"], 오데사: [46.48, 30.73, "Odesa"],
+  하르키우: [49.99, 36.23, "Kharkiv"], 트빌리시: [41.72, 44.79, "Tbilisi"], 바투미: [41.64, 41.64, "Batumi"], 쿠타이시: [42.27, 42.7, "Kutaisi"], 바쿠: [40.41, 49.87, "Baku"],
+  아스타나: [51.17, 71.45, "Astana"], 알마티: [43.24, 76.89, "Almaty"], 쉼켄트: [42.32, 69.6, "Shymkent"], 비슈케크: [42.87, 74.59, "Bishkek", "비쉬케크"], 두샨베: [38.56, 68.79, "Dushanbe", "두산베"],
+  후잔트: [40.28, 69.62, "Khujand"], 딜리: [-8.56, 125.58, "Dili"], 바우카우: [-8.47, 126.45, "Baucau"],
+  리마: [-12.05, -77.04, "Lima"], 라파스: [-16.5, -68.15, "La Paz", "라파즈"], 산타크루스: [-17.78, -63.18, "Santa Cruz"], 아순시온: [-25.26, -57.58, "Asuncion"], 보고타: [4.71, -74.07, "Bogota"], 키토: [-0.18, -78.47, "Quito"], 과야킬: [-2.17, -79.92, "Guayaquil"], 과테말라시티: [14.63, -90.51, "Guatemala City"], 테구시갈파: [14.07, -87.19, "Tegucigalpa"], 마나과: [12.11, -86.24, "Managua"], 산살바도르: [13.69, -89.22, "San Salvador"], 산호세: [9.93, -84.08, "San Jose"], 파나마시티: [8.98, -79.52, "Panama City"], 산토도밍고: [18.49, -69.93, "Santo Domingo"], 브라질리아: [-15.79, -47.88, "Brasilia"], 상파울루: [-23.55, -46.63, "Sao Paulo"],
   나이로비: [-1.29, 36.82, "Nairobi"], 몸바사: [-4.04, 39.67, "Mombasa"], 다르에스살람: [-6.79, 39.21, "Dar es Salaam"], 도도마: [-6.16, 35.75, "Dodoma"], 잔지바르: [-6.17, 39.2, "Zanzibar"],
-  울란바토르: [47.89, 106.91, "Ulaanbaatar"], 비엔티안: [17.97, 102.63, "Vientiane"], 루앙프라방: [19.89, 102.13, "Luang Prabang"], 다카: [23.81, 90.41, "Dhaka"], 치타공: [22.36, 91.78, "Chittagong"],
-  하노이: [21.03, 105.85, "Hanoi"], 호치민: [10.82, 106.63, "Ho Chi Minh City"], 다낭: [16.05, 108.2, "Da Nang"], 메콩델타: [10.03, 105.78, "Mekong Delta"], 프놈펜: [11.56, 104.93, "Phnom Penh"],
+  울란바토르: [47.89, 106.91, "Ulaanbaatar", "울란바타르"], 비엔티안: [17.97, 102.63, "Vientiane", "비엔티엔"], 루앙프라방: [19.89, 102.13, "Luang Prabang"], 다카: [23.81, 90.41, "Dhaka"], 치타공: [22.36, 91.78, "Chittagong"],
+  하노이: [21.03, 105.85, "Hanoi"], 호치민: [10.82, 106.63, "Ho Chi Minh City", "호찌민"], 다낭: [16.05, 108.2, "Da Nang"], 메콩델타: [10.03, 105.78, "Mekong Delta"], 프놈펜: [11.56, 104.93, "Phnom Penh"],
   타슈켄트: [41.3, 69.24, "Tashkent"], 사마르칸트: [39.65, 66.96, "Samarkand"], 민다나오: [7.6, 125.0, "Mindanao"], 다바오: [7.07, 125.61, "Davao"], 마닐라: [14.6, 120.98, "Manila"], 세부: [10.32, 123.89, "Cebu"],
   카라치: [24.86, 67.01, "Karachi"], 이슬라마바드: [33.68, 73.05, "Islamabad"], 라호르: [31.55, 74.34, "Lahore"], 자카르타: [-6.21, 106.85, "Jakarta"], 아디스아바바: [9.03, 38.74, "Addis Ababa"],
   아크라: [5.6, -0.19, "Accra"], 콜롬보: [6.93, 79.86, "Colombo"], 카트만두: [27.72, 85.32, "Kathmandu"], 키갈리: [-1.95, 30.06, "Kigali"], 캄팔라: [0.35, 32.58, "Kampala"], 카이로: [30.04, 31.24, "Cairo"], 양곤: [16.84, 96.17, "Yangon"],
@@ -90,7 +117,7 @@ const evMs = (e) => e.at_ms || Date.parse(String(e.at || "").replace(" ", "T") +
 // 사업 위치: 직접 넣은 좌표 → 사업명 속 도시 → 수원국 중심(여러 사업이면 조금씩 비켜서)
 export function projectPoint(p, i = 0) {
   if (Number.isFinite(p.lat) && Number.isFinite(p.lng)) return { ll: [p.lat, p.lng], how: "좌표", en: `${p.site_en || p.lat.toFixed(2) + ", " + p.lng.toFixed(2)}, ${cen(p.country)}` };
-  const city = Object.keys(GEO_CITY).find((k) => String(p.name || "").includes(k));
+  const city = Object.keys(GEO_CITY).find((k) => String(p.name || "").includes(k) || (GEO_CITY[k][3] && String(p.name || "").includes(GEO_CITY[k][3])));
   if (city) return { ll: GEO_CITY[city].slice(0, 2), how: city, en: `${GEO_CITY[city][2]}, ${cen(p.country)}` };
   const c = GEO_COUNTRY[p.country];
   if (!c) return null;
@@ -371,9 +398,9 @@ const pinMarkers = {}, evMarkers = {};
 // 나라 이름은 지도 위에 글자로 직접 올림(그림자 없이). 사업이 있는 나라는 등급 색으로 옅게 칠함
 const isLight = () => document.documentElement.dataset.theme === "light";
 // 나라 숫자 코드(ISO 3166-1) ↔ 두 글자 코드
-const ISO_NUM = { TZ: "834", PK: "586", KE: "404", MN: "496", LA: "418", ID: "360", KR: "410", VN: "704", KH: "116", BD: "050", PH: "608", UZ: "860", ET: "231", GH: "288", MM: "104", LK: "144", NP: "524", RW: "646", UG: "800", TN: "788", EG: "818", BO: "068", PY: "600", CO: "170", PE: "604", EC: "218", GT: "320", SN: "686", MZ: "508", CM: "120", NG: "566", TR: "792", UA: "804", GE: "268", AZ: "031", KZ: "398", KG: "417", TJ: "762", TL: "626" };
+const ISO_NUM = { TZ: "834", PK: "586", KE: "404", MN: "496", LA: "418", ID: "360", KR: "410", VN: "704", KH: "116", BD: "050", PH: "608", UZ: "860", ET: "231", GH: "288", MM: "104", LK: "144", NP: "524", RW: "646", UG: "800", TN: "788", EG: "818", BO: "068", PY: "600", CO: "170", PE: "604", EC: "218", GT: "320", SN: "686", MZ: "508", CM: "120", NG: "566", TR: "792", UA: "804", GE: "268", AZ: "031", KZ: "398", KG: "417", TJ: "762", TL: "626", HN: "340", NI: "558", SV: "222", CR: "188", PA: "591", DO: "214", BR: "076" };
 const NUM_ISO = Object.fromEntries(Object.entries(ISO_NUM).map(([k, v]) => [v, k]));
-let world = null, worldLayer = null, nameLayer = null, riskNow = {}, worldLoading = null;
+let world = null, worldWrap = null, worldLayer = null, nameLayer = null, riskNow = {}, worldLoading = null;
 const cssv = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 function loadWorld() {
   if (world || worldLoading) return worldLoading;
@@ -382,6 +409,9 @@ function loadWorld() {
     // 날짜변경선(경도 180도)을 넘는 땅(피지·러시아 동쪽 끝)은 테두리가 지도 전체를 가로지르는 가로줄로 그려짐 → 서쪽 조각을 동쪽으로 이어 붙임
     const unwrap = (ring) => { const xs = ring.map((p) => p[0]); if (Math.max(...xs) - Math.min(...xs) > 180) ring.forEach((p) => { if (p[0] < 0) p[0] += 360; }); };
     world.forEach((f) => { const g = f.geometry; if (!g) return; (g.type === "Polygon" ? [g.coordinates] : g.type === "MultiPolygon" ? g.coordinates : []).forEach((poly) => poly.forEach(unwrap)); });
+    // 왼쪽·오른쪽 복사본 (태평양을 가로질러 끌어도 아시아·아메리카가 끊기지 않게). 나라 이름은 가운데 한 벌만
+    const shift = (f, dx) => ({ ...f, geometry: { ...f.geometry, coordinates: JSON.parse(JSON.stringify(f.geometry.coordinates), (k, v) => Array.isArray(v) && typeof v[0] === "number" ? [v[0] + dx, v[1]] : v) } });
+    worldWrap = [...world, ...world.filter((f) => f.geometry).flatMap((f) => [shift(f, -360), shift(f, 360)])];
     if (map) { drawWorld(); if (last) drawMap(last.pins, last.evs, last.risk); }
   }).catch((e) => { console.warn("world map", e); });
   return worldLoading;
@@ -408,7 +438,7 @@ function drawWorld() {
   if (!world || !map) return;
   if (worldLayer) map.removeLayer(worldLayer);
   if (nameLayer) map.removeLayer(nameLayer);
-  worldLayer = L.geoJSON(world, { pane: "land", renderer: L.canvas({ pane: "land", padding: 0.5 }), style: landStyle, interactive: false }).addTo(map);
+  worldLayer = L.geoJSON(worldWrap || world, { pane: "land", renderer: L.canvas({ pane: "land", padding: 0.5 }), style: landStyle, interactive: false }).addTo(map);
   nameLayer = L.layerGroup().addTo(map);
   world.forEach((f) => {
     const code = NUM_ISO[f.id], lp = labelPoint(f), mine = !!riskNow[code];
@@ -533,6 +563,12 @@ function declutter() {
   const hit = (q, x) => !(q.right < x.left || q.left > x.right || q.bottom < x.top || q.top > x.bottom);
   const put = (el, side) => SIDES.forEach((k) => el.classList.toggle(k, k === side));
   const free = (el) => {
+    el.style.marginLeft = "";
+    if (el.classList.contains("b") || el.classList.contains("t")) { // 위·아래에 둘 때 지도 가장자리에 걸리면 안쪽으로 밀어 넣음
+      const q0 = el.getBoundingClientRect();
+      const dx = q0.left < edge.left + 6 ? edge.left + 6 - q0.left : q0.right > edge.right - 6 ? edge.right - 6 - q0.right : 0;
+      if (dx) el.style.marginLeft = `${dx}px`;
+    }
     const q = el.getBoundingClientRect(), own = el.previousElementSibling;
     const inside = q.left >= edge.left + 4 && q.right <= edge.right - 4 && q.top >= edge.top + 4 && q.bottom <= edge.bottom - 4;
     return inside && !placed.some((x) => hit(q, x)) && !pins.some((x) => x.el !== own && hit(q, x.box)) ? q : null;
@@ -544,7 +580,7 @@ function declutter() {
     let q = null;
     for (const side of order) { put(el, side); q = free(el); if (q) break; }
     if (q) placed.push(q);
-    else { put(el, el.dataset.side); el.style.visibility = "hidden"; }
+    else { put(el, el.dataset.side); el.style.marginLeft = ""; el.style.visibility = "hidden"; }
   });
   const evs = $$("#geoMap .gev").map((el) => el.getBoundingClientRect());
   $$("#geoMap .cn").sort((x, y) => (y.classList.contains("mine") - x.classList.contains("mine")) || (y.classList.contains("big") - x.classList.contains("big"))).forEach((el) => {
@@ -567,7 +603,7 @@ export function mountSitePicker(el, { lat, lng, country }, onPick) {
   m.createPane("land"); m.getPane("land").style.zIndex = 200;
   const draw = () => {
     if (!world || !el.isConnected) return;
-    L.geoJSON(world, { pane: "land", renderer: L.canvas({ pane: "land", padding: 0.5 }), interactive: false, style: () => ({ stroke: true, color: cssv("--map-border"), weight: 0.8, opacity: 1, fill: true, fillColor: cssv("--map-land"), fillOpacity: 1 }) }).addTo(m);
+    L.geoJSON(worldWrap || world, { pane: "land", renderer: L.canvas({ pane: "land", padding: 0.5 }), interactive: false, style: () => ({ stroke: true, color: cssv("--map-border"), weight: 0.8, opacity: 1, fill: true, fillColor: cssv("--map-land"), fillOpacity: 1 }) }).addTo(m);
     // 자리를 찾기 쉽게: 아는 도시를 작은 점과 이름으로
     Object.values(GEO_CITY).forEach(([la, ln, en]) => L.marker([la, ln], { interactive: false, keyboard: false, icon: L.divIcon({ className: "", html: `<span class="sp-city"><i></i>${en}</span>`, iconSize: [0, 0] }) }).addTo(m));
   };

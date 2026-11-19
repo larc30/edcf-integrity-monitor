@@ -71,6 +71,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 ## 사용량 · 요금 (2026-11-19, monitor/usage.py ↔ app.js renderUsage)
 - meta/usage: claude{월{모델{in,out,calls}}}·claude_days, actions{월{runs,minutes}}, batch{월{reads}}·batch_days(store 질의 함수가 셈), web{월{loads,reads}}·web_days(화면 loadAll 이 increment, 규칙에서 web·web_days 칸만 누구나). run.py 끝에서 usage.flush(). 설정 > 고급 오른쪽 '사용량 · 요금'(추정치, 콘솔 링크·예산 알림 권장). 단가: usage.PRICE ↔ app.js AI_PRICE.
 - API 연결 목록은 묶음(실행·데이터 / 업체 검사 / 수원국 / 알림), 줄 형식 통일(이름 · 하는 일 / 상태 한 줄 / 배지 · 확인 시각).
+- 세계 지도는 ±360도 복사본(worldWrap)을 같이 그려 태평양을 가로질러 끌어도 땅이 끊기지 않음(나라 이름은 가운데 한 벌). 중남미 나라 추가(2026-11-19): 온두라스·니카라과·엘살바도르·코스타리카·파나마·도미니카공화국·브라질 + 중남미 수도·주요 도시(app COUNTRY ↔ geo.js GEO_COUNTRY·ISO_NUM·GEO_CITY ↔ geo.py COUNTRY·CITY). 사업명 라벨이 위·아래 자리에서 지도 가장자리에 걸리면 안쪽으로 밀어 넣음(declutter). 도시 172곳(수원국마다 수도·주요 도시), GEO_CITY 4번째 칸은 다른 표기(라파즈·키예프·호찌민 등, 도시 찾기·사업명 매칭에 씀). 사업 등록·수정 창 담당자 후보 = 그 사업 팀 계정(슈퍼관리자 포함, 팀 바꾸면 목록도 바뀜).
 - 지도 라이브러리(Leaflet·topojson)는 geo.js ensureGeoLibs 로 수원국 화면·사업지 지도를 처음 열 때만 받음(index.html 에서 뺌).
 
 ## API 연결 확인 (monitor/conncheck.py)
@@ -104,3 +105,4 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 수원국 리스크 초안 다음: 외교부 키 연결·응답 확인, 사업지 좌표 입력(사업 관리), 지역별 여행경보와 사업지 대조.
 - 사용자: 추가 계정 4개(팀 대표 계정 권장) + Firebase 규칙 재게시 확인, 사업자번호 88곳 보완, 11/5 이전 공개 실행 로그 삭제(다음 주).
 - 발표 후: 라이트 버전, 보완 엑셀.
+- 최종 런칭 때 코드 대정리(2026-11-19 사용자 결정, 지금은 하지 않음: 속도 문제 아니고 정리 목적): ① 데이터 읽기 줄이기(브라우저 저장 + 마지막 스캔 이후 바뀐 것만) ② style.css 겹치는 규칙 정리(158KB → 절반 목표, 모양 그대로) ③ 안 쓰는 코드 걷어내기·app.js 나누기(가끔 쓰는 화면은 쓸 때 불러오기). 단계마다 따로 올리고 데모 전 화면 점검.
