@@ -35,6 +35,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 매일: 기본 키워드 25개(TOPIC_QUERIES) + 추가 키워드(최대 12) 뉴스 검색 → 전체 명단 대조. MDB(OpenSanctions 5종, 비상업 라이선스)·조달청·EXIMIIS 대조는 모든 업체 매일.
 - 집중 감시(사업 연결 또는 watch): 매일 업체명 검색 + '업체명+추가 키워드' 심층. 기본 감시: 업체명 검색 주 1회. 다시 스캔(force)은 10년 범위.
 - 같은 사건 자동 처리(2026-11-17, scanner._inherit_review): AI same_as 가 담당자가 처리한 기록(확인 완료·관련 없음)을 가리키면 새 기사도 같은 상태(reviewed_by '자동 (같은 사건: …)', auto_same=true). 새 기사 등급이 더 높으면(수사→처분) 새 이슈로 둠. 메일에서도 빠짐. AI 에 주는 recent 에 처리 상태 표시.
+- 원문 링크(2026-11-19): Google 뉴스 결과 주소는 news.google.com 을 거쳐 열려서, 브라우저 기본 계정이 Google 뉴스가 꺼진 회사 Workspace 계정이면 ServiceNotAllowed 로 막힘(공용 계정 팀원 사례). 대응 = 같은 기사를 네이버에서도 찾으면 언론사 원본 주소로 바꿈(scanner._prefer_publisher_url) + Google 주소로 남은 기사는 화면·메일·보고서에 [기사 검색](제목으로 네이버 뉴스 검색, app.js altSearch ↔ report.item). Google 내부 주소 변환(batchexecute)은 비공식 내부 API 라 쓰지 않음.
 - Google 뉴스 429(속도 제한, 하루 한도 아님): news._google_get 이 호출 간격 0.6초·429면 4초/10초 뒤 재시도.
 - 업체명 일치: textutil.name_matches(짧은 이름은 독립 단어·업종 문맥 필요).
 - EXIMIIS: 명단에 '등록'이어도 제재기간 끝 날짜가 지났으면 참고(기간 만료)로 내림(scanner._period_ended ↔ app.js edcfEnded).

@@ -797,7 +797,7 @@ function findingHtml(g, showCompany = true) {
     </div>
     <div class="item-summary">${esc(f.summary || f.title)}</div>
     <div class="item-meta">
-      <span class="src">${esc(f.source_name || "-")} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}${why ? ` · <span class="why" title="${esc(why)}">근거</span>` : ""}</span>
+      <span class="src">${esc(f.source_name || "-")} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}${altSearch(f)}${why ? ` · <span class="why" title="${esc(why)}">근거</span>` : ""}</span>
       <span class="item-age">${g.newest ? relTime(g.newest) : ""}</span>
     </div>
     ${more.length ? `<details class="dup"><summary>같은 내용 ${more.length}건 더${srcs.length ? ` <span class="dup-src">${esc(srcs.slice(0, 3).join(" · "))}${srcs.length > 3 ? " 외" : ""}</span>` : ""}</summary>
@@ -870,6 +870,9 @@ function pickDismissReason(n) {
   });
 }
 
+// 원문 주소가 Google 뉴스를 거치는 기사: 회사 Google 계정에서 Google 뉴스가 막혀 있으면 안 열림 → 제목으로 찾는 링크를 같이 둠
+const viaGoogle = (f) => /(^|\/\/)news\.google\.com\//.test(String(f.url || ""));
+const altSearch = (f) => f.source_type === "news" && viaGoogle(f) && f.title ? ` · <a href="https://search.naver.com/search.naver?where=news&query=${encodeURIComponent(String(f.title).slice(0, 60))}" target="_blank" rel="noopener" title="원문이 열리지 않을 때: 기사 제목으로 네이버 뉴스에서 찾기">기사 검색 ↗</a>` : "";
 // ---------- 판단 가이드 (초안: 4개 팀 공통 기준 검토용) ----------
 const GUIDE_HTML = `
 <div class="gd">
@@ -1006,7 +1009,7 @@ function buildReport({ scope: sc0, period, done, detail = false }) {
     return `<div class="is" style="border-left-color:${fg}">
       <div class="is-h">${bd(f.level)} <b>${esc(g.companies.map((c) => c.name).join(" · "))}</b>${f.source_type !== "news" ? ` <span class="tg red">공식 제재 명단</span>` : ""}${f.category && f.category !== "기타" ? ` <span class="tg">${esc(f.category)}</span>` : ""}${f.status === "reviewed" ? ` <span class="tg">확인 완료</span>` : ""}</div>
       <div class="is-s">${esc(f.summary || f.title)}</div>
-      <div class="mu">${esc(f.source_name || "-")} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}">원문</a>` : ""}</div>
+      <div class="mu">${esc(f.source_name || "-")} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}">원문</a>` : ""}${altSearch(f).replace(" ↗", "")}</div>
       <div class="mu">「${esc(f.title || "")}」</div>
       ${more.length ? `<div class="dup">같은 내용 ${more.length}건 더: ${more.slice(0, 5).map((x) => esc(String(x.source_name || "").replace(/\s*\((Google News|Naver|네이버)\)$/i, "")) + (x.published_at ? " " + esc(x.published_at) : "")).join(" · ")}${more.length > 5 ? " 외" : ""}</div>` : ""}
     </div>`;

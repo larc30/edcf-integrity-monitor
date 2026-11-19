@@ -7,6 +7,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
+from urllib.parse import quote_plus
 
 from . import config, grouping, store
 from .analyzer import LEVEL_ORDER
@@ -178,6 +179,8 @@ def build() -> tuple[str, str, list[str]]:
         fg = COLORS[f["level"]][0]
         more = f" · 같은 사건 {len(g) - 1}건 더" if len(g) > 1 else ""
         link = f' · <a href="{E(f["url"])}" style="color:{LINK};text-decoration:none;font-weight:700;">원문</a>' if f.get("url") else ""
+        if f.get("source_type") == "news" and "news.google.com/" in str(f.get("url") or "") and f.get("title"):  # Google 뉴스가 막힌 계정용: 제목으로 찾기
+            link += f' · <a href="https://search.naver.com/search.naver?where=news&amp;query={quote_plus(str(f["title"])[:60])}" style="color:{LINK};text-decoration:none;">기사 검색</a>'
         cat = tag(f["category"]) if f.get("category") and f["category"] != "기타" else ""
         et = eng_tags(g)
         return (f'<tr><td style="padding:14px 0;border-bottom:1px solid {LINE};">'

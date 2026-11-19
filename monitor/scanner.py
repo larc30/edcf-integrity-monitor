@@ -54,7 +54,7 @@ def topic_sweep(errors: list, extra: list[str] | None = None) -> tuple[list[dict
             errors.append(f"제재 키워드 검색 / {engine} '{q}': {e}")
             return engine, None
 
-    seen, out, engines = set(), [], set()
+    seen, out, engines = {}, [], set()
     with ThreadPoolExecutor(max_workers=8) as ex:
         for engine, items in ex.map(one, jobs):
             if items is None:
@@ -62,12 +62,23 @@ def topic_sweep(errors: list, extra: list[str] | None = None) -> tuple[list[dict
             engines.add("네이버" if engine == "naver" else "Google")
             for a in items:
                 k = dedup_key(a["title"], a["url"])
-                if k not in seen:
-                    seen.add(k)
+                if k in seen:
+                    _prefer_publisher_url(seen, k, a)
+                else:
+                    seen[k] = a
                     a["dedup_key"] = k
                     a["via"] = (a.get("via") or "") + " · 제재 키워드"
                     out.append(a)
     return out, sorted(engines)
+
+
+def _prefer_publisher_url(by_key: dict, k: str, a: dict) -> None:
+    """같은 기사(제목 기준)를 네이버에서도 찾았으면, 먼저 들어온 Google 뉴스 주소(news.google.com 을 거쳐 열림)를
+    언론사 원본 주소로 바꿈. 회사 Google 계정에서 Google 뉴스가 막혀 있으면 그 주소가 열리지 않기 때문"""
+    first, u = by_key.get(k), a.get("url") or ""
+    if first is not None and "news.google.com" in (first.get("url") or "") and u and "news.google.com" not in u:
+        first["url"] = u
+        first["source_name"] = first.get("source_name") or a.get("source_name")
 
 
 def _company_names(company: dict) -> list[str]:
@@ -296,10 +307,10 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         cutoff = (date.today() - timedelta(days=config.NEWS_LOOKBACK_DAYS)).isoformat()
     else:
         cutoff = (datetime.strptime(last_news[:10], "%Y-%m-%d").date() - timedelta(days=7)).isoformat()
-    seen, articles, engines_ok = set(), [], set(sweep_engines or [])
+    seen, articles, engines_ok = {}, [], set(sweep_engines or [])
     for a in sweep_hits or []:
         if a["dedup_key"] not in seen:
-            seen.add(a["dedup_key"])
+            seen[a["dedup_key"]] = a
             articles.append(a)
     for engine, lang, q, sort in queries:
         try:
@@ -312,8 +323,9 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
             stats["fetched"] += 1
             k = dedup_key(a["title"], a["url"])
             if k in seen:
+                _prefer_publisher_url(seen, k, a)
                 continue
-            seen.add(k)
+            seen[k] = a
             a["dedup_key"] = k
             articles.append(a)
 
