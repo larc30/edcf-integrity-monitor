@@ -52,6 +52,12 @@ service cloud.firestore {
         && (isSuper() || (myTeam() != '' && myTeam() in teams()) || (isTeamAdmin() && teams().size() == 0));
     }
 
+    // 사용량 기록: 화면 로드 횟수·읽기 수(web, web_days) 칸만 등록 계정 누구나 더함 (나머지는 슈퍼관리자·검사 프로그램)
+    match /meta/usage {
+      allow create: if allowed() && request.resource.data.keys().hasOnly(['web', 'web_days']);
+      allow update: if allowed() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['web', 'web_days']);
+    }
+
     // 스캔·DART 요청: 슈퍼관리자·팀 관리자
     match /requests/{id} {
       allow create, update: if allowed() && canManage();

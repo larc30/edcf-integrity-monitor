@@ -235,7 +235,18 @@ export function projectGeoRisk(p) {
 
 // ---------- 화면 ----------
 export function initGeo(c) { ctx = c; }
+// 지도 라이브러리(Leaflet · topojson)는 수원국 화면이나 사업지 지도를 처음 열 때만 받음 (첫 화면을 가볍게)
+let libs = null;
+export function ensureGeoLibs() {
+  if (window.L && window.topojson) return Promise.resolve(true);
+  const load = (u) => new Promise((ok, no) => { const el = document.createElement("script"); el.src = u; el.onload = ok; el.onerror = no; document.head.appendChild(el); });
+  libs = libs || load("https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js")
+    .then(() => load("https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"))
+    .then(() => true, () => { libs = null; return false; });
+  return libs;
+}
 export async function renderGeo() {
+  if (!(window.L && window.topojson)) await ensureGeoLibs();
   const { state, esc, info } = ctx;
   const scope = ctx.getScope(), ps = scope === "mine" ? state.projects.filter(ctx.isMine) : state.projects.filter((p) => p.status !== "done"); // 완료한 사업은 뺌
   const g = geoDoc(), alerts = g.alerts || {};

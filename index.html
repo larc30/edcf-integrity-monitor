@@ -20,7 +20,7 @@
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=66">
+<link rel="stylesheet" href="assets/style.css?v=67">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -247,7 +247,7 @@
         </div>
       </div>
       <details class="card adv-card super-only" id="advCard">
-        <summary><h2>고급</h2><span class="muted small">API 연결 · 실행 기록 · 화면</span></summary>
+        <summary><h2>고급</h2><span class="muted small">API 연결 · 실행 기록 · 사용량 · 요금</span></summary>
         <div class="adv-grid">
           <div>
             <div class="conn-head"><h3>API 연결</h3><button class="btn sm primary" id="btnConnCheck" title="각 API를 실제로 한 번씩 불러 키가 살아 있는지 확인합니다"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3-8 4 16 3-8h6"/></svg><span>연결 확인</span></button></div>
@@ -258,6 +258,11 @@
           <div>
             <div class="conn-head"><h3>최근 실행</h3><button class="btn sm" id="btnFullScan" title="업체명으로 하나씩 뉴스를 찾는 전체 스캔 (4~5분). 매일 아침 자동으로 한 번 돕니다">전체 스캔</button></div>
             <div id="runList" class="run-list"></div>
+            <div class="usage-box">
+              <div class="conn-head"><h3>사용량 · 요금 <span class="est-tag">이번 달 추정</span></h3><button class="btn sm" id="btnUsage">새로 고침</button></div>
+              <div id="usageList" class="usage-list"></div>
+              <div class="conn-note usage-note" id="usageNote"></div>
+            </div>
           </div>
         </div>
       </details>
@@ -269,8 +274,6 @@
 <aside class="drawer" id="drawer"><div class="drawer-head"><div id="drawerTitle"></div><button class="btn sm" id="drawerClose">닫기</button></div><div id="drawerBody" class="drawer-body"></div></aside>
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div id="toast" class="toast"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
-<script type="module" src="assets/app.js?v=68"></script>
+<script type="module" src="assets/app.js?v=69"></script>
 </body>
 </html>

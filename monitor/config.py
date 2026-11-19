@@ -56,6 +56,8 @@ MOFA_TRAVEL_KEY = _get("MOFA_TRAVEL_KEY") or DATA_GO_KR_KEY
 ANTHROPIC_API_KEY = _get("ANTHROPIC_API_KEY")
 CLAUDE_MODEL = _get("AI_MODEL", "claude-haiku-5-5")  # 비용: Haiku 5.5 (입력 $0.10 / 출력 $0.50 per 1M). 정확도 우선이면 AI_MODEL=claude-opus-5-5
 CLAUDE_EFFORT = _get("AI_EFFORT", "low")
+# 2단계 판정 (2026-11-19): 1차(위 모델)가 위험·경고로 본 기사만 이 모델로 다시 판정 · 비우면(AI_REVIEW_MODEL=) 1차만
+REVIEW_MODEL = _get("AI_REVIEW_MODEL", "claude-sonnet-5-5")
 
 # --- 메일 ---
 SMTP_HOST = _get("SMTP_HOST", "smtp.gmail.com")

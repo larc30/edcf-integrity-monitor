@@ -77,3 +77,4 @@ function simulate(id) {
     }, 450);
   }, 3000);
 }
+export const increment = (n) => n; // 데모: 더하기 대신 값 그대로

@@ -162,6 +162,14 @@ export function seed() {
         connections: { naver: true, google_news: true, claude: true, dart: true, pps: true, smtp: true },
         sanction_lists: { worldbank_debarred: 1418, adb_sanctions: 1457, afdb_sanctions: 1148, iadb_sanctions: 1237, ebrd_ineligible: 1221 },
       },
+      // 사용량 · 요금 (데모 예시 숫자)
+      usage: (() => { const m = kst(now).slice(0, 7), d = kst(now).slice(0, 10); return {
+        updated_at: kst(now - 4 * 60e3),
+        claude: { [m]: { "claude-haiku-5-5": { in: 4200000, out: 310000, calls: 820 }, "claude-sonnet-5-5": { in: 260000, out: 21000, calls: 40 } } },
+        actions: { [m]: { runs: 1520, minutes: 1610, seconds: 41000 } },
+        web: { [m]: { loads: 96, reads: 148000 } }, web_days: { [d]: { loads: 7, reads: 10800 } },
+        batch: { [m]: { reads: 312000 } }, batch_days: { [d]: { reads: 16400 } },
+      }; })(),
       access: { emails: ["teammate@example.com"] }, // 데모: 설정에서 추가한 팀원 계정 (?guest 로 보기)
       settings: { keywords_version: 3, edcf_sanctions_at: kst(now - 5 * DAY), edcf_sanctions_count: 13 },
       mdb_korea: { count: 2, at: kst(now - 2 * 3600e3), items: [
