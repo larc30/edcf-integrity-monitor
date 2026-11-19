@@ -437,6 +437,30 @@ function hash(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.cha
 const polar = (deg, r) => { const rad = (deg * Math.PI) / 180; return [50 + (Math.sin(rad) * r) / 2, 50 - (Math.cos(rad) * r) / 2]; };
 const BANDS = { red: [8, 25], orange: [38, 56], none: [68, 86], pending: [68, 86] };
 const RADAR_MAX = 80; // 점이 너무 많으면 읽기 어려워서: 등급 높은 순으로
+const PREVIEW = (() => {
+  const q = new URLSearchParams(location.search), radar = ["a", "b"].includes(q.get("radar")) ? q.get("radar") : "", soft = q.get("dark") === "soft";
+  if (radar || soft) {
+    if (radar) document.documentElement.classList.add("rv-" + radar);
+    if (soft) document.documentElement.classList.add("soft-dark");
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "assets/preview.css?v=1"; document.head.appendChild(l);
+  }
+  return { radar, soft };
+})();
+// 레이더 시안용 꾸밈 (A: 유리 돔 · 궤도 고리 / B: 소나 HUD · 촘촘한 눈금 · 방위 숫자 · 구석 표시)
+function radarFx(cs, n, sc) {
+  if (!PREVIEW.radar) return "";
+  const P = (a, r) => [(100 + Math.sin((a * Math.PI) / 180) * r).toFixed(2), (100 - Math.cos((a * Math.PI) / 180) * r).toFixed(2)];
+  if (PREVIEW.radar === "a") return `<svg class="grid fx fx-a" viewBox="0 0 200 200" aria-hidden="true">
+      <circle class="orbit o1" cx="100" cy="100" r="103.2"/><circle class="orbit o2" cx="100" cy="100" r="106.6"/>
+      <circle class="pulse p1" cx="100" cy="100" r="31"/><circle class="pulse p2" cx="100" cy="100" r="31"/></svg><div class="radar-glass"></div>`;
+  const fine = [10, 20, 40, 50, 70, 80].map((r) => `<circle class="fine" cx="100" cy="100" r="${r}"/>`).join("");
+  const spokes = Array.from({ length: 24 }, (_, i) => { const [x1, y1] = P(i * 15, 6), [x2, y2] = P(i * 15, 90); return `<line class="spoke" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`; }).join("");
+  const nums = Array.from({ length: 12 }, (_, i) => { const [x, y] = P(i * 30, 104.5); return `<text class="deg" x="${x}" y="${y}">${String(i * 30).padStart(3, "0")}</text>`; }).join("");
+  const marks = [0, 90, 180, 270].map((a) => `<path class="mark" transform="rotate(${a} 100 100)" d="M100 3.5 l-2.6 -4.4 h5.2 z"/>`).join("");
+  const hud = (cls, k, v) => `<div class="hudx ${cls}"><span>${k}</span><b>${v}</b></div>`;
+  return `<svg class="grid fx fx-b" viewBox="0 0 200 200" aria-hidden="true">${fine}${spokes}<circle class="seg" cx="100" cy="100" r="98.4"/>${marks}${nums}</svg>
+    ${hud("tl", "MONITORING", `업체 ${cs.length}`)}${hud("tr", "ALERT", sc ? n.red + n.orange : "-")}${hud("bl", "SWEEP", "6.0s")}${hud("br", "STATUS", sc ? "LIVE" : "대기")}`;
+}
 function renderRadar(cs) {
   const el = $("#radar"), sc = scanned();
   const n = { red: 0, orange: 0, yellow: 0, none: 0 };
@@ -480,7 +504,7 @@ function renderRadar(cs) {
       <line class="axis" x1="100" y1="10" x2="100" y2="190"/><line class="axis" x1="10" y1="100" x2="190" y2="100"/>
       <line class="axis diag" x1="36.4" y1="36.4" x2="163.6" y2="163.6"/><line class="axis diag" x1="163.6" y1="36.4" x2="36.4" y2="163.6"/>
     </svg>
-    <div class="sweep"></div><div class="radar-core"></div>
+    ${radarFx(cs, n, sc)}<div class="sweep"></div><div class="radar-core"></div>
     <svg class="grid labels" viewBox="0 0 200 200" aria-hidden="true">${t("none", 20, "정상")}${t("orange", 50, "경고")}${t("red", 81, "위험")}</svg>
     ${dots}<div class="radar-tip hidden" id="radarTip"></div>`;
   const tip = $("#radarTip");
