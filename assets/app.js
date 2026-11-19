@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch, increment,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO, SUPER_ADMIN, SUPER_ADMINS, TEAMS } from "./firebase-config.js?v=33";
-import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=58";
+import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=59";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -1857,7 +1857,10 @@ function openProjectEdit(pid) {
   const isNew = !pid, p = isNew ? { name: "", country: "", owner: me(), team: myTeam() } : state.projects.find((x) => x.id === pid);
   if (!p) return;
   if (!isNew && !canEditProject(p)) return toast("다른 팀 사업은 그 팀 관리자만 고칠 수 있습니다");
-  const owners = [...new Set([me(), p.owner, ...state.projects.map((x) => x.owner)].filter(Boolean))];
+  // 담당자 후보: 그 사업 팀에 속한 계정 (슈퍼관리자 포함) + 지금 담당자
+  const teamUsers = (t) => [...new Set([...SUPER_ADMINS.map((id) => ({ id, team: state.users.find((x) => x.id === id)?.team || "ict" })), ...state.users.filter((x) => !isSuperMail(x.id))]
+    .filter((x) => (x.team || "") === (t || "")).map((x) => x.id).concat(p.owner && (p.team || "") === (t || "") ? [p.owner] : []))].sort((a, b) => (b === me()) - (a === me()) || a.localeCompare(b));
+  const ownerOpts = (t, sel) => `<option value="">담당자 미지정</option>${teamUsers(t).map((o) => `<option value="${esc(o)}" ${sel === o ? "selected" : ""}>${o === me() ? `나 (${esc(o.split("@")[0])})` : esc(o.split("@")[0])}</option>`).join("")}`;
   const countries = Object.entries(COUNTRY).filter(([k]) => k !== "KR").sort((a, b) => a[1].localeCompare(b[1]));
   modal(`<h2>${isNew ? "사업 등록" : "사업 수정"}</h2>
     <form id="pjEditForm" class="form" autocomplete="off">
@@ -1865,7 +1868,7 @@ function openProjectEdit(pid) {
       <div class="row">
         <label>수원국<select name="country"><option value="">선택 안 함</option>${countries.map(([k, v]) => `<option value="${k}" ${p.country === k ? "selected" : ""}>${esc(v)}</option>`).join("")}</select></label>
         <label>담당 팀<select name="team" ${isSuper() ? "" : "disabled"}>${Object.entries(TEAMS).map(([k, v]) => `<option value="${k}" ${(p.team || myTeam()) === k ? "selected" : ""}>${esc(v)}</option>`).join("")}</select></label>
-        <label>담당자 (선택)<select name="owner"><option value="">담당자 미지정</option>${owners.map((o) => `<option value="${esc(o)}" ${p.owner === o ? "selected" : ""}>${o === me() ? `나 (${esc(o.split("@")[0])})` : esc(o.split("@")[0])}</option>`).join("")}</select></label>
+        <label>담당자 (선택)<select name="owner">${ownerOpts(p.team || myTeam(), p.owner)}</select></label>
       </div>
       ${isNew ? "" : `<label class="check"><input type="checkbox" name="done" ${live(p) ? "" : "checked"}> 사업 완료 (대시보드와 집중 감시에서 뺍니다. 업체는 명단에 남아 기본 감시만 받습니다)</label>`}
       <div class="site-box">
@@ -1883,6 +1886,7 @@ function openProjectEdit(pid) {
     </form>`);
   // 사업지 고르기 (작은 지도)
   const f0 = $("#pjEditForm"), site = { lat: Number.isFinite(p.lat) ? p.lat : null, lng: Number.isFinite(p.lng) ? p.lng : null };
+  f0.team.addEventListener("change", () => { f0.owner.innerHTML = ownerOpts(f0.team.value, f0.owner.value); }); // 팀을 바꾸면 그 팀 사람으로
   // 여행경보가 나라 안에서 지역마다 다르면: 사업지가 어느 지역인지 (자동 판단 + 직접 고르기)
   let zoneSel = Number.isFinite(p.alert_lv) ? String(p.alert_lv) : "";
   const showZone = () => {
@@ -1904,7 +1908,7 @@ function openProjectEdit(pid) {
   ensureGeoLibs().then((ok) => { const el = $("#sitePick"); if (ok && el && el.isConnected) pk = mountSitePicker(el, { ...site, country: f0.country.value || p.country }, (lat, lng) => { site.lat = +lat.toFixed(4); site.lng = +lng.toFixed(4); f0.ll.value = `${site.lat}, ${site.lng}`; showSite(); }); });
   showSite();
   const normC = (x) => String(x).toLowerCase().replace(/\s+/g, "");
-  const cityHits = (q) => !q ? [] : Object.entries(GEO_CITY).filter(([k, v]) => normC(k).includes(q) || normC(v[2]).includes(q)).sort((a, b) => (normC(b[0]).startsWith(q) || normC(b[1][2]).startsWith(q)) - (normC(a[0]).startsWith(q) || normC(a[1][2]).startsWith(q))).slice(0, 8);
+  const cityHits = (q) => !q ? [] : Object.entries(GEO_CITY).filter(([k, v]) => normC(k).includes(q) || normC(v[2]).includes(q) || (v[3] && normC(v[3]).includes(q))).sort((a, b) => (normC(b[0]).startsWith(q) || normC(b[1][2]).startsWith(q)) - (normC(a[0]).startsWith(q) || normC(a[1][2]).startsWith(q))).slice(0, 8);
   const pickCity = ([k, v]) => { picker.set([v[0], v[1]]); f0.city.value = k; if (!f0.site_en.value) f0.site_en.value = v[2]; $("#citySug").classList.add("hidden"); };
   const showSug = () => {
     const hits = cityHits(normC(f0.city.value)), el = $("#citySug");
