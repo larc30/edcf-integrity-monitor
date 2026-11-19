@@ -92,6 +92,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 일괄 등록 창은 간단하게: ① 양식 내려받기 ② 채운 파일 올리기 + [등록하기], 붙여넣기·도움말·DART 일괄 조회는 접힌 칸. 업체 관리 표는 열 폭 고정 비율(table-layout: fixed).
 - DART 바로 찾기(functions/index.js): requests 의 task dartlookup 은 함수가 직접 DART 에 물어 결과를 문서에 적음(handled_by 'function', 실패하면 예전처럼 queue 디스패치). 기업목록 zip 은 함수 메모리에 하루 보관. Secret DART_API_KEY 등록 + 재배포 필요(docs/INSTANT.md 맨 아래). 화면은 처음 30초 동안 1초마다 확인. 가짜 응답으로만 점검함(실제 배포 확인은 사용자).
 
+- DART 찾기 2차(2026-11-19 밤, 사용자 '배포했는데도 오래 걸림·이름이 같아야만 찾나'): ① 화면이 함수 dartFind(onCall, asia-northeast3)를 직접 부름(app.js dartCall, 로그인 토큰 · 등록 계정만) → 안 되면 요청 문서 길(kickQueue) → 그것도 안 되면 GitHub. 업체 추가 창을 열 때 {warm:true}로 미리 깨움(기업목록을 받아 둠). 결과에 걸린 시간(ms) 표시. ② 비슷한 이름도 찾음: 정확히 같은 이름 → 그 이름으로 시작 → 포함(3자 이상), 상장사·짧은 이름 먼저, 8곳까지(functions searchMaster ↔ dart.search_by_name). 바로 채우는 것은 사업자번호가 같거나 정확 일치가 1곳일 때만, 나머지는 목록에서 고름(exact=false 는 '비슷한 이름' 표시). 자동 채움(dart_fill·스캔)은 여전히 정확 일치만. 함수 재배포 필요.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 

@@ -5,6 +5,9 @@
 // 키는 Firebase Secret(GH_TOKEN·DART_API_KEY)에만 두고 화면(브라우저)에는 보내지 않는다.
 const zlib = require("zlib");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { initializeApp, getApps } = require("firebase-admin/app");
+const { getFirestore } = require("firebase-admin/firestore");
 const { defineSecret } = require("firebase-functions/params");
 const logger = require("firebase-functions/logger");
 
@@ -47,14 +50,27 @@ function unzipFirst(buf) {
 }
 const unesc = (s) => String(s || "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").trim();
 function parseMaster(xml) {
-  const idx = new Map(), tag = (b, t) => { const m = b.match(new RegExp(`<${t}>([^<]*)</${t}>`)); return m ? unesc(m[1]) : ""; };
+  const idx = new Map(), list = [], tag = (b, t) => { const m = b.match(new RegExp(`<${t}>([^<]*)</${t}>`)); return m ? unesc(m[1]) : ""; };
   for (const m of xml.matchAll(/<list>([\s\S]*?)<\/list>/g)) {
     const code = tag(m[1], "corp_code"), name = tag(m[1], "corp_name");
     if (!code || !name) continue;
     const k = norm(name), row = [code, name, tag(m[1], "corp_eng_name"), tag(m[1], "stock_code")];
     if (idx.has(k)) idx.get(k).push(row); else idx.set(k, [row]);
+    list.push([k, row]);
   }
-  return idx;
+  return { idx, list };
+}
+// 이름 찾기: 정확히 같은 이름 먼저 → 그 이름으로 시작하는 곳 → 이름에 들어 있는 곳(3자 이상일 때). 상장사·짧은 이름 먼저, 모두 8곳까지
+function searchMaster(m, name, limit = 8) {
+  const target = norm(name);
+  if (target.length < 2) return [];
+  const out = (m.idx.get(target) || []).slice(0, limit).map((r) => [r, true]);
+  if (out.length < limit) {
+    const part = m.list.filter(([k]) => k !== target && (k.startsWith(target) || (target.length >= 3 && k.includes(target))));
+    part.sort((x, y) => (!!y[1][3] - !!x[1][3]) || (y[0].startsWith(target) - x[0].startsWith(target)) || (x[0].length - y[0].length));
+    for (const [, r] of part.slice(0, limit - out.length)) out.push([r, false]);
+  }
+  return out;
 }
 // 기업목록(이름 → 고유번호)은 함수가 살아 있는 동안 기억해 두고 하루에 한 번만 다시 받음
 let master = null, masterAt = 0, masterJob = null;
@@ -69,18 +85,16 @@ async function loadMaster(key, get = fetch) {
   return masterJob;
 }
 async function dartLookup(name, biz, key, get = fetch) {
-  const target = norm(name);
-  if (target.length < 2) return { cands: [], count: 0 };
-  const rows = ((await loadMaster(key, get)).get(target) || []).slice(0, 8);
-  let out = await Promise.all(rows.map(async (r) => {
+  const t0 = Date.now(), warm = !!master, rows = searchMaster(await loadMaster(key, get), name), t1 = Date.now();
+  let out = await Promise.all(rows.map(async ([r, exact]) => {
     let d = {};
     try { const j = await (await get(`https://opendart.fss.or.kr/api/company.json?crtfc_key=${key}&corp_code=${r[0]}`)).json(); if (j.status === "000") d = j; } catch (e) { /* 상세를 못 받아도 후보는 보여 줌 */ }
     return { corp_code: r[0], name: r[1], name_en: d.corp_name_eng || r[2] || "", ceo: d.ceo_nm || "", biz_no: String(d.bizr_no || "").replace(/\D/g, ""),
-      listed: !!r[3], induty_code: d.induty_code || "", category: fromKsic(d.induty_code) };
+      listed: !!r[3], induty_code: d.induty_code || "", category: fromKsic(d.induty_code), exact };
   }));
   const b = String(biz || "").replace(/\D/g, ""), same = b ? out.filter((o) => o.biz_no === b) : []; // 사업자번호를 함께 적었으면 그 번호와 맞는 곳만
   if (same.length) out = same;
-  return { cands: out, count: out.length };
+  return { cands: out, count: out.length, ms: Date.now() - t0, ms_list: t1 - t0, warm };
 }
 const nowKst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 19).replace("T", " ");
 
@@ -104,4 +118,22 @@ exports.kickQueue = onDocumentCreated({ document: "requests/{id}", region: REGIO
   // 공개 저장소라 로그에는 작업 종류와 결과 코드만 남긴다 (업체명·메일 주소는 남기지 않음)
   logger.info("queue dispatch", { task: String(req.task || ""), status: r.status });
 });
-exports._test = { norm, fromKsic, unzipFirst, parseMaster, dartLookup }; // 점검용 (tools 에서 가짜 응답으로 확인)
+
+// 화면에서 직접 부르는 DART 찾기 (요청 문서를 거치지 않아 더 빠름). 로그인한 등록 계정만.
+// { warm: true } 로 부르면 기업목록만 미리 받아 둠 (업체 추가 창을 열 때 불러서, 버튼을 누를 때는 바로 답하게)
+const SUPERS = ["larc30730@gmail.com", "lical0331@gmail.com", "ahra.bella@gmail.com", "juliana0513m@gmail.com"]; // firestore.rules superAdmins() 와 같게
+let fsdb = null;
+exports.dartFind = onCall({ region: REGION, secrets: [DART_API_KEY], memory: "512MiB", timeoutSeconds: 30 }, async (request) => {
+  const tk = request.auth && request.auth.token, email = tk && tk.email_verified ? String(tk.email || "").toLowerCase() : "";
+  if (!email) throw new HttpsError("unauthenticated", "로그인이 필요합니다");
+  if (!SUPERS.includes(email)) {
+    if (!fsdb) { if (!getApps().length) initializeApp(); fsdb = getFirestore(); }
+    if (!(await fsdb.doc(`users/${email}`).get()).exists) throw new HttpsError("permission-denied", "등록된 계정이 아닙니다");
+  }
+  const key = DART_API_KEY.value(), d = request.data || {};
+  if (d.warm) { const w = !!master; await loadMaster(key); return { ok: true, warm: w }; }
+  const res = await dartLookup(String(d.name || "").slice(0, 80), String(d.biz || "").slice(0, 20), key);
+  logger.info("dart find", { count: res.count, ms: res.ms, warm: res.warm }); // 공개 로그에는 건수·걸린 시간만
+  return res;
+});
+exports._test = { norm, fromKsic, unzipFirst, parseMaster, searchMaster, dartLookup }; // 점검용 (가짜 응답으로 확인) // 점검용 (tools 에서 가짜 응답으로 확인)

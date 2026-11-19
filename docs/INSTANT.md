@@ -63,3 +63,15 @@
    ```
 4. 확인: 업체 추가 창에서 업체명을 넣고 [DART에서 가져오기]를 눌러 몇 초 안에 채워지는지 봅니다.
    처음 한 번은 DART 기업목록을 받느라 10초쯤 걸릴 수 있습니다. 함수가 실패하면 예전처럼 GitHub 로 넘어가 1~2분 뒤에 채워집니다.
+
+## DART 찾기 더 빠르게 + 비슷한 이름 (2026-11-19 밤 추가)
+함수가 하나 더 생깁니다(dartFind: 화면이 요청 문서를 거치지 않고 직접 부름, 업체 추가 창을 열 때 미리 깨워 둠).
+DART 인증키는 이미 등록했으니 최신 코드를 받아 다시 배포만 하면 됩니다.
+
+```bash
+cd ~/edcf-integrity-monitor && git pull origin main
+```
+```bash
+cd functions && firebase deploy --only functions --project edcf-monitor
+```
+배포가 끝나면 목록에 kickQueue 와 dartFind 두 개가 보입니다. 회사망에서 dartFind 주소(cloudfunctions.net)가 막혀 있으면 화면이 알아서 예전 길(요청 문서 → kickQueue)로 갑니다.
