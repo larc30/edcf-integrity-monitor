@@ -666,6 +666,8 @@ function renderHome() {
     : (tl[b.id].red - tl[a.id].red) || (tl[b.id].orange - tl[a.id].orange) || a.name.localeCompare(b.name));
   $("#projectMap").innerHTML = psSorted.map((p) => projectRow(p)).join("")
     || `<div class="empty small">${scope === "mine" ? "내가 담당하는 사업이 없습니다." : "등록된 사업이 없습니다."}</div>`;
+  // 사업이 적어 칸이 많이 남으면 칸을 내용 높이까지만 (많으면 이슈 목록 끝까지 채우고 안에서 스크롤)
+  { const pl = $("#projectMap"), card = pl.closest(".d-projects"); card.classList.remove("fit"); requestAnimationFrame(() => { const last = pl.lastElementChild; card.classList.toggle("fit", !!last && pl.clientHeight > 0 && last.getBoundingClientRect().bottom - pl.getBoundingClientRect().top < pl.clientHeight - 60); }); }
   $$("#projectMap .pj").forEach((r) => { r.addEventListener("mouseenter", () => focusProject(r.dataset.pid)); r.addEventListener("mouseleave", () => focusProject(null)); });
   $$("#projectMap [data-cid]").forEach((x) => x.addEventListener("click", (e) => { e.stopPropagation(); openCompany(x.dataset.cid); }));
   $$("#projectMap .pj").forEach((r) => { r.tabIndex = 0; r.title = "누르면 이 사업의 업체와 이슈를 봅니다"; r.onclick = () => openProject(r.dataset.pid); r.onkeydown = (e) => { if (e.key === "Enter") openProject(r.dataset.pid); }; });
@@ -797,7 +799,7 @@ function findingHtml(g, showCompany = true) {
     </div>
     <div class="item-summary"${why ? ` title="${esc(why)}"` : ""}>${esc(f.summary || f.title)}</div>
     <div class="item-meta">
-      <span class="src">${esc(f.source_name || "-")} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}${altSearch(f)}</span>
+      <span class="src">${esc(f.source_name || "-")} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}</span>
       <span class="item-age">${g.newest ? relTime(g.newest) : ""}</span>
     </div>
     ${more.length ? `<details class="dup"><summary>같은 내용 ${more.length}건 더${srcs.length ? ` <span class="dup-src">${esc(srcs.slice(0, 3).join(" · "))}${srcs.length > 3 ? " 외" : ""}</span>` : ""}</summary>
@@ -870,9 +872,6 @@ function pickDismissReason(n) {
   });
 }
 
-// 원문 주소가 Google 뉴스를 거치는 기사: 회사 Google 계정에서 Google 뉴스가 막혀 있으면 안 열림 → 제목으로 찾는 링크를 같이 둠
-const viaGoogle = (f) => /(^|\/\/)news\.google\.com\//.test(String(f.url || ""));
-const altSearch = (f) => f.source_type === "news" && viaGoogle(f) && f.title ? ` · <a href="https://search.naver.com/search.naver?where=news&query=${encodeURIComponent(String(f.title).slice(0, 60))}" target="_blank" rel="noopener" title="원문이 열리지 않을 때: 기사 제목으로 네이버 뉴스에서 찾기">기사 검색 ↗</a>` : "";
 // ---------- 판단 가이드 (4개 팀 공통 기준) ----------
 const GUIDE_HTML = `
 <div class="gd">
@@ -1003,7 +1002,7 @@ function buildReport({ scope: sc0, period, done, detail = false }) {
     return `<div class="is" style="border-left-color:${fg}">
       <div class="is-h">${bd(f.level)} <b>${esc(g.companies.map((c) => c.name).join(" · "))}</b>${f.source_type !== "news" ? ` <span class="tg red">공식 제재 명단</span>` : ""}${f.category && f.category !== "기타" ? ` <span class="tg">${esc(f.category)}</span>` : ""}${f.status === "reviewed" ? ` <span class="tg">확인 완료</span>` : ""}</div>
       <div class="is-s">${esc(f.summary || f.title)}</div>
-      <div class="mu">${esc(f.source_name || "-")} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}">원문</a>` : ""}${altSearch(f).replace(" ↗", "")}</div>
+      <div class="mu">${esc(f.source_name || "-")} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}">원문</a>` : ""}</div>
       <div class="mu">「${esc(f.title || "")}」</div>
       ${more.length ? `<div class="dup">같은 내용 ${more.length}건 더: ${more.slice(0, 5).map((x) => esc(String(x.source_name || "").replace(/\s*\((Google News|Naver|네이버)\)$/i, "")) + (x.published_at ? " " + esc(x.published_at) : "")).join(" · ")}${more.length > 5 ? " 외" : ""}</div>` : ""}
     </div>`;
@@ -1250,18 +1249,9 @@ function openCompany(cid, back = null) {
     </section>
 
     <section class="d-sec">
-      <div class="d-sec-head"><h3>식별 정보</h3></div>
-      <form id="advForm" class="d-form" autocomplete="off">
-        <label><span>사업자등록번호 ${hint(c.bizno_source)}</span><input name="biz_no" value="${esc(fmtBiz(c.biz_no))}" placeholder="000-00-00000"></label>
-        <label><span>영문명</span><input name="name_en" value="${esc(c.name_en || "")}" placeholder="예: GANADA ENGINEERING CO., LTD."></label>
-        <label><span>업종 ${hint(c.catGuess ? "추정" : c.category_source)}</span><select name="category">${["", ...CATS].map((k) => `<option value="${k}" ${k === (c.catGuess ? "" : c.cat) ? "selected" : ""}>${k || `자동 분류${c.catGuess ? ` (추정: ${c.cat})` : ""}`}</option>`).join("")}</select></label>
-        <label><span>대표자</span><input name="ceo" value="${esc(c.ceo || "")}"></label>
-        <label><span>별칭 ${hint("쉼표로 구분")}</span><input name="aliases" value="${esc(c.aliases || "")}"></label>
-        <label><span>보조 키워드 ${hint("동명 업체 구분")}</span><input name="context_keywords" value="${esc(c.context_keywords || "")}" placeholder="예: 감리, 대표자명"></label>
-        <label><span>검색 언어</span><input name="search_langs" value="${esc(c.search_langs || "ko")}" placeholder="ko,en,id"></label>
-        <label><span>메모</span><input name="note" value="${esc(c.note || "")}"></label>
-        <div class="d-form-foot"><span class="muted small">DART에 있는 업체는 스캔 때 자동으로 채워집니다</span><button class="btn primary">저장</button></div>
-      </form>
+      <div class="d-sec-head"><h3>업체 정보</h3>${canManage() ? `<button type="button" class="btn sm" id="dEdit">정보 수정</button>` : ""}</div>
+      <dl class="d-info">${[["공식 명칭", c.name_official], ["사업자등록번호", c.country !== "KR" ? "해외 업체" : fmtBiz(c.biz_no), c.bizno_source], ["대표자", c.ceo], ["영문명", c.name_en], ["업종", c.cat, c.catGuess ? "추정" : c.category_source], ["별칭", c.aliases], ["보조 키워드", c.context_keywords], ["메모", c.note]]
+        .filter(([k, v]) => v || ["사업자등록번호", "대표자", "영문명"].includes(k)).map(([k, v, h]) => `<div><dt>${k}</dt><dd>${v ? esc(v) : `<span class="miss">없음</span>`}${v ? hint(h) : ""}</dd></div>`).join("")}</dl>
     </section>
 
     <div class="d-danger"><button class="btn sm ghost danger" id="dDelete">업체 삭제</button></div>`;
@@ -1284,26 +1274,7 @@ function openCompany(cid, back = null) {
   $("#dDelete").onclick = () => deleteCompanies([cid]);
   $("#dBack")?.addEventListener("click", () => String(back).startsWith("p:") ? openProject(String(back).slice(2)) : openRiskList(back, "back"));
   if (switching) $("#drawerBody").scrollTop = 0;
-  $("#advForm").onsubmit = async (ev) => {
-    ev.preventDefault();
-    const fd = Object.fromEntries(new FormData(ev.target));
-    const patch = Object.fromEntries(Object.entries(fd).map(([k, v]) => [k, v.trim() || null]));
-    const biz = (patch.biz_no || "").replace(/\D/g, "");
-    if (patch.biz_no && biz.length !== 10) return toast("사업자등록번호는 숫자 10자리입니다");
-    patch.biz_no = biz || null;
-    const dupE = bizOwner(biz, c.id);
-    if (dupE) return toast(`사업자등록번호 ${fmtBiz(biz)}는 이미 '${dupE.name}'에 등록돼 있습니다. 같은 회사면 하나로 합치고 옛 이름은 별칭에 넣어 주세요`, 6000);
-    if (patch.biz_no !== (c.biz_no ? String(c.biz_no).replace(/\D/g, "") : null)) patch.bizno_source = patch.biz_no ? "직접 입력" : null;
-    if (patch.name_en && !(patch.search_langs || "").includes("en")) patch.search_langs = (patch.search_langs || "ko") + ",en";
-    if ((patch.category || "") !== (c.catGuess ? "" : c.cat)) {
-      // 직접 고르면 그대로 유지, '자동'으로 되돌리면 우선 이름으로 추정하고 다음 스캔 때 DART 업종으로 다시 분류
-      if (patch.category) patch.category_source = "직접 입력";
-      else { patch.category = guessCat(c.name) || guessCat(patch.name_en) || "기타"; patch.category_source = "이름 추정"; }
-      patch.cat_checked_at = null;
-    } else delete patch.category;
-    await updateDoc(doc(db, "companies", cid), patch); Object.assign(c, patch);
-    toast("저장했습니다. 다음 스캔부터 적용됩니다"); rerender(); // 표와 상세를 함께 새로 그림
-  };
+  $("#dEdit")?.addEventListener("click", () => openCompanyForm(cid));
   $("#drawer").classList.add("open"); $("#drawerBg").classList.add("open");
 }
 function closeDrawer() { $("#drawer").classList.remove("open"); $("#drawerBg").classList.remove("open"); state.openCid = null; state.riskList = null; state.drawerBack = null; state.openPid = null; }
@@ -1654,7 +1625,7 @@ function renderCompanies() {
       <td class="t-risk">${sc ? (c.risk !== "none" ? badge(c.risk) : `<span class="ok-t">정상</span>`) : `<span class="muted">-</span>`}</td>
       <td class="t-open">${c.open ? `<b>${c.open}</b>` : `<span class="muted">0</span>`}</td>
       <td class="t-id">${c.country !== "KR" ? `<span class="muted">해외</span>` : c.biz_no ? esc(fmtBiz(c.biz_no)) : `<span class="miss">없음</span>`}</td>
-      <td class="t-id">${c.name_en ? `<span class="ok-t">✓</span>` : `<span class="miss">없음</span>`}</td>
+      <td class="t-id t-ceo">${c.ceo ? esc(c.ceo) : `<span class="muted">-</span>`}</td>
       <td class="t-act"><button class="icon-btn danger" data-del="${c.id}" title="삭제" aria-label="${esc(c.name)} 삭제">${TRASH}</button></td>
     </tr>`).join("");
   // 선택 (일괄 삭제)
@@ -1904,19 +1875,37 @@ function openProjectEdit(pid) {
   const picker = { set: (v) => pk?.set(v), country: (c) => pk?.country(c), clear: () => pk?.clear() };
   ensureGeoLibs().then((ok) => { const el = $("#sitePick"); if (ok && el && el.isConnected) pk = mountSitePicker(el, { ...site, country: f0.country.value || p.country }, (lat, lng) => { site.lat = +lat.toFixed(4); site.lng = +lng.toFixed(4); f0.ll.value = `${site.lat}, ${site.lng}`; showSite(); }); });
   showSite();
-  const normC = (x) => String(x).toLowerCase().replace(/\s+/g, "");
-  const cityHits = (q) => !q ? [] : Object.entries(GEO_CITY).filter(([k, v]) => normC(k).includes(q) || normC(v[2]).includes(q) || (v[3] && normC(v[3]).includes(q))).sort((a, b) => (normC(b[0]).startsWith(q) || normC(b[1][2]).startsWith(q)) - (normC(a[0]).startsWith(q) || normC(a[1][2]).startsWith(q))).slice(0, 8);
+  const normC = (x) => String(x).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, "");
+  // 아는 도시(GEO_CITY, 한글 이름) 먼저 → 넓은 목록(수원국 인구 1만5천 이상 도시, 고른 수원국 먼저)
+  const cityHits = (q) => {
+    if (!q) return [];
+    const st = (k, v) => normC(k).startsWith(q) || normC(v[2]).startsWith(q);
+    const own = Object.entries(GEO_CITY).filter(([k, v]) => normC(k).includes(q) || normC(v[2]).includes(q) || (v[3] && normC(v[3]).includes(q))).sort((x, y) => st(y[0], y[1]) - st(x[0], x[1])).slice(0, 8);
+    if (own.length >= 8 || !cityDb || q.length < 2) return own;
+    const seen = new Set(own.map(([, v]) => normC(v[2]))), cc0 = f0.country.value, more = [];
+    for (const cc of [cc0, ...Object.keys(cityDb).filter((k) => k !== cc0 && k !== "_src")]) {
+      for (const r of cityDb[cc] || []) {
+        const en = normC(r[0]);
+        if (seen.has(en) || !(en.includes(q) || (r[3] && normC(r[3]).includes(q)))) continue;
+        seen.add(en); more.push([r[0], [r[1], r[2], r[0], r[3], cc], en.startsWith(q) || r[3].split(",").some((x) => normC(x).startsWith(q))]);
+        if (more.length >= 40) break;
+      }
+      if (more.length >= 40) break;
+    }
+    more.sort((x, y) => ((y[1][4] === cc0) - (x[1][4] === cc0)) || (y[2] - x[2]));
+    return [...own, ...more.slice(0, 8 - own.length)];
+  };
   const pickCity = ([k, v]) => { picker.set([v[0], v[1]]); f0.city.value = k; if (!f0.site_en.value) f0.site_en.value = v[2]; $("#citySug").classList.add("hidden"); };
   // 목록에 없는 도시: 적은 이름을 '지도에 보일 이름'으로 쓰고, 위치는 지도에서 직접 찍음
   const freeCity = () => { const t = f0.city.value.trim(); if (!t) return; f0.site_en.value = t; $("#citySug").classList.add("hidden"); toast(site.lat == null ? `'${t}'(으)로 적어 두었습니다. 아래 지도에서 위치를 눌러 핀을 놓아 주세요` : `지도에 보일 이름을 '${t}'(으)로 바꿨습니다`, 5000); };
   const showSug = () => {
     const hits = cityHits(normC(f0.city.value)), el = $("#citySug");
-    el.innerHTML = hits.map(([k, v], i) => `<button type="button" data-ci="${i}"><b>${esc(k)}</b><span>${esc(v[2])}</span></button>`).join("") || (f0.city.value.trim() ? `<button type="button" data-cfree="1"><b>'${esc(f0.city.value.trim())}' 그대로 쓰기</b><span>목록에 없는 도시 · 위치는 지도에서 눌러 주세요</span></button>` : "");
+    el.innerHTML = hits.map(([k, v], i) => `<button type="button" data-ci="${i}"><b>${esc(k)}</b><span>${esc(v[4] ? [v[3] && v[3].split(",").pop(), COUNTRY[v[4]] || v[4]].filter(Boolean).join(" · ") : v[2])}</span></button>`).join("") || (f0.city.value.trim() ? `<button type="button" data-cfree="1"><b>'${esc(f0.city.value.trim())}' 그대로 쓰기</b><span>목록에 없는 도시 · 위치는 지도에서 눌러 주세요</span></button>` : "");
     el.classList.toggle("hidden", !el.innerHTML);
     $$("[data-ci]", el).forEach((b) => b.onmousedown = (e) => { e.preventDefault(); pickCity(hits[+b.dataset.ci]); });
     $$("[data-cfree]", el).forEach((b) => b.onmousedown = (e) => { e.preventDefault(); freeCity(); });
   };
-  f0.city.oninput = showSug; f0.city.onfocus = showSug; f0.city.addEventListener("compositionupdate", () => setTimeout(showSug, 0));
+  f0.city.oninput = showSug; f0.city.onfocus = () => { showSug(); loadCityDb().then(() => { if (document.activeElement === f0.city) showSug(); }); }; f0.city.addEventListener("compositionupdate", () => setTimeout(showSug, 0));
   f0.city.onblur = () => setTimeout(() => $("#citySug")?.classList.add("hidden"), 150);
   f0.city.onkeydown = (e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); const h = cityHits(normC(f0.city.value)); if (h.length) pickCity(h[0]); else freeCity(); } }; // Enter 로 창이 저장되지 않게
   f0.ll.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); f0.ll.onchange(); } };
@@ -2147,6 +2136,9 @@ function openCompanyForm(cid = null) {
   setTimeout(() => { if (isNew) f1.name.focus(); }, 50);
 }
 $("#btnAddCompany").onclick = () => openCompanyForm(null);
+// 넓은 도시 목록 (GeoNames, tools/build_cities.py 로 만듦): 사업 등록 창에서 도시를 처음 찾을 때 한 번만 받음
+let cityDb = null, cityDbP = null;
+const loadCityDb = () => cityDbP || (cityDbP = fetch("assets/cities.json?v=1").then((r) => r.ok ? r.json() : null).then((d) => { cityDb = d; }).catch(() => { cityDbP = null; }));
 // 새 사업
 $("#btnAddProject").onclick = () => openProjectEdit(null);
 
@@ -2340,7 +2332,9 @@ $("#btnBulk").onclick = () => {
 청누리시스템"></textarea>
     <p class="muted small">사업명·역할을 함께 적으면 사업에 바로 연결됩니다. 같은 사업·역할에 여러 업체면 먼저 적은 업체가 대표사입니다 ('대표사' 칸에 O를 적으면 그 업체가 대표사). 이미 있는 업체는 빈 정보(사업자번호·영문명·업종·별칭)만 채웁니다. 업종을 비워두면 업체명·DART 업종코드로 자동 분류합니다. 사내 보안(DRM)으로 파일이 안 열리면 표를 복사해 붙여넣으세요.</p>
     <div class="actions left" style="margin-top:4px"><button class="btn" id="bulkPrev">미리보기</button><button class="btn primary" id="bulkRun" disabled>등록하기</button></div>
-    <div id="bulkOut" class="import-preview"></div>`);
+    <div id="bulkOut" class="import-preview"></div>
+    <div class="bulk-dart"><span class="muted small">이미 등록한 업체의 빈 사업자번호·영문명을 DART에서 한꺼번에 찾기 (명단을 처음 올린 뒤 한 번)</span><button type="button" class="btn sm" id="btnDartFill">DART 일괄 조회</button></div>`);
+  $("#btnDartFill").onclick = dartFillAll;
   $("#bulkTpl").onclick = downloadTemplate;
   $("#bulkPrev").onclick = () => bulkPreview(parseAny($("#bulkText").value));
   $("#bulkFile").addEventListener("change", async (ev) => {
@@ -2901,11 +2895,11 @@ $("#btnBizDup").onclick = () => {
     <div class="nc-list">${groups.map((g) => `<div class="srow"><span class="muted">${esc(fmtBiz(g[0].biz_no))}</span><span>${g.map((c) => `<a href="#" data-dup-open="${c.id}">${esc(c.name)}</a>`).join(" · ")}</span></div>`).join("")}</div>`);
   $$("[data-dup-open]").forEach((a) => a.onclick = (e) => { e.preventDefault(); closeModal(); openCompany(a.dataset.dupOpen); });
 };
-$("#btnDartFill").onclick = () => {
+function dartFillAll() {
   const n = state.companies.filter((c) => (c.country || "KR") === "KR" && !(c.biz_no && c.name_en)).length;
   if (!n) return toast("사업자번호와 영문명이 빈 국내 업체가 없습니다");
-  if (confirm(`DART 일괄 조회: 사업자번호나 영문명이 빈 국내 업체 ${n}개를 DART에서 한꺼번에 찾아 채울까요?\n\n이름이 DART에 1곳만 있으면 바로 채우고, 같은 이름이 여러 곳이면 [DART 동명 기업 고르기]에 모아 둡니다. 몇 분 걸립니다.`)) runWorkflow({ task: "dartfill" }, "DART 일괄 조회");
-};
+  if (confirm(`DART 일괄 조회: 사업자번호나 영문명이 빈 국내 업체 ${n}개를 DART에서 한꺼번에 찾아 채울까요?\n\n이름이 DART에 1곳만 있으면 바로 채우고, 같은 이름이 여러 곳이면 [DART 동명 기업 고르기]에 모아 둡니다. 최근 30일 안에 'DART에 없음'으로 확인한 업체는 건너뜁니다.`)) { closeModal(); runWorkflow({ task: "dartfill" }, "DART 일괄 조회"); }
+}
 $("#btnDartPick").onclick = openDartPick;
 function openDartPick() {
   const list = dartPending();
