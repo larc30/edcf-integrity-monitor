@@ -1857,3 +1857,64 @@ html.lite .radar svg.fx * { animation: none !important; } html.lite .radar .puls
 .dl-wait .spin { width: 1em; height: 1em; border-radius: 50%; border: 2px solid var(--line-2); border-top-color: var(--accent-2); animation: spin .8s linear infinite; flex: 0 0 auto; }
 @media (max-width: 760px) { .co-table { table-layout: auto; } }
 .co-table td.t-act { overflow: visible; }
+
+/* 업체명 입력란 아래 DART 후보 (적는 동안) · 버튼으로 찾은 후보 목록은 안에서 스크롤 */
+.co-sug { top: calc(100% + 2px); max-height: 18em; } .co-sug button b { flex: 0 1 auto; } .co-sug button span { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; }
+.dl-res .dl-list { max-height: 15em; overflow: auto; margin-top: .3em; }
+
+/* =====================================================================
+   버튼 · 색 정리 (2026-11-19 밤, '촌스럽지 않게 요즘 식으로')
+   방향: 번쩍이는 빛·꽉 찬 강조색을 줄이고(차분한 면 + 옅은 색 틴트), 모서리·굵기·테두리를 한 가지 규칙으로.
+   그대로 두는 것: 제목 그라데이션, 레이더, 등급 배지(위험·경고 꽉 찬 색), 화면 배치
+   ===================================================================== */
+/* 기본 버튼: 굵기 600 · 모서리 10px · 마우스를 올리면 보라 틴트 대신 한 단계 밝은 면 */
+.btn { font-weight: 600; border-radius: 10px; border-color: var(--line-2); background: color-mix(in srgb, var(--text) 4%, transparent); box-shadow: none; }
+.btn:hover { background: color-mix(in srgb, var(--text) 9%, transparent); border-color: color-mix(in srgb, var(--text) 26%, transparent); }
+.btn.sm { border-radius: 8px; }
+.btn.ghost { background: transparent; border-color: transparent; }
+.btn.ghost:hover { background: color-mix(in srgb, var(--text) 7%, transparent); border-color: transparent; }
+/* 주 버튼: 그라데이션은 유지하되 번쩍이는 그림자·지나가는 빛은 뺌 */
+.btn.primary { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), 0 2px 8px rgba(8, 12, 30, .35); border-color: transparent; }
+.btn.primary:hover { filter: brightness(1.07); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .26), 0 4px 14px rgba(8, 12, 30, .4); border-color: transparent; }
+.btn.glow::after { animation: none; display: none; }
+.btn.danger:hover { background: var(--red-bg); border-color: transparent; }
+/* 주의 버튼(DART 동명 기업 고르기 등): 주황 테두리 대신 옅은 주황 면 */
+.btn.warn { font-weight: 650; border-color: transparent; background: var(--orange-bg); color: var(--orange); }
+.btn.warn:hover { background: color-mix(in srgb, var(--orange) 24%, transparent); border-color: transparent; }
+/* 이슈 처리 버튼: 테두리 한 가지 굵기, 색은 글자와 올렸을 때만 */
+.btn.act-ok { border-color: color-mix(in srgb, var(--green) 38%, transparent); background: transparent; }
+.btn.act-no { background: transparent; }
+
+/* 관리자 모드 버튼: 켰을 때 꽉 찬 주황 + 빛 테두리 → 옅은 주황 면 + 스위치만 주황 */
+.admin-btn { font-weight: 650; color: #F5B041; border-color: rgba(245, 158, 11, .38); background: rgba(245, 158, 11, .08); }
+.admin-btn.on { color: #FBBF24; border-color: rgba(245, 158, 11, .6); background: rgba(245, 158, 11, .16); box-shadow: none; }
+.admin-btn.on .ab-sw { background: #F59E0B; }
+:root[data-theme="light"] .admin-btn, :root[data-theme="light"] .admin-btn.on { color: #B45309; }
+:root[data-theme="light"] .admin-btn.on { background: rgba(245, 158, 11, .2); }
+body.admin-on .tabs .adm.active { background: color-mix(in srgb, var(--text) 8%, transparent); box-shadow: inset 0 0 0 1px var(--line-2); }
+
+/* 상단 탭 · 범위 고르기: 굵기 통일 */
+.tabs button { font-weight: 600; }
+.sc-btn { font-weight: 650; }
+
+/* 업체 관리 보기 버튼: 알약 + 꽉 찬 색 → 모서리 10px + 고른 것만 옅은 색 면 */
+.cv-btn { font-weight: 600; border-radius: 10px; background: transparent; border-color: var(--line-2); }
+.cv-btn .n { font-weight: 700; background: color-mix(in srgb, var(--text) 8%, transparent); }
+.cv-btn.active { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 55%, transparent); color: var(--text); }
+.cv-btn.active .n { background: var(--accent); color: #fff; }
+.cv-btn.pre.active { background: var(--orange-bg); border-color: color-mix(in srgb, var(--orange) 55%, transparent); }
+.cv-btn.pre.active .n { background: var(--orange); color: #2B1400; }
+.cv-btn.risk.active { background: var(--red-bg); border-color: color-mix(in srgb, var(--red) 55%, transparent); }
+.cv-btn.risk.active .n { background: var(--red); color: #fff; }
+/* 필터 줄: 상자 안의 상자를 없앰 */
+.co-filters { background: transparent; border: 0; padding: 0; }
+
+/* 작은 표시들: 숫자 알약 · NEW · 단계 */
+.h-count { border: 0; background: color-mix(in srgb, var(--text) 8%, transparent); font-weight: 650; }
+.new-pill { background: var(--accent-soft); color: var(--accent); font-weight: 750; letter-spacing: .04em; animation: none; box-shadow: none; }
+:root:not([data-theme="light"]) .new-pill { color: #AEB3FF; }
+.stage { border-color: transparent; background: var(--orange-bg); font-weight: 650; }
+.stage-sel.on { font-weight: 650; }
+
+/* 입력란: 초점 표시를 가늘게 */
+input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent); }

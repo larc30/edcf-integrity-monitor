@@ -82,7 +82,7 @@ def names_by_code() -> dict:
 
 
 def search_by_name(name: str, limit: int = 8) -> list[tuple[list, bool]]:
-    """업체 추가 창의 찾기용: 정확히 같은 이름 먼저 → 그 이름으로 시작 → 이름에 포함(3자 이상). [(기업, 정확 일치 여부)]
+    """업체 추가 창의 찾기용: 정확히 같은 이름 먼저 → 이름에 그 글자가 든 곳(상장사 → 짧은 이름 순). [(기업, 정확 일치 여부)]
     functions/index.js searchMaster 와 같게. 자동 채움(dart_fill·스캔)은 여전히 match_by_name(정확 일치)만 씀."""
     target = norm(name)
     if len(target) < 2:
@@ -90,8 +90,8 @@ def search_by_name(name: str, limit: int = 8) -> list[tuple[list, bool]]:
     m = load_master()
     out = [(r, True) for r in m.get(target, [])[:limit]]
     if len(out) < limit:
-        part = [(k, r) for k, rows in m.items() if k != target and (k.startswith(target) or (len(target) >= 3 and target in k)) for r in rows]
-        part.sort(key=lambda x: (not (x[1][3] or "").strip(), not x[0].startswith(target), len(x[0])))
+        part = [(k, r) for k, rows in m.items() if k != target and target in k for r in rows]
+        part.sort(key=lambda x: (not (x[1][3] or "").strip(), len(x[0]), not x[0].startswith(target)))
         out += [(r, False) for _, r in part[:limit - len(out)]]
     return out
 

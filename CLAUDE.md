@@ -94,6 +94,10 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
 - DART 찾기 2차(2026-11-19 밤, 사용자 '배포했는데도 오래 걸림·이름이 같아야만 찾나'): ① 화면이 함수 dartFind(onCall, asia-northeast3)를 직접 부름(app.js dartCall, 로그인 토큰 · 등록 계정만) → 안 되면 요청 문서 길(kickQueue) → 그것도 안 되면 GitHub. 업체 추가 창을 열 때 {warm:true}로 미리 깨움(기업목록을 받아 둠). 결과에 걸린 시간(ms) 표시. ② 비슷한 이름도 찾음: 정확히 같은 이름 → 그 이름으로 시작 → 포함(3자 이상), 상장사·짧은 이름 먼저, 8곳까지(functions searchMaster ↔ dart.search_by_name). 바로 채우는 것은 사업자번호가 같거나 정확 일치가 1곳일 때만, 나머지는 목록에서 고름(exact=false 는 '비슷한 이름' 표시). 자동 채움(dart_fill·스캔)은 여전히 정확 일치만. 함수 재배포 필요.
 
+- DART 찾기 3차(2026-11-19 밤, '여전히 안 빠름 · 롯데로 찾으면 호텔롯데가 안 나옴'): 업체명을 적는 동안 후보를 바로 보여 줌(dartFind {q, limit 30} = 이름 목록만, 상세 조회 없음 → 고르면 {code} 로 그 한 곳만 company.json). 찾기 순서 = 정확 일치 → 그 글자가 든 곳(앞·뒤 모두, 2자부터) 중 상장사 → 짧은 이름 순. 버튼도 같은 방식(직접 적은 사업자번호가 있을 때만 예전 번호 대조 방식 8곳). 함수에 못 닿으면(dartOk=false) 버튼의 예전 길만. 점검용 window.__dartMock. 함수 재배포 필요.
+
+- 버튼·색 정리(2026-11-19 밤, style.css 맨 아래 '버튼 · 색 정리' 블록): 번쩍이는 그림자·지나가는 빛·꽉 찬 강조색을 빼고 옅은 색 면(틴트)으로. 버튼 굵기 600·모서리 10px, 관리자 모드 버튼은 옅은 주황 면(스위치만 주황), 업체 관리 보기 버튼은 알약 대신 모서리 10px + 고른 것만 틴트, 주의 버튼·단계 표시는 주황 테두리 대신 주황 면, NEW 는 깜빡임 없는 틴트, 필터 줄의 겹 상자 없앰. 그대로 둔 것: 제목 그라데이션·레이더·등급 배지·화면 배치.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 
