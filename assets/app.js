@@ -437,6 +437,10 @@ function hash(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.cha
 const polar = (deg, r) => { const rad = (deg * Math.PI) / 180; return [50 + (Math.sin(rad) * r) / 2, 50 - (Math.cos(rad) * r) / 2]; };
 const BANDS = { red: [8, 25], orange: [38, 56], none: [68, 86], pending: [68, 86] };
 const RADAR_MAX = 80; // 점이 너무 많으면 읽기 어려워서: 등급 높은 순으로
+// 레이더 꾸밈 (2026-11-19 사용자 선택 '유리 돔'): 바깥에서 도는 궤도 고리 · 위험 원에서 퍼지는 파동 · 유리 반사광
+const RADAR_FX = `<svg class="grid fx" viewBox="0 0 200 200" aria-hidden="true">
+      <circle class="orbit o1" cx="100" cy="100" r="103.2"/><circle class="orbit o2" cx="100" cy="100" r="106.6"/>
+      <circle class="pulse p1" cx="100" cy="100" r="31"/><circle class="pulse p2" cx="100" cy="100" r="31"/></svg><div class="radar-glass"></div>`;
 function renderRadar(cs) {
   const el = $("#radar"), sc = scanned();
   const n = { red: 0, orange: 0, yellow: 0, none: 0 };
@@ -480,7 +484,7 @@ function renderRadar(cs) {
       <line class="axis" x1="100" y1="10" x2="100" y2="190"/><line class="axis" x1="10" y1="100" x2="190" y2="100"/>
       <line class="axis diag" x1="36.4" y1="36.4" x2="163.6" y2="163.6"/><line class="axis diag" x1="163.6" y1="36.4" x2="36.4" y2="163.6"/>
     </svg>
-    <div class="sweep"></div><div class="radar-core"></div>
+    ${RADAR_FX}<div class="sweep"></div><div class="radar-core"></div>
     <svg class="grid labels" viewBox="0 0 200 200" aria-hidden="true">${t("none", 20, "정상")}${t("orange", 50, "경고")}${t("red", 81, "위험")}</svg>
     ${dots}<div class="radar-tip hidden" id="radarTip"></div>`;
   const tip = $("#radarTip");
@@ -1385,7 +1389,7 @@ async function dartLookup(name, biz = "") {
   if (ghToken() && !(await pingRelay())) { try { await gh("/actions/workflows/monitor.yml/dispatches", { method: "POST", body: JSON.stringify({ ref: "main", inputs: { task: "queue", companies: "", test_to: "" } }) }); } catch {} }
   const t0 = Date.now();
   while (Date.now() - t0 < 10 * 60e3) {
-    await new Promise((res) => setTimeout(res, 4000));
+    await new Promise((res) => setTimeout(res, Date.now() - t0 < 30e3 ? 1000 : 4000)); // 즉시 실행 함수가 있으면 몇 초 안에 답이 옴
     if (!document.getElementById("dlRes")) return null;
     const d = await getDoc(doc(db, "requests", id));
     const r = d.exists() ? d.data() : null;
@@ -2060,7 +2064,8 @@ function openCompanyForm(cid = null) {
     if (nameProblem(name)) return toast(nameProblem(name), 5000);
     if (dlBusy) return;
     dlBusy = true; $("#dlBtn").disabled = true; box.classList.remove("hidden");
-    box.innerHTML = `DART에서 '${esc(name)}'을(를) 찾는 중입니다. 보통 1~2분 걸립니다 (늦으면 5분). 기다리는 동안 다른 칸을 적어도 됩니다.`;
+    box.innerHTML = `<span class="dl-wait"><i class="spin"></i>DART에서 '${esc(name)}'을(를) 찾는 중입니다</span>`;
+    const slow = setTimeout(() => { const w = box.querySelector(".dl-wait"); if (w) w.insertAdjacentHTML("beforeend", ` <span class="muted">조금 더 걸리고 있습니다 (늦으면 1~2분). 다른 칸을 먼저 적어도 됩니다</span>`); }, 12e3);
     try {
       const r = await dartLookup(name, biz.length === 10 ? biz : "");
       if (!r) return;
@@ -2072,7 +2077,7 @@ function openCompanyForm(cid = null) {
         $$("input[name=dl-pick]", box).forEach((x) => x.onchange = () => fillFrom(cands[+x.value]));
       }
     } catch (e) { if (box.isConnected) box.innerHTML = `DART에서 찾지 못했습니다: ${esc(e.message || e)}. 직접 적어서 ${isNew ? "추가" : "저장"}해도 됩니다.`; }
-    finally { dlBusy = false; const b = $("#dlBtn"); if (b) b.disabled = false; }
+    finally { clearTimeout(slow); dlBusy = false; const b = $("#dlBtn"); if (b) b.disabled = false; }
   };
   $("#coIssues")?.addEventListener("click", () => { closeModal(); openCompany(cid); });
   $("#coDel")?.addEventListener("click", async () => { closeModal(); await deleteCompanies([cid]); });
@@ -2317,23 +2322,22 @@ function bulkPreview(p) {
 $("#btnBulk").onclick = () => {
   parsed = null;
   modal(`<h2>업체 일괄 등록</h2>
-    <div class="steps-mini">
-      <div><b>STEP 1</b>양식 내려받기 (엑셀 파일)</div>
-      <div><b>STEP 2</b>한 줄에 업체 한 곳씩, 업체명·사업자번호·대표자·영문명 채우기</div>
-      <div><b>STEP 3</b>파일을 올리거나 표를 복사해 붙여넣기</div>
-    </div>
-    <div class="add-row"><button class="btn" id="bulkTpl">양식 내려받기</button><label class="btn primary">엑셀·CSV 파일 올리기<input type="file" id="bulkFile" accept=".xlsx,.xls,.csv" hidden></label></div>
-    <textarea id="bulkText" placeholder="엑셀 표를 그대로 복사해 붙여넣거나(제목 줄 포함), 아래처럼 입력하세요. 예시는 가상 데이터입니다.
-
-케냐 스마트시티 구축사업 | 컨설턴트 | 서마루엔지니어링
- | 본구매 | 도레온건설(1순위)
-
-휘담기술
-청누리시스템"></textarea>
-    <p class="muted small">사업명·역할을 함께 적으면 사업에 바로 연결됩니다. 같은 사업·역할에 여러 업체면 먼저 적은 업체가 대표사입니다 ('대표사' 칸에 O를 적으면 그 업체가 대표사). 이미 있는 업체는 빈 정보(사업자번호·영문명·업종·별칭)만 채웁니다. 업종을 비워두면 업체명·DART 업종코드로 자동 분류합니다. 사내 보안(DRM)으로 파일이 안 열리면 표를 복사해 붙여넣으세요.</p>
-    <div class="actions left" style="margin-top:4px"><button class="btn" id="bulkPrev">미리보기</button><button class="btn primary" id="bulkRun" disabled>등록하기</button></div>
+    <p class="muted small">양식에 한 줄에 업체 한 곳씩 채워서 올리면 됩니다. 사업명·역할을 함께 적으면 사업에 바로 연결됩니다.</p>
+    <div class="add-row"><button class="btn" id="bulkTpl">① 양식 내려받기</button><label class="btn primary">② 채운 파일 올리기<input type="file" id="bulkFile" accept=".xlsx,.xls,.csv" hidden></label></div>
+    <details class="bulk-more"><summary>파일이 안 열리면 표를 복사해 붙여넣기</summary>
+      <textarea id="bulkText" placeholder="엑셀 표를 제목 줄까지 그대로 복사해 붙여넣으세요"></textarea>
+      <div class="actions left"><button type="button" class="btn sm" id="bulkPrev">붙여넣은 내용 확인</button></div>
+    </details>
     <div id="bulkOut" class="import-preview"></div>
-    <div class="bulk-dart"><span class="muted small">이미 등록한 업체의 빈 사업자번호·영문명을 DART에서 한꺼번에 찾기 (명단을 처음 올린 뒤 한 번)</span><button type="button" class="btn sm" id="btnDartFill">DART 일괄 조회</button></div>`);
+    <div class="actions"><button class="btn primary" id="bulkRun" disabled>등록하기</button></div>
+    <details class="bulk-more"><summary>도움말 · DART 일괄 조회</summary>
+      <ul class="bulk-help">
+        <li>같은 사업·역할에 업체가 여럿이면 먼저 적은 업체가 대표사입니다 ('대표사' 칸에 O를 적으면 그 업체)</li>
+        <li>이미 있는 업체는 빈 정보만 채웁니다. 업종을 비워 두면 자동으로 분류합니다</li>
+        <li>사내 보안(DRM)으로 파일이 안 열리면 표를 복사해 붙여넣으세요</li>
+      </ul>
+      <div class="bulk-dart"><span class="muted small">이미 등록한 업체의 빈 사업자번호·영문명을 DART에서 한꺼번에 찾기</span><button type="button" class="btn sm" id="btnDartFill">DART 일괄 조회</button></div>
+    </details>`);
   $("#btnDartFill").onclick = dartFillAll;
   $("#bulkTpl").onclick = downloadTemplate;
   $("#bulkPrev").onclick = () => bulkPreview(parseAny($("#bulkText").value));

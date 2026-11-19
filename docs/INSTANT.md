@@ -44,3 +44,22 @@
   ```bash
   firebase functions:delete kickQueue --project edcf-monitor
   ```
+
+## DART 바로 찾기 붙이기 (2026-11-19 추가)
+업체 추가 창의 [DART에서 가져오기]가 GitHub 를 거치지 않고 이 함수에서 바로 DART 에 물어, 1~2분 걸리던 것이 몇 초로 줄어듭니다.
+이미 함수를 붙여 둔 PC 에서 아래 세 가지만 하면 됩니다. 가짜 응답으로만 점검한 코드라, 붙인 뒤 꼭 확인하세요.
+
+1. 저장소 폴더를 최신으로 받은 뒤
+   ```bash
+   cd functions
+   ```
+2. DART 인증키 등록 (GitHub Secrets 의 DART_API_KEY 와 같은 값을 붙여 넣습니다. 화면에 보이지 않습니다)
+   ```bash
+   firebase functions:secrets:set DART_API_KEY --project edcf-monitor
+   ```
+3. 다시 배포
+   ```bash
+   firebase deploy --only functions --project edcf-monitor
+   ```
+4. 확인: 업체 추가 창에서 업체명을 넣고 [DART에서 가져오기]를 눌러 몇 초 안에 채워지는지 봅니다.
+   처음 한 번은 DART 기업목록을 받느라 10초쯤 걸릴 수 있습니다. 함수가 실패하면 예전처럼 GitHub 로 넘어가 1~2분 뒤에 채워집니다.

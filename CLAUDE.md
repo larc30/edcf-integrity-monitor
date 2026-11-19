@@ -88,6 +88,10 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 레이아웃(2026-11-19): 업체 관리 표의 '영문명 ✓' 열 → '대표자' 열. [DART 일괄 조회]는 [일괄 등록] 창 아래로 옮김. 업체 리스크 오른쪽 사업 목록은 사업이 적으면 내용 높이까지만(.d-projects.fit, 많으면 예전처럼 이슈 목록 끝까지). 수원국 이벤트 요약은 한 줄씩 카드 높이를 채움. 오른쪽 창의 식별 정보 입력 칸은 읽기 전용 요약 + [정보 수정](수정은 업체 정보 팝업 한 곳).
 - 사업자번호 → 공식 상호 무료 API 는 없음(국세청은 상태만, 금융위 기업기본정보는 이름·법인등록번호로만 조회: 활용신청 후 확인 필요).
 
+- 디자인 결정(2026-11-19 저녁): 레이더는 '유리 돔'(app.js RADAR_FX: 바깥 궤도 고리 · 위험 원 파동 · 유리 반사광 · 밝은 스윕 날, 가벼운 모드에서는 움직임 끔). 소나 HUD 시안(B)은 안 씀. 다크 바탕은 예전(#060912)과 밝은 시안의 중간(#0B101C, 카드 #141B2F): style.css 맨 아래 블록.
+- 일괄 등록 창은 간단하게: ① 양식 내려받기 ② 채운 파일 올리기 + [등록하기], 붙여넣기·도움말·DART 일괄 조회는 접힌 칸. 업체 관리 표는 열 폭 고정 비율(table-layout: fixed).
+- DART 바로 찾기(functions/index.js): requests 의 task dartlookup 은 함수가 직접 DART 에 물어 결과를 문서에 적음(handled_by 'function', 실패하면 예전처럼 queue 디스패치). 기업목록 zip 은 함수 메모리에 하루 보관. Secret DART_API_KEY 등록 + 재배포 필요(docs/INSTANT.md 맨 아래). 화면은 처음 30초 동안 1초마다 확인. 가짜 응답으로만 점검함(실제 배포 확인은 사용자).
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 

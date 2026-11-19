@@ -1800,3 +1800,60 @@ body:not(.role-super) .set-grid { grid-template-columns: minmax(0, 1fr); }
 .d-sec-head #dEdit { margin-left: auto; }
 .bulk-dart { display: flex; align-items: center; justify-content: space-between; gap: 1em; margin-top: 1em; padding-top: .9em; border-top: 1px dashed var(--line-2); }
 .co-table .t-ceo { white-space: nowrap; }
+
+/* ===== 2026-11-19 사용자 결정: 레이더 '유리 돔' · 다크는 예전과 밝은 시안의 중간 ===== */
+:root, :root[data-theme="dark"] {
+  --bg: #0B101C; --bg-2: #101627;
+  --panel: rgba(20, 27, 47, .95); --panel-solid: #141B2F; --panel-2: rgba(255, 255, 255, .043);
+  --line: rgba(148, 163, 184, .16); --line-2: rgba(148, 163, 184, .28);
+  --muted: #838DA6; --text-2: #BAC2D3;
+  --shadow: 0 9px 34px rgba(0, 0, 0, .3);
+}
+.radar svg.fx { pointer-events: none; }
+.radar svg.fx * { fill: none; transform-box: view-box; transform-origin: 100px 100px; }
+@keyframes fxSpin { to { transform: rotate(360deg); } }
+@keyframes fxSpinR { to { transform: rotate(-360deg); } }
+@keyframes fxPulse { 0% { transform: scale(.55); opacity: 0; } 18% { opacity: .55; } 100% { transform: scale(2.05); opacity: 0; } }
+.radar { filter: drop-shadow(0 18px 30px rgba(0, 0, 0, .4)); }
+.radar .orbit { stroke: var(--accent-2); stroke-linecap: round; }
+.radar .orbit.o1 { stroke-width: .7; stroke-dasharray: .6 5.2; opacity: .75; animation: fxSpin 60s linear infinite; }
+.radar .orbit.o2 { stroke-width: 1.3; stroke-dasharray: 78 90 26 141; opacity: .8; stroke: url(#rgBezel); animation: fxSpinR 26s linear infinite; }
+.radar .pulse { stroke: var(--red); stroke-width: .9; opacity: 0; animation: fxPulse 3.6s ease-out infinite; }
+.radar .pulse.p2 { animation-delay: 1.8s; }
+.radar-glass { position: absolute; inset: 1.2%; border-radius: 50%; pointer-events: none; z-index: 1;
+  background:
+    radial-gradient(ellipse 62% 38% at 34% 14%, rgba(255, 255, 255, .20), rgba(255, 255, 255, .05) 55%, transparent 72%),
+    radial-gradient(ellipse 70% 30% at 62% 96%, color-mix(in srgb, var(--accent-2) 26%, transparent), transparent 70%),
+    radial-gradient(circle at 50% 50%, transparent 58%, rgba(2, 6, 16, .42) 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .10), inset 0 14px 30px rgba(255, 255, 255, .05), inset 0 -18px 34px rgba(0, 0, 0, .38); }
+.sweep { background: conic-gradient(from 0deg, transparent 0deg, transparent 250deg, color-mix(in srgb, var(--accent-2) 8%, transparent) 300deg, color-mix(in srgb, var(--accent-2) 42%, transparent) 356deg, #E6FDFF 359.4deg, transparent 360deg); }
+.radar-core { width: 14px; height: 14px; margin: -7px 0 0 -7px; background: radial-gradient(circle, #fff 0 28%, var(--accent-2) 34% 100%); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-2) 22%, transparent), 0 0 22px var(--accent-2); }
+.rdot.red, .rdot.orange { background: radial-gradient(circle at 34% 30%, #fff 0 12%, currentColor 46%); }
+.rlabel { background: color-mix(in srgb, var(--panel-solid) 82%, transparent); box-shadow: 0 4px 14px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .08); }
+/* 밝은 화면: 반사광·그림자를 옅게 */
+:root[data-theme="light"] .radar { filter: drop-shadow(0 12px 22px rgba(15, 23, 42, .16)); }
+:root[data-theme="light"] .radar-glass { background: radial-gradient(ellipse 62% 38% at 34% 14%, rgba(255, 255, 255, .55), rgba(255, 255, 255, .12) 55%, transparent 72%); box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .06); }
+:root[data-theme="light"] .sweep { background: conic-gradient(from 0deg, transparent 0deg, transparent 260deg, color-mix(in srgb, var(--accent-2) 12%, transparent) 310deg, color-mix(in srgb, var(--accent-2) 55%, transparent) 359deg, transparent 360deg); }
+:root[data-theme="light"] .rlabel { box-shadow: 0 2px 8px rgba(15, 23, 42, .12); }
+/* 가벼운 모드: 고리·파동 움직임과 그림자 끔 */
+html.lite .radar svg.fx * { animation: none !important; } html.lite .radar .pulse { display: none; } html.lite .radar { filter: none; }
+
+/* 업체 관리 표: 열 폭 비율 (대표자 열이 남는 폭을 다 차지하지 않게, 참여 사업이 넓게) */
+.co-table { table-layout: fixed; }
+.co-table th:nth-child(2) { width: 21%; } .co-table th:nth-child(3) { width: 13%; } .co-table th:nth-child(4) { width: auto; }
+.co-table th:nth-child(5) { width: 6.5em; } .co-table th:nth-child(6) { width: 5em; } .co-table th:nth-child(7) { width: 9.5em; } .co-table th:nth-child(8) { width: 7.5em; }
+.co-table th.t-act { width: 44px; }
+.co-table td { overflow: hidden; text-overflow: ellipsis; } .co-table .t-name { min-width: 0; } .co-table .t-proj { min-width: 0; } .co-table .t-name .sub { max-width: 100%; }
+.co-table .t-cat { white-space: normal; } .co-table .ej { max-width: 100%; }
+.co-table th:nth-child(5), .co-table th:nth-child(6) { text-align: center; }
+
+/* 일괄 등록 창: 접힌 칸 · DART 찾는 중 표시 */
+.bulk-more { margin-top: .9em; border-top: 1px dashed var(--line-2); padding-top: .7em; }
+.bulk-more > summary { cursor: pointer; font-size: var(--fs-sm); color: var(--text-2); font-weight: 600; }
+.bulk-more textarea { width: 100%; min-height: 7em; margin-top: .7em; }
+.bulk-help { margin: .7em 0 0; padding-left: 1.2em; font-size: var(--fs-sm); color: var(--text-2); line-height: 1.6; word-break: keep-all; }
+.bulk-more .bulk-dart { border-top: 0; padding-top: 0; margin-top: .8em; }
+.dl-wait { display: inline-flex; align-items: center; gap: .5em; flex-wrap: wrap; }
+.dl-wait .spin { width: 1em; height: 1em; border-radius: 50%; border: 2px solid var(--line-2); border-top-color: var(--accent-2); animation: spin .8s linear infinite; flex: 0 0 auto; }
+@media (max-width: 760px) { .co-table { table-layout: auto; } }
+.co-table td.t-act { overflow: visible; }
