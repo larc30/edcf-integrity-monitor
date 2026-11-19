@@ -238,8 +238,13 @@ def fetch_quakes(tg, get=httpx.get) -> list[dict]:
         if lat is None or lng is None or p.get("mag") is None or float(p["mag"]) < QUAKE_MIN:
             continue
         d, code = min((_km((lat, lng), ll), c) for ll, c in tg)
-        if d > QUAKE_KM:
-            continue
+        far = d > QUAKE_KM
+        if far:
+            # 태풍은 '마지막 위치' 한 점으로만 와서 지나온 나라가 멀어 보임 → GDACS 가 적은 영향 국가에 사업 나라가 있으면 참고로 남김 (거리 규칙·등급에는 안 넣음)
+            hit = [a.get("iso2") for a in (p.get("affectedcountries") or []) if isinstance(a, dict)]
+            code = next((c for c in hit if c in codes), None)
+            if not code:
+                continue
         out.append({"id": f"usgs-{f.get('id')}", "type": "quake", "country": code, "lat": round(lat, 3), "lng": round(lng, 3),
                     "mag": round(float(p["mag"]), 1), "title": f"규모 {float(p['mag']):.1f} 지진 · {p.get('place') or ''}".strip(),
                     "url": p.get("url") or "", "at_ms": int(p.get("time") or 0), "source": "USGS", "dist_km": round(d),
@@ -266,6 +271,7 @@ def fetch_gdacs(tg, get=httpx.get) -> list[dict]:
     if not tg:
         return []
     now = datetime.now(timezone.utc)
+    codes = {c for _, c in tg}
     r = get(GDACS_URL, params={"eventlist": ";".join(GDACS_TYPE), "alertlevel": "orange;red",
                                "fromdate": (now - timedelta(days=GDACS_DAYS * 3)).strftime("%Y-%m-%d"), "todate": now.strftime("%Y-%m-%d")}, timeout=40)
     r.raise_for_status()
@@ -281,14 +287,19 @@ def fetch_gdacs(tg, get=httpx.get) -> list[dict]:
         if at < (now - timedelta(days=GDACS_DAYS)).timestamp() * 1000:  # 오래전에 시작했어도 최근까지 이어진 사건은 남김
             continue
         d, code = min((_km((lat, lng), ll), c) for ll, c in tg)
-        if d > QUAKE_KM:
-            continue
+        far = d > QUAKE_KM
+        if far:
+            # 태풍은 '마지막 위치' 한 점으로만 와서 지나온 나라가 멀어 보임 → GDACS 가 적은 영향 국가에 사업 나라가 있으면 참고로 남김 (거리 규칙·등급에는 안 넣음)
+            hit = [a.get("iso2") for a in (p.get("affectedcountries") or []) if isinstance(a, dict)]
+            code = next((c for c in hit if c in codes), None)
+            if not code:
+                continue
         sev = p.get("severitydata") if isinstance(p.get("severitydata"), dict) else {}
         url = (p.get("url") or {}).get("report", "") if isinstance(p.get("url"), dict) else ""
         out.append({"id": f"gdacs-{p.get('eventtype')}-{p.get('eventid')}", "type": kind, "country": code, "lat": round(lat, 3), "lng": round(lng, 3),
-                    "title": " ".join(f"GDACS {GDACS_KO[lvl]} 경보 · {p.get('name') or p.get('eventname') or ''}".split())[:140],
+                    "title": " ".join(f"GDACS {GDACS_KO[lvl]} 경보 · {p.get('name') or p.get('eventname') or ''}{' (영향 국가 기준)' if far else ''}".split())[:140],
                     "note": str(sev.get("severitytext") or "")[:120], "url": url, "at_ms": at,
-                    "source": "GDACS", "gdacs": lvl, "dist_km": round(d)})
+                    "source": "GDACS", "gdacs": lvl, "dist_km": round(d), **({"country_level": True} if far else {})})
     return out
 
 

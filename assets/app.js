@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch, increment,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO, SUPER_ADMIN, SUPER_ADMINS, TEAMS } from "./firebase-config.js?v=33";
-import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=59";
+import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=60";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -795,9 +795,9 @@ function findingHtml(g, showCompany = true) {
         ${f.status && f.status !== "new" ? `<button class="btn sm ghost" data-act="new">되돌리기</button>` : ""}
       </span>
     </div>
-    <div class="item-summary">${esc(f.summary || f.title)}</div>
+    <div class="item-summary"${why ? ` title="${esc(why)}"` : ""}>${esc(f.summary || f.title)}</div>
     <div class="item-meta">
-      <span class="src">${esc(f.source_name || "-")} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}${altSearch(f)}${why ? ` · <span class="why" title="${esc(why)}">근거</span>` : ""}</span>
+      <span class="src">${esc(f.source_name || "-")} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}${altSearch(f)}</span>
       <span class="item-age">${g.newest ? relTime(g.newest) : ""}</span>
     </div>
     ${more.length ? `<details class="dup"><summary>같은 내용 ${more.length}건 더${srcs.length ? ` <span class="dup-src">${esc(srcs.slice(0, 3).join(" · "))}${srcs.length > 3 ? " 외" : ""}</span>` : ""}</summary>
@@ -873,44 +873,38 @@ function pickDismissReason(n) {
 // 원문 주소가 Google 뉴스를 거치는 기사: 회사 Google 계정에서 Google 뉴스가 막혀 있으면 안 열림 → 제목으로 찾는 링크를 같이 둠
 const viaGoogle = (f) => /(^|\/\/)news\.google\.com\//.test(String(f.url || ""));
 const altSearch = (f) => f.source_type === "news" && viaGoogle(f) && f.title ? ` · <a href="https://search.naver.com/search.naver?where=news&query=${encodeURIComponent(String(f.title).slice(0, 60))}" target="_blank" rel="noopener" title="원문이 열리지 않을 때: 기사 제목으로 네이버 뉴스에서 찾기">기사 검색 ↗</a>` : "";
-// ---------- 판단 가이드 (초안: 4개 팀 공통 기준 검토용) ----------
+// ---------- 판단 가이드 (4개 팀 공통 기준) ----------
 const GUIDE_HTML = `
 <div class="gd">
-  <p class="gd-lead">누가 처리해도 같은 결과가 나오도록 정한 <b>공통 기준</b>입니다. 애매하면 <b>확인 완료</b>로 두고 메모를 남깁니다. 관련 없음은 등급에서 빠지므로 확실할 때만 씁니다.</p>
+  <p class="gd-lead">누가 처리해도 같은 결과가 나오도록 정한 공통 기준입니다. 애매하면 <b>확인 완료</b>로 두고, <b>관련 없음</b>은 확실할 때만 씁니다.</p>
 
   <section class="gd-s"><h3><span class="gd-n">1</span>업체 등급</h3>
   <div class="gd-lv">
-    <div class="gd-l red"><span class="badge red">위험</span><b>지금 유효한 제재</b><p>입찰참가자격 제한(부정당업자) · MDB 제재 · 영업정지 · 등록말소 · EXIMIIS '등록'. 확정된 처분은 시작일 전이어도 위험</p></div>
-    <div class="gd-l orange"><span class="badge orange">경고</span><b>제재로 이어질 수 있는 진행 중 사안</b><p>수사 · 압수수색 · 기소 · 과징금 · 처분 예고 · 부도 · 회생 · 법원 집행정지로 멈춘 제재</p></div>
-    <div class="gd-l none"><span class="badge none">정상</span><b>그 밖</b><p>회색 '참고'는 등급이 아닌 참고 이력 (계열사 사건, 끝난 과거 처분 등)</p></div>
+    <div class="gd-l red"><span class="badge red">위험</span><b>지금 유효한 제재</b><p>입찰참가자격 제한 · MDB 제재 · 영업정지 · 등록말소 · EXIMIIS 등록</p></div>
+    <div class="gd-l orange"><span class="badge orange">경고</span><b>제재로 이어질 수 있는 진행 중 사안</b><p>수사 · 기소 · 과징금 · 처분 예고 · 부도 · 회생 · 집행정지</p></div>
+    <div class="gd-l none"><span class="badge none">정상</span><b>그 밖</b><p>회색 '참고'는 등급에 들지 않는 이력</p></div>
   </div></section>
 
   <section class="gd-s"><h3><span class="gd-n">2</span>이슈 처리 버튼</h3>
   <div class="gd-btns">
-    <div class="gd-b ok"><b>✓ 확인 완료</b><p><em>이 업체 이야기가 맞음.</em> 등급은 그대로, 목록에서 내려감. 같은 사건 후속 기사는 자동으로 확인 완료 (등급이 오르면 다시 알림)</p></div>
-    <div class="gd-b no"><b>✕ 관련 없음</b><p><em>이 업체 이야기가 아님.</em> 등급에서 빠짐. 이유를 꼭 고름. 같은 사건 후속 기사도 자동으로 관련 없음</p></div>
-    <div class="gd-b"><b>되돌리기</b><p>잘못 눌렀을 때. 따라 처리된 같은 사건 기사도 함께 풀리고, AI 예시에서도 다음 스캔부터 빠짐</p></div>
-  </div></section>
+    <div class="gd-b ok"><b>✓ 확인 완료</b><p><em>이 업체 이야기가 맞음.</em> 등급은 그대로 두고 목록에서 내림</p></div>
+    <div class="gd-b no"><b>✕ 관련 없음</b><p><em>이 업체 이야기가 아님.</em> 등급에서 빠짐. 이유를 고름</p></div>
+    <div class="gd-b"><b>되돌리기</b><p>잘못 눌렀을 때. 처리 전 상태로 돌아감</p></div>
+  </div>
+  <p class="gd-note">같은 사건의 후속 기사는 처리한 대로 자동으로 따라가고, 등급이 오르면 다시 알립니다.</p></section>
 
   <section class="gd-s"><h3><span class="gd-n">3</span>관련 없음 이유</h3>
   <div class="gd-rs">${DISMISS_REASONS.map(([, l, d]) => `<div><b>${l}</b><p>${d}</p></div>`).join("")}</div></section>
 
   <section class="gd-s"><h3><span class="gd-n">4</span>자주 헷갈리는 경우</h3>
   <div class="gd-qa">
-    <div><b>계열사 · 모회사 사건</b><p>처분 대상 법인이 다르면 <span class="no">관련 없음 (다른 법인)</span>, 같은 법인이면 <span class="ok">확인 완료</span></p></div>
-    <div><b>공동수급 (컨소시엄)</b><p>처분 대상에 이 업체 이름이 있으면 <span class="ok">확인 완료</span>, 다른 구성원만이면 <span class="no">관련 없음 (단순 언급)</span></p></div>
-    <div><b>끝난 과거 처분</b><p>기간이 끝났고 새 내용이 없으면 <span class="no">관련 없음 (과거 일)</span>, 기간 중이면 <span class="ok">확인 완료</span></p></div>
-    <div><b>집행정지</b><p>집행정지 기사 · 조달청 '제재정지'는 <span class="ok">확인 완료</span> (경고 유지). 판결 기사가 나오면 다시 확인</p></div>
-    <div><b>해외 지사 · 현지 법인</b><p>별도 법인이면 <span class="no">관련 없음 (다른 법인)</span>, 본사가 대상이면 <span class="ok">확인 완료</span></p></div>
-    <div><b>대표자 개인 사건</b><p>회사가 대상이 아니면 <span class="no">관련 없음 (단순 언급)</span>, 회사도 대상이면 <span class="ok">확인 완료</span></p></div>
-    <div class="wide"><b>공식 명단 (조달청 · MDB · EXIMIIS)</b><p>버튼보다 원 출처 확인이 먼저. 같은 회사면 <span class="ok">확인 완료</span>, 이름만 비슷하면 <span class="no">관련 없음 (동명이인)</span></p></div>
+    <div><b>계열사 · 모회사 · 현지 법인</b><p>처분 대상이 다른 법인이면 <span class="no">관련 없음</span>, 같은 법인이면 <span class="ok">확인 완료</span></p></div>
+    <div><b>공동수급 (컨소시엄)</b><p>처분 대상에 이 업체가 있으면 <span class="ok">확인 완료</span>, 다른 구성원만이면 <span class="no">관련 없음</span></p></div>
+    <div><b>끝난 과거 처분</b><p>기간이 끝났고 새 내용이 없으면 <span class="no">관련 없음</span>, 기간 중이면 <span class="ok">확인 완료</span></p></div>
+    <div><b>집행정지</b><p><span class="ok">확인 완료</span> (경고 유지). 판결이 나오면 다시 확인</p></div>
+    <div><b>대표자 개인 사건</b><p>회사가 대상이 아니면 <span class="no">관련 없음</span>, 회사도 대상이면 <span class="ok">확인 완료</span></p></div>
+    <div><b>공식 명단 (조달청 · MDB · EXIMIIS)</b><p>원 출처를 먼저 확인. 같은 회사면 <span class="ok">확인 완료</span>, 이름만 비슷하면 <span class="no">관련 없음</span></p></div>
   </div></section>
-
-  <div class="gd-2">
-    <section class="gd-s"><h3><span class="gd-n">5</span>수원국 리스크</h3><p>사업지 기준 자동 판단 (처리 버튼 없음). <b>위험</b>: 여행경보 3·4단계, 예상 진도 6+ 지진, 50km 안 테러·분쟁, GDACS 빨강 / <b>경고</b>: 여행경보 2단계, 진도 5, 200km 안 테러·분쟁, GDACS 주황, WHO 감염병 발표</p></section>
-    <section class="gd-s"><h3><span class="gd-n">6</span>권한</h3><p>팀원은 자기 팀 사업 참여 업체의 이슈만 처리. 사업 등록 · 업체 연결은 팀 관리자, 계정 · 설정은 슈퍼관리자</p></section>
-  </div>
-  <p class="gd-foot">초안 (2026-11-18) · 4개 팀(정보통신 · 수자원에너지 · 교통 · 보건) 검토 후 확정</p>
 </div>`;
 const GUIDE_PRINT_CSS = `body{font-family:'Pretendard','Malgun Gothic',sans-serif;color:#0B1220;margin:12mm;font-size:12px;line-height:1.55;word-break:keep-all}h1{font-size:19px;margin:0 0 4px}
 .gd-lead{background:#EEF0FE;border-left:4px solid #5B5BF0;border-radius:8px;padding:8px 12px}.gd-s{margin-top:14px;break-inside:avoid}.gd-s h3{font-size:14px;margin:0 0 7px;padding-bottom:5px;border-bottom:2px solid #0B1220;display:flex;gap:7px;align-items:center}
@@ -919,17 +913,17 @@ const GUIDE_PRINT_CSS = `body{font-family:'Pretendard','Malgun Gothic',sans-seri
 .gd-l,.gd-b,.gd-rs div,.gd-qa div{border:1px solid #DCE1EC;border-radius:8px;padding:7px 10px}.gd-l.red{border-top:3px solid #D92D20}.gd-l.orange{border-top:3px solid #F57C00}.gd-l.none{border-top:3px solid #94A3B8}
 .gd-b.ok{border-top:3px solid #0D9488}.gd-b.no{border-top:3px solid #D92D20}p{margin:3px 0 0}b{display:block}.gd-qa p b,.gd-s>p b{display:inline}em{font-style:normal;font-weight:700}
 span.ok{color:#0D9488;font-weight:700}span.no{color:#D92D20;font-weight:700}.badge{display:inline-block;padding:1px 8px;border-radius:9px;font-weight:700;font-size:11px;margin-bottom:3px}.badge.red{background:#D92D20;color:#fff}.badge.orange{background:#F57C00;color:#2B1400}.badge.none{background:#E2E8F0;color:#475569}
-.gd-foot{margin-top:12px;color:#64748B;font-size:11px}@page{size:A4;margin:0}`;
+.gd-note{margin-top:6px;color:#64748B}@page{size:A4;margin:0}`;
 function openGuide() {
   try { localStorage.setItem("edcf_guide_seen", "1"); } catch {}
   $("#guideNew")?.remove();
-  modal(`<h2>이슈 판단 가이드 <span class="tag">초안</span></h2>${GUIDE_HTML}
+  modal(`<h2>이슈 판단 가이드</h2>${GUIDE_HTML}
     <div class="actions"><button class="btn" id="gdPrint">인쇄 · PDF로 저장</button></div>`);
   $("#modal").classList.add("wide");
   $("#gdPrint").onclick = () => {
     const w = window.open("", "_blank");
     if (!w) return toast("팝업이 막혔습니다. 브라우저에서 팝업을 허용해 주세요");
-    w.document.write(`<!doctype html><meta charset="utf-8"><title>EDCF RADAR 이슈 판단 가이드</title><style>${GUIDE_PRINT_CSS}</style><h1>EDCF RADAR 이슈 판단 가이드 (초안)</h1>${GUIDE_HTML}`);
+    w.document.write(`<!doctype html><meta charset="utf-8"><title>EDCF RADAR 이슈 판단 가이드</title><style>${GUIDE_PRINT_CSS}</style><h1>EDCF RADAR 이슈 판단 가이드</h1>${GUIDE_HTML}`);
     w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
   };
 }
@@ -1414,8 +1408,8 @@ async function queueQuiet(data) {
   } catch (e) { console.warn("request failed:", e); return null; }
 }
 // DART에서 이름으로 찾기: 요청을 남기고 끝날 때까지 기다림 (최대 10분, 창을 닫으면 그만 기다림)
-async function dartLookup(name) {
-  const id = await queueQuiet({ task: "dartlookup", name, label: "DART 찾기" });
+async function dartLookup(name, biz = "") {
+  const id = await queueQuiet({ task: "dartlookup", name, biz, label: "DART 찾기" });
   if (!id) throw new Error("요청을 남기지 못했습니다");
   if (ghToken() && !(await pingRelay())) { try { await gh("/actions/workflows/monitor.yml/dispatches", { method: "POST", body: JSON.stringify({ ref: "main", inputs: { task: "queue", companies: "", test_to: "" } }) }); } catch {} }
   const t0 = Date.now();
@@ -1671,7 +1665,7 @@ function renderCompanies() {
   $("#coSelN").textContent = coState.sel.size;
   $("#coChkAll").onchange = (e) => { visible.forEach((id) => e.target.checked ? coState.sel.add(id) : coState.sel.delete(id)); renderCompanies(); };
   $$("#pool [data-sel]").forEach((x) => x.onchange = () => { x.checked ? coState.sel.add(x.dataset.sel) : coState.sel.delete(x.dataset.sel); renderCompanies(); });
-  $$("#pool [data-open]").forEach((x) => x.onclick = () => openCompany(x.dataset.open));
+  $$("#pool [data-open]").forEach((x) => x.onclick = () => openCompanyForm(x.dataset.open)); // 업체 관리에서는 업체 정보 팝업 (이슈·검사 결과는 팝업 안 버튼으로)
   $$("#pool [data-del]").forEach((x) => x.onclick = () => deleteCompanies([x.dataset.del]));
 }
 // 여러 업체 삭제 (수집된 이슈도 함께)
@@ -1875,9 +1869,9 @@ function openProjectEdit(pid) {
       </div>
       ${isNew ? "" : `<label class="check"><input type="checkbox" name="done" ${live(p) ? "" : "checked"}> 사업 완료 (대시보드와 집중 감시에서 뺍니다. 업체는 명단에 남아 기본 감시만 받습니다)</label>`}
       <div class="site-box">
-        <div class="site-h"><b>사업지</b><span class="muted small">수원국 리스크 지도의 핀 자리입니다. 지도를 눌러 핀을 놓거나(끌어서 옮기기), 도시를 고르거나, 좌표를 붙여 넣으세요</span></div>
+        <div class="site-h"><b>사업지</b><span class="muted small">수원국 리스크 지도의 핀 자리입니다. 사업지가 여러 곳이면 대표 사업지 한 곳만 정합니다 (너무 많으면 중심 도시의 시청 같은 대표 지점). 도시를 고르거나, 지도를 눌러 핀을 놓거나(끌어서 옮기기), 좌표를 붙여 넣으세요</span></div>
         <div class="row">
-          <label class="city-box">도시에서 찾기 (한글·영문)<input name="city" placeholder="예: 다카, Dhaka" autocomplete="off"><div class="city-sug hidden" id="citySug"></div></label>
+          <label class="city-box">도시 (찾기 또는 직접 입력)<input name="city" placeholder="예: 다카, Dhaka" autocomplete="off"><div class="city-sug hidden" id="citySug"></div></label>
           <label>좌표 붙여넣기<input name="ll" placeholder="위도, 경도 (구글 지도에서 복사)" value="${Number.isFinite(p.lat) ? `${p.lat}, ${p.lng}` : ""}"></label>
           <label>지도에 보일 이름<input name="site_en" placeholder="예: Dhaka" value="${esc(p.site_en || "")}"></label>
         </div>
@@ -1913,15 +1907,18 @@ function openProjectEdit(pid) {
   const normC = (x) => String(x).toLowerCase().replace(/\s+/g, "");
   const cityHits = (q) => !q ? [] : Object.entries(GEO_CITY).filter(([k, v]) => normC(k).includes(q) || normC(v[2]).includes(q) || (v[3] && normC(v[3]).includes(q))).sort((a, b) => (normC(b[0]).startsWith(q) || normC(b[1][2]).startsWith(q)) - (normC(a[0]).startsWith(q) || normC(a[1][2]).startsWith(q))).slice(0, 8);
   const pickCity = ([k, v]) => { picker.set([v[0], v[1]]); f0.city.value = k; if (!f0.site_en.value) f0.site_en.value = v[2]; $("#citySug").classList.add("hidden"); };
+  // 목록에 없는 도시: 적은 이름을 '지도에 보일 이름'으로 쓰고, 위치는 지도에서 직접 찍음
+  const freeCity = () => { const t = f0.city.value.trim(); if (!t) return; f0.site_en.value = t; $("#citySug").classList.add("hidden"); toast(site.lat == null ? `'${t}'(으)로 적어 두었습니다. 아래 지도에서 위치를 눌러 핀을 놓아 주세요` : `지도에 보일 이름을 '${t}'(으)로 바꿨습니다`, 5000); };
   const showSug = () => {
     const hits = cityHits(normC(f0.city.value)), el = $("#citySug");
-    el.innerHTML = hits.map(([k, v], i) => `<button type="button" data-ci="${i}"><b>${esc(k)}</b><span>${esc(v[2])}</span></button>`).join("") || (f0.city.value.trim() ? `<div class="muted small">목록에 없는 도시입니다. 지도를 누르거나 좌표를 붙여 넣으세요</div>` : "");
+    el.innerHTML = hits.map(([k, v], i) => `<button type="button" data-ci="${i}"><b>${esc(k)}</b><span>${esc(v[2])}</span></button>`).join("") || (f0.city.value.trim() ? `<button type="button" data-cfree="1"><b>'${esc(f0.city.value.trim())}' 그대로 쓰기</b><span>목록에 없는 도시 · 위치는 지도에서 눌러 주세요</span></button>` : "");
     el.classList.toggle("hidden", !el.innerHTML);
     $$("[data-ci]", el).forEach((b) => b.onmousedown = (e) => { e.preventDefault(); pickCity(hits[+b.dataset.ci]); });
+    $$("[data-cfree]", el).forEach((b) => b.onmousedown = (e) => { e.preventDefault(); freeCity(); });
   };
   f0.city.oninput = showSug; f0.city.onfocus = showSug; f0.city.addEventListener("compositionupdate", () => setTimeout(showSug, 0));
   f0.city.onblur = () => setTimeout(() => $("#citySug")?.classList.add("hidden"), 150);
-  f0.city.onkeydown = (e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); const h = cityHits(normC(f0.city.value)); if (h.length) pickCity(h[0]); else toast("목록에 없는 도시입니다. 지도를 눌러 핀을 놓거나 좌표를 붙여 넣으세요", 5000); } }; // Enter 로 창이 저장되지 않게
+  f0.city.onkeydown = (e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); const h = cityHits(normC(f0.city.value)); if (h.length) pickCity(h[0]); else freeCity(); } }; // Enter 로 창이 저장되지 않게
   f0.ll.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); f0.ll.onchange(); } };
   f0.ll.onchange = () => {
     const m = f0.ll.value.match(/(-?\d+(?:\.\d+)?)[^\d-]+(-?\d+(?:\.\d+)?)/);
@@ -1969,12 +1966,39 @@ async function deleteCompany(cid) {
   state.findings = state.findings.filter((f) => f.company_id !== cid);
 }
 
+// 업체명 다듬기: '(1순위)'와 법인 표기(주식회사·(주)·㈜)는 화면·검색용 이름에서 빼고, 적은 그대로는 공식 명칭(official)으로 따로 남김
 function cleanCompanyName(raw) {
-  let rank = null, name = raw;
+  let rank = null, name = String(raw || "");
   const m = name.match(/\(\s*(\d+)\s*순위\s*\)/);
   if (m) { rank = +m[1]; name = name.replace(m[0], ""); }
+  const full = name.replace(/\s+/g, " ").trim();
   name = name.replace(/주식회사|\(주\)|㈜/g, "").replace(/\s+/g, " ").trim();
-  return { name, rank };
+  return { name, rank, official: full !== name ? full : null };
+}
+// 업체명 기본 검사: 문제가 있으면 이유(문장), 없으면 "" (업체 추가·수정·일괄 등록 공통)
+const BAD_WORDS = ["시발", "씨발", "병신", "새끼", "지랄", "존나", "좆", "fuck", "shit"];
+function nameProblem(name) {
+  const core = String(name || "").replace(/\s/g, "");
+  if (!core) return "업체명을 넣어 주세요";
+  if (/[ㄱ-ㅎㅏ-ㅣ]/.test(core)) return "자음·모음만 있는 글자가 들어 있습니다. 업체명을 다시 확인해 주세요";
+  if (/[가-힣]/.test(core) && /[,，;；\/|]/.test(name)) return "한 칸에는 업체 한 곳만 넣어 주세요 (쉼표·빗금으로 여러 업체를 함께 적을 수 없습니다)";
+  if (!/\p{L}/u.test(core)) return "업체명에 글자가 없습니다";
+  if (coreLen(name) < 2) return "업체명은 2자 이상이어야 합니다";
+  if (name.length > 60) return "업체명이 너무 깁니다 (60자까지)";
+  if (/[^\p{L}\p{N}\s.,&()'’·+\-\/]/u.test(name)) return "업체명에 쓸 수 없는 기호가 들어 있습니다";
+  if (/(.)\1{3,}/.test(core)) return "같은 글자가 네 번 넘게 이어집니다. 업체명을 다시 확인해 주세요";
+  if (BAD_WORDS.some((w) => core.toLowerCase().includes(w))) return "업체명으로 쓸 수 없는 말이 들어 있습니다";
+  return "";
+}
+// 한 칸에 여러 업체를 쉼표·빗금으로 적은 경우 나눔 (영문 'CO., LTD.'의 쉼표는 그대로)
+const splitNames = (raw) => { const t = String(raw || ""); return /[가-힣]/.test(t) && /[,，;；\/]/.test(t) ? t.split(/[,，;；\/]/).map((x) => x.trim()).filter(Boolean) : [t.trim()].filter(Boolean); };
+// 사업자등록번호 검증번호 확인 (국세청 방식: 앞 9자리로 마지막 자리를 계산)
+function bizValid(b) {
+  const d = String(b || "").replace(/\D/g, "");
+  if (d.length !== 10) return false;
+  let s = 0; [1, 3, 7, 1, 3, 7, 1, 3, 5].forEach((w, i) => { s += +d[i] * w; });
+  s += Math.floor((+d[8] * 5) / 10);
+  return (10 - (s % 10)) % 10 === +d[9];
 }
 const normName = (s) => s.replace(/\s+/g, "");
 function newCompany(id, name, country) {
@@ -1988,90 +2012,141 @@ function newCompany(id, name, country) {
 }
 const companyData = (c) => { const { id, risk, open, total, focus, mine, cat, catGuess, ...data } = c; return { ...data, teams: teamsOf(c) }; }; // 계산값은 저장하지 않음 (참여 팀은 권한 확인용으로 저장)
 
-// 새 업체: 매뉴얼 기준 사업자등록번호·영문명을 함께 입력
-$("#btnAddCompany").onclick = () => {
-  modal(`<h2>업체 추가</h2>
-    <p class="muted small">업체명을 넣고 [DART에서 가져오기]를 누르면 사업자번호·영문명·업종이 채워집니다.</p>
-    <form id="addCoForm" class="form" autocomplete="off">
-      <label>업체명 *<span class="dl-row"><input name="name" required placeholder="예: 서마루엔지니어링"><button type="button" class="btn sm" id="dlBtn">DART에서 가져오기</button></span></label>
+// 업체 추가·업체 정보 수정 (같은 팝업): 업체명·사업자등록번호·대표자·영문명 + DART에서 가져오기. cid 가 없으면 추가
+function openCompanyForm(cid = null) {
+  const c0 = cid ? state.companies.find((x) => x.id === cid) : null, isNew = !c0;
+  if (cid && !c0) return;
+  const v = (k) => esc(c0?.[k] || ""), isForeign = c0 ? (c0.country || "KR") !== "KR" : false;
+  const catNow = c0 ? (c0.catGuess ? "" : c0.cat || "") : "";
+  const engs = c0?.engagements || [];
+  modal(`<h2>${isNew ? "업체 추가" : "업체 정보"}</h2>
+    <p class="muted small">업체명을 넣고 [DART에서 가져오기]를 누르면 공식 이름·사업자번호·대표자·영문명·업종이 채워집니다. DART에 없는 업체(비상장·소규모)는 직접 적어 주세요.</p>
+    <form id="coForm" class="form" autocomplete="off" novalidate>
+      <label>업체명 *<span class="dl-row"><input name="name" maxlength="60" placeholder="예: 서마루엔지니어링" value="${esc(c0?.name_official || c0?.name || "")}"><button type="button" class="btn sm" id="dlBtn">DART에서 가져오기</button></span></label>
+      <div id="nameNote" class="muted small hidden"></div>
       <div id="dlRes" class="dl-res hidden"></div>
       <div class="row">
-        <label>사업자등록번호<input name="biz_no" placeholder="000-00-00000"></label>
-        <label>영문명<input name="name_en" placeholder="예: GANADA ENGINEERING CO., LTD."></label>
+        <label>사업자등록번호 ${isNew ? "*" : ""}<input name="biz_no" inputmode="numeric" maxlength="12" placeholder="000-00-00000" value="${esc(fmtBiz(c0?.biz_no))}"></label>
+        <label>대표자<input name="ceo" maxlength="40" placeholder="예: 홍길동" value="${v("ceo")}"></label>
       </div>
       <div class="row">
-        <label>업종<select name="category"><option value="">자동 분류 (DART·업체명)</option>${CATS.map((k) => `<option>${k}</option>`).join("")}</select></label>
-        <label>별칭 (쉼표 구분)<input name="aliases" placeholder="예: 서마루ENG"></label>
+        <label>영문명<input name="name_en" maxlength="100" placeholder="예: GANADA ENGINEERING CO., LTD." value="${v("name_en")}"></label>
+        <label>업종<select name="category">${["", ...CATS].map((k) => `<option value="${k}" ${k === catNow ? "selected" : ""}>${k || `자동 분류${c0?.catGuess ? ` (추정: ${c0.cat})` : " (DART·업체명)"}`}</option>`).join("")}</select></label>
       </div>
-      <label style="flex-direction:row;align-items:center;gap:6px;font-weight:500"><input type="checkbox" name="foreign" style="width:auto"> 해외 업체 (조달청 조회 제외, 영문 뉴스 검색)</label>
-      ${state.projects.length ? `<div class="row"><label>사업에 바로 연결 (선택)<select name="pid"><option value="">연결 안 함</option>${state.projects.filter(canEditProject).map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select></label>
+      <div class="row">
+        <label>별칭 (쉼표 구분)<input name="aliases" maxlength="200" placeholder="예: 서마루ENG" value="${v("aliases")}"></label>
+        ${isNew ? "" : `<label>보조 키워드 (동명 업체 구분)<input name="context_keywords" maxlength="100" placeholder="예: 감리, 대표자명" value="${v("context_keywords")}"></label>`}
+      </div>
+      ${isNew ? "" : `<div class="row"><label>검색 언어<input name="search_langs" maxlength="20" placeholder="ko,en,id" value="${esc(c0.search_langs || "ko")}"></label><label>메모<input name="note" maxlength="200" value="${v("note")}"></label></div>`}
+      <label class="check"><input type="checkbox" name="foreign" ${isForeign ? "checked" : ""}> 해외 업체 (사업자등록번호 없음 · 조달청 조회 제외 · 영문 뉴스 검색)</label>
+      ${isNew && state.projects.length ? `<div class="row"><label>사업에 바로 연결 (선택)<select name="pid"><option value="">연결 안 함</option>${state.projects.filter(canEditProject).map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select></label>
         <label>역할<select name="role">${ROLES.map((r) => `<option>${r}</option>`).join("")}</select></label></div>` : ""}
-      <div class="actions"><button class="btn primary">추가</button></div>
+      ${engs.length ? `<div class="co-engs"><span class="muted small">참여 사업</span>${byRole(engs).map((e) => `<span class="d-eng">${roleTag(e.role)}<span>${esc(projName(e.project_id))}</span>${stageTag(e)}</span>`).join("")}</div>` : ""}
+      <div class="actions">${isNew ? "" : `<button type="button" class="btn ghost danger" id="coDel" style="margin-right:auto">업체 삭제</button><button type="button" class="btn" id="coIssues">이슈 · 검사 결과 보기</button>`}<button class="btn primary">${isNew ? "추가" : "저장"}</button></div>
     </form>`);
-  // DART에서 가져오기: 키가 서버(GitHub)에만 있어서 '요청'으로 남기고 결과를 기다림 (회사망에서는 5분 남짓)
-  const f1 = $("#addCoForm"); let picked = null, dlBusy = false;
+  const f1 = $("#coForm"); let picked = null, dlBusy = false;
+  // 법인 표기는 화면·검색용 이름에서 빠진다는 것을 바로 알려줌 (적은 그대로는 공식 명칭으로 남김)
+  const showNameNote = () => {
+    const { name, official } = cleanCompanyName(f1.name.value), el = $("#nameNote");
+    const bad = f1.name.value.trim() ? nameProblem(name) : "";
+    el.innerHTML = bad ? `<span class="miss">${esc(bad)}</span>` : official ? `화면과 뉴스 검색에는 <b>${esc(name)}</b>(으)로 쓰고, 적은 그대로(<b>${esc(official)}</b>)는 공식 명칭으로 함께 저장합니다` : "";
+    el.classList.toggle("hidden", !el.innerHTML);
+  };
+  f1.name.oninput = showNameNote; showNameNote();
+  f1.biz_no.oninput = () => { const d = f1.biz_no.value.replace(/\D/g, "").slice(0, 10); f1.biz_no.value = d.length > 5 ? `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}` : d.length > 3 ? `${d.slice(0, 3)}-${d.slice(3)}` : d; };
+  // DART에서 가져오기: 키가 서버(GitHub)에만 있어서 '요청'으로 남기고 결과를 기다림
   const fillFrom = (o) => {
     picked = o;
+    if (o.name) f1.name.value = o.name;
     if (o.biz_no) f1.biz_no.value = fmtBiz(o.biz_no);
+    if (o.ceo) f1.ceo.value = o.ceo;
     if (o.name_en) f1.name_en.value = o.name_en;
     if (o.category && CATS.includes(o.category)) f1.category.value = o.category;
+    showNameNote();
   };
   const candLine = (o) => esc([o.ceo && "대표 " + o.ceo, o.biz_no && fmtBiz(o.biz_no), o.name_en].filter(Boolean).join(" · ") || "상세 정보 없음");
   $("#dlBtn").onclick = async () => {
-    const { name } = cleanCompanyName(f1.name.value || ""), box = $("#dlRes");
-    if (!name) return toast("업체명을 먼저 넣어 주세요");
+    const { name } = cleanCompanyName(f1.name.value || ""), box = $("#dlRes"), biz = f1.biz_no.value.replace(/\D/g, "");
+    if (!name) return toast("DART는 업체명으로 찾습니다. 업체명을 먼저 넣어 주세요 (사업자번호를 함께 적으면 그 번호와 맞는 곳을 골라 줍니다)", 6000);
+    if (nameProblem(name)) return toast(nameProblem(name), 5000);
     if (dlBusy) return;
     dlBusy = true; $("#dlBtn").disabled = true; box.classList.remove("hidden");
-    box.innerHTML = `DART에서 '${esc(name)}'을(를) 찾는 중입니다. 보통 1~2분, 회사망에서는 5분 남짓 걸릴 수 있습니다. 기다리는 동안 다른 칸을 적어도 됩니다.`;
+    box.innerHTML = `DART에서 '${esc(name)}'을(를) 찾는 중입니다. 보통 1~2분 걸립니다 (늦으면 5분). 기다리는 동안 다른 칸을 적어도 됩니다.`;
     try {
-      const r = await dartLookup(name);
+      const r = await dartLookup(name, biz.length === 10 ? biz : "");
       if (!r) return;
-      const cands = r.cands || [];
-      if (!cands.length) box.innerHTML = `DART에 '${esc(name)}'과(와) 이름이 같은 기업이 없습니다 (비상장·소규모·건축사사무소 등). 사업자등록번호를 직접 넣어 주세요.`;
-      else if (cands.length === 1) { fillFrom(cands[0]); box.innerHTML = `DART에서 찾아 채웠습니다: <b>${esc(cands[0].name)}</b> <span class="muted">${candLine(cands[0])}</span>`; }
+      const cands = r.cands || [], same = biz.length === 10 ? cands.find((o) => o.biz_no === biz) : null;
+      if (!cands.length) box.innerHTML = `DART에 '${esc(name)}'과(와) 이름이 같은 기업이 없습니다 (비상장·소규모·건축사사무소 등). 사업자등록번호와 대표자를 직접 넣어 주세요.`;
+      else if (same || cands.length === 1) { const o = same || cands[0]; fillFrom(o); box.innerHTML = `DART에서 찾아 채웠습니다: <b>${esc(o.name)}</b> <span class="muted">${candLine(o)}</span>${same && cands.length > 1 ? ` <span class="muted">(사업자번호가 같은 곳)</span>` : ""}`; }
       else {
         box.innerHTML = `<div class="muted small">DART에 같은 이름이 ${cands.length}곳 있습니다. 대표자·사업자번호를 보고 맞는 곳을 고르세요</div>` + cands.map((o, i) => `<label class="dp-opt"><input type="radio" name="dl-pick" value="${i}"><span><b>${esc(o.name)}</b>${o.listed ? ` <span class="tag">상장</span>` : ""} <span class="muted">${candLine(o)}</span></span></label>`).join("");
         $$("input[name=dl-pick]", box).forEach((x) => x.onchange = () => fillFrom(cands[+x.value]));
       }
-    } catch (e) { if (box.isConnected) box.innerHTML = `DART에서 찾지 못했습니다: ${esc(e.message || e)}. 그대로 추가하면 나중에 자동으로 다시 찾습니다.`; }
+    } catch (e) { if (box.isConnected) box.innerHTML = `DART에서 찾지 못했습니다: ${esc(e.message || e)}. 직접 적어서 ${isNew ? "추가" : "저장"}해도 됩니다.`; }
     finally { dlBusy = false; const b = $("#dlBtn"); if (b) b.disabled = false; }
   };
-  $("#addCoForm").onsubmit = async (ev) => {
+  $("#coIssues")?.addEventListener("click", () => { closeModal(); openCompany(cid); });
+  $("#coDel")?.addEventListener("click", async () => { closeModal(); await deleteCompanies([cid]); });
+  f1.onsubmit = async (ev) => {
     ev.preventDefault();
-    const fd = Object.fromEntries(new FormData(ev.target));
-    const { name } = cleanCompanyName(fd.name || "");
-    if (!name) return;
-    if (state.companies.some((c) => normName(c.name) === normName(name))) return toast("이미 있는 업체입니다");
-    const biz = (fd.biz_no || "").replace(/\D/g, "");
-    if (fd.biz_no && biz.length !== 10) return toast("사업자등록번호는 숫자 10자리입니다");
-    const dupA = bizOwner(biz);
-    if (dupA) return toast(`사업자등록번호 ${fmtBiz(biz)}는 이미 '${dupA.name}'(으)로 등록돼 있습니다. 회사 이름이 바뀐 경우면 그 업체에 별칭으로 넣어 주세요`, 6000);
-    const ref = doc(collection(db, "companies"));
-    const c = newCompany(ref.id, name, null);
-    if (fd.foreign) { c.country = ""; c.search_langs = "en"; }
-    if (fd.name_en?.trim()) { c.name_en = fd.name_en.trim(); if (!c.search_langs.includes("en")) c.search_langs += ",en"; }
-    if (biz) { c.biz_no = biz; c.bizno_source = "직접 입력"; }
-    applyCat(c, fd.category, "직접 입력");
-    if (fd.aliases?.trim()) c.aliases = fd.aliases.trim();
-    if (fd.pid) c.engagements.push({ project_id: fd.pid, role: fd.role || "컨설턴트", stage: "계약", rank: null });
-    if (picked && !fd.foreign) {
-      c.corp_code = picked.corp_code || null;
-      if (picked.ceo) c.ceo = picked.ceo;
-      if (biz && picked.biz_no === biz) c.bizno_source = "DART 선택";
-      if (picked.induty_code) c.induty_code = picked.induty_code;
-      if (picked.category && fd.category === picked.category) c.category_source = "DART 업종";
+    const fd = Object.fromEntries([...new FormData(f1)].map(([k, x]) => [k, String(x).replace(/\s+/g, " ").trim()]));
+    const { name, official } = cleanCompanyName(fd.name || "");
+    const bad = nameProblem(name);
+    if (bad) { f1.name.focus(); return toast(bad, 5000); }
+    if (state.companies.some((c) => c.id !== cid && normName(c.name) === normName(name))) return toast(`'${name}'은(는) 이미 있는 업체입니다`);
+    const biz = (fd.biz_no || "").replace(/\D/g, ""), bizOld = String(c0?.biz_no || "").replace(/\D/g, "");
+    if (isNew && !fd.foreign && !biz) { f1.biz_no.focus(); return toast("사업자등록번호를 넣어 주세요. 해외 업체면 아래 '해외 업체'에 체크하세요", 6000); }
+    if (biz && biz.length !== 10) { f1.biz_no.focus(); return toast("사업자등록번호는 숫자 10자리입니다"); }
+    if (biz && biz !== bizOld && !bizValid(biz)) { f1.biz_no.focus(); return toast("사업자등록번호가 맞지 않습니다 (검증번호 불일치). 숫자를 다시 확인해 주세요", 6000); }
+    const dup = bizOwner(biz, cid);
+    if (dup) return toast(`사업자등록번호 ${fmtBiz(biz)}는 이미 '${dup.name}'(으)로 등록돼 있습니다. 회사 이름이 바뀐 경우면 그 업체에 별칭으로 넣어 주세요`, 6000);
+    if (fd.name_en && /[가-힣ㄱ-ㅎ]/.test(fd.name_en)) { f1.name_en.focus(); return toast("영문명에는 한글을 넣을 수 없습니다"); }
+    if (fd.ceo && /[ㄱ-ㅎㅏ-ㅣ0-9]/.test(fd.ceo)) { f1.ceo.focus(); return toast("대표자 이름을 다시 확인해 주세요"); }
+    const fromDart = picked && !fd.foreign;
+    if (isNew) {
+      const ref = doc(collection(db, "companies"));
+      const c = newCompany(ref.id, name, null);
+      if (fd.foreign) { c.country = ""; c.search_langs = "en"; }
+      c.name_official = official || (fromDart && picked.name !== name ? picked.name : null);
+      if (fd.name_en) { c.name_en = fd.name_en; if (!c.search_langs.includes("en")) c.search_langs += ",en"; }
+      if (biz) { c.biz_no = biz; c.bizno_source = fromDart && picked.biz_no === biz ? "DART 선택" : "직접 입력"; }
+      c.ceo = fd.ceo || null;
+      applyCat(c, fd.category, "직접 입력");
+      if (fd.aliases) c.aliases = fd.aliases;
+      if (fd.pid) c.engagements.push({ project_id: fd.pid, role: fd.role || "컨설턴트", stage: "계약", rank: null });
+      if (fromDart) {
+        c.corp_code = picked.corp_code || null;
+        if (picked.induty_code) c.induty_code = picked.induty_code;
+        if (picked.category && fd.category === picked.category) c.category_source = "DART 업종";
+      }
+      await setDoc(ref, companyData(c));
+      state.companies.push(c);
+      closeModal();
+      // DART에서 고르지 않았고 영문명이 비었으면 그 업체만 DART에서 한 번 찾아 둠 (1곳이면 채우고, 여러 곳이면 'DART 동명 기업 고르기')
+      const autoDart = !fd.foreign && !picked && !(c.biz_no && c.name_en);
+      if (autoDart) queueQuiet({ task: "dartfill", ids: [ref.id], label: "DART 채움 (새 업체)" });
+      toast(`'${name}'을(를) 추가했습니다${autoDart ? ". DART에서 빈 정보를 찾아 채웁니다" : ""}${fd.pid ? "" : ". 사업 관리에서 사업에 연결할 수 있습니다"}`, 4500);
+      return rerender();
     }
-    await setDoc(ref, companyData(c));
-    state.companies.push(c);
-    closeModal();
-    // DART에서 고르지 않았고 사업자번호·영문명이 비었으면 그 업체만 DART에서 한 번 찾아 둠 (1곳이면 채우고, 여러 곳이면 'DART 동명 기업 고르기')
-    const autoDart = !fd.foreign && !picked && !(c.biz_no && c.name_en);
-    if (autoDart) queueQuiet({ task: "dartfill", ids: [ref.id], label: "DART 채움 (새 업체)" });
-    toast(`'${name}'을(를) 추가했습니다${autoDart ? ". DART에서 빈 정보를 찾아 채웁니다" : ""}${fd.pid ? "" : ". 사업 관리에서 사업에 연결할 수 있습니다"}`, 4500);
-    rerender();
+    const c = c0, patch = { name, name_official: official || (name === c.name ? c.name_official || null : null), biz_no: biz || null, ceo: fd.ceo || null, name_en: fd.name_en || null,
+      aliases: fd.aliases || null, context_keywords: fd.context_keywords || null, search_langs: fd.search_langs || "ko", note: fd.note || null };
+    if (biz !== bizOld) patch.bizno_source = biz ? (fromDart && picked.biz_no === biz ? "DART 선택" : "직접 입력") : null;
+    if (patch.name_en && !patch.search_langs.includes("en")) patch.search_langs += ",en";
+    if (!!fd.foreign !== isForeign) { patch.country = fd.foreign ? "" : "KR"; if (fd.foreign && !patch.search_langs.includes("en")) patch.search_langs = "en"; }
+    if (fromDart && picked.corp_code) { patch.corp_code = picked.corp_code; patch.dart_cands = null; patch.dart_note = null; if (picked.induty_code) patch.induty_code = picked.induty_code; }
+    if ((fd.category || "") !== catNow) {
+      // 직접 고르면 그대로 유지, '자동'으로 되돌리면 우선 이름으로 추정하고 다음 스캔 때 DART 업종으로 다시 분류
+      if (fd.category) { patch.category = fd.category; patch.category_source = fromDart && picked.category === fd.category ? "DART 업종" : "직접 입력"; }
+      else { patch.category = guessCat(name) || guessCat(patch.name_en) || "기타"; patch.category_source = "이름 추정"; }
+      patch.cat_checked_at = null;
+    }
+    if (name !== c.name) { patch.renamed_from = c.name; patch.renamed_at = nowStr(); }
+    await updateDoc(doc(db, "companies", cid), patch); Object.assign(c, patch);
+    closeModal(); toast("저장했습니다. 다음 스캔부터 적용됩니다"); rerender();
   };
-  setTimeout(() => $("#addCoForm input[name=name]")?.focus(), 50);
-};
+  setTimeout(() => { if (isNew) f1.name.focus(); }, 50);
+}
+$("#btnAddCompany").onclick = () => openCompanyForm(null);
 // 새 사업
 $("#btnAddProject").onclick = () => openProjectEdit(null);
 
@@ -2080,7 +2155,8 @@ async function registerRows(rows) {
   const ops = [], batch = { set: (ref, data, o) => ops.push([ref, data, o]) };
   const pByName = Object.fromEntries(state.projects.map((p) => [p.name, p]));
   const cByName = Object.fromEntries(state.companies.map((c) => [normName(c.name), c]));
-  const touched = new Set();
+  const touched = new Set(), slot = {}; // slot: 사업·역할 칸마다 다음 순서 (먼저 적은 업체가 위 = 대표사)
+  const nextOrder = (pid, role) => { const k = pid + "|" + role; if (!(k in slot)) slot[k] = state.companies.reduce((n, c) => n + c.engagements.filter((e) => e.project_id === pid && e.role === role).length, 0); return slot[k]++; };
   let newP = 0, newC = 0, links = 0;
   for (const r of rows) {
     let p = pByName[r.project];
@@ -2092,11 +2168,11 @@ async function registerRows(rows) {
     }
     let c = cByName[normName(r.name)];
     if (!c) {
-      c = newCompany(doc(collection(db, "companies")).id, r.name, p.country); applyCat(c, null);
+      c = newCompany(doc(collection(db, "companies")).id, r.name, p.country); applyCat(c, null); if (r.official) c.name_official = r.official;
       cByName[normName(c.name)] = c; state.companies.push(c); newC++;
     }
     if (!c.engagements.some((e) => e.project_id === p.id && e.role === r.role)) {
-      c.engagements.push({ project_id: p.id, role: r.role, stage: STAGES.includes(r.stage) ? r.stage : r.rank ? "우선협상" : "계약", rank: r.rank || null }); links++;
+      c.engagements.push({ project_id: p.id, role: r.role, stage: STAGES.includes(r.stage) ? r.stage : r.rank ? "우선협상" : "계약", rank: r.rank || null, order: r.lead ? -1 : nextOrder(p.id, r.role) }); links++;
     }
     touched.add(c);
   }
@@ -2115,7 +2191,7 @@ async function registerRows(rows) {
 //  ② 사업명 | 구분 | 업체명  (탭·쉼표 구분, 사업명 비우면 윗줄 사업)
 //  ③ 분류 묶음 명단  # --- 분류 ---  /  "대표이름": ["별칭1", "별칭2"],
 //  ④ 업체명만 한 줄에 하나
-const BULK_COLS = { 업체명: "name", 회사명: "name", 사업자번호: "biz_no", 사업자등록번호: "biz_no", 영문명: "name_en", 영문업체명: "name_en", 분류: "category", 업종: "category", 별칭: "aliases", 사업명: "project", 사업: "project", 역할: "role", 구분: "role", 단계: "stage" };
+const BULK_COLS = { 업체명: "name", 회사명: "name", 사업자번호: "biz_no", 사업자등록번호: "biz_no", 영문명: "name_en", 영문업체명: "name_en", 분류: "category", 업종: "category", 별칭: "aliases", 대표자: "ceo", 대표자명: "ceo", 대표사: "lead", 사업명: "project", 사업: "project", 역할: "role", 구분: "role", 단계: "stage" };
 function rowsToBulk(rows) {
   const links = [], base = [], errors = [];
   const hi = rows.findIndex((r) => r.some((x) => /^(업체명|회사명)$/.test(String(x ?? "").replace(/\s/g, ""))));
@@ -2125,13 +2201,18 @@ function rowsToBulk(rows) {
     const o = {}; head.forEach((k, j) => { if (k && r[j] != null && String(r[j]).trim()) o[k] = String(r[j]).trim(); });
     if (!o.name) return;
     if (/\(예시\)/.test(o.name)) return; // 양식의 예시 줄
-    const { name, rank } = cleanCompanyName(o.name);
-    const biz = (o.biz_no || "").replace(/\D/g, "");
-    if (o.biz_no && biz.length !== 10) errors.push(`${hi + i + 2}번째 줄 '${name}': 사업자번호가 10자리가 아니어서 비워둡니다`);
-    base.push({ name, aliases: (o.aliases || "").split(/[,，]/).map((x) => x.trim()).filter(Boolean), category: o.category || null, biz_no: biz.length === 10 ? biz : null, name_en: o.name_en || null });
+    const names = splitNames(o.name), many = names.length > 1, ln = hi + i + 2;
+    if (many) errors.push(`${ln}번째 줄: 한 칸에 업체 ${names.length}곳이 있어 따로 나눠 등록합니다 (${names.join(" · ")}). 사업자번호·영문명·대표자는 업체마다 따로 넣어 주세요`);
+    const biz = (o.biz_no || "").replace(/\D/g, ""), bizOk = !many && bizValid(biz);
+    if (o.biz_no && !many && !bizOk) errors.push(`${ln}번째 줄 '${names[0]}': 사업자번호가 맞지 않아(10자리·검증번호) 비워둡니다`);
     if (o.project) last = o.project;
     const project = o.project || (o.role ? last : "");
-    if (project) links.push({ project, role: ROLES.includes(o.role) ? o.role : (o.role || "컨설턴트"), name, rank, stage: o.stage });
+    names.forEach((raw, k) => {
+      const { name, rank, official } = cleanCompanyName(raw), bad = nameProblem(name);
+      if (bad) return errors.push(`${ln}번째 줄 '${raw}': ${bad} → 건너뜁니다`);
+      base.push({ name, official, aliases: many ? [] : (o.aliases || "").split(/[,，]/).map((x) => x.trim()).filter(Boolean), category: o.category || null, biz_no: bizOk ? biz : null, name_en: many ? null : o.name_en || null, ceo: many ? null : o.ceo || null });
+      if (project) links.push({ project, role: ROLES.includes(o.role) ? o.role : (o.role || "컨설턴트"), name, rank, stage: o.stage, lead: !many && /^(o|y|yes|예|대표|대표사|✓|v|1)$/i.test(o.lead || "") });
+    });
   });
   return { links, base, errors };
 }
@@ -2157,18 +2238,26 @@ function parseAny(text) {
       return;
     }
     if (/["']\s*:\s*\[/.test(t)) { errors.push(`${i + 1}번째 줄을 읽지 못했습니다`); return; }
-    const sep = line.includes("|") ? "|" : line.includes("\t") ? "\t" : line.split(",").length >= 3 ? "," : null;
+    const cm = line.split(",").map((x) => x.trim());
+    const sep = line.includes("|") ? "|" : line.includes("\t") ? "\t" : cm.length >= 3 && ROLES.includes(cm[1]) ? "," : null; // 쉼표 구분은 둘째 칸이 역할일 때만 (업체 여러 곳을 쉼표로 적은 줄과 구분)
     if (sep) {
-      let [project, role, raw] = line.split(sep).map((x) => x.trim());
+      const cells = line.split(sep).map((x) => x.trim());
+      let [project, role, raw] = sep === "," ? [cells[0], cells[1], cells.slice(2).join(", ")] : cells;
       if (/사업명/.test(project || "") && /업체/.test(raw || "")) return;
       if (project) last = project; else project = last;
       if (!project || !raw) { errors.push(`${i + 1}번째 줄: 사업명 또는 업체명이 비어 있습니다`); return; }
-      const { name, rank } = cleanCompanyName(raw);
-      links.push({ project, role: ROLES.includes(role) ? role : (role || "컨설턴트"), name, rank });
+      for (const one of splitNames(raw)) {
+        const { name, rank, official } = cleanCompanyName(one), bad = nameProblem(name);
+        if (bad) { errors.push(`${i + 1}번째 줄 '${one}': ${bad} → 건너뜁니다`); continue; }
+        links.push({ project, role: ROLES.includes(role) ? role : (role || "컨설턴트"), name, rank, official });
+      }
       return;
     }
-    const { name } = cleanCompanyName(t);
-    if (name) base.push({ name, aliases: [], category: cat });
+    for (const one of splitNames(t)) {
+      const { name, official } = cleanCompanyName(one), bad = nameProblem(name);
+      if (bad) { errors.push(`${i + 1}번째 줄 '${one}': ${bad} → 건너뜁니다`); continue; }
+      base.push({ name, official, aliases: [], category: cat });
+    }
   });
   return { links, base, errors };
 }
@@ -2183,6 +2272,8 @@ async function registerBase(rows) {
     else updated++;
     const al = new Set((c.aliases || "").split(",").map((x) => x.trim()).filter(Boolean));
     r.aliases.forEach((a) => al.add(a));
+    if (r.official && !c.name_official) c.name_official = r.official;
+    if (r.ceo && !c.ceo) c.ceo = r.ceo;
     c.aliases = [...al].join(", ") || null;
     if (r.biz_no && !c.biz_no && !bizOwner(r.biz_no, c.id)) { c.biz_no = r.biz_no; c.bizno_source = "일괄 등록"; }
     if (r.name_en && !c.name_en) { c.name_en = r.name_en; if (!(c.search_langs || "").includes("en")) c.search_langs = (c.search_langs || "ko") + ",en"; }
@@ -2200,9 +2291,9 @@ async function registerBase(rows) {
 }
 // 엑셀 양식 (CSV, 엑셀에서 바로 열림): 예시는 가상 데이터
 function downloadTemplate() {
-  const rows = [["업체명", "사업자번호", "영문명", "업종", "별칭", "사업명", "역할"],
-    ["서마루엔지니어링(예시)", "000-00-00000", "SEOMARU ENGINEERING CO., LTD.", "엔지니어링·설계·감리", "서마루ENG", "케냐 스마트시티 구축사업(예시)", "컨설턴트"],
-    ["도레온건설(예시)", "", "", "건설·시공", "", "", ""]];
+  const rows = [["업체명", "사업자번호", "대표자", "영문명", "업종", "별칭", "사업명", "역할", "대표사"],
+    ["서마루엔지니어링(예시)", "000-00-00000", "홍길동", "SEOMARU ENGINEERING CO., LTD.", "엔지니어링·설계·감리", "서마루ENG", "케냐 스마트시티 구축사업(예시)", "컨설턴트", "O"],
+    ["도레온건설(예시)", "", "", "", "건설·시공", "", "케냐 스마트시티 구축사업(예시)", "컨설턴트", ""]];
   const csv = "﻿" + rows.map((r) => r.map((x) => /[",\n]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x).join(",")).join("\r\n");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
@@ -2217,9 +2308,11 @@ function bulkPreview(p) {
   const shortN = base.filter((r) => coreLen(r.name) <= 2);
   const cats = {}; base.forEach((r) => { const k = normCat(r.category) || "업종 자동 분류"; cats[k] = (cats[k] || 0) + 1; });
   const newN = base.filter((r) => !have.has(normName(r.name))).length;
-  $("#bulkOut").innerHTML = (errors.length ? `<div class="notice">${errors.slice(0, 8).map(esc).join("<br>")}</div>` : "")
+  const noBiz = base.filter((r) => !r.biz_no && !have.has(normName(r.name)) && /[가-힣]/.test(r.name)).length;
+  $("#bulkOut").innerHTML = (errors.length ? `<div class="notice">${errors.slice(0, 12).map(esc).join("<br>")}</div>` : "")
     + (base.length ? `<h3>업체 ${base.length} <span class="muted small">(신규 ${newN} · 기존 업데이트 ${base.length - newN} · 사업자번호 ${base.filter((r) => r.biz_no).length} · 영문명 ${base.filter((r) => r.name_en).length})</span></h3>
       <div class="chips">${Object.entries(cats).map(([k, v]) => `<span class="tag">${esc(k)} ${v}</span>`).join("")}</div>
+      ${noBiz ? `<div class="notice" style="margin-top:8px">사업자번호가 없는 새 업체 ${noBiz}: 등록은 되지만 조달청·EXIMIIS 대조와 같은 업체 중복 확인이 안 됩니다. 사업자번호를 채워 올리는 것을 권장합니다.</div>` : ""}
       ${shortN.length ? `<div class="notice" style="margin-top:8px">2자 이하 이름 ${shortN.length}개 (${shortN.slice(0, 12).map((r) => esc(r.name)).join(", ")}${shortN.length > 12 ? " …" : ""}): 동명 기사가 섞이지 않도록 업종 관련 단어가 함께 나온 기사만 인정합니다.</div>` : ""}` : "")
     + (links.length ? `<h3>사업 연결 ${links.length}건</h3><table class="tbl"><thead><tr><th>사업</th><th>역할</th><th>업체</th><th></th></tr></thead><tbody>${links.slice(0, 60).map((r) => `<tr>
       <td class="small">${esc(r.project)}</td><td>${roleTag(r.role)} ${r.rank ? `<span class="stage">우선협상 ${r.rank}순위</span>` : ""}</td>
@@ -2234,7 +2327,7 @@ $("#btnBulk").onclick = () => {
   modal(`<h2>업체 일괄 등록</h2>
     <div class="steps-mini">
       <div><b>STEP 1</b>양식 내려받기 (엑셀 파일)</div>
-      <div><b>STEP 2</b>업체명·사업자번호·영문명 등 채우기 (업체명만 있어도 됨)</div>
+      <div><b>STEP 2</b>한 줄에 업체 한 곳씩, 업체명·사업자번호·대표자·영문명 채우기</div>
       <div><b>STEP 3</b>파일을 올리거나 표를 복사해 붙여넣기</div>
     </div>
     <div class="add-row"><button class="btn" id="bulkTpl">양식 내려받기</button><label class="btn primary">엑셀·CSV 파일 올리기<input type="file" id="bulkFile" accept=".xlsx,.xls,.csv" hidden></label></div>
@@ -2245,7 +2338,7 @@ $("#btnBulk").onclick = () => {
 
 휘담기술
 청누리시스템"></textarea>
-    <p class="muted small">사업명·역할을 함께 적으면 사업에 바로 연결됩니다. 이미 있는 업체는 빈 정보(사업자번호·영문명·업종·별칭)만 채웁니다. 업종을 비워두면 업체명·DART 업종코드로 자동 분류합니다. 사내 보안(DRM)으로 파일이 안 열리면 표를 복사해 붙여넣으세요.</p>
+    <p class="muted small">사업명·역할을 함께 적으면 사업에 바로 연결됩니다. 같은 사업·역할에 여러 업체면 먼저 적은 업체가 대표사입니다 ('대표사' 칸에 O를 적으면 그 업체가 대표사). 이미 있는 업체는 빈 정보(사업자번호·영문명·업종·별칭)만 채웁니다. 업종을 비워두면 업체명·DART 업종코드로 자동 분류합니다. 사내 보안(DRM)으로 파일이 안 열리면 표를 복사해 붙여넣으세요.</p>
     <div class="actions left" style="margin-top:4px"><button class="btn" id="bulkPrev">미리보기</button><button class="btn primary" id="bulkRun" disabled>등록하기</button></div>
     <div id="bulkOut" class="import-preview"></div>`);
   $("#bulkTpl").onclick = downloadTemplate;

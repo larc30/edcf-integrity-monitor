@@ -1783,3 +1783,9 @@ body:not(.role-super) .set-grid { grid-template-columns: minmax(0, 1fr); }
 .adv-run-btns { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin-left: auto; }
 .adv-run-btns .btn + .muted { margin-right: 10px; }
 #runList { max-height: 26em; overflow-y: auto; padding-right: 4px; }
+
+/* 업체 정보 팝업: 참여 사업 줄, 업체명 안내 · 판단 가이드 덧붙임 줄 */
+.co-engs { display: flex; flex-wrap: wrap; align-items: center; gap: .4em; }
+#nameNote { margin: -.3em 0 .1em; line-height: 1.5; word-break: keep-all; }
+#nameNote .miss { color: var(--red, #FF5A5F); font-weight: 600; }
+.gd-note { margin: .5em 0 0; color: var(--muted); font-size: var(--fs-sm); }

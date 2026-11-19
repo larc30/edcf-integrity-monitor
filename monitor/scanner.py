@@ -731,7 +731,7 @@ def _name_changes(companies: list[dict]) -> int:
     return len(patches)
 
 
-def dart_lookup(name: str) -> dict:
+def dart_lookup(name: str, biz: str = "") -> dict:
     """업체 추가 창 [DART에서 찾기]: 이름이 같은 DART 기업 후보(최대 8곳)와 상세(사업자번호·영문명·대표자·업종)"""
     if not config.DART_API_KEY:
         raise RuntimeError("DART_API_KEY 가 등록돼 있지 않습니다")
@@ -741,6 +741,8 @@ def dart_lookup(name: str) -> dict:
         out.append({"corp_code": r[0], "name": r[1], "name_en": d.get("name_en") or r[2] or "", "ceo": d.get("ceo") or "",
                     "biz_no": pps.biz_digits(d.get("biz_no") or ""), "listed": bool(r[3]), "induty_code": d.get("induty_code") or "",
                     "category": category.from_ksic(d.get("induty_code")) or ""})
+    same = [o for o in out if biz and o["biz_no"] == pps.biz_digits(biz)]  # 사업자번호를 함께 적었으면 그 번호와 맞는 곳만
+    out = same or out
     return {"cands": out, "count": len(out)}
 
 
@@ -750,11 +752,16 @@ def dart_fill(ids: list[str] | None = None) -> dict:
     if not config.DART_API_KEY:
         raise RuntimeError("DART_API_KEY 가 등록돼 있지 않습니다")
     res = {"filled": 0, "choose": 0, "none": 0, "count": 0}
+    recent = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
     patches: dict[str, dict] = {}
     for c in store.all_docs("companies"):
         if ids and c["id"] not in ids:  # 업체 추가 직후 그 업체만
             continue
         if c.get("country", "KR") not in ("KR", "", None) or (c.get("biz_no") and c.get("name_en")):
+            continue
+        # 일괄 조회: 최근 30일 안에 'DART에 없음'으로 확인한 업체는 다시 찾지 않음 (매번 전체를 다시 찾아 오래 걸리던 것)
+        if not ids and c.get("dart_note") and str(c.get("dart_checked_at") or "")[:10] >= recent:
+            res["skipped"] = res.get("skipped", 0) + 1
             continue
         res["count"] += 1
         try:
