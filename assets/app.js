@@ -2624,8 +2624,8 @@ function renderConnections() {
   const cc = s.conn_check, CK = { "Google 뉴스": "google_news", "네이버 뉴스": "naver", "Claude AI": "claude", DART: "dart", 조달청: "pps", "MDB 제재 명단": "mdb", "외교부 여행경보": "mofa", "USGS 지진": "usgs", "GDACS 재난경보": "gdacs", "WHO 감염병": "who", "메일 발송": "smtp" };
   if (cc?.results) G.forEach(([, rows]) => rows.forEach((r) => { const x = cc.results[CK[r[0]]]; if (x) { r[2] = `${x.ok ? "정상 응답" : "실패"} · ${x.msg}`; r[3] = x.ok ? "ok" : "off"; r[4] = at(cc.at); } }));
   $("#connNote").innerHTML = cc?.at
-    ? `시각은 마지막으로 확인한 때입니다. <b>${esc(at(cc.at))}</b> [연결 확인]에서 실제로 불러 본 결과가 반영돼 있습니다.`
-    : `평소 표시는 <b>마지막 스캔 때 키가 등록돼 있었는지</b>입니다. 실제로 응답하는지는 [연결 확인]을 누르면 1~2분 안에 확인합니다.`;
+    ? `<b>${esc(at(cc.at))}</b> 연결 확인 결과 반영`
+    : `마지막 스캔 때 키 등록 여부 기준`;
   const BADGE = { ok: `<span class="badge none">정상</span>`, warn: `<span class="badge yellow">확인 필요</span>`, off: `<span class="badge orange">미연결</span>`, unknown: `<span class="badge gray">확인 전</span>` };
   $("#connList").innerHTML = G.map(([g, rows]) => {
     const bad = rows.filter((r) => r[3] === "off" || r[3] === "warn").length;
@@ -2671,10 +2671,10 @@ async function renderUsage(reload) {
   ];
   const BADGE = { ok: `<span class="badge none">정상</span>`, warn: `<span class="badge yellow">확인 필요</span>` };
   const total = aiUsd + fsUsd;
-  $("#usageList").innerHTML = `<div class="u-total"><span>이번 달 예상 합계</span><b>${total ? won(total) : "0원"}</b><em>추정치 · 실제 청구액은 각 서비스 결제 화면</em></div>`
+  $("#usageList").innerHTML = `<div class="u-total"><span>이번 달 예상 합계</span><b>${total ? won(total) : "0원"}</b></div>`
     + rows.map(([k, role, dd, amt, stt, b]) => `<div class="conn"><div class="ct"><div class="k">${k}<span class="r">${esc(role)}</span></div><div class="d">${esc(dd)}${b}</div></div><div class="cs"><b class="amt">${amt}</b>${BADGE[stt]}</div></div>`).join("");
   const P = "edcf-monitor";
-  $("#usageNote").innerHTML = `${u.updated_at ? `마지막 기록 ${esc(String(u.updated_at).slice(5, 16))} · ` : ""}실제 요금 확인: <a href="https://console.firebase.google.com/project/${P}/usage" target="_blank" rel="noopener">Firebase</a> · <a href="https://console.cloud.google.com/billing" target="_blank" rel="noopener">Google Cloud 결제</a> · <a href="https://console.anthropic.com/settings/usage" target="_blank" rel="noopener">Anthropic</a> · <a href="https://github.com/settings/billing" target="_blank" rel="noopener">GitHub</a><br>요금이 넘지 않게 막으려면 Google Cloud 예산 알림과 Anthropic 월 사용 한도를 설정해 두세요.`;
+  $("#usageNote").innerHTML = `${u.updated_at ? `마지막 기록 ${esc(String(u.updated_at).slice(5, 16))} · ` : ""}실제 청구액: <a href="https://console.firebase.google.com/project/${P}/usage" target="_blank" rel="noopener">Firebase</a> · <a href="https://console.cloud.google.com/billing" target="_blank" rel="noopener">Google Cloud</a> · <a href="https://console.anthropic.com/settings/usage" target="_blank" rel="noopener">Anthropic</a> · <a href="https://github.com/settings/billing" target="_blank" rel="noopener">GitHub</a>`;
 }
 $("#btnUsage").onclick = () => renderUsage(true);
 // [연결 확인]: 요청을 남기면 1~2분 안에 (Firebase 함수, 예비 5분) GitHub Actions 가 각 API를 실제로 불러 보고 결과를 저장
@@ -2738,7 +2738,13 @@ function renderAdvanced() {
   const KIND = { scan: "스캔", report: "메일 발송", dart: "DART 기업목록 갱신", dartfill: "DART 일괄 조회", dartlookup: "DART 찾기 (업체 추가)", rejudge: "재판정(새 등급 기준)" };
   renderConnections();
   renderUsage();
-  $("#runList").innerHTML = state.runs.slice(0, 8).map((r) => {
+  // 실행 기록은 모두 보관됨: 첫 화면은 10건만 읽고, 고급을 열면 최근 40건을 한 번 더 읽어 스크롤로 보여 줌
+  if (!state.runsMore && !window.__DEMO) {
+    state.runsMore = true;
+    getDocs(query(collection(db, "runs"), orderBy("at_ms", "desc"), limit(40))).then((q) => { state.runs = docs(q); renderAdvanced(); }).catch(() => {});
+  }
+  $("#runCount").textContent = state.runs.length ? `최근 ${state.runs.length}건` : "";
+  $("#runList").innerHTML = state.runs.map((r) => {
     const d = r.detail || {};
     let errs = Array.isArray(d.errors) ? d.errors : d.error ? [d.error] : [];
     // 예전 재판정 기록은 오류 내용이 없음 → 무슨 뜻인지 설명으로 대신
