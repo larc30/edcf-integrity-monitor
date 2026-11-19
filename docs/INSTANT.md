@@ -75,3 +75,20 @@ cd ~/edcf-integrity-monitor && git pull origin main
 cd functions && firebase deploy --only functions --project edcf-monitor
 ```
 배포가 끝나면 목록에 kickQueue 와 dartFind 두 개가 보입니다. 회사망에서 dartFind 주소(cloudfunctions.net)가 막혀 있으면 화면이 알아서 예전 길(요청 문서 → kickQueue)로 갑니다.
+
+## 적는 동안 바로 찾기 (2026-11-19 밤 2차)
+업체명을 적는 동안 DART 기업 이름이 바로 뜨고(이름 목록만 받아서 빠름), 고른 한 곳만 상세 조회합니다. '롯데'처럼 적으면 호텔롯데 같은 뒤에 붙은 이름도 나옵니다.
+함수 코드가 바뀌었으니 한 번 더 받아서 배포합니다.
+
+```bash
+git stash
+```
+```bash
+git pull origin main
+```
+```bash
+cd functions
+```
+```bash
+firebase deploy --only functions
+```

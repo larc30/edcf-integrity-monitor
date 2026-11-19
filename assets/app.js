@@ -1386,6 +1386,7 @@ async function queueQuiet(data) {
 // DART 바로 찾기 함수(functions/index.js dartFind)를 화면에서 직접 부름. 함수가 없거나 회사망에서 막히면 null → 요청을 남기는 예전 길로
 const DART_FN = `https://asia-northeast3-${firebaseConfig.projectId}.cloudfunctions.net/dartFind`;
 async function dartCall(data, ms = 25000) {
+  if (window.__dartMock) return window.__dartMock(data); // 화면 점검용 가짜 응답 (평소에는 없음)
   if (new URLSearchParams(location.search).has("demo") || !auth.currentUser) return null;
   const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), ms);
   try {
@@ -2029,7 +2030,7 @@ function openCompanyForm(cid = null) {
   modal(`<h2>${isNew ? "업체 추가" : "업체 정보"}</h2>
     <p class="muted small">업체명을 넣고 [DART에서 가져오기]를 누르면 공식 이름·사업자번호·대표자·영문명·업종이 채워집니다. DART에 없는 업체(비상장·소규모)는 직접 적어 주세요.</p>
     <form id="coForm" class="form" autocomplete="off" novalidate>
-      <label>업체명 *<span class="dl-row"><input name="name" maxlength="60" placeholder="예: 서마루엔지니어링" value="${esc(c0?.name_official || c0?.name || "")}"><button type="button" class="btn sm" id="dlBtn">DART에서 가져오기</button></span></label>
+      <label class="city-box">업체명 *<span class="dl-row"><input name="name" maxlength="60" placeholder="예: 서마루엔지니어링 (적는 동안 DART 기업을 찾아 줍니다)" value="${esc(c0?.name_official || c0?.name || "")}"><button type="button" class="btn sm" id="dlBtn">DART에서 가져오기</button></span><div class="city-sug co-sug hidden" id="coSug"></div></label>
       <div id="nameNote" class="muted small hidden"></div>
       <div id="dlRes" class="dl-res hidden"></div>
       <div class="row">
@@ -2059,8 +2060,36 @@ function openCompanyForm(cid = null) {
     el.innerHTML = bad ? `<span class="miss">${esc(bad)}</span>` : official ? `화면과 뉴스 검색에는 <b>${esc(name)}</b>(으)로 쓰고, 적은 그대로(<b>${esc(official)}</b>)는 공식 명칭으로 함께 저장합니다` : "";
     el.classList.toggle("hidden", !el.innerHTML);
   };
-  f1.name.oninput = showNameNote; showNameNote();
-  dartCall({ warm: true }, 20000); // 창을 열 때 함수를 미리 깨워 둠 (버튼을 누를 때는 바로 답하게)
+  showNameNote();
+  // 적는 동안 DART 기업 이름을 바로 보여 줌 (이름 목록만 받아서 빠름) → 고르면 그 한 곳만 상세 조회해 채움. 함수에 닿지 않으면(회사망 차단 등) 버튼 방식만
+  let dartOk = false, sugTimer = null, sugSeq = 0, sugItems = [];
+  dartCall({ warm: true }, 20000).then((r) => { dartOk = !!r; }); // 창을 열 때 함수를 미리 깨워 둠
+  const hideSug = () => $("#coSug")?.classList.add("hidden");
+  const itemRow = (o) => `<b>${esc(o.name)}</b><span>${o.listed ? "상장 · " : ""}${esc(o.name_en || "")}</span>`;
+  const pickDart = async (it) => {
+    hideSug(); sugSeq++;
+    const box = $("#dlRes"); box.classList.remove("hidden");
+    let msg = $("#dlMsg"); if (!msg) { box.innerHTML = `<div id="dlMsg"></div>`; msg = $("#dlMsg"); }
+    msg.innerHTML = `<span class="dl-wait"><i class="spin"></i>'${esc(it.name)}' 정보를 가져오는 중입니다</span>`;
+    const o = await dartCall({ code: it.corp_code, exact: it.exact }, 15000);
+    if (!msg.isConnected) return;
+    if (o && o.corp_code) { fillFrom(o); msg.innerHTML = `DART에서 채웠습니다: <b>${esc(o.name)}</b> <span class="muted">${candLine(o)}</span>${o.ms ? ` <span class="muted small">(${(o.ms / 1000).toFixed(1)}초)</span>` : ""}`; }
+    else msg.innerHTML = `'${esc(it.name)}' 정보를 가져오지 못했습니다. 잠시 뒤 다시 고르거나 직접 적어 주세요.`;
+  };
+  const showCoSug = async () => {
+    const el = $("#coSug"), q = cleanCompanyName(f1.name.value).name;
+    if (!el || !dartOk || coreLen(q) < 2 || (picked && picked.name === f1.name.value)) return hideSug();
+    const seq = ++sugSeq, r = await dartCall({ q, limit: 30 }, 8000);
+    if (seq !== sugSeq || !el.isConnected || document.activeElement !== f1.name) return;
+    sugItems = r?.items || [];
+    el.innerHTML = sugItems.map((o, i) => `<button type="button" data-di="${i}">${itemRow(o)}</button>`).join("") || `<div class="muted small">DART에 '${esc(q)}'이(가) 들어간 기업이 없습니다. 직접 적어 주세요</div>`;
+    el.classList.remove("hidden");
+    $$("[data-di]", el).forEach((b) => b.onmousedown = (e) => { e.preventDefault(); pickDart(sugItems[+b.dataset.di]); });
+  };
+  const typed = () => { showNameNote(); clearTimeout(sugTimer); sugTimer = setTimeout(showCoSug, 200); };
+  f1.name.oninput = typed; f1.name.addEventListener("compositionupdate", typed);
+  f1.name.onblur = () => setTimeout(hideSug, 150);
+  f1.name.onkeydown = (e) => { if (e.key === "Escape") { e.stopPropagation(); hideSug(); } };
   f1.biz_no.oninput = () => { const d = f1.biz_no.value.replace(/\D/g, "").slice(0, 10); f1.biz_no.value = d.length > 5 ? `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}` : d.length > 3 ? `${d.slice(0, 3)}-${d.slice(3)}` : d; };
   // DART에서 가져오기: 키가 서버(GitHub)에만 있어서 '요청'으로 남기고 결과를 기다림
   const fillFrom = (o) => {
@@ -2082,6 +2111,18 @@ function openCompanyForm(cid = null) {
     box.innerHTML = `<span class="dl-wait"><i class="spin"></i>DART에서 '${esc(name)}'을(를) 찾는 중입니다</span>`;
     const slow = setTimeout(() => { const w = box.querySelector(".dl-wait"); if (w) w.insertAdjacentHTML("beforeend", ` <span class="muted">조금 더 걸리고 있습니다 (늦으면 1~2분). 다른 칸을 먼저 적어도 됩니다</span>`); }, 12e3);
     try {
+      hideSug(); sugSeq++;
+      // 함수에 닿으면: 이름 목록(30곳)을 바로 받고, 고른 한 곳만 상세 조회. 사업자번호를 적었으면 번호 대조가 필요해 아래 방식으로
+      const quick = dartOk && (biz.length !== 10 || (picked && picked.biz_no === biz)) ? await dartCall({ q: name, limit: 30 }, 10000) : null; // 직접 적은 사업자번호가 있을 때만 번호 대조 방식
+      if (quick?.items) {
+        const items = quick.items, exact = items.filter((o) => o.exact);
+        if (!items.length) { box.innerHTML = `DART에 '${esc(name)}'이(가) 들어간 기업이 없습니다 (비상장·소규모·건축사사무소 등). 사업자등록번호와 대표자를 직접 넣어 주세요.`; return; }
+        box.innerHTML = `<div id="dlMsg" class="muted small">${exact.length === 1 ? "" : exact.length ? `DART에 같은 이름이 ${exact.length}곳 있습니다. 맞는 곳을 고르세요` : `이름이 정확히 같은 곳은 없고, '${esc(name)}'이(가) 들어간 기업이 ${items.length}곳${items.length >= 30 ? " 넘게" : ""} 있습니다. 맞는 곳을 고르세요 (이름을 더 적으면 줄어듭니다)`}</div>
+          <div class="dl-list">${items.map((o, i) => `<label class="dp-opt"><input type="radio" name="dl-pick" value="${i}"><span><b>${esc(o.name)}</b>${o.listed ? ` <span class="tag">상장</span>` : ""} <span class="muted">${esc(o.name_en || "")}</span></span></label>`).join("")}</div>`;
+        $$("input[name=dl-pick]", box).forEach((x) => x.onchange = () => pickDart(items[+x.value]));
+        if (exact.length === 1) { const x = box.querySelector(`input[value="${items.indexOf(exact[0])}"]`); x.checked = true; await pickDart(exact[0]); }
+        return;
+      }
       const r = await dartLookup(name, biz.length === 10 ? biz : "");
       if (!r) return;
       const cands = r.cands || [], same = biz.length === 10 ? cands.find((o) => o.biz_no === biz) : null;

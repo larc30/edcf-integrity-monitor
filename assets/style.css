@@ -1857,3 +1857,7 @@ html.lite .radar svg.fx * { animation: none !important; } html.lite .radar .puls
 .dl-wait .spin { width: 1em; height: 1em; border-radius: 50%; border: 2px solid var(--line-2); border-top-color: var(--accent-2); animation: spin .8s linear infinite; flex: 0 0 auto; }
 @media (max-width: 760px) { .co-table { table-layout: auto; } }
 .co-table td.t-act { overflow: visible; }
+
+/* 업체명 입력란 아래 DART 후보 (적는 동안) · 버튼으로 찾은 후보 목록은 안에서 스크롤 */
+.co-sug { top: calc(100% + 2px); max-height: 18em; } .co-sug button b { flex: 0 1 auto; } .co-sug button span { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; }
+.dl-res .dl-list { max-height: 15em; overflow: auto; margin-top: .3em; }

@@ -50,24 +50,24 @@ function unzipFirst(buf) {
 }
 const unesc = (s) => String(s || "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").trim();
 function parseMaster(xml) {
-  const idx = new Map(), list = [], tag = (b, t) => { const m = b.match(new RegExp(`<${t}>([^<]*)</${t}>`)); return m ? unesc(m[1]) : ""; };
+  const idx = new Map(), list = [], byCode = new Map(), tag = (b, t) => { const m = b.match(new RegExp(`<${t}>([^<]*)</${t}>`)); return m ? unesc(m[1]) : ""; };
   for (const m of xml.matchAll(/<list>([\s\S]*?)<\/list>/g)) {
     const code = tag(m[1], "corp_code"), name = tag(m[1], "corp_name");
     if (!code || !name) continue;
     const k = norm(name), row = [code, name, tag(m[1], "corp_eng_name"), tag(m[1], "stock_code")];
     if (idx.has(k)) idx.get(k).push(row); else idx.set(k, [row]);
-    list.push([k, row]);
+    list.push([k, row]); byCode.set(code, row);
   }
-  return { idx, list };
+  return { idx, list, byCode };
 }
-// 이름 찾기: 정확히 같은 이름 먼저 → 그 이름으로 시작하는 곳 → 이름에 들어 있는 곳(3자 이상일 때). 상장사·짧은 이름 먼저, 모두 8곳까지
+// 이름 찾기: 정확히 같은 이름 먼저 → 이름에 그 글자가 들어 있는 곳(앞이든 뒤든, '롯데' → 호텔롯데도). 상장사 → 짧은 이름 → 그 글자로 시작하는 곳 순서
 function searchMaster(m, name, limit = 8) {
   const target = norm(name);
   if (target.length < 2) return [];
   const out = (m.idx.get(target) || []).slice(0, limit).map((r) => [r, true]);
   if (out.length < limit) {
-    const part = m.list.filter(([k]) => k !== target && (k.startsWith(target) || (target.length >= 3 && k.includes(target))));
-    part.sort((x, y) => (!!y[1][3] - !!x[1][3]) || (y[0].startsWith(target) - x[0].startsWith(target)) || (x[0].length - y[0].length));
+    const part = m.list.filter(([k]) => k !== target && k.includes(target));
+    part.sort((x, y) => (!!y[1][3] - !!x[1][3]) || (x[0].length - y[0].length) || (y[0].startsWith(target) - x[0].startsWith(target)));
     for (const [, r] of part.slice(0, limit - out.length)) out.push([r, false]);
   }
   return out;
@@ -84,14 +84,16 @@ async function loadMaster(key, get = fetch) {
   })().finally(() => { masterJob = null; });
   return masterJob;
 }
+// 기업 1곳의 상세 (사업자번호·대표자·영문명·업종): DART company.json 한 번
+async function detail(r, exact, key, get = fetch) {
+  let d = {};
+  try { const j = await (await get(`https://opendart.fss.or.kr/api/company.json?crtfc_key=${key}&corp_code=${r[0]}`)).json(); if (j.status === "000") d = j; } catch (e) { /* 상세를 못 받아도 후보는 보여 줌 */ }
+  return { corp_code: r[0], name: r[1], name_en: d.corp_name_eng || r[2] || "", ceo: d.ceo_nm || "", biz_no: String(d.bizr_no || "").replace(/\D/g, ""),
+    listed: !!r[3], induty_code: d.induty_code || "", category: fromKsic(d.induty_code), exact };
+}
 async function dartLookup(name, biz, key, get = fetch) {
   const t0 = Date.now(), warm = !!master, rows = searchMaster(await loadMaster(key, get), name), t1 = Date.now();
-  let out = await Promise.all(rows.map(async ([r, exact]) => {
-    let d = {};
-    try { const j = await (await get(`https://opendart.fss.or.kr/api/company.json?crtfc_key=${key}&corp_code=${r[0]}`)).json(); if (j.status === "000") d = j; } catch (e) { /* 상세를 못 받아도 후보는 보여 줌 */ }
-    return { corp_code: r[0], name: r[1], name_en: d.corp_name_eng || r[2] || "", ceo: d.ceo_nm || "", biz_no: String(d.bizr_no || "").replace(/\D/g, ""),
-      listed: !!r[3], induty_code: d.induty_code || "", category: fromKsic(d.induty_code), exact };
-  }));
+  let out = await Promise.all(rows.map(([r, exact]) => detail(r, exact, key, get)));
   const b = String(biz || "").replace(/\D/g, ""), same = b ? out.filter((o) => o.biz_no === b) : []; // 사업자번호를 함께 적었으면 그 번호와 맞는 곳만
   if (same.length) out = same;
   return { cands: out, count: out.length, ms: Date.now() - t0, ms_list: t1 - t0, warm };
@@ -132,6 +134,16 @@ exports.dartFind = onCall({ region: REGION, secrets: [DART_API_KEY], memory: "51
   }
   const key = DART_API_KEY.value(), d = request.data || {};
   if (d.warm) { const w = !!master; await loadMaster(key); return { ok: true, warm: w }; }
+  // 이름 목록만 (상세 조회 없이 바로): 업체명을 적는 동안 보여 주는 후보. 고르면 아래 code 로 그 한 곳만 상세 조회
+  if (d.q != null) {
+    const rows = searchMaster(await loadMaster(key), String(d.q).slice(0, 40), Math.min(Math.max(+d.limit || 30, 1), 50));
+    return { items: rows.map(([r, exact]) => ({ corp_code: r[0], name: r[1], name_en: r[2] || "", listed: !!r[3], exact })) };
+  }
+  if (d.code) {
+    const t0 = Date.now(), r = (await loadMaster(key)).byCode.get(String(d.code).replace(/\D/g, "").slice(0, 8));
+    if (!r) throw new HttpsError("not-found", "DART 기업목록에 없는 번호입니다");
+    return { ...(await detail(r, d.exact !== false, key)), ms: Date.now() - t0 };
+  }
   const res = await dartLookup(String(d.name || "").slice(0, 80), String(d.biz || "").slice(0, 20), key);
   logger.info("dart find", { count: res.count, ms: res.ms, warm: res.warm }); // 공개 로그에는 건수·걸린 시간만
   return res;
