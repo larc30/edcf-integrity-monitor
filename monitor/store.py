@@ -42,18 +42,30 @@ def now_str() -> str:
     return now_kst().strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _count(n: int) -> int:
+    from . import usage
+    usage.reads(max(1, n))  # 결과가 없어도 질의 1번 = 읽기 1회
+    return n
+
+
 def all_docs(name: str) -> list[dict]:
-    return [{"id": d.id, **d.to_dict()} for d in db().collection(name).stream()]
+    out = [{"id": d.id, **d.to_dict()} for d in db().collection(name).stream()]
+    _count(len(out))
+    return out
 
 
 def where(name: str, field: str, op: str, value) -> list[dict]:
     q = db().collection(name).where(filter=FieldFilter(field, op, value))
-    return [{"id": d.id, **d.to_dict()} for d in q.stream()]
+    out = [{"id": d.id, **d.to_dict()} for d in q.stream()]
+    _count(len(out))
+    return out
 
 
 def known_keys(company_id: str) -> set[str]:
     q = db().collection("findings").where(filter=FieldFilter("company_id", "==", company_id)).select(["dedup_key"])
-    return {d.get("dedup_key") for d in q.stream()}
+    out = {d.get("dedup_key") for d in q.stream()}
+    _count(len(out))
+    return out
 
 
 def _finding_doc(company: dict, f: dict) -> tuple[str, dict]:
@@ -103,6 +115,7 @@ def get_many(name: str, ids: list[str]) -> dict[str, dict | None]:
     for i in range(0, len(ids), 300):
         for snap in db().get_all([col.document(x) for x in ids[i : i + 300]]):
             out[snap.id] = snap.to_dict() if snap.exists else None
+    _count(len(ids))
     return out
 
 

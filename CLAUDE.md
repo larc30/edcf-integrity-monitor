@@ -41,7 +41,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 조달청: data.go.kr 15129466, 사업자번호로 현재 유효 제재만. 오류 줄이기: 동시 2건·지연/5xx/429 는 두 번 더 시도(pps._call), 빠른 스캔은 오늘 이미 정상 조회한 업체를 다시 부르지 않음(last_check.pps.reused). 같은 부정당번호에 정지·해제 줄이 있거나, 저장된 제재가 기간 중 사라지면 경고(집행정지 확인).
 - 사업자번호는 업체마다 하나(2026-11-18): 업체 추가·수정·일괄 등록·DART 고르기에서 같은 번호면 막음(app.js bizOwner), 일괄 등록은 이름이 달라도 번호가 같으면 같은 업체로. 기존 중복은 업체 관리 [사업자번호 중복 N]. 업체명 변경 알림: 전체 스캔 때 DART 기업목록(고유번호 → 지금 이름, API 호출 없음)과 비교해 companies.name_change → 업체 관리 [업체명 변경 N]에서 [새 이름으로](옛 이름은 별칭) / [무시](name_change_ignored). 고유번호(corp_code) 없는 업체는 못 찾음.
 - 사업자번호·영문명·업종: DART corpCode 정확 일치 1건일 때만 자동, 아니면 수기. 업체 관리 [DART 일괄 조회](task dartfill, ids 주면 그 업체만): 1건이면 채우고 여러 건이면 companies.dart_cands 에 후보 저장 → [DART 동명 기업 고르기]에서 선택. 업체 추가 창: 업체명 옆 [DART에서 가져오기](task dartlookup → requests.result.cands, 화면이 4초마다 확인, 회사망은 tick 대기로 최대 5분 남짓) · 안 누르고 추가하면 그 업체만 dartfill 자동 요청.
-- AI 판정: Claude(config.CLAUDE_MODEL, 기본 Haiku), 키 없으면 analyzer.RULE_KEYWORDS 규칙 판정. 처분 대상이 모회사·자회사·계열사(다른 법인)면 이 업체는 참고(yellow) 이하. 확정된 처분은 시작일 전이어도 위험. 분류에 '영업정지·등록말소' 있음. 계속 배우기: 모든 업체의 ✓/✕ 사례(analyzer.SHARED)와 판정 지침(meta/ai_guide.auto: AI가 주 1회 요약, 직접 적는 칸은 없앰)을 판정마다 함께 줌(화면에는 보이지 않음: 사용자가 설정 카드도 빼 달라고 함). 업체별 '관련 없음'·'확인했음' 제목을 예시로 전달('과거 이력 일괄 정리'는 제외). 재판정은 monitor/rejudge.py.
+- AI 판정: Claude(config.CLAUDE_MODEL, 기본 Haiku) + 2단계(2026-11-19): 1차가 위험·경고로 본 기사만 config.REVIEW_MODEL(기본 claude-sonnet-5-5, AI_REVIEW_MODEL= 로 끔)이 더 엄격히 재판정(analyzer._review, analyzer 값 'claude+review'). 경고 기준에서 논란·배임 논란·대위변제·소송 제기는 yellow. 키 없으면 analyzer.RULE_KEYWORDS 규칙 판정. 처분 대상이 모회사·자회사·계열사(다른 법인)면 이 업체는 참고(yellow) 이하. 확정된 처분은 시작일 전이어도 위험. 분류에 '영업정지·등록말소' 있음. 계속 배우기: 모든 업체의 ✓/✕ 사례(analyzer.SHARED)와 판정 지침(meta/ai_guide.auto: AI가 주 1회 요약, 직접 적는 칸은 없앰)을 판정마다 함께 줌(화면에는 보이지 않음: 사용자가 설정 카드도 빼 달라고 함). 업체별 '관련 없음'·'확인했음' 제목을 예시로 전달('과거 이력 일괄 정리'는 제외). 재판정은 monitor/rejudge.py.
 
 ## 등급 (3단계: 위험·경고·정상, 2026-11-11 결정)
 - 업체 등급: 위험 = 지금 유효한 제재(입찰제한·MDB·영업정지·등록말소·EXIMIIS 등록) / 경고 = 제재로 이어질 진행 중 사안(수사·기소·과징금·부도·회생, 집행정지) / 정상 = 그 밖.
@@ -68,6 +68,11 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 역할 순서 F/S → 컨설턴트 → 본구매: app.js ROLES·ROLE_ORDER ↔ report.ROLE_ORDER
 - 수원국 좌표·도시 좌표·이벤트 종류: monitor/geo.py COUNTRY·CITY·EVENT_WORDS ↔ assets/geo.js GEO_COUNTRY·GEO_CITY(영문명 포함)·GEO_TYPES(이름·색·아이콘)
 
+## 사용량 · 요금 (2026-11-19, monitor/usage.py ↔ app.js renderUsage)
+- meta/usage: claude{월{모델{in,out,calls}}}·claude_days, actions{월{runs,minutes}}, batch{월{reads}}·batch_days(store 질의 함수가 셈), web{월{loads,reads}}·web_days(화면 loadAll 이 increment, 규칙에서 web·web_days 칸만 누구나). run.py 끝에서 usage.flush(). 설정 > 고급 오른쪽 '사용량 · 요금'(추정치, 콘솔 링크·예산 알림 권장). 단가: usage.PRICE ↔ app.js AI_PRICE.
+- API 연결 목록은 묶음(실행·데이터 / 업체 검사 / 수원국 / 알림), 줄 형식 통일(이름 · 하는 일 / 상태 한 줄 / 배지 · 확인 시각).
+- 지도 라이브러리(Leaflet·topojson)는 geo.js ensureGeoLibs 로 수원국 화면·사업지 지도를 처음 열 때만 받음(index.html 에서 뺌).
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 
@@ -79,6 +84,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 휴대폰(≤640px): 머리글은 따라 내려오지 않고 로고·오른쪽 버튼 한 줄, 글자 크기 버튼 숨김, 사업 관리 업체 목록 숨김(끌어놓기 불가), 계정 목록은 메일 한 줄 + 팀·역할 아래. Playwright iPhone 13·iPad Mini 로 점검.
 - 다크 기본, 대시보드 배치 'B 관제실'. backdrop-filter·blur 애니메이션 금지(느려짐, 가벼운 모드 html.lite 있음).
 - 글자 크기는 var(--fs-xs·sm·base·md·lg·xl)만. 화면 문구에 '—' 쓰지 않기. 창 닫기 버튼은 마지막 .actions 줄 주 버튼 오른쪽.
+- 메일 v4(2026-11-19): 번호 섹션(① 업체 등급 ② 공식 제재 명단 ③ 뉴스 · 검토 신호 ④ 수원국) + 맨 위 노란 '오늘 먼저 볼 이슈' 3건 + 항목마다 번호 원·관련 사업 상자, 꼬리말(기준·출처·수신 안내) 없앰. 같은 업체·같은 분류 뉴스는 7일 안에 이미 보냈으면 생략(등급이 오르면 보냄, 대시보드엔 그대로). PDF 보고서도 같은 방식(먼저 볼 이슈 + ①②③ 섹션, 꼬리말·요약 목록 없앰).
 - 메일(report.py, v3 2026-11-18 '대시보드 모양 + 팩트 위주·스팸 아니게'): 제목 '[EDCF RADAR] MM/DD 위험 N · 경고 N'(그대로). 남색 그라데이션 머리(로고 · '오늘의 EDCF 업체 리스크' · 마지막 스캔) + 요약 한 줄 → 업체 등급 세 칸(왼쪽 색 띠·큰 숫자·업체 이름) → 이슈는 대시보드 카드 모양(왼쪽 색 띠, 꽉 찬 배지, 공식 제재 명단·분류 태그, 역할 태그+사업). 같은 업체·같은 분류 뉴스는 메일에서 1건으로. 출처 꼬리말 '(Google News · 제재 키워드)'는 뗌. 태그 사이 공백은 지우지 않음(줄바꿈만). 예전 설명: 흰 바탕 문서 머리 + 요약 한 줄 → 업체 등급 세 칸(전일 대비, meta/history) → 오늘 새 이슈를 '공식 제재 명단'·'뉴스'로 나눠 출처·날짜·관련 사업 → 수원국 새 공식 경보(지난 24시간 GDACS·WHO·USGS, meta/geo) → 기준·출처·수신 안내. 기호(◎●)·큰 버튼 없음, 텍스트 본문(plain) 같이, Date·Message-ID 머리글. PDF 보고서도 흰 바탕 문서 머리(범위·기간·기준·작성 표) → 업체 등급 → 요약(이슈 건수·24시간 새 이슈·수원국) → 이슈 표(업체·관련 사업·출처·원문) → 사업별 현황(업체 리스크 + 수원국 리스크, geo.js projectGeoRisk) → 등급 기준·출처. 설정 > 메일 [미리보기 · 보내기] 창 안에서 '내 주소로 테스트'와 'N명에게 지금 보내기'(둘 다 확인 창). 데모 메일은 tools/demo 로 다시 만듦(pip firebase-admin httpx 필요). PDF 보고서: 기본 한 장 요약, [보고서] 창 오른쪽에 A4 미리보기(고르면 바로 바뀜, 인쇄 여백 13mm 12mm 같게).
 - 줄 맞춤: 업체 리스크 오른쪽 사업 목록은 이슈 목록 끝까지(contain: size, 넘치면 안에서 스크롤). 수원국 리스크는 가운데 줄(등급·지도·사업) 높이 같게, 최근 이벤트는 전체 폭 2열. 칸 폭은 글자 크기 따라가게 em 단위(가−/가+ 아주 크게에서도 안 깨짐).
 
@@ -88,7 +94,7 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
 ## 자료
 - 발표 자료(Slides Artifact): https://claude.ai/artifact/P8sKcUGGNPhx8tiRM22g61 — 14장, 사용자가 직접 순서·스크립트를 고침(업체 리스크가 기본, 수원국은 더해서 보는 기능). 순서: 표지 · 배경(200+, 5+, 계약 후 0회) · 흐름 · 시스템 구조 · 등급 · 업체 화면 · 수원국 화면 · 운영 · 추진 단계 · 정식 운영 준비(보안, 라이선스, 운영, 비용 네 칸, 지금 → 그래서 필요한 일, 비용은 10명 남짓 넘으면 유료 · 팀 전체 월 1~2만 원 예상) · 함께 쓰기(두 가지) · 시연 순서(카드 6개 한 장) · 질문 · 만든 과정. 밝은 톤, 화면 캡처는 다크, 선 아이콘, 가운뎃점(·)과 ● 쓰지 않기. 스크립트는 사용자 원문의 큰 축을 유지하고 다듬기만. 고칠 때는 반드시 Artifact read 로 최신본(사용자 편집 포함)을 받아 그 위에서 수정.
-- 즉시 스캔 함수(kickQueue 배포됨 2026-11-18 확인, 하지만 함수 호출 뒤 GitHub 실행이 안 생김 → 로그의 queue dispatch status 확인 중): functions/index.js(requests 생성 → queue 디스패치), 설치 안내 docs/INSTANT.md, 배포 설정 firebase.json·.firebaserc. Blaze 요금제 필요.
+- 즉시 스캔 함수(kickQueue 배포·동작 확인 2026-11-19, 로그 status 204): functions/index.js(requests 생성 → queue 디스패치), 설치 안내 docs/INSTANT.md, 배포 설정 firebase.json·.firebaserc. Blaze 요금제 필요.
 - 설계도(Artifact): https://claude.ai/artifact/JtxkBSsA5KA4Z2b57Nd8tU · 해커톤 키트: docs/HACKATHON.md
 - 팀 매뉴얼 기준: 필요자료 = 사업자번호·영문명. ① EXIMIIS 부정당업자(등록=위험, 해지=이력) ② MDB 5곳 영문명 조회 후 국적 한국 확인 ③ 나라장터 부정당제재(제재정지면 확인 필요).
 

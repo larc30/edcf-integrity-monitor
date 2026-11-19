@@ -108,8 +108,20 @@ def build() -> tuple[str, str, list[str]]:
     hot.sort(key=lambda g: str(g[0].get("published_at") or ""), reverse=True)
     hot.sort(key=lambda g: -LEVEL_ORDER.get(g[0].get("level"), 0))
     official = [g for g in hot if g[0].get("source_type") != "news"]
+    # 같은 업체·같은 분류 뉴스를 최근 7일 안에 이미 보냈으면 생략 (등급이 더 높아졌으면 보냄) · 대시보드에는 그대로 남음
+    week = (now - datetime.timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
+    sent = {}
+    for f in finds:
+        if f.get("source_type") == "news" and str(f.get("reported_at") or "") >= week:
+            k = (f["company_id"], f.get("category") or "")
+            sent[k] = max(sent.get(k, 0), LEVEL_ORDER.get(f.get("level"), 0))
+    repeat = 0
     news_g, seen_key = [], {}
     for g in (g for g in hot if g[0].get("source_type") == "news"):
+        lv = LEVEL_ORDER.get(g[0].get("level"), 0)
+        if all(sent.get((cid, g[0].get("category") or ""), -1) >= lv for cid in dict.fromkeys(f["company_id"] for f in g)):
+            repeat += 1
+            continue
         k = (tuple(sorted(grouping.companies_of(g))), g[0].get("category") or g[0].get("title"))
         if k in seen_key:
             seen_key[k].extend(g)  # 앞(최신·높은 등급) 묶음에 붙임
@@ -120,8 +132,9 @@ def build() -> tuple[str, str, list[str]]:
     n_red = sum(1 for c in overview if c["risk"] == "red")
     n_org = sum(1 for c in overview if c["risk"] == "orange")
     n_ok = len(overview) - n_red - n_org
-    new_red = sum(1 for g in hot if g[0]["level"] == "red")
-    new_org = len(hot) - new_red
+    sendable = official + news_g
+    new_red = sum(1 for g in sendable if g[0]["level"] == "red")
+    new_org = len(sendable) - new_red
     head = " · ".join(t for t in (f"위험 {new_red}" if new_red else "", f"경고 {new_org}" if new_org else "") if t) or "새 위험·경고 없음"
     subject = f"[EDCF RADAR] {now:%m/%d} {head}"
 
@@ -133,7 +146,7 @@ def build() -> tuple[str, str, list[str]]:
         if not prev or lv not in prev:
             return ""
         d = n - int(prev.get(lv) or 0)
-        return "" if d == 0 else f'<div style="font-size:11px;font-weight:700;color:{MUTED};line-height:1.4;white-space:nowrap;">전일 {"+" if d > 0 else "−"}{abs(d)}</div>'
+        return "" if d == 0 else f' <span style="font-size:12px;font-weight:700;color:{MUTED};white-space:nowrap;">전일 {"+" if d > 0 else "−"}{abs(d)}</span>'
     # 수원국: 지난 24시간 안에 새로 들어온 공식 경보 (GDACS·WHO·USGS)
     since = int((now - datetime.timedelta(hours=24)).timestamp() * 1000)
     geo_new = [e for e in (meta["geo"].get("events") or []) if (e.get("at_ms") or 0) >= since and str(e.get("source") or "").split(" ")[0] in ("GDACS", "WHO", "USGS")]
@@ -160,89 +173,100 @@ def build() -> tuple[str, str, list[str]]:
                            + (f' · {e["rank"]}순위' if e.get("rank") else "") + "</span>")
         return "<br>".join(out)
 
-    def rows(gs):
-        out = []
-        for g in gs:
-            f = g[0]
-            fg = COLORS[f["level"]][0]
-            more = f" · 같은 사건 기사 {len(g) - 1}건 더" if len(g) > 1 else ""
-            link = f' · <a href="{E(f["url"])}" style="color:{LINK};text-decoration:none;">원문</a>' if f.get("url") else ""
-            tags = (" " + tag("공식 제재 명단", COLORS["red"][0], COLORS["red"][1]) if f.get("source_type") != "news" else "") \
-                + (" " + tag(f["category"]) if f.get("category") and f["category"] != "기타" else "")
-            et = eng_tags(g)
-            out.append(
-                f'<tr><td style="padding:0 0 8px;"><table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid {LINE};border-left:4px solid {fg};border-radius:10px;background:#FFFFFF;">'
-                f'<tr><td style="padding:10px 14px;font-size:14px;line-height:1.55;color:{TEXT};">'
-                f'<div>{_badge(f["level"])} <b style="font-size:15px;">{E(" · ".join(grouping.companies_of(g)))}</b>{tags}</div>'
-                f'<div style="margin-top:4px;color:{TEXT};">{E((f.get("summary") or f.get("title") or "")[:160])}</div>'
+    def item(n, g):
+        f = g[0]
+        fg = COLORS[f["level"]][0]
+        more = f" · 같은 사건 {len(g) - 1}건 더" if len(g) > 1 else ""
+        link = f' · <a href="{E(f["url"])}" style="color:{LINK};text-decoration:none;font-weight:700;">원문</a>' if f.get("url") else ""
+        cat = tag(f["category"]) if f.get("category") and f["category"] != "기타" else ""
+        et = eng_tags(g)
+        return (f'<tr><td style="padding:14px 0;border-bottom:1px solid {LINE};">'
+                f'<table width="100%" cellpadding="0" cellspacing="0"><tr>'
+                f'<td width="34" style="vertical-align:top;padding-top:1px;"><span style="display:inline-block;width:24px;height:24px;border-radius:50%;background:{fg};color:#FFFFFF;font-size:12px;font-weight:800;line-height:24px;text-align:center;">{n}</span></td>'
+                f'<td style="vertical-align:top;">'
+                f'<div style="font-size:16px;font-weight:800;color:{TEXT};line-height:1.4;">{E(" · ".join(grouping.companies_of(g)))} {_badge(f["level"])} {cat}</div>'
                 f'<div style="margin-top:3px;font-size:12px;color:{MUTED};">{E(_src(f))} · {E(f.get("published_at") or "날짜 미상")}{more}{link}</div>'
-                + (f'<div style="margin-top:5px;font-size:12px;">{et}</div>' if et else "")
+                f'<div style="margin-top:6px;font-size:14px;line-height:1.6;color:{TEXT};">{E((f.get("summary") or f.get("title") or "")[:180])}</div>'
+                + (f'<div style="margin-top:8px;padding:7px 12px;border-left:3px solid {ACCENT};background:#F2F3FE;font-size:12.5px;line-height:1.7;">'
+                   f'<b style="color:{ACCENT};">관련 사업</b>&nbsp; {et}</div>' if et else "")
                 + '</td></tr></table></td></tr>')
-        return "".join(out)
 
-    def section(title, note, gs):
+    def section(no, title, cnt, gs, start=1):
         if not gs:
             return ""
-        return (f'<tr><td style="padding:18px 24px 8px;font-size:15px;font-weight:800;color:{TEXT};">{title} '
-                f'<span style="display:inline-block;padding:0 8px;border-radius:999px;background:{SOFT};font-size:12px;line-height:20px;color:{TEXT2};">{len(gs)}</span> '
-                f'<span style="font-weight:500;font-size:12px;color:{MUTED};">{note}</span></td></tr>'
-                f'<tr><td style="padding:0 24px;"><table width="100%" cellpadding="0" cellspacing="0">{rows(gs)}</table></td></tr>')
+        return (f'<tr><td style="padding:26px 28px 0;">'
+                f'<div style="font-size:18px;font-weight:800;color:{TEXT};padding-bottom:8px;border-bottom:2px solid {NAVY};">'
+                f'<span style="color:{ACCENT};">{no}</span>&nbsp; {title} <span style="font-size:13px;font-weight:700;color:{MUTED};">{cnt}</span></div>'
+                f'<table width="100%" cellpadding="0" cellspacing="0">{"".join(item(start + k, g) for k, g in enumerate(gs))}</table></td></tr>')
 
     shown_off = official[:MAX]
     shown_news = news_g[:max(0, MAX - len(shown_off))]
-    rest = len(hot) - len(shown_off) - len(shown_news)
+    rest = len(sendable) - len(shown_off) - len(shown_news)
     dash_url = E(config.DASHBOARD_URL)
-    dash = f'<a href="{dash_url}" style="color:{LINK};">대시보드</a>'
-    issues = (section("공식 제재 명단", "EXIMIIS·조달청·MDB 등재, 확정 정보", shown_off)
-              + section("뉴스", "제재 확정이 아닌 검토 신호, 원문 확인 필요", shown_news))
-    if not hot:
-        issues = f'<tr><td style="padding:18px 24px 4px;font-size:14px;color:{TEXT2};">오늘 새로 나온 위험·경고 이슈는 없습니다.</td></tr>'
-    extra = [t for t in (f"위험·경고 {rest}건 더" if rest > 0 else "", f"참고 이력 {len(mild)}건" if mild else "", f"30일 지난 기사 {len(old_hot)}건" if old_hot else "") if t]
-    extra_html = (f'<tr><td style="padding:12px 24px 0;font-size:13px;color:{TEXT2};">메일에서 생략: {" · ".join(extra)} ({dash}에서 확인)</td></tr>') if extra else ""
+    # 오늘 핵심: 새 위험·경고 가운데 위쪽 3건 (공식 명단 → 뉴스, 등급 높은 순)
+    top3 = sorted(shown_off + shown_news, key=lambda g: -LEVEL_ORDER.get(g[0].get("level"), 0))[:3]
+    top_html = ""
+    if top3:
+        top_rows = "".join(
+            f'<tr><td style="padding:9px 0;border-top:1px solid #F3E2B8;font-size:14px;line-height:1.55;color:{TEXT};">'
+            f'{_badge(g[0]["level"])} <b>{E(" · ".join(grouping.companies_of(g)))}</b> '
+            f'<span style="color:{TEXT2};">{E((g[0].get("summary") or g[0].get("title") or "")[:70])}</span></td></tr>' for g in top3)
+        top_html = (f'<tr><td style="padding:18px 28px 0;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#FFF8E6;border:1px solid #F3D58A;border-radius:12px;">'
+                    f'<tr><td style="padding:14px 18px 6px;font-size:16px;font-weight:800;color:{TEXT};">오늘 먼저 볼 이슈</td></tr>'
+                    f'<tr><td style="padding:0 18px 8px;"><table width="100%" cellpadding="0" cellspacing="0">{top_rows}</table></td></tr></table></td></tr>')
+    secs, no = [], 1
+    circ = "①②③④⑤"
+    grade_sec = (f'<tr><td style="padding:26px 28px 0;"><div style="font-size:18px;font-weight:800;color:{TEXT};padding-bottom:8px;border-bottom:2px solid {NAVY};">'
+                 f'<span style="color:{ACCENT};">{circ[0]}</span>&nbsp; 업체 등급 <span style="font-size:13px;font-weight:700;color:{MUTED};">업체 {len(overview)}</span></div>'
+                 f'<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px;"><tr></tr></table></td></tr>')
+    no = 1
+    if shown_off:
+        secs.append(section(circ[no], "공식 제재 명단", f"{len(official)}건", shown_off)); no += 1
+    if shown_news:
+        secs.append(section(circ[no], "뉴스 · 검토 신호", f"{len(news_g)}건", shown_news, len(shown_off) + 1)); no += 1
+    issues = "".join(secs) if sendable else (f'<tr><td style="padding:22px 28px 0;font-size:14px;color:{TEXT2};">오늘 새로 나온 위험·경고 이슈는 없습니다.</td></tr>')
+    skipped = [t for t in (f"위험·경고 {rest}건" if rest > 0 else "", f"7일 안에 알린 업체·분류 {repeat}건" if repeat else "") if t]
     geo_html = ""
     if geo_new:
         items = "".join(
-            f'<tr><td style="padding:7px 0;border-bottom:1px solid {SOFT};font-size:13px;line-height:1.5;color:{TEXT};">'
+            f'<tr><td style="padding:10px 0;border-bottom:1px solid {LINE};font-size:14px;line-height:1.55;color:{TEXT};">'
             f'{tag(GEO_KO.get(e.get("type"), e.get("type") or ""), "#0E7490", "#E0F4F8")} {E(str(e.get("title") or "")[:100])} '
-            f'<span style="color:{MUTED};">{E(str(e.get("source") or "").split(" ")[0])}</span></td></tr>' for e in geo_new[:5])
-        geo_html = (f'<tr><td style="padding:18px 24px 6px;font-size:15px;font-weight:800;color:{TEXT};">수원국 새 공식 경보 '
-                    f'<span style="font-weight:500;font-size:12px;color:{MUTED};">지난 24시간 · 사업지·수원국 600km 안</span></td></tr>'
-                    f'<tr><td style="padding:0 24px;"><table width="100%" cellpadding="0" cellspacing="0">{items}</table></td></tr>')
+            f'<span style="font-size:12px;color:{MUTED};">{E(str(e.get("source") or "").split(" ")[0])}</span></td></tr>' for e in geo_new[:5])
+        geo_html = (f'<tr><td style="padding:26px 28px 0;"><div style="font-size:18px;font-weight:800;color:{TEXT};padding-bottom:8px;border-bottom:2px solid {NAVY};">'
+                    f'<span style="color:{ACCENT};">{circ[no]}</span>&nbsp; 수원국 새 공식 경보 <span style="font-size:13px;font-weight:700;color:{MUTED};">지난 24시간</span></div>'
+                    f'<table width="100%" cellpadding="0" cellspacing="0">{items}</table></td></tr>')
     weekday = "월화수목금토일"[now.weekday()]
     scan_at = str(meta["status"].get("last_scan_at") or "")[:16]
-    summary = (f"오늘 새 이슈 위험 {new_red} · 경고 {new_org}건. 모니터링 업체 {len(overview)} 가운데 위험 {n_red} · 경고 {n_org} · 정상 {n_ok}."
-               if hot else f"오늘 새 위험·경고 이슈 없음. 모니터링 업체 {len(overview)} 가운데 위험 {n_red} · 경고 {n_org} · 정상 {n_ok}.")
+    summary = (f"새 이슈 위험 {new_red} · 경고 {new_org}건 · 모니터링 업체 {len(overview)} 가운데 위험 {n_red} · 경고 {n_org}"
+               if sendable else f"새 위험·경고 이슈 없음 · 모니터링 업체 {len(overview)} 가운데 위험 {n_red} · 경고 {n_org}")
     def who(lv):
         l = [c["name"] for c in overview if c["risk"] == lv]
         return (E(", ".join(l[:2])) + (f" 외 {len(l) - 2}" if len(l) > 2 else "")) if l else "해당 없음"
     grade_boxes = "".join(
         f'<td width="33%" style="padding:0 {4 if i < 2 else 0}px 0 {4 if i else 0}px;vertical-align:top;">'
-        f'<div style="border:1px solid {LINE};border-left:4px solid {COLORS[lv][0]};border-radius:10px;padding:9px 12px;background:#FFFFFF;">'
+        f'<div style="border:1px solid {LINE};border-top:4px solid {COLORS[lv][0]};border-radius:10px;padding:10px 14px;background:#FFFFFF;">'
         f'<div style="font-size:13px;font-weight:800;color:{COLORS[lv][0]};">{COLORS[lv][2]}</div>'
-        f'<div style="font-size:26px;font-weight:800;color:{COLORS[lv][0]};line-height:1.2;">{n}{delta(lv, n)}</div>'
-        f'<div style="font-size:11px;color:{MUTED};line-height:1.45;">{who(lv) if lv != "none" else "위험·경고 이슈 없음"}</div></div></td>'
+        f'<div style="font-size:28px;font-weight:800;color:{COLORS[lv][0]};line-height:1.2;">{n}{delta(lv, n)}</div>'
+        f'<div style="font-size:11.5px;color:{MUTED};line-height:1.45;">{who(lv) if lv != "none" else "위험·경고 없음"}</div></div></td>'
         for i, (lv, n) in enumerate((("red", n_red), ("orange", n_org), ("none", n_ok))))
+    grade_sec = grade_sec.replace("<tr></tr>", f"<tr>{grade_boxes}</tr>")
 
     body = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{E(subject)}</title></head>
 <body style="margin:0;background:{BG};font-family:{FONT};color:{TEXT};word-break:keep-all;">
 <div style="display:none;max-height:0;overflow:hidden;">{E(summary)}</div>
 <table width="100%" cellpadding="0" cellspacing="0" style="background:{BG};"><tr><td align="center" style="padding:20px 12px;">
-<table width="640" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%;background:{BG2};border:1px solid {LINE};border-radius:14px;">
-<tr><td style="background:{NAVY};background-image:linear-gradient(120deg,#0A0F1E 0%,#141B3A 60%,#0B2A3A 100%);padding:18px 24px 16px;border-radius:13px 13px 0 0;">
+<table width="660" cellpadding="0" cellspacing="0" style="max-width:660px;width:100%;background:#FFFFFF;border:1px solid {LINE};border-radius:14px;">
+<tr><td style="background:{NAVY};background-image:linear-gradient(120deg,#0A0F1E 0%,#141B3A 60%,#0B2A3A 100%);padding:22px 28px 20px;border-radius:13px 13px 0 0;">
   <table width="100%" cellpadding="0" cellspacing="0"><tr>
     <td style="font-size:14px;font-weight:800;color:#FFFFFF;"><span style="display:inline-block;width:22px;height:22px;border-radius:7px;background:#5B5BF0;background-image:linear-gradient(135deg,#7C83FF,#22D3EE);vertical-align:-6px;margin-right:8px;"></span>EDCF RADAR</td>
     <td align="right" style="font-size:12px;font-weight:700;color:#9FB0C8;">{today} ({weekday})</td></tr></table>
-  <div style="margin-top:12px;font-size:22px;font-weight:800;color:#FFFFFF;line-height:1.3;">오늘의 <span style="color:#9AA3FF;">EDCF</span> <span style="color:#7DD3FC;">업체 리스크</span></div>
-  <div style="margin-top:4px;font-size:12px;color:#9FB0C8;">마지막 스캔 {E(scan_at[5:].replace("-", "/") if scan_at else today)} · 모니터링 업체 {len(overview)}</div>
+  <div style="margin-top:14px;font-size:24px;font-weight:800;color:#FFFFFF;line-height:1.3;">오늘의 <span style="color:#9AA3FF;">EDCF</span> <span style="color:#7DD3FC;">업체 리스크</span></div>
+  <div style="margin-top:6px;font-size:13px;color:#C9D4E5;">{E(summary)}</div>
 </td></tr>
-<tr><td style="padding:14px 24px 0;font-size:14px;color:{TEXT2};line-height:1.55;">{E(summary)}</td></tr>
-<tr><td style="padding:10px 24px 0;"><table width="100%" cellpadding="0" cellspacing="0"><tr>{grade_boxes}</tr></table></td></tr>
-{issues}{extra_html}{geo_html}
-<tr><td style="padding:14px 24px 18px;font-size:13px;color:{TEXT2};">자세한 내용과 처리(확인 완료·관련 없음)는 <a href="{dash_url}" style="color:{LINK};font-weight:700;">EDCF RADAR 대시보드</a>에서 할 수 있습니다.</td></tr>
-<tr><td style="padding:12px 24px 16px;border-top:1px solid {LINE};font-size:12px;color:{MUTED};line-height:1.65;">
-  기준: 자동 검사 {E(scan_at or today)} · 출처: EXIMIIS 부정당업자, 조달청 나라장터, MDB 제재 리스트(OpenSanctions), Google·네이버 뉴스, AI 판정(Claude)<br>
-  뉴스 항목은 제재 확정이 아니라 검토가 필요한 신호입니다. 계약 전에는 원문과 공식 자료로 확인하세요.<br>
-  이 메일은 EDCF RADAR 메일 수신자로 등록된 분께 자동으로 보냅니다. 수신을 멈추려면 관리자에게 요청하세요.
+{top_html}{grade_sec}{issues}{geo_html}
+<tr><td style="padding:24px 28px 26px;">
+  <a href="{dash_url}" style="display:inline-block;padding:10px 18px;border-radius:9px;background:{ACCENT};color:#FFFFFF;font-size:14px;font-weight:700;text-decoration:none;">대시보드에서 확인·처리</a>
+  {f'<span style="margin-left:10px;font-size:12px;color:{MUTED};">메일에서 생략: {" · ".join(skipped)}</span>' if skipped else ""}
 </td></tr>
 </table></td></tr></table></body></html>"""
     body = re.sub(r">\s*\n\s*<", "><", body)  # 줄바꿈만 지움 (메일 크기 줄이기). 태그 사이 띄어쓰기는 남김
@@ -254,7 +278,7 @@ def build() -> tuple[str, str, list[str]]:
     text = "\n".join([f"EDCF RADAR 일일 보고 {today} ({weekday})", summary, ""]
                      + ([f"공식 제재 명단 {len(official)}건"] + [tline(g) for g in shown_off] + [""] if shown_off else [])
                      + ([f"뉴스 {len(news_g)}건 (검토 신호)"] + [tline(g) for g in shown_news] + [""] if shown_news else [])
-                     + ([f"메일에서 생략: {' · '.join(extra)}"] if extra else [])
+                     + ([f"메일에서 생략: {' · '.join(skipped)}"] if skipped else [])
                      + [f"대시보드: {config.DASHBOARD_URL}", "이 메일은 EDCF RADAR 메일 수신자로 등록된 분께 자동으로 보냅니다."])
     build.last_text = text
     return subject, body, [f["id"] for f in new]

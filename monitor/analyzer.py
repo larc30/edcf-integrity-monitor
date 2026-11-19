@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from . import config
+from . import config, usage
 
 log = logging.getLogger(__name__)
 
@@ -58,6 +58,7 @@ EDCF 사업에 참여 중인 업체(컨설턴트, 본구매 계약자, 입찰참
           밝힌 단계도 red (법원이 실제로 집행정지를 결정한 뒤에만 orange)
    - orange(경고): 제재로 이어질 수 있는 진행 중 사안 — 최근 1년 내 입찰담합·뇌물·사기·횡령 등의
              수사·압수수색·기소·유죄판결, 공정위 제재·과징금, 제재 처분 예고·청문, 부도·회생절차·법정관리
+             (수사·처분 전 단계의 '논란·의혹', 배임 논란, 계열사 지원·대위변제, 소송 제기·피소, 실적 악화는 orange 아님 → yellow)
    - yellow(주의): 참고할 이력 — 1년 이상 지난 과거 제재·처분, 의혹 제기·고발 단계, 소송·분쟁,
              중대재해·부실시공, 재무악화 등 간접 리스크
    - none: 무관하거나, 수주·실적·MOU 등 중립/긍정 기사
@@ -187,14 +188,13 @@ def _claude(company: dict, engagements: list[dict], articles: list[dict], keywor
         f"- E{n + 1}: {r.get('date') or ''} {(r.get('title') or '')[:120]}" + (f" · {r['summary'][:80]}" if r.get("summary") else "")
         + {"reviewed": " [담당자 확인 완료]", "dismissed": " [담당자가 관련 없음]"}.get(r.get("status") or "", "")
         for n, r in enumerate(recent)) + "\n\n") if recent else ""
-    user = (
+    user_head = (
         f"오늘 날짜: {date.today().isoformat()}\n\n"
         f"[업체 프로필]\n{json.dumps(profile, ensure_ascii=False, indent=1)}\n\n"
         f"[담당자 관심 키워드]\n{', '.join(k['word'] for k in keywords)}\n\n"
-        + _shared_text(company["name"]) + _feedback_text(feedback) + recent_txt +
-        f"[기사 목록]\n{json.dumps(payload, ensure_ascii=False, indent=1)}\n\n"
-        "모든 기사(idx)에 대해 판정 결과를 반환하세요."
+        + _shared_text(company["name"]) + _feedback_text(feedback) + recent_txt
     )
+    user = user_head + f"[기사 목록]\n{json.dumps(payload, ensure_ascii=False, indent=1)}\n\n" + "모든 기사(idx)에 대해 판정 결과를 반환하세요."
     resp = client.messages.parse(
         model=config.CLAUDE_MODEL,
         max_tokens=16000,
@@ -203,10 +203,13 @@ def _claude(company: dict, engagements: list[dict], articles: list[dict], keywor
         messages=[{"role": "user", "content": user}],
         output_format=BatchJudgement,
     )
+    usage.track(resp, config.CLAUDE_MODEL)
     if resp.stop_reason == "refusal" or resp.parsed_output is None:
         raise RuntimeError(f"Claude 응답 없음 (stop_reason={resp.stop_reason})")
+    results = {j.idx: j for j in resp.parsed_output.results}
+    reviewed = _review(client, user_head, payload, results)
     out = []
-    for j in resp.parsed_output.results:
+    for j in (reviewed.get(i, x) for i, x in results.items()):
         if not (0 <= j.idx < len(articles)):
             continue
         relevant = j.is_about_company and j.risk_level != "none"
@@ -225,11 +228,52 @@ def _claude(company: dict, engagements: list[dict], articles: list[dict], keywor
                 "category": j.category,
                 "summary": j.summary_ko,
                 "rationale": j.rationale + (f" (사건일: {j.event_date})" if j.event_date else ""),
-                "analyzer": "claude",
+                "analyzer": "claude+review" if j.idx in reviewed else "claude",
                 "same_as": same_as,
             }
         )
     return out
+
+
+REVIEW_NOTE = """
+
+[2차 검토] 아래 기사들은 1차 판정에서 위험(red) 또는 경고(orange)로 분류된 것입니다. 담당자에게 알림이 가므로 더 엄격하게 다시 판정하세요.
+- 기사에 적힌 사실만으로 위 기준을 다시 적용하고, 기준에 못 미치면 yellow 또는 none 으로 낮추세요.
+- '논란·의혹', 배임 논란, 계열사 지원·대위변제, 소송 제기, 실적 악화, 다른 법인(모회사·자회사·계열사)의 처분은 이 업체 기준 orange 이상이 아닙니다.
+- category 는 기사의 핵심 사건 하나로 정확히 고르세요 (예: 입찰 담합 적발은 '입찰담합', 사고 자체는 '중대재해·부실시공').
+- same_event_as 는 [이미 수집된 이 업체 이슈]의 E번호만 쓰세요 (이번 목록 번호는 쓰지 마세요)."""
+
+
+def _review(client, user_head: str, payload: list[dict], first: dict) -> dict:
+    """1차에서 위험·경고(이 업체 관련)로 본 기사만 REVIEW_MODEL 로 다시 판정 → {idx: 판정}. 실패하면 {} (1차 결과 유지)"""
+    model = config.REVIEW_MODEL
+    if not model or model == config.CLAUDE_MODEL:
+        return {}
+    pick = [p for p in payload if (j := first.get(p["idx"])) and j.is_about_company and j.risk_level in ("red", "orange")]
+    if not pick:
+        return {}
+    try:
+        resp = client.messages.parse(
+            model=model,
+            max_tokens=8000,
+            system=SYSTEM_PROMPT + REVIEW_NOTE,
+            messages=[{"role": "user", "content": user_head + f"[기사 목록]\n{json.dumps(pick, ensure_ascii=False, indent=1)}\n\n모든 기사(idx)에 대해 판정 결과를 반환하세요."}],
+            output_format=BatchJudgement,
+        )
+        usage.track(resp, model)
+        if resp.stop_reason == "refusal" or resp.parsed_output is None:
+            return {}
+        want = {p["idx"] for p in pick}
+        out = {}
+        for j in resp.parsed_output.results:
+            if j.idx in want:
+                if not (j.same_event_as or "").strip().upper().startswith("E"):  # 같은 목록 안 번호는 1차 결과 유지
+                    j.same_event_as = first[j.idx].same_event_as
+                out[j.idx] = j
+        return out
+    except Exception as e:
+        log.warning("2차 검토 실패 → 1차 판정 유지: %s", type(e).__name__)
+        return {}
 
 
 # ---------- 수원국 이벤트 뉴스 판정 ----------
@@ -282,6 +326,7 @@ def judge_events(items: list[dict]) -> dict[int, dict] | None:
                 messages=[{"role": "user", "content": f"오늘 날짜: {date.today().isoformat()}\n\n[기사 목록]\n{json.dumps(payload, ensure_ascii=False, indent=1)}\n\n모든 기사(idx)에 대해 판정 결과를 반환하세요."}],
                 output_format=EventBatch,
             )
+            usage.track(resp, config.CLAUDE_MODEL)
             if resp.stop_reason == "refusal" or resp.parsed_output is None:
                 raise RuntimeError(f"Claude 응답 없음 (stop_reason={resp.stop_reason})")
             for j in resp.parsed_output.results:
@@ -330,6 +375,7 @@ def summarize_guide(dismissed: list[str], confirmed: list[str], current: str) ->
         "지침 줄만 출력하세요."
     )
     resp = client.messages.create(model=config.CLAUDE_MODEL, max_tokens=1200, messages=[{"role": "user", "content": user}])
+    usage.track(resp, config.CLAUDE_MODEL)
     text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text").strip()
     lines = [ln.strip() for ln in text.splitlines() if ln.strip().startswith("-")][:10]
     return "\n".join(ln[:120] for ln in lines)
