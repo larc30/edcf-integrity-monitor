@@ -1011,16 +1011,21 @@ function buildReport({ scope: sc0, period, done, detail = false }) {
       ${more.length ? `<div class="dup">같은 내용 ${more.length}건 더: ${more.slice(0, 5).map((x) => esc(String(x.source_name || "").replace(/\s*\((Google News|Naver|네이버)\)$/i, "")) + (x.published_at ? " " + esc(x.published_at) : "")).join(" · ")}${more.length > 5 ? " 외" : ""}</div>` : ""}
     </div>`;
   };
-  const srcName = (f) => String(f.source_name || "").replace(/\s*\((Google News|Naver|네이버|네이버 뉴스)\)\s*$/i, "").trim() || (f.source_type !== "news" ? "공식 명단" : "뉴스");
+  const srcName = (f) => String(f.source_name || "").replace(/\s*\([^()]*(Google|Naver|네이버)[^()]*\)\s*$/i, "").trim() || (f.source_type !== "news" ? "공식 명단" : "뉴스");
+  // 한 줄 요약: 첫 문장만, 길면 낱말 끝에서 자르고 '…' (글자 수로 뚝 자르지 않음)
+  const brief = (x, n = 90) => { const t = String(x || "").replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s+/)[0]; if (t.length <= n) return t; const cut = t.lastIndexOf(" ", n); return t.slice(0, cut > n * 0.6 ? cut : n).replace(/[\s,·:]+$/, "") + "…"; };
+  // 한 장 요약은 업체별로 묶음: 같은 업체 이슈가 줄줄이 반복되지 않게 (업체 한 줄 + 이슈는 짧게 3건까지)
+  const byCo = (gs) => { const m = new Map(); gs.forEach((g) => { const k = g.companies.map((c) => c.id).join("|"); if (!m.has(k)) m.set(k, []); m.get(k).push(g); }); return [...m.values()]; };
   const engShort = (g) => esc(g.companies.flatMap((c0) => byRole(state.companies.find((x) => x.id === c0.id)?.engagements || []).slice(0, 2).map((e) => `${projName(e.project_id)} (${e.role})`)).slice(0, 2).join(", ") || "사업 미연결");
   const geoOf = (p) => { try { return projectGeoRisk(p); } catch { return null; } };
   const geoCell = (p) => { const g = geoOf(p); if (!g) return `<span class="mu">-</span>`; return `<span style="color:${C[g.lv][0]};font-weight:700">${C[g.lv][2]}</span>${g.alert ? ` <span class="mu">${esc(g.alert)}</span>` : ""}${g.why[0] ? `<div class="mu">${esc(g.why[0])}</div>` : ""}`; };
   // 한 장 요약 (기본): 위험·경고 이슈 한 줄씩 + 사업별 리스크 수
   const hotG = groups.filter((g) => g.rep.level === "red" || g.rep.level === "orange"), yelN = groups.length - hotG.length;
   const pStat = (p) => { const s = new Set(); state.companies.forEach((c) => { if (c.engagements.some((e) => e.project_id === p.id)) s.add(c); }); const k = { red: 0, orange: 0 }; s.forEach((c) => { if (sc && k[c.risk] != null) k[c.risk]++; }); return { n: s.size, k }; };
-  const simpleBody = `<h2>확인이 필요한 이슈 <span class="mu">위험·경고 ${hotG.length}건${yelN ? ` · 참고 이력 ${yelN}건은 생략` : ""}</span></h2>
-${hotG.length ? `<table><tr><th style="width:9%">등급</th><th style="width:21%">업체 · 관련 사업</th><th>내용</th><th style="width:15%">출처</th><th class="c" style="width:11%">날짜</th></tr>${hotG.slice(0, 20).map((g) => `<tr class="lv-${g.rep.level}"><td>${bd(g.rep.level)}</td><td><b>${esc(g.companies.map((c) => c.name).join(" · "))}</b><div class="mu">${engShort(g)}</div></td><td>${esc(g.rep.summary || g.rep.title || "")}</td><td>${g.rep.source_type !== "news" ? `<span class="tg red">공식 명단</span><div class="mu">${esc(srcName(g.rep))}</div>` : `<span class="mu">${esc(srcName(g.rep))}</span>`}${g.rep.url ? ` <a href="${esc(g.rep.url)}">원문</a>` : ""}</td><td class="c">${esc(g.rep.published_at || "-")}</td></tr>`).join("")}</table>${hotG.length > 20 ? `<div class="mu" style="margin-top:6px">외 ${hotG.length - 20}건은 대시보드 또는 '자세한 목록 포함'으로 확인</div>` : ""}` : `<div class="empty">해당 기간에 확인할 위험·경고 이슈가 없습니다</div>`}
-${ps.length ? `<h2>사업별 현황 <span class="mu">${ps.length}개</span></h2><table><tr><th>사업</th><th class="c" style="width:9%">업체</th><th class="c" style="width:19%">업체 리스크</th><th style="width:27%">수원국 리스크</th></tr>${ps.map((p) => { const { n, k } = pStat(p); return `<tr><td><b>${esc(p.name)}</b>${p.country ? ` <span class="mu">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</td><td class="c">${n}</td><td class="c">${["red", "orange"].map((lv) => k[lv] ? `<span style="color:${C[lv][0]};font-weight:700">${C[lv][2]} ${k[lv]}</span>` : "").filter(Boolean).join(" · ") || `<span style="color:${C.none[0]}">이상 없음</span>`}</td><td>${geoCell(p)}</td></tr>`; }).join("")}</table>` : ""}
+  const hotCo = byCo(hotG);
+  const simpleBody = `<h2>확인이 필요한 이슈 <span class="mu">위험·경고 업체 ${hotCo.length} · 이슈 ${hotG.length}건${yelN ? ` · 참고 이력 ${yelN}건은 생략` : ""}</span></h2>
+${hotG.length ? `<table class="iss"><tr><th style="width:9%">등급</th><th style="width:25%">업체 · 관련 사업</th><th>내용 · 출처</th></tr>${hotCo.slice(0, 20).map((gs) => { const g0 = gs[0]; return `<tr class="lv-${g0.rep.level}"><td>${bd(g0.rep.level)}</td><td><b>${esc(g0.companies.map((c) => c.name).join(" · "))}</b><div class="mu">${engShort(g0)}</div></td><td>${gs.slice(0, 3).map((g) => `<div class="ln">${esc(brief(g.rep.summary || g.rep.title))}<div class="mu">${g.rep.source_type !== "news" ? `<span class="tg red">공식 명단</span> ` : ""}${esc(srcName(g.rep))} · ${esc(g.rep.published_at || "날짜 미상")}${g.rep.url ? ` · <a href="${esc(g.rep.url)}">원문</a>` : ""}</div></div>`).join("")}${gs.length > 3 ? `<div class="mu more">외 ${gs.length - 3}건</div>` : ""}</td></tr>`; }).join("")}</table>${hotCo.length > 20 ? `<div class="mu" style="margin-top:6px">이 밖에 업체 ${hotCo.length - 20}: 대시보드 또는 '자세한 목록 포함'에서 확인</div>` : ""}` : `<div class="empty">해당 기간에 확인할 위험·경고 이슈가 없습니다</div>`}
+${ps.length ? `<h2>사업별 현황 <span class="mu">${ps.length}개</span></h2><table><tr><th>사업</th><th class="c" style="width:9%">업체</th><th class="c" style="width:16%">업체 리스크</th><th style="width:33%">수원국 리스크</th></tr>${ps.map((p) => { const { n, k } = pStat(p); return `<tr><td><b>${esc(p.name)}</b>${p.country ? ` <span class="mu">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</td><td class="c">${n}</td><td class="c">${["red", "orange"].map((lv) => k[lv] ? `<span style="color:${C[lv][0]};font-weight:700">${C[lv][2]} ${k[lv]}</span>` : "").filter(Boolean).join(" · ") || `<span style="color:${C.none[0]}">이상 없음</span>`}</td><td>${geoCell(p)}</td></tr>`; }).join("")}</table>` : ""}
 `;
   const detailBody = `<h2>${done ? "이슈" : "확인할 이슈"} <span class="mu">${groups.length}건 · 등급 높은 순${groups.length > MAX ? ` · 앞의 ${MAX}건` : ""}</span></h2>
 ${groups.length ? groups.slice(0, MAX).map(issue).join("") : `<div class="empty">해당 기간에 ${done ? "" : "확인할 "}이슈가 없습니다</div>`}
@@ -1030,8 +1035,9 @@ ${risky.map((c) => `<tr><td>${bd(c.risk)}</td><td><b>${esc(c.name)}</b>${c.name_
 ${ps.length ? `<h2>사업별 현황 <span class="mu">${ps.length}개</span></h2><table><tr><th style="width:32%">사업</th><th>참여 업체 (역할 · 등급)</th><th class="c" style="width:18%">리스크</th></tr>${projRows}</table>` : ""}
 `;
   let secNo = 0;
-  const top3 = groups.filter((g) => g.rep.level === "red" || g.rep.level === "orange").slice(0, 3);
-  const top3Html = top3.length ? `<div class="top3"><div class="t3h">먼저 볼 이슈</div>${top3.map((g) => `<div class="t3">${bd(g.rep.level)} <b>${esc(g.companies.map((c) => c.name).join(" · "))}</b> <span>${esc(String(g.rep.summary || g.rep.title || "").slice(0, 80))}</span></div>`).join("")}</div>` : "";
+  // 먼저 볼 이슈: 업체마다 한 줄씩 3곳 (같은 업체가 세 줄을 다 차지하지 않게). 위험·경고 업체가 3곳 이하면 바로 아래 표와 같은 내용이라 생략
+  const topCo = byCo(groups.filter((g) => g.rep.level === "red" || g.rep.level === "orange"));
+  const top3Html = topCo.length > 3 ? `<div class="top3"><div class="t3h">먼저 볼 이슈</div>${topCo.slice(0, 3).map(([g]) => `<div class="t3">${bd(g.rep.level)} <b>${esc(g.companies.map((c) => c.name).join(" · "))}</b> <span>${esc(brief(g.rep.summary || g.rep.title, 70))}</span></div>`).join("")}</div>` : "";
   const title = `EDCF_리스크보고서_${sc0 === "mine" ? (myTeam() ? TEAMS[myTeam()] : "우리팀") : "전체"}_${now.slice(0, 10)}`;
   const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(title)}</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
@@ -1066,6 +1072,9 @@ td { padding: 7px 8px; border-bottom: 1px solid #EEF1F6; vertical-align: top; } 
 tr { break-inside: avoid; }
 tr.lv-red td:first-child { box-shadow: inset 3px 0 0 #D92D20; } tr.lv-orange td:first-child { box-shadow: inset 3px 0 0 #F57C00; }
 .mu { color: #6B7690; font-size: 11.5px; }
+table.iss td { padding: 9px 8px; word-break: keep-all; overflow-wrap: anywhere; } table.iss .ln { line-height: 1.5; } table.iss .ln .mu { margin-top: 1px; }
+table.iss .ln + .ln { margin-top: 7px; padding-top: 7px; border-top: 1px dashed #E3E7EF; } table.iss .more { margin-top: 6px; }
+.top3 .t3 { display: flex; gap: 7px; align-items: baseline; } .top3 .t3 b { white-space: nowrap; } .top3 .t3 .bd { flex: 0 0 auto; }
 .bd { display: inline-block; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 700; line-height: 17px; white-space: nowrap; }
 .role { font-weight: 700; font-size: 11px; }
 .tg { display: inline-block; padding: 0 6px; border-radius: 5px; font-size: 11px; background: #EEF1F6; color: #3D4A63; } .tg.red { background: #FDE8EE; color: #E11D48; }
