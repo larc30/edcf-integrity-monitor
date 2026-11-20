@@ -46,7 +46,7 @@ const state = { projects: [], companies: [], findings: [], keywords: [], recipie
 const me = () => auth.currentUser?.email || "";
 const live = (p) => p.status !== "done"; // 완료한 사업은 대시보드·내 담당·집중 감시에서 빠짐 (사업 관리에는 남음)
 // ---------- 권한 (users/{메일}: role super·admin·member, team) ----------
-// 슈퍼관리자: 전부 / 팀 관리자: 자기 팀 사업·업체 연결·팀원 / 팀원: 보기 + 자기 팀 업체 이슈의 확인 완료·관련 없음
+// 슈퍼관리자: 전부 / 팀 관리자: 자기 팀 사업·업체 연결·팀원 / 팀원: 보기 + 자기 팀 업체 이슈의 관련 있음·관련 없음
 const ROLE_L = { super: "슈퍼관리자", admin: "팀 관리자", member: "팀원" };
 // 슈퍼관리자는 firebase-config.js SUPER_ADMINS 2명 고정, 나머지는 설정 > 계정·권한에서 정한 대로 (팀 관리자 · 팀원)
 const isSuperMail = (e) => SUPER_ADMINS.includes(String(e || "").toLowerCase());
@@ -642,13 +642,13 @@ function renderHome() {
   $$("#periodSeg button").forEach((b) => b.onclick = () => { period = b.dataset.p; try { localStorage.setItem("edcf_period", period); } catch {} renderHome(); });
   const shown = openG.filter((g) => groupIn(g, period));
   $("#issueCount").textContent = openG.length;
-  $("#actHelp").innerHTML = info(`<div class="tip-p"><b>두 버튼의 차이</b></div><div class="tip-grid wide"><b>✓ 확인 완료</b><span>이 업체 이야기가 <b>맞음</b>. 목록에서 내려가고 <b>등급은 유지</b>. 비슷한 유형의 <b>새</b> 사건은 계속 알려줌</span><b>✕ 관련 없음</b><span>이 업체 이야기가 <b>아님</b>(동명이인·다른 회사·단순 언급). <b>등급에서 빠지고</b>, AI가 비슷한 유형을 앞으로 걸러냄</span></div><div class="tip-p muted">둘 다 같은 기사는 다시 가져오지 않고, 업체 상세에서 되돌릴 수 있습니다.</div>`);
+  $("#actHelp").innerHTML = info(`<div class="tip-p"><b>이 업체 이야기가 맞나요?</b></div><div class="tip-grid wide"><b>✓ 관련 있음</b><span>이 업체 이야기가 <b>맞음</b>. 목록에서 내려가고 <b>등급은 유지</b>. 비슷한 유형의 <b>새</b> 사건은 계속 알려줌</span><b>✕ 관련 없음</b><span>이 업체 이야기가 <b>아님</b>(동명이인·다른 회사·단순 언급). <b>등급에서 빠지고</b>, AI가 비슷한 유형을 앞으로 걸러냄</span></div><div class="tip-p muted">둘 다 같은 기사는 다시 가져오지 않고, 업체 상세에서 되돌릴 수 있습니다.</div>`);
   if (shown.length) renderGroups(shown, $("#feed"));
   else $("#feed").innerHTML = !sc ? `<div class="empty">스캔 후 이곳에 이슈가 출처와 함께 표시됩니다.</div>`
     : openG.length ? `<div class="ok-box">이 조건에는 확인할 이슈가 없습니다 <span class="muted small">(전체 ${openG.length}건)</span></div>`
     : `<div class="ok-box">확인이 필요한 이슈가 없습니다</div>`;
   if (period === "old" && shown.length) { // 30일 지난 기사: 이미 아는 과거 이력이면 한 번에 정리
-    $("#feed").insertAdjacentHTML("afterbegin", `<div class="bulk-bar"><span>30일 지난 기사 <b>${shown.length}건</b> · 이미 아는 과거 이력이면 한 번에 정리할 수 있습니다</span><button class="btn sm" id="bulkOld">모두 확인 완료</button></div>`);
+    $("#feed").insertAdjacentHTML("afterbegin", `<div class="bulk-bar"><span>30일 지난 기사 <b>${shown.length}건</b> · 이미 아는 과거 이력이면 한 번에 정리할 수 있습니다</span><button class="btn sm" id="bulkOld">모두 관련 있음</button></div>`);
     $("#bulkOld").onclick = () => bulkReview(shown);
   }
   // 참고 이력: 처리하지 않아도 되는 목록: 펼칠 때만 그림
@@ -796,9 +796,10 @@ function findingHtml(g, showCompany = true) {
       ${f.category && f.category !== "기타" ? `<span class="tag">${esc(f.category)}</span>` : ""}
       ${isNew ? `<span class="new-pill">NEW</span>` : ""}
       <span class="item-actions ${canReview(f.company_id) ? "" : "hidden"}">
-        ${f.status !== "reviewed" ? `<button class="btn sm act-ok" data-act="reviewed" title="이 업체 이야기가 맞고 내용을 확인함. 목록에서 내려가고 등급은 그대로 남습니다. 비슷한 유형의 새 기사는 앞으로도 알려줍니다${more.length ? ` (같은 내용 ${g.items.length}건 함께)` : ""}">✓ 확인 완료</button>` : ""}
-        ${f.status !== "dismissed" ? `<button class="btn sm act-no" data-act="dismissed" title="이 업체 이야기가 아님(동명이인·다른 회사·단순 언급). 등급에서 빠지고, AI가 비슷한 유형을 앞으로 걸러냅니다${more.length ? ` (같은 내용 ${g.items.length}건 함께)` : ""}">✕ 관련 없음</button>` : ""}
-        ${f.status && f.status !== "new" ? `<button class="btn sm ghost" data-act="new">되돌리기</button>` : ""}
+        ${!f.status || f.status === "new" ? `<button class="btn sm act-ok" data-act="reviewed" title="이 업체 이야기가 맞음. 목록에서 내려가고 등급은 그대로 남습니다. 비슷한 유형의 새 기사는 앞으로도 알려줍니다${more.length ? ` (같은 내용 ${g.items.length}건 함께)` : ""}">✓ 관련 있음</button>
+        <button class="btn sm act-no" data-act="dismissed" title="이 업체 이야기가 아님(동명이인·다른 회사·단순 언급). 등급에서 빠지고, AI가 비슷한 유형을 앞으로 걸러냅니다${more.length ? ` (같은 내용 ${g.items.length}건 함께)` : ""}">✕ 관련 없음</button>`
+        : `<span class="act-done ${f.status}" title="${esc([f.reviewed_by && "처리: " + (/^자동/.test(f.reviewed_by) ? f.reviewed_by : String(f.reviewed_by).split("@")[0]), f.reviewed_at && String(f.reviewed_at).slice(0, 16)].filter(Boolean).join(" · "))}">${f.status === "reviewed" ? "✓ 관련 있음" : `✕ 관련 없음${reasonShort(f) ? ` · ${esc(reasonShort(f))}` : ""}`}${/^자동/.test(f.reviewed_by || "") ? " (자동)" : ""}</span>
+        <button class="btn sm ghost" data-act="new" title="처리 전 상태로 돌립니다. 판단을 바꾸려면 되돌린 뒤 다시 고르세요">되돌리기</button>`}
       </span>
     </div>
     <div class="item-summary"${why ? ` title="${esc(why)}"` : ""}>${esc(f.summary || f.title)}</div>
@@ -815,11 +816,11 @@ function findingHtml(g, showCompany = true) {
 // 과거 이력 일괄 정리 ('확인했음'으로: 등급은 그대로, AI 판정 예시에는 쓰지 않음)
 async function bulkReview(groups) {
   const ids = groups.flatMap((g) => g.items.map((x) => x.id));
-  if (!ids.length || !confirm(`30일 지난 기사 ${groups.length}건(기록 ${ids.length}개)을 '확인 완료'로 처리할까요?\n등급은 그대로 남고, '확인 완료한 이슈'에서 되돌릴 수 있습니다.`)) return;
+  if (!ids.length || !confirm(`30일 지난 기사 ${groups.length}건(기록 ${ids.length}개)을 '관련 있음'으로 처리할까요?\n등급은 그대로 남고, '관련 있음한 이슈'에서 되돌릴 수 있습니다.`)) return;
   const patch = { status: "reviewed", reviewed_by: auth.currentUser.email, reviewed_at: nowStr(), review_note: "과거 이력 일괄 정리" };
   for (let i = 0; i < ids.length; i += 400) { const b = writeBatch(db); ids.slice(i, i + 400).forEach((id) => b.update(doc(db, "findings", id), patch)); await b.commit(); }
   ids.forEach((id) => Object.assign(state.findings.find((f) => f.id === id) || {}, patch));
-  toast(`30일 지난 기사 ${groups.length}건을 확인 완료로 처리했습니다`);
+  toast(`30일 지난 기사 ${groups.length}건을 관련 있음으로 처리했습니다`);
   rerender();
 }
 // 이슈 목록: 같은 내용은 한 줄로 묶어서 표시
@@ -843,12 +844,13 @@ function renderGroups(groups, el, showCompany = true) {
     ids.forEach((id) => Object.assign(state.findings.find((f) => f.id === id) || {}, patch));
     kids.forEach((f) => Object.assign(f, kidPatch));
     const both = ids.length > 1 ? ` (같은 내용 ${ids.length}건 함께)` : "";
-    toast((st === "dismissed" ? `관련 없음 (${reason.label}): 등급에서 빠지고, AI가 비슷한 유형을 앞으로 걸러냅니다` : st === "reviewed" ? "확인 완료: 목록에서 내려가고 등급은 그대로 남습니다" : `되돌렸습니다${kids.length ? `. 같은 사건으로 자동 처리됐던 기사 ${kids.length}건도 함께 되돌렸습니다` : ""}. AI 예시에서도 다음 스캔부터 빠집니다`) + both, 4500);
+    toast((st === "dismissed" ? `관련 없음 (${reason.label}): 등급에서 빠지고, AI가 비슷한 유형을 앞으로 걸러냅니다` : st === "reviewed" ? "관련 있음: 목록에서 내려가고 등급은 그대로 남습니다" : `되돌렸습니다${kids.length ? `. 같은 사건으로 자동 처리됐던 기사 ${kids.length}건도 함께 되돌렸습니다` : ""}. AI 예시에서도 다음 스캔부터 빠집니다`) + both, 4500);
     rerender();
   }));
 }
 
 // ✕ 관련 없음 이유 (판단 가이드와 같은 분류). 고른 이유는 AI 판정 예시에도 함께 전달 (review_note)
+const reasonShort = (f) => { const r = DISMISS_REASONS.find(([k]) => k === f.review_reason); return r ? r[1].split(" (")[0] : ""; };
 const DISMISS_REASONS = [
   ["name", "동명이인·다른 회사", "이름만 같거나 비슷한 다른 회사 이야기"],
   ["affiliate", "다른 법인 (모회사·자회사·계열사)", "같은 그룹이지만 처분·수사 대상은 다른 법인"],
@@ -879,7 +881,7 @@ function pickDismissReason(n) {
 // ---------- 판단 가이드 (4개 팀 공통 기준) ----------
 const GUIDE_HTML = `
 <div class="gd">
-  <p class="gd-lead">누가 처리해도 같은 결과가 나오도록 정한 공통 기준입니다. 애매하면 <b>확인 완료</b>로 두고, <b>관련 없음</b>은 확실할 때만 씁니다.</p>
+  <p class="gd-lead">누가 처리해도 같은 결과가 나오도록 정한 공통 기준입니다. 애매하면 <b>관련 있음</b>으로 두고, <b>관련 없음</b>은 확실할 때만 씁니다.</p>
 
   <section class="gd-s"><h3><span class="gd-n">1</span>업체 등급</h3>
   <div class="gd-lv">
@@ -890,7 +892,7 @@ const GUIDE_HTML = `
 
   <section class="gd-s"><h3><span class="gd-n">2</span>이슈 처리 버튼</h3>
   <div class="gd-btns">
-    <div class="gd-b ok"><b>✓ 확인 완료</b><p><em>이 업체 이야기가 맞음.</em> 등급은 그대로 두고 목록에서 내림</p></div>
+    <div class="gd-b ok"><b>✓ 관련 있음</b><p><em>이 업체 이야기가 맞음.</em> 등급은 그대로 두고 목록에서 내림</p></div>
     <div class="gd-b no"><b>✕ 관련 없음</b><p><em>이 업체 이야기가 아님.</em> 등급에서 빠짐. 이유를 고름</p></div>
     <div class="gd-b"><b>되돌리기</b><p>잘못 눌렀을 때. 처리 전 상태로 돌아감</p></div>
   </div>
@@ -901,12 +903,12 @@ const GUIDE_HTML = `
 
   <section class="gd-s"><h3><span class="gd-n">4</span>자주 헷갈리는 경우</h3>
   <div class="gd-qa">
-    <div><b>계열사 · 모회사 · 현지 법인</b><p>처분 대상이 다른 법인이면 <span class="no">관련 없음</span>, 같은 법인이면 <span class="ok">확인 완료</span></p></div>
-    <div><b>공동수급 (컨소시엄)</b><p>처분 대상에 이 업체가 있으면 <span class="ok">확인 완료</span>, 다른 구성원만이면 <span class="no">관련 없음</span></p></div>
-    <div><b>끝난 과거 처분</b><p>기간이 끝났고 새 내용이 없으면 <span class="no">관련 없음</span>, 기간 중이면 <span class="ok">확인 완료</span></p></div>
-    <div><b>집행정지</b><p><span class="ok">확인 완료</span> (경고 유지). 판결이 나오면 다시 확인</p></div>
-    <div><b>대표자 개인 사건</b><p>회사가 대상이 아니면 <span class="no">관련 없음</span>, 회사도 대상이면 <span class="ok">확인 완료</span></p></div>
-    <div><b>공식 명단 (조달청 · MDB · EXIMIIS)</b><p>원 출처를 먼저 확인. 같은 회사면 <span class="ok">확인 완료</span>, 이름만 비슷하면 <span class="no">관련 없음</span></p></div>
+    <div><b>계열사 · 모회사 · 현지 법인</b><p>처분 대상이 다른 법인이면 <span class="no">관련 없음</span>, 같은 법인이면 <span class="ok">관련 있음</span></p></div>
+    <div><b>공동수급 (컨소시엄)</b><p>처분 대상에 이 업체가 있으면 <span class="ok">관련 있음</span>, 다른 구성원만이면 <span class="no">관련 없음</span></p></div>
+    <div><b>끝난 과거 처분</b><p>기간이 끝났고 새 내용이 없으면 <span class="no">관련 없음</span>, 기간 중이면 <span class="ok">관련 있음</span></p></div>
+    <div><b>집행정지</b><p><span class="ok">관련 있음</span> (경고 유지). 판결이 나오면 다시 확인</p></div>
+    <div><b>대표자 개인 사건</b><p>회사가 대상이 아니면 <span class="no">관련 없음</span>, 회사도 대상이면 <span class="ok">관련 있음</span></p></div>
+    <div><b>공식 명단 (조달청 · MDB · EXIMIIS)</b><p>원 출처를 먼저 확인. 같은 회사면 <span class="ok">관련 있음</span>, 이름만 비슷하면 <span class="no">관련 없음</span></p></div>
   </div></section>
 </div>`;
 const GUIDE_PRINT_CSS = `body{font-family:'Pretendard','Malgun Gothic',sans-serif;color:#0B1220;margin:12mm;font-size:12px;line-height:1.55;word-break:keep-all}h1{font-size:19px;margin:0 0 4px}
@@ -942,7 +944,7 @@ function openReport() {
       <label>범위<select name="scope"><option value="mine" ${scope === "mine" ? "selected" : ""}>${esc(mineLabel())}</option><option value="all" ${scope === "all" ? "selected" : ""}>EDCF 전체</option></select></label>
       <label>이슈 기간<select name="period">${REPORT_PERIODS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select></label>
       <label class="check"><input type="checkbox" name="detail"> 자세한 목록 포함 (이슈 전체 · 리스크 업체 · 사업별 업체)</label>
-      <label class="check"><input type="checkbox" name="done"> 확인 완료한 이슈도 포함</label>
+      <label class="check"><input type="checkbox" name="done"> '관련 있음'으로 처리한 이슈도 포함</label>
       <p class="muted small rp-hint">저장: 인쇄 창의 <b>대상</b>에서 <b>PDF로 저장</b>을 고르세요.</p>
       <div class="actions"><button class="btn primary">PDF로 저장</button></div>
     </form>
@@ -1004,7 +1006,7 @@ function buildReport({ scope: sc0, period, done, detail = false }) {
   const issue = (g) => {
     const f = g.rep, [fg] = C[f.level] || C.none, more = g.items.slice(1);
     return `<div class="is" style="border-left-color:${fg}">
-      <div class="is-h">${bd(f.level)} <b>${esc(g.companies.map((c) => c.name).join(" · "))}</b>${f.source_type !== "news" ? ` <span class="tg red">공식 제재 명단</span>` : ""}${f.category && f.category !== "기타" ? ` <span class="tg">${esc(f.category)}</span>` : ""}${f.status === "reviewed" ? ` <span class="tg">확인 완료</span>` : ""}</div>
+      <div class="is-h">${bd(f.level)} <b>${esc(g.companies.map((c) => c.name).join(" · "))}</b>${f.source_type !== "news" ? ` <span class="tg red">공식 제재 명단</span>` : ""}${f.category && f.category !== "기타" ? ` <span class="tg">${esc(f.category)}</span>` : ""}${f.status === "reviewed" ? ` <span class="tg">관련 있음</span>` : ""}</div>
       <div class="is-s">${esc(f.summary || f.title)}</div>
       <div class="mu">${esc(f.source_name || "-")} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}">원문</a>` : ""}</div>
       <div class="mu">「${esc(f.title || "")}」</div>
@@ -1086,7 +1088,7 @@ table.iss .ln + .ln { margin-top: 7px; padding-top: 7px; border-top: 1px dashed 
 </style></head><body>
 <div class="hd"><div class="top"><span><span class="mk"></span>EDCF RADAR</span><span class="dt">${esc(now.slice(0, 10))}</span></div>
   <h1><span class="a">EDCF</span> <span class="b">업체 리스크</span> 보고서</h1>
-  <table class="mt"><tr><td class="k">범위</td><td>${esc(scopeL)} (업체 ${cs.length} · 사업 ${ps.length})</td><td class="k">이슈 기간</td><td>${esc(periodL)}${done ? " · 확인 완료 포함" : ""}</td></tr>
+  <table class="mt"><tr><td class="k">범위</td><td>${esc(scopeL)} (업체 ${cs.length} · 사업 ${ps.length})</td><td class="k">이슈 기간</td><td>${esc(periodL)}${done ? " · 관련 있음 포함" : ""}</td></tr>
   <tr><td class="k">기준</td><td>자동 검사 ${esc((state.status.last_scan_at || "-").slice(0, 16))}</td><td class="k">작성</td><td>${esc(now.slice(0, 16))} · ${esc(me().split("@")[0])}${myTeam() ? ` (${esc(teamName(myTeam()))})` : ""}</td></tr></table></div>
 ${top3Html}<h2>업체 등급 <span class="mu">업체 ${cs.length}</span></h2>
 <div class="kpi">${["red", "orange", "none"].map((lv) => { const l = cs.filter((c) => sc && c.risk === lv).sort((a, b) => b.open - a.open || a.name.localeCompare(b.name)); return `<div style="border-left:4px solid ${C[lv][0]}"><small style="color:${C[lv][0]}">${C[lv][2]}</small><b style="color:${C[lv][0]}">${t[lv]}</b><p>${lv === "none" ? "위험·경고 이슈 없음" : l.length ? esc(l.slice(0, 6).map((c) => c.name).join(", ")) + (l.length > 6 ? ` 외 ${l.length - 6}` : "") : "해당 업체 없음"}</p></div>`; }).join("")}</div>
@@ -1220,7 +1222,7 @@ function riskRow(c) {
   const groups = groupFindings(state.findings.filter((f) => f.company_id === c.id && f.status !== "dismissed"));
   const top = groups[0]?.rep, engs = byRole(c.engagements);
   return `<div class="rl-row ${c.risk}" data-rl="${c.id}" role="button" tabindex="0">
-    <div class="rl-top"><b class="rl-name">${esc(c.name)}</b><span class="rl-cat">${esc(c.cat || "")}</span>${c.open ? `<span class="rl-open">미확인 ${c.open}</span>` : `<span class="rl-done">확인 완료</span>`}<span class="rl-arr">›</span></div>
+    <div class="rl-top"><b class="rl-name">${esc(c.name)}</b><span class="rl-cat">${esc(c.cat || "")}</span>${c.open ? `<span class="rl-open">미확인 ${c.open}</span>` : `<span class="rl-done">관련 있음</span>`}<span class="rl-arr">›</span></div>
     ${engs.length ? `<div class="rl-engs">${engs.slice(0, 3).map((e) => `<span class="d-eng">${roleTag(e.role)}<span>${esc(projName(e.project_id))}</span>${stageTag(e)}</span>`).join("")}${engs.length > 3 ? `<span class="muted small">외 ${engs.length - 3}</span>` : ""}</div>` : ""}
     ${top ? `<div class="rl-why">${esc(top.summary || top.title || "")}</div>
     <div class="rl-src">${esc(top.source_name || "-")} · ${esc(top.published_at || "날짜 미상")}${groups.length > 1 ? ` · 이슈 ${groups.length}건` : ""}</div>` : ""}
@@ -1258,7 +1260,7 @@ function openCompany(cid, back = null) {
     <section class="d-sec">
       <div class="d-sec-head"><h3>참여 사업</h3></div>
       ${c.engagements.length ? `<div class="d-list">${c.engagements.map((e, i) => `<div class="d-row"><span>${roleTag(e.role)} ${esc(projName(e.project_id))} ${stageTag(e)}</span><button class="xbtn" data-dunlink="${i}" title="이 사업에서 빼기">✕</button></div>`).join("")}</div>` : ""}
-      ${state.projects.length ? `<form id="linkForm" class="d-link"><select name="pid">${state.projects.filter(canEditProject).map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select><select name="role">${ROLES.map((r) => `<option>${r}</option>`).join("")}</select><button class="btn sm">연결</button></form>` : `<div class="muted small">사업 관리에서 사업을 먼저 만드세요</div>`}
+      ${state.projects.length ? `<form id="linkForm" class="d-link"><select name="pid" required><option value="">사업 선택</option>${projOptions()}</select><select name="role" required>${roleOptions()}</select><button class="btn sm">연결</button></form>` : `<div class="muted small">사업 관리에서 사업을 먼저 만드세요</div>`}
     </section>
 
     <section class="d-sec">
@@ -1587,7 +1589,7 @@ const CO_VIEWS = [
   ["all", "전체", "등록된 모든 업체"],
   ["pre", "계약 전 점검", "입찰중·우선협상 단계 업체: 부정당업자 확인이 가장 필요한 시점"],
   ["risk", "리스크 업체", "위험·경고 업체"],
-  ["open", "미확인 이슈", "'확인 완료·관련 없음' 처리 전 이슈가 있는 업체"],
+  ["open", "미확인 이슈", "'관련 있음·관련 없음' 처리 전 이슈가 있는 업체"],
   ["info", "정보 보완 필요", "사업자번호 또는 영문명이 없어 조회가 불완전한 업체"],
 ];
 const needInfo = (c) => (c.country === "KR" && !c.biz_no) || !c.name_en;
@@ -2056,8 +2058,8 @@ function openCompanyForm(cid = null) {
       </div>
       ${isNew ? "" : `<div class="row"><label>검색 언어<input name="search_langs" maxlength="20" placeholder="ko,en,id" value="${esc(c0.search_langs || "ko")}"></label><label>메모<input name="note" maxlength="200" value="${v("note")}"></label></div>`}
       <label class="check"><input type="checkbox" name="foreign" ${isForeign ? "checked" : ""}> 해외 업체 (사업자등록번호 없음 · 조달청 조회 제외 · 영문 뉴스 검색)</label>
-      ${isNew && state.projects.length ? `<div class="row"><label>사업에 바로 연결 (선택)<select name="pid"><option value="">연결 안 함</option>${state.projects.filter(canEditProject).map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select></label>
-        <label>역할<select name="role">${ROLES.map((r) => `<option>${r}</option>`).join("")}</select></label></div>` : ""}
+      ${isNew && state.projects.length ? `<div class="row"><label>사업에 바로 연결 (선택)<select name="pid"><option value="">연결 안 함</option>${projOptions()}</select></label>
+        <label>역할<select name="role">${roleOptions()}</select></label></div>` : ""}
       ${engs.length ? `<div class="co-engs"><span class="muted small">참여 사업</span>${byRole(engs).map((e) => `<span class="d-eng">${roleTag(e.role)}<span>${esc(projName(e.project_id))}</span>${stageTag(e)}</span>`).join("")}</div>` : ""}
       <div class="actions">${isNew ? "" : `<button type="button" class="btn ghost danger" id="coDel" style="margin-right:auto">업체 삭제</button><button type="button" class="btn" id="coIssues">이슈 · 검사 결과 보기</button>`}<button class="btn primary">${isNew ? "추가" : "저장"}</button></div>
     </form>`);
@@ -2166,6 +2168,7 @@ function openCompanyForm(cid = null) {
     if (dup) return toast(`사업자등록번호 ${fmtBiz(biz)}는 이미 '${dup.name}'(으)로 등록돼 있습니다. 회사 이름이 바뀐 경우면 그 업체에 별칭으로 넣어 주세요`, 6000);
     if (fd.name_en && /[가-힣ㄱ-ㅎ]/.test(fd.name_en)) { f1.name_en.focus(); return toast("영문명에는 한글을 넣을 수 없습니다"); }
     if (fd.ceo && /[ㄱ-ㅎㅏ-ㅣ0-9]/.test(fd.ceo)) { f1.ceo.focus(); return toast("대표자 이름을 다시 확인해 주세요"); }
+    if (isNew && fd.pid && !fd.role) { f1.role.focus(); return toast("사업에 연결하려면 역할(F/S · 컨설턴트 · 본구매)을 골라 주세요", 5000); }
     const fromDart = picked && !fd.foreign;
     if (isNew) {
       const ref = doc(collection(db, "companies"));
@@ -2214,6 +2217,14 @@ $("#btnAddCompany").onclick = () => openCompanyForm(null);
 // 넓은 도시 목록 (GeoNames, tools/build_cities.py 로 만듦): 사업 등록 창에서 도시를 처음 찾을 때 한 번만 받음
 let cityDb = null, cityDbP = null;
 const loadCityDb = () => cityDbP || (cityDbP = fetch("assets/cities.json?v=1").then((r) => r.ok ? r.json() : null).then((d) => { cityDb = d; }).catch(() => { cityDbP = null; }));
+// 사업 고르기 칸: 수원국별로 묶고(가나다순) 그 안에서 사업명 가나다순. 내가 고칠 수 있는 진행 중 사업만
+function projOptions() {
+  const by = {};
+  state.projects.filter((p) => canEditProject(p) && live(p)).forEach((p) => { const k = COUNTRY[p.country] || "수원국 미지정"; (by[k] = by[k] || []).push(p); });
+  return Object.keys(by).sort((x, y) => (x === "수원국 미지정") - (y === "수원국 미지정") || x.localeCompare(y, "ko"))
+    .map((k) => `<optgroup label="${esc(k)} (${by[k].length})">${by[k].sort((x, y) => x.name.localeCompare(y.name, "ko")).map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</optgroup>`).join("");
+}
+const roleOptions = () => `<option value="">역할 선택</option>${ROLES.map((r) => `<option>${r}</option>`).join("")}`;
 // 새 사업
 $("#btnAddProject").onclick = () => openProjectEdit(null);
 
