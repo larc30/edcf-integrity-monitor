@@ -115,6 +115,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
 - 수원국 이벤트 묶기(2026-11-20, '같은 기사 합치기가 없음'): 뉴스로 잡은 이벤트만, 같은 나라·같은 종류·3일 안에서 제목 두 글자 조각 일치율 0.42 이상이거나(0.18 이상이면서 같은 숫자 표현 '48배·150명' 포함) 하나로(geo.js groupEvents·sameStory). 대표 = 가장 최근 기사, 카드에 '같은 내용 N건 더'. 목록·건수·지도 표시에만 적용하고 등급 계산은 원래 목록. 공식 자료(USGS·GDACS·WHO)는 안 묶음. 수집 단계(geo.py)에서는 안 묶음.
 
+- AI 판정 기준 보완(2026-11-20, 공정위의 지주회사 행위제한 시정명령 기사가 경고로 뜬 사례): 공정위 처분이라도 입찰·계약·청렴과 무관한 지배구조·공시 규제 위반(지주회사 행위제한·기업결합 신고·공시 누락)의 시정명령·경고·과태료는 참고(yellow). 담합·하도급·부당지원 과징금은 그대로 경고. 1차·2차 판정 지침 둘 다(analyzer.py). 이미 저장된 기사는 그대로(다음 스캔의 새 기사부터).
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 

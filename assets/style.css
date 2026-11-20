@@ -1981,3 +1981,9 @@ select optgroup option { background: var(--panel-solid); color: var(--text); fon
 .ev-dup { margin-top: .5em; padding-top: .5em; border-top: 1px dashed var(--line-2); font-size: var(--fs-sm); }
 .ev-dup > summary { cursor: pointer; color: var(--accent-2); font-weight: 650; } .ev-dup > summary span { color: var(--muted); font-weight: 500; margin-left: .4em; }
 .ev-dup-row { margin-top: .35em; color: var(--text-2); word-break: keep-all; } .ev-dup-row a { color: var(--text-2); } .ev-dup-row span { color: var(--muted); font-size: var(--fs-xs); margin-left: .3em; white-space: nowrap; }
+
+/* 참고 이력은 등급이 아님(2026-11-11): 예전 '주의' 때의 노란색이 남아 경고처럼 보이던 곳을 회색으로 (배지는 이미 회색) */
+.item.lv-yellow, .prow.yellow, .rk.yellow, .rlabel.yellow { --c: var(--gray); }
+.dot.yellow, .rdot.yellow, .pj-bar .yellow { background: var(--gray); color: var(--gray); }
+.cchip.yellow { background: var(--gray-bg); }
+.rrow.yellow .issues, .pj-sum .yellow { color: var(--gray); }
