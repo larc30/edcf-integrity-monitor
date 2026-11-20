@@ -1918,3 +1918,24 @@ body.admin-on .tabs .adm.active { background: color-mix(in srgb, var(--text) 8%,
 
 /* 입력란: 초점 표시를 가늘게 */
 input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent); }
+
+/* 이슈 처리 결과 표시 (처리한 카드는 버튼 대신 결과 + 되돌리기) */
+.act-done { display: inline-flex; align-items: center; gap: .3em; padding: 2px 10px; border-radius: 8px; font-size: var(--fs-sm); font-weight: 650; white-space: nowrap; cursor: default; }
+.act-done.reviewed { color: var(--green); background: var(--green-bg); }
+.act-done.dismissed { color: var(--text-2); background: var(--gray-bg); }
+.item.reviewed .item-actions { opacity: 1; }
+.btn.act-ok, .btn.act-no { min-width: 6.4em; justify-content: center; }
+
+/* 도시 찾기: 온라인 찾기·그대로 쓰기 줄은 후보 아래에 구분해서 */
+.city-sug button.alt b { font-weight: 600; color: var(--accent-2); } .city-sug button.alt:first-of-type, .city-sug button:not(.alt) + button.alt { border-top: 1px dashed var(--line-2); border-radius: 0 0 7px 7px; margin-top: 3px; padding-top: 9px; }
+
+/* 업체 관리 필터 줄: 검색칸·고르기 칸·버튼 높이를 같게, 덜 쓰는 필터는 [상세 필터] 아래 줄로 */
+.co-filters { gap: .5em; }
+.co-filters .co-search, .co-filters select, .co-filters > .btn { height: 2.5em; font-size: var(--fs-sm); padding-top: 0; padding-bottom: 0; line-height: 1; box-sizing: border-box; }
+.co-filters .co-search { padding-left: .9em; padding-right: .9em; flex: 1 1 16em; }
+.co-filters > .btn { padding-left: .8em; padding-right: .8em; border: 1px solid var(--line-2); }
+.co-filters > .btn.on { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+.co-filters #fProj { max-width: 17em; flex: 0 1 17em; }
+.co-more { flex: 1 0 100%; display: flex; flex-wrap: wrap; gap: .5em; padding-top: .1em; }
+.co-more.hidden { display: none; }
+@media (max-width: 760px) { .co-more { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; } }

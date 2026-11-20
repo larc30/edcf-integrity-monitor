@@ -1,6 +1,6 @@
-"""assets/cities.json 만들기: 수원국(assets/geo.js GEO_COUNTRY)의 인구 1만5천 이상 도시 (사업 등록 창의 도시 찾기용)
+"""assets/cities.json 만들기: 수원국(assets/geo.js GEO_COUNTRY)의 인구 1천 이상 도시 (사업 등록 창의 도시 찾기용)
 
-자료: GeoNames cities15000 (CC BY 4.0, https://www.geonames.org) · PyPI geonamescache 에 든 사본을 씀
+자료: GeoNames cities1000 (CC BY 4.0, https://www.geonames.org) · PyPI geonamescache 에 든 사본을 씀
 쓰기:  pip install geonamescache  →  python tools/build_cities.py
 형식:  {"_src": 출처, "KE": [[영문명, 위도, 경도, 한글 표기들(쉼표) 또는 ""], ...]}  (나라 안에서는 인구 많은 순)
 """
@@ -16,8 +16,8 @@ geo_js = (ROOT / "assets" / "geo.js").read_text(encoding="utf-8")
 block = geo_js[geo_js.index("export const GEO_COUNTRY"):geo_js.index("export const GEO_CITY")]
 codes = set(re.findall(r'\b([A-Z]{2}): \["', block)) - {"KR"}
 
-out: dict = {"_src": "GeoNames cities15000 (CC BY 4.0) geonames.org"}
-rows = sorted(geonamescache.GeonamesCache(min_city_population=15000).get_cities().values(), key=lambda c: -int(c.get("population") or 0))
+out: dict = {"_src": "GeoNames cities1000 (CC BY 4.0) geonames.org"}
+rows = sorted(geonamescache.GeonamesCache(min_city_population=1000).get_cities().values(), key=lambda c: -int(c.get("population") or 0))
 for c in rows:
     cc = c["countrycode"]
     if cc not in codes:
