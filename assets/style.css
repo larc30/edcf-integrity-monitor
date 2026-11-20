@@ -2020,3 +2020,7 @@ select optgroup option { background: var(--panel-solid); color: var(--text); fon
 .acct-row .font-ctl { display: inline-flex; align-items: center; gap: 4px; } .acct-row .btn { padding: 3px 10px; }
 .acct-menu .acct-check { font-size: var(--fs-sm); }
 .acct-row > span { white-space: nowrap; flex: 0 0 auto; } .acct-menu { min-width: 19em; }
+
+/* 메인 화면 점검 3차 (2026-11-20) */
+.tip-grid.lv { gap: 7px 10px; align-items: center; } .tip-grid.lv .badge { margin: 0; }
+.acct-row .font-ctl .fsize { min-width: 3.6em; text-align: center; font-weight: 600; color: var(--text); }

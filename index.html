@@ -20,7 +20,7 @@
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=86">
+<link rel="stylesheet" href="assets/style.css?v=87">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -56,10 +56,9 @@
       <details class="acct" id="acct"><summary title="계정 · 화면 · 설정"><span class="acct-av" id="acctAv">?</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary>
         <div class="acct-menu">
           <span class="user" id="userEmail"></span><span class="user-role muted small" id="userRole"></span>
-          <div class="acct-row"><span>글자 크기</span><div class="font-ctl" role="group" aria-label="글자 크기"><button class="btn sm" id="fontDown" title="글자 작게">가−</button><button class="btn sm ghost fsize" id="fontReset">보통</button><button class="btn sm" id="fontUp" title="글자 크게">가+</button></div></div>
+          <div class="acct-row"><span>글자 크기</span><div class="font-ctl" role="group" aria-label="글자 크기"><button class="btn sm" id="fontDown" title="글자 작게">가−</button><span class="fsize" id="fontReset" aria-live="polite">보통</span><button class="btn sm" id="fontUp" title="글자 크게">가+</button></div></div>
           <div class="acct-row"><span>화면</span><button class="btn sm" id="btnTheme">라이트</button></div>
           <label class="check acct-check" title="PC가 느릴 때 레이더와 점의 움직임을 줄입니다"><input type="checkbox" id="liteToggle"> 가벼운 모드</label>
-          <button class="btn sm hidden" id="acctSettings">설정 (관리자)</button>
           <button class="btn sm" id="btnLogout">로그아웃</button>
         </div></details>
     </div>
@@ -286,6 +285,6 @@
 <aside class="drawer" id="drawer"><div class="drawer-head"><div id="drawerTitle"></div><button class="btn sm" id="drawerClose">닫기</button></div><div id="drawerBody" class="drawer-body"></div></aside>
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div id="toast" class="toast"></div>
-<script type="module" src="assets/app.js?v=92"></script>
+<script type="module" src="assets/app.js?v=93"></script>
 </body>
 </html>
