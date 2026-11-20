@@ -2029,3 +2029,9 @@ select optgroup option { background: var(--panel-solid); color: var(--text); fon
 html { scrollbar-gutter: stable; }
 html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 #modalBg, #drawerBg, #drawer, #modal { overscroll-behavior: contain; }
+
+/* 공식 제재 명단 팝업: 세 표의 칸 폭을 같게, 과거 기록은 접힌 칸 */
+.oc-tbl { table-layout: fixed; width: 100%; } .oc-tbl col.c1 { width: 26%; } .oc-tbl col.c2 { width: 10em; }
+.oc-tbl td { vertical-align: middle; overflow-wrap: anywhere; } .oc-src .tbl-wrap { max-height: none; overflow: visible; }
+.oc-past { margin-top: .6em; } .oc-past > summary { cursor: pointer; font-size: var(--fs-sm); color: var(--text-2); font-weight: 600; padding: .2em 0; }
+.oc-past .tbl-wrap { margin-top: .5em; } .oc-past .oc-tbl thead { display: none; }

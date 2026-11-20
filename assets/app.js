@@ -739,12 +739,17 @@ function openOfficial(cs = scopeCompanies()) {
   const src = (k, name, desc) => {
     const seen = new Set(), l = off.filter((f) => officialSrc(f) === k && !seen.has(f.company_id + "|" + f.title) && seen.add(f.company_id + "|" + f.title));
     const now = new Set(l.filter((f) => f.level === "red").map((f) => f.company_id)).size;
-    return `<div class="oc-src"><div class="oc-src-h"><b>${name}</b><span class="d">${desc}</span><span class="n ${now ? "red-t" : "muted"}">제재 중 ${now}${l.length - now > 0 ? ` <span class="muted">· 그 밖 ${new Set(l.filter((f) => f.level !== "red").map((f) => f.company_id)).size}</span>` : ""}</span></div>
-      ${l.length ? `<div class="tbl-wrap"><table class="tbl oc-tbl"><thead><tr><th>업체</th><th>상태</th><th>내용</th></tr></thead><tbody>${l.map((f) => `<tr><td class="nowrap"><a href="#" data-oc="${f.company_id}">${esc(f.company_name)}</a></td><td class="nowrap"><span class="badge ${f.level}">${STATE[k][f.level] || LEVEL[f.level]}</span></td><td class="small">${esc(String(f.title || "").replace(/^\[[^\]]*\]\s*/, "").replace(/\s—\s/g, " · "))}</td></tr>`).join("")}</tbody></table></div>`
-        : `<div class="oc-none">이 명단에 있는 업체가 없습니다</div>`}</div>`;
+    // 지금 볼 것(제재 중·확인 필요)만 펼쳐 두고, 과거 기록은 접음. 세 표의 칸 폭은 같게, 내용에서는 업체 이름 반복을 뺌
+    const core = (x) => String(x || "").replace(/주식회사|\(주\)|㈜|\s/g, "");
+    const detail = (f) => { const seg = String(f.title || "").replace(/^\[[^\]]*\]\s*/, "").split(/\s[—·]\s/); if (seg.length > 1 && core(seg[0]).includes(core(f.company_name))) seg.shift(); return seg.join(" · "); };
+    const tbl = (rows) => `<div class="tbl-wrap"><table class="tbl oc-tbl"><colgroup><col class="c1"><col class="c2"><col></colgroup><thead><tr><th>업체</th><th>상태</th><th>내용</th></tr></thead><tbody>${rows.map((f) => `<tr><td><a href="#" data-oc="${f.company_id}">${esc(f.company_name)}</a></td><td class="nowrap"><span class="badge ${f.level}">${STATE[k][f.level] || LEVEL[f.level]}</span></td><td class="small">${esc(detail(f))}</td></tr>`).join("")}</tbody></table></div>`;
+    const act = l.filter((f) => f.level === "red" || f.level === "orange"), past = l.filter((f) => f.level !== "red" && f.level !== "orange");
+    return `<div class="oc-src"><div class="oc-src-h"><b>${name}</b><span class="d">${desc}</span><span class="n ${now ? "red-t" : "muted"}">제재 중 ${now}</span></div>
+      ${act.length ? tbl(act) : `<div class="oc-none">${l.length ? "지금 제재 중이거나 확인이 필요한 업체가 없습니다" : "이 명단에 있는 업체가 없습니다"}</div>`}
+      ${past.length ? `<details class="oc-past"><summary>과거 기록 ${past.length}건 (업체 ${new Set(past.map((f) => f.company_id)).size})</summary>${tbl(past)}</details>` : ""}</div>`;
   };
   modal(`<h2>공식 제재 명단</h2>
-    <p class="muted small">${scope === "mine" ? mineLabel() : "EDCF 전체"} 업체 ${cs.length}개를 공식 제재 명단 세 곳과 맞춰 본 결과입니다. 명단에 있는 업체만 보입니다.</p>
+    <p class="muted small">${scope === "mine" ? mineLabel() : "EDCF 전체"} 업체 ${cs.length} 가운데 공식 제재 명단에 있는 업체입니다.</p>
     ${src("edcf", "EDCF", "EXIMIIS 부정당업자 명단" + (st.edcf_sanctions_at && ev.length ? ` · ${esc(st.edcf_sanctions_at.slice(0, 10))} 올린 명단 ${ev.length}건` : ev.length ? "" : " · 아직 올리지 않음"))}
     ${src("pps", "조달청", "나라장터 부정당제재 · 사업자번호로 매일 조회")}
     ${src("mdb", "MDB", "World Bank, ADB, AfDB, IDB, EBRD 제재 리스트 · 영문명으로 매일 대조")}
