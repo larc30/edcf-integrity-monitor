@@ -109,6 +109,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
 - 업체명 확인 창(2026-11-20, '수정하면 숫자가 그냥 들어감'): 추가·수정은 같은 팝업·같은 검사(nameProblem). 숫자는 실제 이름에도 쓰여 막지 않고, 한글 이름 끝에 숫자 3자리 이상이 붙거나 DART에서 고른 이름과 다르면 저장 전에 확인(nameOdd). 기존 업체의 이름을 바꿀 때는 항상 '옛 이름 → 새 이름' 확인 창.
 
+- 업체 상세 창(2026-11-20, '중복·순서 정리'): 머리는 이름·등급 + 한 줄 요약(참여 사업 N · 역할별 수 · 업종), 사업 칩은 아래 '참여 사업'과 중복이라 뺌. 순서 = 이슈 → 업체 정보 → 참여 사업(역할·이름순, 5개 넘으면 접음) → 검사 결과. 처리한 이슈 카드는 내용만 흐리게(.item.reviewed 는 opacity 1), [되돌리기]는 테두리 있는 버튼(꺼진 것처럼 보인다는 지적). 사업지 고르기 지도에는 수원국 영문 이름(.sp-country)과 오른쪽 위 고른 수원국 표시(.sp-chip).
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 

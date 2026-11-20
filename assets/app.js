@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch, increment,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO, SUPER_ADMIN, SUPER_ADMINS, TEAMS } from "./firebase-config.js?v=33";
-import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=61";
+import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=62";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -1238,7 +1238,10 @@ function openCompany(cid, back = null) {
   const groups = groupFindings(fs), sc = scanned();
   const hint = (t) => t ? `<em>${esc(t)}</em>` : "";
   $("#drawerTitle").innerHTML = `${back ? `<button type="button" class="d-back" id="dBack">← ${String(back).startsWith("p:") ? "사업으로" : LEVEL[back] + " 업체 목록"}</button>` : ""}<div class="d-name"><span class="nm">${esc(c.name)}</span>${sc ? badge(c.risk) : ""}</div>
-    ${c.engagements.length ? `<div class="d-engs">${byRole(c.engagements).map((e) => `<span class="d-eng">${roleTag(e.role)}<span>${esc(projName(e.project_id))}</span>${stageTag(e)}</span>`).join("")}</div>` : ""}`;
+    <div class="d-sub">${c.engagements.length ? `참여 사업 ${c.engagements.length} · ${ROLE_ORDER.filter((r) => c.engagements.some((e) => e.role === r)).map((r) => `${esc(r)} ${c.engagements.filter((e) => e.role === r).length}`).join(" · ")}` : "사업 미연결"}${c.cat ? ` · ${esc(c.cat)}` : ""}</div>`;
+  // 순서: 이슈 → 업체 정보 → 참여 사업 → 검사 결과 (찾아온 사람이 먼저 보는 순서대로, 같은 내용은 한 번만)
+  const engRow = (e, i) => `<div class="d-row"><span>${roleTag(e.role)} ${esc(projName(e.project_id))} ${stageTag(e)}</span><button class="xbtn" data-dunlink="${i}" title="이 사업에서 빼기">✕</button></div>`;
+  const engRows = c.engagements.map((e, i) => [e, i]).sort((x, y) => ROLE_ORDER.indexOf(x[0].role) - ROLE_ORDER.indexOf(y[0].role) || projName(x[0].project_id).localeCompare(projName(y[0].project_id), "ko")).map(([e, i]) => engRow(e, i));
   $("#drawerBody").innerHTML = `
     <div class="d-actions">
       <button class="btn sm primary" id="dScan">다시 스캔</button>
@@ -1253,20 +1256,20 @@ function openCompany(cid, back = null) {
     </section>
 
     <section class="d-sec">
-      <div class="d-sec-head"><h3>검사 결과</h3>${c.last_check?.at ? `<span class="d-sec-meta">${esc(String(c.last_check.at).slice(5, 16))}</span>` : ""}</div>
-      ${checkGrid(c)}
+      <div class="d-sec-head"><h3>업체 정보</h3>${canManage() ? `<button type="button" class="btn sm" id="dEdit">정보 수정</button>` : ""}</div>
+      <dl class="d-info">${[["공식 명칭", c.name_official], ["사업자등록번호", c.country !== "KR" ? "해외 업체" : fmtBiz(c.biz_no), c.bizno_source], ["대표자", c.ceo], ["영문명", c.name_en], ["업종", c.cat, c.catGuess ? "추정" : c.category_source], ["별칭", c.aliases], ["보조 키워드", c.context_keywords], ["메모", c.note]]
+        .filter(([k, v]) => v || ["사업자등록번호", "대표자", "영문명"].includes(k)).map(([k, v, h]) => `<div><dt>${k}</dt><dd>${v ? esc(v) : `<span class="miss">없음</span>`}${v ? hint(h) : ""}</dd></div>`).join("")}</dl>
     </section>
 
     <section class="d-sec">
-      <div class="d-sec-head"><h3>참여 사업</h3></div>
-      ${c.engagements.length ? `<div class="d-list">${c.engagements.map((e, i) => `<div class="d-row"><span>${roleTag(e.role)} ${esc(projName(e.project_id))} ${stageTag(e)}</span><button class="xbtn" data-dunlink="${i}" title="이 사업에서 빼기">✕</button></div>`).join("")}</div>` : ""}
+      <div class="d-sec-head"><h3>참여 사업</h3><span class="count">${c.engagements.length}</span></div>
+      ${engRows.length ? `<div class="d-list">${engRows.slice(0, 5).join("")}${engRows.length > 5 ? `<details class="d-more"><summary>나머지 ${engRows.length - 5}개 사업 보기</summary><div class="d-list">${engRows.slice(5).join("")}</div></details>` : ""}</div>` : ""}
       ${state.projects.length ? `<form id="linkForm" class="d-link"><select name="pid" required><option value="">사업 선택</option>${projOptions()}</select><select name="role" required>${roleOptions()}</select><button class="btn sm">연결</button></form>` : `<div class="muted small">사업 관리에서 사업을 먼저 만드세요</div>`}
     </section>
 
     <section class="d-sec">
-      <div class="d-sec-head"><h3>업체 정보</h3>${canManage() ? `<button type="button" class="btn sm" id="dEdit">정보 수정</button>` : ""}</div>
-      <dl class="d-info">${[["공식 명칭", c.name_official], ["사업자등록번호", c.country !== "KR" ? "해외 업체" : fmtBiz(c.biz_no), c.bizno_source], ["대표자", c.ceo], ["영문명", c.name_en], ["업종", c.cat, c.catGuess ? "추정" : c.category_source], ["별칭", c.aliases], ["보조 키워드", c.context_keywords], ["메모", c.note]]
-        .filter(([k, v]) => v || ["사업자등록번호", "대표자", "영문명"].includes(k)).map(([k, v, h]) => `<div><dt>${k}</dt><dd>${v ? esc(v) : `<span class="miss">없음</span>`}${v ? hint(h) : ""}</dd></div>`).join("")}</dl>
+      <div class="d-sec-head"><h3>검사 결과</h3>${c.last_check?.at ? `<span class="d-sec-meta">${esc(String(c.last_check.at).slice(5, 16))}</span>` : ""}</div>
+      ${checkGrid(c)}
     </section>
 
     <div class="d-danger"><button class="btn sm ghost danger" id="dDelete">업체 삭제</button></div>`;
@@ -1909,7 +1912,7 @@ function openProjectEdit(pid) {
   };
   const showSite = () => { $("#siteState").textContent = site.lat == null ? "핀 없음: 사업명 속 도시 이름이나 수원국 가운데에 표시됩니다" : `핀 위치 ${site.lat.toFixed(3)}, ${site.lng.toFixed(3)}`; showZone(); };
   let pk = null; // 지도 라이브러리를 받은 뒤에 사업지 지도를 붙임
-  const picker = { set: (v) => pk?.set(v), country: (c) => pk?.country(c), clear: () => pk?.clear() };
+  const picker = { set: (v) => pk?.set(v), country: (c, move) => pk?.country(c, move), clear: () => pk?.clear() };
   ensureGeoLibs().then((ok) => { const el = $("#sitePick"); if (ok && el && el.isConnected) pk = mountSitePicker(el, { ...site, country: f0.country.value || p.country }, (lat, lng) => { site.lat = +lat.toFixed(4); site.lng = +lng.toFixed(4); f0.ll.value = `${site.lat}, ${site.lng}`; showSite(); }); });
   showSite();
   const normC = (x) => String(x).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, "");
@@ -1969,7 +1972,7 @@ function openProjectEdit(pid) {
     if (!m || Math.abs(+m[1]) > 90 || Math.abs(+m[2]) > 180) return toast("좌표를 읽지 못했습니다. 예: 23.81, 90.41");
     picker.set([+m[1], +m[2]]);
   };
-  f0.country.onchange = () => { if (site.lat == null) picker.country(f0.country.value); zoneSel = ""; showZone(); };
+  f0.country.onchange = () => { picker.country(f0.country.value, site.lat == null); zoneSel = ""; showZone(); };
   $("#siteClear").onclick = () => { site.lat = site.lng = null; f0.ll.value = ""; picker.clear(); showSite(); };
   $("#pjEditForm").onsubmit = async (ev) => {
     ev.preventDefault();

@@ -1951,3 +1951,16 @@ input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 2px color-mix(in s
 select optgroup { background: var(--panel-solid); color: var(--accent-2); font-weight: 700; font-style: normal; }
 select optgroup option { background: var(--panel-solid); color: var(--text); font-weight: 500; }
 :root[data-theme="light"] select optgroup { color: #2563EB; }
+
+/* 업체 상세: 머리 한 줄 요약 · 참여 사업 줄 낮게 */
+#drawerTitle .d-sub { margin-top: .35em; font-size: var(--fs-sm); color: var(--muted); font-weight: 500; }
+.d-list { gap: 4px; } .d-row { padding: 5px 10px; font-size: var(--fs-sm); } .d-list .d-more { margin-top: 2px; } .d-list .d-more .d-list { margin: 6px 0 0; }
+/* 처리한 이슈: 카드 전체를 흐리게 하면 [되돌리기]까지 꺼진 것처럼 보임 → 내용만 흐리게, 버튼은 또렷하게 */
+.item.reviewed { opacity: 1; }
+.item.reviewed .item-summary, .item.reviewed .item-meta, .item.reviewed .dup, .item.reviewed .item-head > .badge, .item.reviewed .item-head > .tag, .item.reviewed .item-head > .item-company { opacity: .6; }
+.item-actions .btn.ghost[data-act="new"] { border-color: var(--line-2); color: var(--text); background: color-mix(in srgb, var(--text) 4%, transparent); }
+.item-actions .btn.ghost[data-act="new"]:hover { background: color-mix(in srgb, var(--text) 10%, transparent); }
+
+/* 사업지 고르기 지도: 나라 이름 (항상 보임) */
+.sp-country { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-size: var(--fs-sm); font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--map-name, var(--text-2)); opacity: .85; pointer-events: none; }
+.sp-chip { position: absolute; top: 10px; right: 10px; z-index: 500; padding: .25em .7em; border-radius: 8px; background: color-mix(in srgb, var(--panel-solid) 88%, transparent); border: 1px solid var(--line-2); font-size: var(--fs-sm); font-weight: 700; color: var(--text); pointer-events: none; }
