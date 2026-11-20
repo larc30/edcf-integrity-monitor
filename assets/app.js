@@ -751,22 +751,15 @@ function openOfficial(cs = scopeCompanies()) {
   modal(`<h2>공식 제재 명단</h2>
     <p class="muted small">${scope === "mine" ? mineLabel() : "EDCF 전체"} 업체 ${cs.length} 가운데 공식 제재 명단에 있는 업체입니다.</p>
     ${src("edcf", "EDCF", "EXIMIIS 부정당업자 명단" + (st.edcf_sanctions_at && ev.length ? ` · ${esc(st.edcf_sanctions_at.slice(0, 10))} 올린 명단 ${ev.length}건` : ev.length ? "" : " · 아직 올리지 않음"))}
-    ${src("pps", "조달청", "나라장터 부정당제재 · 사업자번호로 매일 조회")}
-    ${src("mdb", "MDB", "World Bank, ADB, AfDB, IDB, EBRD 제재 리스트 · 영문명으로 매일 대조")}
-    <details class="oc-more" ${ev.length ? "" : "open"}><summary>EXIMIIS 명단 올리기 · 올린 명단 ${ev.length}건 보기</summary>
-      <div class="oc-btns"><button class="btn sm" id="edcfUp">엑셀 올리기</button><button class="btn sm" id="edcfPaste">표 붙여넣기</button><span class="muted small">EXIMIIS → 경협 → 업무지원 → 부정당업자조회 엑셀. 새로 올리면 기존 명단을 바꿉니다.</span></div>
+    ${src("pps", "조달청", "나라장터 부정당제재 (여러 발주기관이 통보한 제재가 모임)" + (cv.ppsConnected && cv.ppsTotal ? ` · ${cv.pps}/${cv.ppsTotal} 조회${cv.pps < cv.ppsTotal ? ", 사업자번호 없는 업체는 조회 못 함" : ""}` : ""))}
+    ${src("mdb", "MDB", "세계은행 등 5개 기관 제재 리스트" + (cv.scanned ? ` · ${cv.mdb}/${cv.scanned} 대조${cv.mdb < cv.scanned ? ", 영문명 없는 업체는 불완전" : ""}` : "") + (mk?.count ? ` · <a href="#" id="dcMdb">한국 국적 제재 기업 ${mk.count}</a>` : ""))}
+    <details class="oc-more" ${ev.length ? "" : "open"}><summary>EXIMIIS 명단 올리기${ev.length ? ` · 올린 원본 ${ev.length}건` : ""}</summary>
+      <div class="oc-btns"><button class="btn sm" id="edcfUp">엑셀 올리기</button><button class="btn sm" id="edcfPaste">표 붙여넣기</button><span class="muted small">EXIMIIS → 경협 → 업무지원 → 부정당업자조회에서 내려받은 엑셀을 그대로 올립니다(따로 양식 없음). 새로 올리면 기존 명단을 바꿉니다.</span></div>
       ${bad ? `<div class="edcf-bad"><b>제재 기록이 아닌 행 ${bad}건</b>(상태·제재기간 없음)이 들어 있습니다. 대조에는 쓰지 않습니다. <button class="btn sm danger" id="edcfClear">잘못된 명단 비우기</button></div>` : ""}
-      ${ev.length ? `<div class="tbl-wrap"><table class="tbl oc-tbl"><thead><tr><th>업체명</th><th>상태</th><th>제재기간</th><th>관련 사업</th><th>사업자번호</th><th>우리 업체</th></tr></thead><tbody>${ev.map((e) => {
+      ${ev.length ? `<div class="tbl-wrap"><table class="tbl oc-raw"><thead><tr><th>업체명 (올린 그대로)</th><th>상태</th><th>제재기간</th><th>관련 사업</th><th>우리 업체</th></tr></thead><tbody>${ev.map((e) => {
         const c = matchBy.get(e);
-        return `<tr><td class="nowrap">${esc(e.name)}</td><td>${edcfActive(e) ? `<span class="badge red">등록</span>` : `<span class="muted">${esc(e.status || "-")}${/등록/.test(e.status || "") ? " (기간 만료)" : ""}</span>`}</td><td class="small nowrap">${esc(e.period || "")}</td><td class="small">${esc(e.project_name || "")}${e.country ? ` <span class="muted">(${esc(e.country)})</span>` : ""}</td><td class="small nowrap">${esc(fmtBiz(e.biz_no))}</td><td class="nowrap">${c ? `<a href="#" data-oc="${c.id}">${esc(c.name)}</a>` : `<span class="muted">-</span>`}</td></tr>`;
+        return `<tr><td class="nowrap">${esc(e.name)}</td><td>${edcfActive(e) ? `<span class="badge red">등록</span>` : `<span class="muted">${esc(e.status || "-")}${/등록/.test(e.status || "") ? " (기간 만료)" : ""}</span>`}</td><td class="small nowrap">${esc(e.period || "")}</td><td class="small">${esc(e.project_name || "")}${e.country ? ` <span class="muted">(${esc(e.country)})</span>` : ""}</td><td class="nowrap">${c ? `<a href="#" data-oc="${c.id}">${esc(c.name)}</a>` : `<span class="muted">명단에 없음</span>`}</td></tr>`;
       }).join("")}</tbody></table></div>` : ""}
-    </details>
-    <details class="oc-more"><summary>검사 범위 보기 (마지막 스캔 기준)</summary>
-      ${row(stt(cv.news, cv.scanned), "뉴스 검색", `${cv.news}/${cv.scanned} · Google, 네이버 뉴스에서 업체명과 제재 키워드 검색`)}
-      ${row(stt(cv.mdb, cv.scanned), "MDB 제재 리스트", `${cv.mdb}/${cv.scanned} · 영문명으로 대조${cv.mdb < cv.scanned ? " (영문명이 없는 업체는 불완전)" : ""}`)}
-      ${cv.ppsConnected ? row(stt(cv.pps, cv.ppsTotal), "조달청 부정당제재", `${cv.pps}/${cv.ppsTotal} · 사업자번호로 현재 유효한 제재 조회${cv.pps < cv.ppsTotal ? " (사업자번호가 없는 업체는 조회 못 함)" : ""}`) : row("na", "조달청 부정당제재", "미연결")}
-      ${row(mk?.count ? "warn" : "ok", "MDB 한국 국적 제재 기업", mk ? `${mk.count || 0}개 (우리 명단과 별개로 참고) <a href="#" id="dcMdb">목록 보기</a>` : "첫 스캔 후 표시")}
-      ${gapN ? `<div class="actions left"><button class="btn sm" id="dcGaps">사업자번호·영문명 보완할 업체 ${gapN}</button></div>` : ""}
     </details>`);
   $("#modal").classList.add("wide");
   $$("#modal [data-oc]").forEach((a) => a.onclick = (e) => { e.preventDefault(); closeModal(); openCompany(a.dataset.oc); });
@@ -2654,6 +2647,7 @@ function openEdcfPaste() {
 업체명, 상태, 제재기간, 사업자번호
 도레온건설, 등록, 2026.01.01 ~ 2027.12.31, 000-00-00000"></textarea>
     <div class="actions"><button class="btn primary" id="edcfParse">확인</button></div>`);
+  $("#modalClose").onclick = () => openOfficial();
   $("#edcfParse").onclick = () => {
     try {
       const list = rowsToEdcf($("#edcfText").value.split(/\r?\n/).map((l) => l.split(l.includes("\t") ? "\t" : l.includes("|") ? "|" : ",").map((x) => x.trim())));

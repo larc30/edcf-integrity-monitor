@@ -2039,3 +2039,9 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 /* 겹쳐 뜨는 창의 바탕색 통일(2026-11-20): 오른쪽 상세 창도 팝업·본문 카드와 같은 색. 공식 제재 명단 팝업은 칸 안의 표 머리에 면을 또 깔지 않음(세 겹이라 밝아 보임) */
 .drawer { background: var(--panel-solid); }
 .oc-src .oc-tbl thead th { background: transparent; } .oc-src .tbl-wrap { background: transparent; }
+
+/* 공식 제재 명단 팝업 2차: 올린 원본 표(다섯 칸)는 칸 폭을 정해 겹치지 않게 */
+.oc-raw { table-layout: fixed; width: 100%; } .oc-raw th:nth-child(1) { width: 22%; } .oc-raw th:nth-child(2) { width: 12%; } .oc-raw th:nth-child(3) { width: 22%; } .oc-raw th:nth-child(5) { width: 16%; }
+.oc-raw td { vertical-align: middle; overflow-wrap: anywhere; white-space: normal !important; font-size: var(--fs-sm); }
+.oc-more .tbl-wrap { max-height: 22em; overflow: auto; margin-top: .6em; }
+.oc-src-h .d a { color: var(--accent-2); }
