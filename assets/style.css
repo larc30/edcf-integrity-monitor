@@ -2035,3 +2035,7 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .oc-tbl td { vertical-align: middle; overflow-wrap: anywhere; } .oc-src .tbl-wrap { max-height: none; overflow: visible; }
 .oc-past { margin-top: .6em; } .oc-past > summary { cursor: pointer; font-size: var(--fs-sm); color: var(--text-2); font-weight: 600; padding: .2em 0; }
 .oc-past .tbl-wrap { margin-top: .5em; } .oc-past .oc-tbl thead { display: none; }
+
+/* 겹쳐 뜨는 창의 바탕색 통일(2026-11-20): 오른쪽 상세 창도 팝업·본문 카드와 같은 색. 공식 제재 명단 팝업은 칸 안의 표 머리에 면을 또 깔지 않음(세 겹이라 밝아 보임) */
+.drawer { background: var(--panel-solid); }
+.oc-src .oc-tbl thead th { background: transparent; } .oc-src .tbl-wrap { background: transparent; }
