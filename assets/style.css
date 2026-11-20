@@ -1987,3 +1987,15 @@ select optgroup option { background: var(--panel-solid); color: var(--text); fon
 .dot.yellow, .rdot.yellow, .pj-bar .yellow { background: var(--gray); color: var(--gray); }
 .cchip.yellow { background: var(--gray-bg); }
 .rrow.yellow .issues, .pj-sum .yellow { color: var(--gray); }
+
+/* 메인 화면 점검(2026-11-20): 두 화면의 왼쪽 칸 폭을 같게(화면을 바꿔도 왼쪽이 흔들리지 않게) · 레이더는 조금 작게, 남는 폭은 사업 목록에 */
+@media (min-width: 1101px) {
+  .dash:not(.geo-dash) { grid-template-columns: minmax(17.5em, 2.6fr) minmax(0, 3.7fr) minmax(0, 5.7fr); }
+  .geo-dash { grid-template-columns: minmax(17.5em, 2.6fr) minmax(0, 5.4fr) minmax(0, 4fr); }
+  .dash:not(.geo-dash) .radar { max-width: min(100%, 330px); }
+}
+/* 업체 ↔ 수원국 전환(카드 뒤집기): 윈도우 '애니메이션 효과 끄기'에서도 보이게 (끄려면 계정 메뉴의 가벼운 모드) */
+@media (prefers-reduced-motion: reduce) {
+  html:not(.lite) .view.flip-out { animation: flipOut .26s cubic-bezier(.5, 0, .9, .4) forwards !important; }
+  html:not(.lite) .view.flip-in { animation: flipIn .52s cubic-bezier(.15, .85, .25, 1) !important; }
+}

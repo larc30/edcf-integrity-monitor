@@ -117,6 +117,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
 - AI 판정 기준 보완(2026-11-20, 공정위의 지주회사 행위제한 시정명령 기사가 경고로 뜬 사례): 공정위 처분이라도 입찰·계약·청렴과 무관한 지배구조·공시 규제 위반(지주회사 행위제한·기업결합 신고·공시 누락)의 시정명령·경고·과태료는 참고(yellow). 담합·하도급·부당지원 과징금은 그대로 경고. 1차·2차 판정 지침 둘 다(analyzer.py). 이미 저장된 기사는 그대로(다음 스캔의 새 기사부터).
 
+- 메인 화면 점검(2026-11-20): 두 화면의 왼쪽 칸 폭을 같게(2.6fr, 최소 17.5em) · 업체 리스크는 2.6 : 3.7 : 5.7(레이더 최대 330px, 사업 목록 넓게), 수원국 리스크는 2.6 : 5.4 : 4(지도 넓게). 업체 ↔ 수원국 카드 뒤집기는 윈도우 '애니메이션 효과 끄기'(prefers-reduced-motion)에서도 보이게(회사 PC에서 안 보인다는 지적), 가벼운 모드에서만 끔.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 
