@@ -15,6 +15,7 @@ import hashlib
 import logging
 import math
 import re
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 
@@ -353,20 +354,26 @@ def _ms(pub: str) -> int:
 def news_events(codes: list[str], gnews=news.google_news, naver=news.naver_news) -> tuple[list[dict], int]:
     out, seen, errors = [], set(), 0
     since = int((datetime.now(KST) - timedelta(days=KEEP_DAYS)).timestamp() * 1000)
-    for code in codes:
-        if code not in COUNTRY or code == "KR":
-            continue
-        name = COUNTRY[code][0]
-        items = []
+    codes = [c for c in codes if c in COUNTRY and c != "KR"]
+
+    def fetch(code):
+        name, items, bad = COUNTRY[code][0], [], 0
         try:
             items += gnews(f"{name} ({' OR '.join(NEWS_QUERY_WORDS)})", "ko", 20)
         except Exception:
-            errors += 1
+            bad += 1
         try:
             if news.naver_enabled():
                 items += naver(" | ".join(f"{name} {w}" for w in NEWS_QUERY_WORDS[:6]), 20, "date")
         except Exception:
-            errors += 1
+            bad += 1
+        return items, bad
+
+    with ThreadPoolExecutor(max_workers=4) as ex:  # 나라별 검색을 동시에 (Google 호출 간격은 news 쪽에서 지킴)
+        fetched = list(ex.map(fetch, codes))
+    for code, (items, bad) in zip(codes, fetched):
+        name = COUNTRY[code][0]
+        errors += bad
         for it in items:
             title = it.get("title") or ""
             if name not in title:  # 나라 이름이 제목에 없으면 다른 나라 이야기일 가능성이 큼
@@ -396,29 +403,34 @@ def update(projects: list[dict] | None = None, get=httpx.get, gnews=news.google_
     prev = (prev_snap.to_dict() or {}) if prev_snap.exists else {}
     doc, res = {"updated_at": store.now_str()}, {"countries": len(codes)}
 
+    # 출처마다 따로 받아 오므로 동시에 요청 (결과 처리는 아래에서 예전 순서 그대로)
+    ex = ThreadPoolExecutor(max_workers=5)
+    f_alerts, f_quakes, f_gdacs, f_who = ex.submit(fetch_alerts, get), ex.submit(fetch_quakes, tg, get), ex.submit(fetch_gdacs, tg, get), ex.submit(fetch_who, get)
+    f_news = ex.submit(news_events, codes, gnews, naver)
+    ex.shutdown(wait=False)
     try:
-        alerts = fetch_alerts(get)
+        alerts = f_alerts.result()
         if alerts:
             doc["alerts"], doc["alerts_at"] = alerts, store.now_str()
         res["alerts"] = len(alerts) if alerts else ("키 없음" if not config.MOFA_TRAVEL_KEY else 0)
     except Exception as e:
         res["alerts"] = f"오류 {type(e).__name__}"
     try:
-        quakes = fetch_quakes(tg, get)
+        quakes = f_quakes.result()
         res["quakes"] = len(quakes)
     except Exception as e:
         quakes, res["quakes"] = [], f"오류 {type(e).__name__}"
     try:
-        gd = fetch_gdacs(tg, get)
+        gd = f_gdacs.result()
         res["gdacs"] = len(gd)
     except Exception as e:
         gd, res["gdacs"] = [], f"오류 {type(e).__name__}"
     try:
-        who = [e for e in fetch_who(get) if e["country"] in codes]
+        who = [e for e in f_who.result() if e["country"] in codes]
         res["who"] = len(who)
     except Exception as e:
         who, res["who"] = [], f"오류 {type(e).__name__}"
-    evs, errs = news_events(codes, gnews, naver)
+    evs, errs = f_news.result()
     res["news"], res["news_errors"] = len(evs), errs
     if evs or not errs:
         doc["news_at"] = store.now_str()

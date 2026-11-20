@@ -164,6 +164,22 @@ def mentions(text: str, names: list[str], context: list[str] | None = None) -> b
     return any(name_matches(text, n, context) for n in names if n)
 
 
+def needles(names: list[str]) -> list[str]:
+    """빠른 거르기용: 이 글자들 가운데 하나도 본문(소문자 또는 공백을 뺀 것)에 없으면 mentions 는 반드시 False"""
+    out = set()
+    for name in names:
+        name = (name or "").strip()
+        if not name:
+            continue
+        if name.isascii():
+            words = re.sub(r"\s+", " ", re.sub(r"(?i)\b(co|ltd|inc|corp|corporation|company|limited|pt|tbk|persero)\b\.?", " ", name)).strip(" .,")
+            if words:
+                out.add(words.lower())
+        else:
+            out.update({norm(name), _flat(name), name.lower()})
+    return [n for n in out if n]
+
+
 def search_names(company: dict) -> list[str]:
     """검색어로 쓸 국문 이름: 대표명 + 4자 이상 별칭 (짧은 약칭은 검색어로 쓰면 잡음이 많아 제외)"""
     out = [company["name"]]

@@ -14,7 +14,7 @@ from datetime import date, datetime, timedelta
 
 from . import analyzer, category, config, store
 from .sources import dart, news, pps, sanctions
-from .textutil import context_words, dedup_key, mentions, search_names
+from .textutil import _flat, context_words, dedup_key, mentions, needles, search_names
 
 log = logging.getLogger(__name__)
 
@@ -88,11 +88,13 @@ def _company_names(company: dict) -> list[str]:
 def match_sweep(articles: list[dict], companies: list[dict]) -> dict[str, list[dict]]:
     """키워드 검색 기사 ↔ 명단 대조: {company_id: [기사, ...]}"""
     hits: dict[str, list[dict]] = {}
-    texts = [(a, f"{a['title']} {a.get('snippet', '')}") for a in articles]
+    texts = [(a, t, t.lower(), _flat(t)) for a, t in ((a, f"{a['title']} {a.get('snippet', '')}") for a in articles)]
     for c in companies:
         names, ctx = _company_names(c), context_words(c)
-        for a, t in texts:
-            if mentions(t, names, ctx):
+        nd = needles(names)
+        for a, t, lo, fl in texts:
+            # 이름 글자가 아예 없는 기사는 건너뜀 (대부분이 여기서 걸러져 대조 시간이 크게 줆)
+            if any(n in lo or n in fl for n in nd) and mentions(t, names, ctx):
                 hits.setdefault(c["id"], []).append(dict(a))
     return hits
 
@@ -619,7 +621,8 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
               "sweep_articles": len(sweep_articles), "sweep_matched_companies": len(hits),
               "focus": sum(1 for c in companies if c.get("engagements") or c.get("watch"))}
     lock, done = threading.Lock(), 0
-    with ThreadPoolExecutor(max_workers=config.SCAN_WORKERS) as ex:
+    # 빠른 스캔은 업체마다 하는 일이 가벼워(검색 없음) 동시에 더 많이 처리
+    with ThreadPoolExecutor(max_workers=config.SCAN_WORKERS * 2 if quick else config.SCAN_WORKERS) as ex:
         futs = {ex.submit(scan_company, c, projects, keywords, entries, lists_ok,
                           hits.get(c["id"], []), sweep_engines, len(sweep_articles), edcf,
                           rel_by.get(c["id"], []) if c["id"] in seen_docs and seen_docs[c["id"]] is not None else None,
