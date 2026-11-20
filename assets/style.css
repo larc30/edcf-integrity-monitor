@@ -2048,3 +2048,17 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 
 .oc-raw th:nth-child(1) { width: 24%; } .oc-raw th:nth-child(2) { width: 14%; } .oc-raw th:nth-child(3) { width: 24%; } .oc-raw th:nth-child(5) { width: auto; }
 .oc-rawsum { margin: .6em 0 0; }
+
+/* 사업 카드: 위험·경고가 없는 역할은 한 줄에 나란히 · 사업 상세: 역할별 묶음 (2026-11-20) */
+.pj-roles:has(.mini) { flex-direction: row; flex-wrap: wrap; gap: 5px 1.1em; }
+.pj-roles:has(.mini) > .pj-role:not(.mini) { flex: 0 0 100%; }
+.pj-role.mini { display: inline-flex; align-items: center; gap: .45em; }
+.pj-role.mini > .role { margin-top: 0; }
+.pd-grp + .pd-grp { margin-top: 1.1em; }
+.pd-grp-h { display: flex; align-items: center; gap: .5em; padding: 0 0 .45em; border-bottom: 1px solid var(--line); }
+.pd-grp .pd-row { padding: 7px 10px; }
+.pd-grp .pd-row:last-child { border-bottom: 0; }
+.pj-roles:has(.mini) > .pj-role:not(.mini) { display: flex; align-items: flex-start; gap: .45em; }
+/* 이슈 목록 아래 접힌 칸: 작고 흐리게 (2026-11-20) */
+#refWrap > summary, #doneWrap > summary { font-size: var(--fs-sm); font-weight: 500; color: var(--muted); }
+#refWrap[open] > summary, #doneWrap[open] > summary, #refWrap > summary:hover, #doneWrap > summary:hover { color: var(--text); }

@@ -704,7 +704,7 @@ function pjRoles(rows, sc, compact = false) {
     if (!l.length) return "";
     const hot = l.filter(({ c }) => sc && c.risk !== "none"), calm = l.length - hot.length;
     // 위험·경고가 없는 역할도 줄은 보여 줌(정상 N): 사업에 어떤 역할(단계)의 업체가 들어와 있는지 알 수 있게
-    if (sc && compact) return `<div class="pj-role">${roleTag(role || "기타")}<div class="pcos">${hot.map(({ c, e }) => `<span class="cchip ${c.risk}" data-cid="${c.id}" title="${esc(c.name)} · ${LEVEL[c.risk]}"><span class="dot ${c.risk}"></span>${esc(c.name)}${e.rank ? `<small>${e.rank}순위</small>` : e.stage && e.stage !== "계약" ? `<small>${esc(e.stage)}</small>` : ""}</span>`).join("")}${calm ? `<span class="cchip calm" title="${esc(l.filter(({ c }) => c.risk === "none").map(({ c }) => c.name).join(", "))}">정상 ${calm}</span>` : ""}</div></div>`;
+    if (sc && compact) return `<div class="pj-role${hot.length ? "" : " mini"}">${roleTag(role || "기타")}<div class="pcos">${hot.map(({ c, e }) => `<span class="cchip ${c.risk}" data-cid="${c.id}" title="${esc(c.name)} · ${LEVEL[c.risk]}"><span class="dot ${c.risk}"></span>${esc(c.name)}${e.rank ? `<small>${e.rank}순위</small>` : e.stage && e.stage !== "계약" ? `<small>${esc(e.stage)}</small>` : ""}</span>`).join("")}${calm ? `<span class="cchip calm" title="${esc(l.filter(({ c }) => c.risk === "none").map(({ c }) => c.name).join(", "))}">정상 ${calm}</span>` : ""}</div></div>`;
     return `<div class="pj-role">${roleTag(role || "기타")}<div class="pcos">${l.map(({ c, e }) => `<span class="cchip ${sc ? c.risk : ""}" data-cid="${c.id}" title="${esc(c.name)}${sc ? " · " + LEVEL[c.risk] : ""}${e.stage && e.stage !== "계약" ? " · " + esc(e.stage) : ""}"><span class="dot ${sc ? c.risk : ""}"></span>${esc(c.name)}${e.rank ? `<small>${e.rank}순위</small>` : e.stage && e.stage !== "계약" ? `<small>${esc(e.stage)}</small>` : ""}</span>`).join("")}</div></div>`;
   }).join("");
 }
@@ -1198,7 +1198,10 @@ function openProject(pid) {
   const body = $("#drawerBody");
   body.innerHTML = `
     <section class="d-sec"><div class="d-sec-head"><h3>참여 업체</h3><span class="count">${cs.length}</span></div>
-      ${rows.length ? `<div class="rl">${rows.map(({ c, e }) => `<div class="pd-row" data-pc="${c.id}" role="button" tabindex="0">${roleTag(e.role)}<b>${esc(c.name)}</b>${e.stage && e.stage !== "계약" ? `<span class="muted small">${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""}</span>` : ""}<span class="pd-r">${c.open ? `<span class="muted small">미확인 ${c.open}</span>` : ""}${sc ? badge(c.risk) : ""}</span></div>`).join("")}</div>` : `<div class="empty small">연결된 업체가 없습니다</div>`}
+      ${rows.length ? [...new Set(rows.map((r) => r.e.role))].map((role) => {
+        const RK = { red: 0, orange: 1 }, l = rows.filter((r) => r.e.role === role).map((r, i) => ({ ...r, i })).sort((x, y) => (sc ? (RK[x.c.risk] ?? 2) - (RK[y.c.risk] ?? 2) : 0) || x.i - y.i);
+        return `<div class="pd-grp"><div class="pd-grp-h">${roleTag(role || "기타")}<span class="count">${l.length}</span></div><div class="rl">${l.map(({ c, e }) => `<div class="pd-row" data-pc="${c.id}" role="button" tabindex="0"><b>${esc(c.name)}</b>${e.stage && e.stage !== "계약" ? `<span class="muted small">${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""}</span>` : ""}<span class="pd-r">${c.open ? `<span class="muted small">미확인 ${c.open}</span>` : ""}${sc ? badge(c.risk) : ""}</span></div>`).join("")}</div></div>`;
+      }).join("") : `<div class="empty small">연결된 업체가 없습니다</div>`}
     </section>
     <section class="d-sec"><div class="d-sec-head"><h3>확인이 필요한 이슈</h3><span class="count">${hot.length}</span>${refN ? `<span class="d-sec-meta">참고 이력 ${refN}</span>` : ""}</div>
       <div id="pFeed" class="feed">${hot.length ? "" : `<div class="empty small">${sc ? "위험·경고 이슈가 없습니다" : "아직 스캔하지 않았습니다"}</div>`}</div>
