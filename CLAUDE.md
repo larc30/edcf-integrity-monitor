@@ -152,6 +152,10 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 스캔 속도 결과(2026-11-20 사용자 확인): 빠른 스캔 약 3분 15초 → 43초.
 - 수원국 화면 2차(2026-11-20): 사업지 레이더는 예전 모양 그대로 둠(100~500km 원 5개·십자선·눈금·도는 빛: 가볍게 바꿔 봤으나 사용자가 기존이 낫다고 함, 다시 바꾸지 말 것). 수집은 600km 안, 지진·GDACS 는 나라와 무관하게 거리로, 뉴스는 사업 나라 이름으로만. 왼쪽 칸(.d-risk)은 z-index 1100: 설명 풍선이 지도(Leaflet 층) 아래로 깔려 비쳐 보이던 문제. 수원국 등급 i 는 한 줄 + 세 줄 표(폭 300px). 지도 출처 글씨는 모서리 안쪽으로 여백.
 
+- 지도 색(2026-11-20 사용자 선택): 다크에서 땅만 한 단계 밝게(--map-land #263349, --map-border #50607A, 바다 #0C1A2E 그대로). 더 밝은 안(#2E3D57)은 지도가 카드보다 떠 보여 안 씀.
+
+- 수원국 사건 종류 판정(2026-11-20, '홍수 대응에 항의하는 시위'가 홍수로 분류된 사례): 종류는 배경·원인이 아니라 지금 벌어지는 일로(analyzer.EVENT_PROMPT). 지침을 고치면 analyzer.EVENT_AI_V 를 올림 → geo.update 가 예전 지침으로 판정한 뉴스 이벤트(ai_v 낮음)를 한 번에 60건씩 다시 판정.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 

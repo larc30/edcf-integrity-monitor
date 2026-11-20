@@ -280,6 +280,7 @@ def _review(client, user_head: str, payload: list[dict], first: dict) -> dict:
 
 
 # ---------- 수원국 이벤트 뉴스 판정 ----------
+EVENT_AI_V = 2  # 판정 지침을 고치면 올림: 예전 지침으로 판정한 뉴스 이벤트를 한 번 다시 판정 (geo.update)
 EVENT_TYPES = ("quake", "war", "terror", "unrest", "flood", "storm", "fire", "volcano", "politics", "disease")
 
 
@@ -306,6 +307,9 @@ EVENT_PROMPT = """당신은 한국수출입은행 EDCF(대외경제협력기금)
      영화·스포츠·비유적 표현('수주 전쟁' 등), 개인 범죄·단순 사고, 지원·기부·협력 소식, 사설·칼럼
 2. type: quake(지진) war(분쟁·전쟁·쿠데타) terror(테러·폭발) unrest(시위·소요·계엄) flood(홍수·산사태) storm(태풍)
    fire(산불) volcano(화산) politics(선거·정권 교체 등 정치 변화) disease(감염병). affects_project 가 false 면 none.
+   종류는 '지금 벌어지는 일'로 고릅니다(배경·원인이 아님). 예: 홍수 대응에 항의하는 시위 → unrest(홍수가 아님),
+   지진 뒤 약탈·폭동 → unrest, 선거 결과에 불복한 유혈 충돌 → unrest, 감염병 방역에 반발한 시위 → unrest.
+   재난 자체(침수·피해·대피)가 기사의 중심일 때만 그 재난 종류로 고릅니다.
 3. summary_ko: 무슨 일이 어디서 일어났는지 한국어 한 문장 (40자 안팎). 제목에 없는 사실은 쓰지 마세요."""
 
 

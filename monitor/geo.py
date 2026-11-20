@@ -445,9 +445,10 @@ def update(projects: list[dict] | None = None, get=httpx.get, gnews=news.google_
         if e["id"] not in rej and not (merged.get(e["id"]) or {}).get("ai"):
             merged[e["id"]] = e
     # 최종 판정은 AI: 단어로 잡은 뉴스 가운데 아직 판정하지 않은 것 (한 번에 최근 60건까지, 나머지는 다음 실행에)
-    todo = sorted((e for e in merged.values() if str(e.get("id", "")).startswith("news-") and not e.get("ai")), key=lambda e: -(e.get("at_ms") or 0))[:60]
+    from . import analyzer
+    # 예전 지침으로 판정한 것(ai_v 가 낮음)도 한 번 다시 판정
+    todo = sorted((e for e in merged.values() if str(e.get("id", "")).startswith("news-") and (not e.get("ai") or (e.get("ai_v") or 1) < analyzer.EVENT_AI_V)), key=lambda e: -(e.get("at_ms") or 0))[:60]
     if todo:
-        from . import analyzer
         verdict = analyzer.judge_events([{"title": e.get("title"), "country": (COUNTRY.get(e.get("country")) or [e.get("country")])[0],
                                           "date": datetime.fromtimestamp((e.get("at_ms") or 0) / 1000, KST).strftime("%Y-%m-%d")} for e in todo])
         kept = dropped = 0
@@ -460,7 +461,7 @@ def update(projects: list[dict] | None = None, get=httpx.get, gnews=news.google_
                 rejected.append(e["id"])
                 dropped += 1
             else:
-                e.update(ai=True, note=v["note"], **({"type": v["type"]} if v["type"] in analyzer.EVENT_TYPES else {}))
+                e.update(ai=True, ai_v=analyzer.EVENT_AI_V, note=v["note"], **({"type": v["type"]} if v["type"] in analyzer.EVENT_TYPES else {}))
                 kept += 1
         res["ai_kept"], res["ai_dropped"] = kept, dropped
         res["ai"] = "ok" if verdict is not None else "판정 못 함(단어 분류 유지)"

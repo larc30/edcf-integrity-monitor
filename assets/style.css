@@ -1262,7 +1262,7 @@ html.lite .radar svg.grid circle.ring.glow { display: none; }
 /* =====================================================================
    v47 — 수원국 지도 완전 플랫: 바다·육지·국경선 + 그림자 없는 나라 이름
    ===================================================================== */
-:root, :root[data-theme="dark"] { --map-sea: #0C1A2E; --map-land: #1C2738; --map-border: #3B4A60; --map-name: #C9D3E3; --map-name-2: #8A97AD; }
+:root, :root[data-theme="dark"] { --map-sea: #0C1A2E; --map-land: #263349; --map-border: #50607A; --map-name: #C9D3E3; --map-name-2: #8A97AD; }
 :root[data-theme="light"] { --map-sea: #D7E8F5; --map-land: #FFFFFF; --map-border: #B8C4D3; --map-name: #1E293B; --map-name-2: #64748B; }
 .geo-map, .geo-map.leaflet-container { background: var(--map-sea); }
 .geo-map .cn { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; pointer-events: none; font-weight: 600; letter-spacing: .02em; color: var(--map-name-2); font-size: var(--fs-xs); text-shadow: none; display: none; }
