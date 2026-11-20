@@ -307,12 +307,10 @@ export async function renderGeo() {
   const byLv = { red: [], orange: [], none: [] };
   codes.forEach((c) => byLv[risk[c].lv].push(c));
   byLv.red.sort(); byLv.orange.sort(); byLv.none.sort();
-  const ruleRows = (lv) => GEO_RULES.filter((r) => r.lv === lv).map((r) => r.km ? `${r.text}: 사업지 ${r.km}km 안, ${r.days}일 이내` : `${r.text}, ${r.days}일 이내`).join("<br>");
-  const tip = `<div class="tip-p">사업지마다 정하고, 나라 등급은 그 나라 사업 중 가장 높은 등급입니다.</div>
-    <div class="tip-row"><span class="badge red">위험</span><span>사업지 여행경보 3·4단계, 전 지역 특별여행주의보<br>${ruleRows("red")}</span></div>
-    <div class="tip-row"><span class="badge orange">경고</span><span>사업지 여행경보 2단계, 일부 지역 특별여행주의보<br>${ruleRows("orange")}</span></div>
-    <div class="tip-row"><span class="badge none">정상</span><span>그 밖 (사업지 여행경보 1단계)</span></div>
-    <div class="tip-p muted">일부 지역만 단계가 높은 나라는 사업지가 그 지역일 때만 그 단계로 봅니다.</div>`;
+  const tip = `<div class="tip-p">사업지마다 정하고, 나라는 그 가운데 가장 높은 등급입니다.</div>
+    <div class="tip-grid lv"><span class="badge red">위험</span><span>여행경보 3·4단계 · 진도 6 이상 지진 · 50km 안 테러·분쟁</span>
+    <span class="badge orange">경고</span><span>여행경보 2단계 · 진도 5 지진 · 200km 안 테러·분쟁 · 100km 안 재난 · 50km 안 시위·감염병</span>
+    <span class="badge none">정상</span><span>그 밖</span></div>`;
   $("#gboard").innerHTML = `<div class="card-head"><h2>수원국 등급 ${info(tip)}</h2></div>`
     + ["red", "orange", "none"].map((lv) => {
       const l = byLv[lv];

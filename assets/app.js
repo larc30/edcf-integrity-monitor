@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch, increment,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO, SUPER_ADMIN, SUPER_ADMINS, TEAMS } from "./firebase-config.js?v=33";
-import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=65";
+import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=67";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
