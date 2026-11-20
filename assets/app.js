@@ -1030,9 +1030,12 @@ function buildReport({ scope: sc0, period, done, detail = false }) {
   const hotG = groups.filter((g) => g.rep.level === "red" || g.rep.level === "orange"), yelN = groups.length - hotG.length;
   const pStat = (p) => { const s = new Set(); state.companies.forEach((c) => { if (c.engagements.some((e) => e.project_id === p.id)) s.add(c); }); const k = { red: 0, orange: 0 }; s.forEach((c) => { if (sc && k[c.risk] != null) k[c.risk]++; }); return { n: s.size, k }; };
   const hotCo = byCo(hotG);
-  const simpleBody = `<h2>확인이 필요한 이슈 <span class="mu">위험·경고 업체 ${hotCo.length} · 이슈 ${hotG.length}건</span></h2>
-${hotG.length ? `<table class="iss"><tr><th style="width:9%">등급</th><th style="width:27%">업체 · 관련 사업</th><th>내용 · 출처</th></tr>${hotCo.slice(0, 20).map((gs) => { const g0 = gs[0]; return `<tr class="lv-${g0.rep.level}"><td>${bd(g0.rep.level)}</td><td><b>${esc(g0.companies.map((c) => c.name).join(" · "))}</b><div class="mu">${engShort(g0)}</div></td><td>${gs.slice(0, 3).map((g) => `<div class="ln">${esc(brief(sumText(g.rep)))}<div class="mu">${g.rep.source_type !== "news" ? `<span class="tg red">공식 명단</span> ` : ""}${esc(srcName(g.rep))} · ${esc(g.rep.published_at || "날짜 미상")}${g.rep.url ? ` · <a href="${esc(g.rep.url)}">원문</a>` : ""}</div></div>`).join("")}${gs.length > 3 ? `<div class="mu more">외 ${gs.length - 3}건</div>` : ""}</td></tr>`; }).join("")}</table>${hotCo.length > 20 ? `<div class="mu note">외 업체 ${hotCo.length - 20}</div>` : ""}` : `<div class="empty">해당 기간에 확인할 위험·경고 이슈가 없습니다</div>`}
-${ps.length ? `<h2>사업별 현황 <span class="mu">사업 ${ps.length}</span></h2><table><tr><th>사업</th><th class="c" style="width:8%">업체</th><th class="c" style="width:17%">업체 리스크</th><th style="width:31%">수원국 리스크</th></tr>${ps.map((p) => { const { n, k } = pStat(p); return `<tr><td><b>${esc(p.name)}</b>${p.country ? ` <span class="mu">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</td><td class="c">${n}</td><td class="c">${["red", "orange"].map((lv) => k[lv] ? `<span style="color:${C[lv][0]};font-weight:700">${C[lv][2]} ${k[lv]}</span>` : "").filter(Boolean).join(" · ") || `<span style="color:${C.none[0]}">이상 없음</span>`}</td><td>${geoCell(p)}</td></tr>`; }).join("")}</table>` : ""}
+  const LVN = { red: 2, orange: 1 };
+  const projHot = ps.map((p) => { const set = new Set(); state.companies.forEach((c) => { if (c.engagements.some((e) => e.project_id === p.id)) set.add(c); }); const hot = sc ? [...set].filter((c) => c.risk !== "none").sort((x, y) => LV[y.risk] - LV[x.risk]) : []; const g = geoOf(p); return { p, hot, g, w: Math.max(LVN[hot[0]?.risk] || 0, LVN[g?.lv] || 0) }; });
+  const projShow = projHot.filter((x) => x.w).sort((x, y) => y.w - x.w || y.hot.length - x.hot.length);
+  const simpleBody = `<h2>위험·경고 업체 <span class="mu">업체 ${hotCo.length} · 이슈 ${hotG.length}건${period !== "all" ? " · " + esc(periodL) : ""}</span></h2>
+${hotG.length ? `<table class="iss"><tr><th style="width:10%">등급</th><th style="width:30%">업체 · 관련 사업</th><th>내용</th></tr>${hotCo.slice(0, 30).map((gs) => { const g0 = gs[0]; return `<tr class="lv-${g0.rep.level}"><td>${bd(g0.rep.level)}</td><td><b>${esc(g0.companies.map((c) => c.name).join(" · "))}</b><div class="mu">${engShort(g0)}</div></td><td>${esc(brief(sumText(g0.rep), 110))}${gs.length > 1 ? ` <span class="mu">외 ${gs.length - 1}건</span>` : ""}</td></tr>`; }).join("")}</table>${hotCo.length > 30 ? `<div class="mu note">외 업체 ${hotCo.length - 30}</div>` : ""}` : `<div class="empty">위험·경고 이슈가 없습니다</div>`}
+${ps.length ? `<h2>사업별 현황 <span class="mu">사업 ${ps.length} · 이상 없음 ${ps.length - projShow.length}</span></h2>${projShow.length ? `<table><tr><th style="width:42%">사업</th><th>위험·경고 업체</th><th style="width:22%">수원국</th></tr>${projShow.map(({ p, hot, g }) => `<tr><td><b>${esc(p.name)}</b>${p.country ? `<div class="mu">${esc(COUNTRY[p.country] || p.country)}</div>` : ""}</td><td>${hot.map((c) => `<div class="co">${bd(c.risk)} ${esc(c.name)}</div>`).join("") || `<span class="mu">없음</span>`}</td><td>${g && LVN[g.lv] ? `<b style="color:${C[g.lv][0]}">${C[g.lv][2]}</b>${g.alert || g.why[0] ? `<div class="mu">${esc(g.alert || g.why[0])}</div>` : ""}` : `<span class="mu">정상</span>`}</td></tr>`).join("")}</table>` : `<div class="empty">위험·경고 사업이 없습니다</div>`}` : ""}
 `;
   const detailBody = `<h2>${done ? "이슈" : "확인할 이슈"} <span class="mu">${groups.length}건 · 등급 높은 순${groups.length > MAX ? ` · 앞의 ${MAX}건` : ""}</span></h2>
 ${groups.length ? groups.slice(0, MAX).map(issue).join("") : `<div class="empty">해당 기간에 ${done ? "" : "확인할 "}이슈가 없습니다</div>`}
@@ -1048,42 +1051,42 @@ ${ps.length ? `<h2>사업별 현황 <span class="mu">사업 ${ps.length}</span><
 <style>
 @page { size: A4; margin: 13mm 12mm; }
 * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-body { margin: 0; color: #0B1220; font: 12px/1.55 "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; word-break: keep-all; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+body { margin: 0; color: #0B1220; font: 13.5px/1.55 "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; word-break: keep-all; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 a { color: #4F46E5; text-decoration: none; } td a { white-space: nowrap; }
-.hd { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; padding-bottom: 12px; border-bottom: 2px solid #0B1220; }
-.hd .brand { display: flex; align-items: center; gap: 7px; font-size: 10.5px; font-weight: 800; letter-spacing: .08em; color: #4F46E5; }
-.hd .mk { width: 14px; height: 14px; border-radius: 4px; background: linear-gradient(135deg, #6366F1, #22D3EE); }
-.hd h1 { margin: 6px 0 0; font-size: 25px; line-height: 1.15; font-weight: 800; letter-spacing: -.03em; }
-.hd dl { margin: 0; display: grid; grid-template-columns: auto auto auto auto; gap: 2px 8px; font-size: 10.5px; line-height: 1.5; }
-.hd dl div { display: contents; } .hd dt { color: #8792A8; font-weight: 700; } .hd dd { margin: 0 10px 0 0; color: #2B3548; } .hd dl div:nth-child(even) dd { margin-right: 0; }
-.kpi { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 14px; border: 1px solid #DDE2EB; border-radius: 10px; overflow: hidden; break-inside: avoid; }
-.kpi > div { padding: 11px 14px 12px; border-left: 1px solid #DDE2EB; } .kpi > div:first-child { border-left: 0; }
-.kpi .k { display: flex; align-items: baseline; gap: 8px; } .kpi .k b { font-size: 26px; line-height: 1; font-weight: 800; letter-spacing: -.02em; } .kpi .k span { font-size: 11.5px; font-weight: 700; }
-.kpi p { margin: 6px 0 0; font-size: 10.5px; color: #6B7690; line-height: 1.5; }
-h2 { display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 800; letter-spacing: -.01em; margin: 22px 0 0; padding-bottom: 7px; border-bottom: 1px solid #0B1220; break-after: avoid; }
-h2 .no { flex: 0 0 auto; width: 17px; height: 17px; border-radius: 50%; background: #0B1220; color: #fff; font-size: 10px; font-weight: 700; display: grid; place-items: center; }
-h2 .mu { margin-left: auto; font-weight: 500; font-size: 10.5px; }
-table { width: 100%; border-collapse: collapse; font-size: 11.5px; table-layout: fixed; }
-th { text-align: left; font-size: 10px; color: #8792A8; font-weight: 700; padding: 7px 8px 6px; border-bottom: 1px solid #DDE2EB; }
-td { padding: 8px 8px; border-bottom: 1px solid #EDF0F5; vertical-align: top; } td.c, th.c { text-align: center; white-space: nowrap; }
+.hero { background: #0B101C; background-image: linear-gradient(125deg, #0B101C 0%, #171E3F 55%, #0C2C3D 100%); color: #fff; border-radius: 16px; padding: 20px 22px 22px; break-inside: avoid; }
+.hero .top { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
+.hero .brand { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 800; letter-spacing: .1em; color: #A5B4FC; }
+.hero .mk { width: 15px; height: 15px; border-radius: 5px; background: linear-gradient(135deg, #7C83FF, #22D3EE); }
+.hero h1 { margin: 6px 0 0; font-size: 28px; line-height: 1.15; font-weight: 800; letter-spacing: -.03em; color: #fff; }
+.hero h1 span { color: #8FA2FF; }
+.hero .meta { text-align: right; font-size: 12px; color: #A9B6CC; line-height: 1.5; } .hero .meta b { display: block; font-size: 16px; color: #fff; }
+.kpi { display: grid; grid-template-columns: 1.3fr 1.3fr .8fr; gap: 10px; margin-top: 16px; }
+.kpi > div { background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .1); border-left: 4px solid var(--c); border-radius: 12px; padding: 12px 15px 13px; }
+.kpi .k { display: flex; align-items: baseline; gap: 9px; color: var(--c); } .kpi .k b { font-size: 42px; line-height: 1; font-weight: 800; letter-spacing: -.03em; } .kpi .k span { font-size: 15px; font-weight: 800; }
+.kpi p { margin: 8px 0 0; font-size: 12px; color: #C8D1E0; line-height: 1.5; }
+.kpi .calm .k b { font-size: 28px; } .kpi .calm .k span { font-size: 13px; } .kpi .calm { opacity: .85; }
+h2 { display: flex; align-items: center; gap: 8px; font-size: 16.5px; font-weight: 800; letter-spacing: -.01em; margin: 24px 0 0; padding-bottom: 8px; border-bottom: 2px solid #0B1220; break-after: avoid; }
+h2 .no { flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%; background: #4F46E5; color: #fff; font-size: 11.5px; font-weight: 700; display: grid; place-items: center; }
+h2 .mu { margin-left: auto; font-weight: 500; }
+table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+th { text-align: left; font-size: 11.5px; color: #8792A8; font-weight: 700; padding: 8px 10px 7px; border-bottom: 1px solid #DDE2EB; }
+td { padding: 10px 10px; border-bottom: 1px solid #EDF0F5; vertical-align: top; } td.c, th.c { text-align: center; white-space: nowrap; }
 tr { break-inside: avoid; }
-tr.lv-red td:first-child { box-shadow: inset 3px 0 0 #D92D20; } tr.lv-orange td:first-child { box-shadow: inset 3px 0 0 #F57C00; }
-.mu { color: #6B7690; font-size: 10.5px; }
-table.iss td b { font-size: 12px; } table.iss .ln { line-height: 1.5; } table.iss .ln .mu { margin-top: 1px; }
-table.iss .ln + .ln { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #E3E7EF; } table.iss .more { margin-top: 5px; }
-.bd { display: inline-block; padding: 0 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; line-height: 17px; white-space: nowrap; }
-.role { font-weight: 700; font-size: 10.5px; }
-.tg { display: inline-block; padding: 0 6px; border-radius: 4px; font-size: 10px; line-height: 16px; background: #EEF1F6; color: #3D4A63; } .tg.red { background: #FDE8E6; color: #D92D20; }
-.is { border: 1px solid #DDE2EB; border-left: 3px solid; border-radius: 8px; padding: 9px 12px; margin-top: 7px; break-inside: avoid; }
-.is-h b { font-size: 12.5px; } .is-s { font-size: 12px; margin: 4px 0 3px; }
-.dup { margin-top: 5px; padding-top: 5px; border-top: 1px dashed #E3E7EF; font-size: 10.5px; color: #6B7690; }
-.empty { margin-top: 8px; border: 1px dashed #DDE2EB; border-radius: 8px; padding: 14px; text-align: center; color: #0D9488; }
-.note { margin-top: 6px; }
+tr.lv-red td:first-child { box-shadow: inset 4px 0 0 #D92D20; } tr.lv-orange td:first-child { box-shadow: inset 4px 0 0 #F57C00; }
+.mu { color: #6B7690; font-size: 12px; font-weight: 400; }
+td b { font-size: 14px; } td .co + .co { margin-top: 4px; }
+.bd { display: inline-block; padding: 0 9px; border-radius: 999px; font-size: 12px; font-weight: 700; line-height: 20px; white-space: nowrap; }
+.role { font-weight: 700; font-size: 12px; }
+.tg { display: inline-block; padding: 0 6px; border-radius: 4px; font-size: 11.5px; line-height: 18px; background: #EEF1F6; color: #3D4A63; } .tg.red { background: #FDE8E6; color: #D92D20; }
+.is { border: 1px solid #DDE2EB; border-left: 4px solid; border-radius: 10px; padding: 10px 13px; margin-top: 8px; break-inside: avoid; }
+.is-h b { font-size: 14px; } .is-s { margin: 4px 0 3px; }
+.dup { margin-top: 5px; padding-top: 5px; border-top: 1px dashed #E3E7EF; font-size: 12px; color: #6B7690; }
+.empty { margin-top: 10px; border: 1px dashed #DDE2EB; border-radius: 10px; padding: 16px; text-align: center; color: #0D9488; }
+.note { margin-top: 8px; }
 </style></head><body>
-<div class="hd"><div><div class="brand"><span class="mk"></span>EDCF RADAR</div><h1>업체 리스크 보고서</h1></div>
-  <dl><div><dt>범위</dt><dd>${esc(scopeL)} · 업체 ${cs.length} · 사업 ${ps.length}</dd></div><div><dt>이슈 기간</dt><dd>${esc(periodL)}${done ? " · 처리한 이슈 포함" : ""}</dd></div>
-  <div><dt>검사 기준</dt><dd>${esc((state.status.last_scan_at || "-").slice(0, 16))}</dd></div><div><dt>작성</dt><dd>${esc(now.slice(0, 16))} · ${esc(me().split("@")[0])}${myTeam() ? ` (${esc(teamName(myTeam()))})` : ""}</dd></div></dl></div>
-<div class="kpi">${["red", "orange", "none"].map((lv) => { const l = cs.filter((c) => sc && c.risk === lv).sort((a, b) => b.open - a.open || a.name.localeCompare(b.name)); return `<div><div class="k" style="color:${C[lv][0]}"><b>${t[lv]}</b><span>${C[lv][2]}</span></div><p>${lv === "none" ? "위험·경고 이슈 없음" : l.length ? esc(l.slice(0, 6).map((c) => c.name).join(", ")) + (l.length > 6 ? ` 외 ${l.length - 6}` : "") : "해당 업체 없음"}</p></div>`; }).join("")}</div>
+<div class="hero"><div class="top"><div><div class="brand"><span class="mk"></span>EDCF RADAR</div><h1><span>EDCF 업체 리스크</span> 보고서</h1></div>
+  <div class="meta"><b>${esc(now.slice(0, 10))}</b>${esc(scopeL)} · 검사 ${esc((state.status.last_scan_at || "-").slice(5, 16).replace("-", "/"))}</div></div>
+<div class="kpi">${["red", "orange", "none"].map((lv) => { const l = cs.filter((c) => sc && c.risk === lv).sort((a, b) => b.open - a.open || a.name.localeCompare(b.name)), CD = { red: "#FF5A5F", orange: "#FF9F1C", none: "#2DD4BF" }; return `<div class="${lv === "none" ? "calm" : ""}" style="--c:${CD[lv]}"><div class="k"><b>${t[lv]}</b><span>${C[lv][2]}</span></div>${lv === "none" ? "" : `<p>${l.length ? esc(l.slice(0, 6).map((c) => c.name).join(", ")) + (l.length > 6 ? ` 외 ${l.length - 6}` : "") : "해당 업체 없음"}</p>`}</div>`; }).join("")}</div></div>
 ${(detail ? detailBody : simpleBody)}
 </body></html>`.replace(/<h2>/g, () => `<h2><span class="no">${++secNo}</span>`);
   return { title, html };
