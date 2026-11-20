@@ -1976,3 +1976,8 @@ select optgroup option { background: var(--panel-solid); color: var(--text); fon
 .stage-sel:hover, .stage-sel:focus { border: 0; box-shadow: 0 0 0 1px var(--line-2); }
 .corow .xbtn, .corow .upbtn { font-size: var(--fs-sm); padding: .25em .45em; }
 .dz-note { font-weight: 500; }
+
+/* 수원국 이벤트: 같은 내용 N건 더 (업체 이슈 카드의 묶음과 같은 모양) */
+.ev-dup { margin-top: .5em; padding-top: .5em; border-top: 1px dashed var(--line-2); font-size: var(--fs-sm); }
+.ev-dup > summary { cursor: pointer; color: var(--accent-2); font-weight: 650; } .ev-dup > summary span { color: var(--muted); font-weight: 500; margin-left: .4em; }
+.ev-dup-row { margin-top: .35em; color: var(--text-2); word-break: keep-all; } .ev-dup-row a { color: var(--text-2); } .ev-dup-row span { color: var(--muted); font-size: var(--fs-xs); margin-left: .3em; white-space: nowrap; }

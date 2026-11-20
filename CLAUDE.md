@@ -113,6 +113,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
 - 단계 표시(2026-11-20): 저장 값은 '계약'·'우선협상'·'입찰중' 그대로, 화면에서는 '계약'을 '계약 체결'로 보여 줌(이미 계약된 상태임이 분명하게 · '계약 완료'는 계약이 끝났다는 뜻으로 읽힐 수 있어 피함). 사업 카드의 단계 칸은 모두 같은 크기: 계약 체결 = 회색 면, 우선협상·입찰중 = 주황 면(계약 전 점검 대상).
 
+- 수원국 이벤트 묶기(2026-11-20, '같은 기사 합치기가 없음'): 뉴스로 잡은 이벤트만, 같은 나라·같은 종류·3일 안에서 제목 두 글자 조각 일치율 0.42 이상이거나(0.18 이상이면서 같은 숫자 표현 '48배·150명' 포함) 하나로(geo.js groupEvents·sameStory). 대표 = 가장 최근 기사, 카드에 '같은 내용 N건 더'. 목록·건수·지도 표시에만 적용하고 등급 계산은 원래 목록. 공식 자료(USGS·GDACS·WHO)는 안 묶음. 수집 단계(geo.py)에서는 안 묶음.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 

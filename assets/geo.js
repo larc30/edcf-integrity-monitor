@@ -288,7 +288,7 @@ export async function renderGeo() {
     const top = rs.reduce(worse, { lv: "none", why: [], alert: alerts[c] || null });
     risk[c] = { lv: top.lv, why: [...new Set(rs.flatMap((r) => r.why))], alert: alerts[c] || null };
   });
-  const inScope = evsAll.filter((e) => codes.includes(e.country));
+  const inScope = groupEvents(evsAll.filter((e) => codes.includes(e.country))); // 화면(목록·건수·지도)에서는 같은 사건을 다룬 기사를 하나로. 등급 계산은 위에서 원래 목록(evsAll)으로 이미 끝남
   const pCounts = Object.fromEntries(PERIODS.map(([k]) => [k, inScope.filter((e) => inP(e, k)).length]));
   if (!pCounts.hasOwnProperty(ui.period)) ui.period = "30d";
   const evs = inScope.filter((e) => inP(e, ui.period)), pl = P_LABEL[ui.period];
@@ -364,7 +364,8 @@ export async function renderGeo() {
       <div class="ev-body"><div class="ev-top"><span class="ev-type" style="color:${GEO_TYPES[e.type][1]}">${GEO_TYPES[e.type][0]}</span><span class="ev-ctry">${esc(cname(e.country))} · ${esc(cen(e.country))}</span>${e.mag ? `<span class="ev-mag ${e.mag >= 6 ? "big" : ""}">M${(+e.mag).toFixed(1)}</span>` : ""}<span class="ev-time" title="${ymd(e.ms)}">${rel(e.ms)}</span></div>
       <div class="ev-title">${esc(e.title)}</div>
       ${e.note ? `<div class="ev-note">${esc(e.note)}</div>` : ""}
-      <div class="ev-src">${String(e.id || "").startsWith("news-") ? (e.ai ? `<span class="ev-ai" title="AI가 기사 내용을 보고 사업에 영향을 줄 수 있는 사건으로 판정">AI 판정</span> · ` : `<span class="ev-ai wait" title="단어로만 분류된 상태입니다. 다음 스캔 때 AI가 판정합니다">판정 전</span> · `) : ""}${esc(e.source || "-")} · ${ymd(e.ms)}${e.url ? ` · <a href="${esc(e.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}</div></div></div>`).join("")
+      <div class="ev-src">${String(e.id || "").startsWith("news-") ? (e.ai ? `<span class="ev-ai" title="AI가 기사 내용을 보고 사업에 영향을 줄 수 있는 사건으로 판정">AI 판정</span> · ` : `<span class="ev-ai wait" title="단어로만 분류된 상태입니다. 다음 스캔 때 AI가 판정합니다">판정 전</span> · `) : ""}${esc(e.source || "-")} · ${ymd(e.ms)}${e.url ? ` · <a href="${esc(e.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}</div>
+      ${e.more?.length ? `<details class="ev-dup"><summary>같은 내용 ${e.more.length}건 더 <span>${esc([...new Set(e.more.map((m) => String(m.source || "").split(" · ").pop()))].slice(0, 3).join(" · "))}</span></summary>${e.more.map((m) => `<div class="ev-dup-row">${m.url ? `<a href="${esc(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a>` : esc(m.title)} <span>${esc(String(m.source || "").split(" · ").pop())} · ${ymd(m.ms)}</span></div>`).join("")}</details>` : ""}</div></div>`).join("")
     || `<div class="ok-box">${ui.type || ui.lv ? "이 조건에 맞는 이벤트가 없습니다" : `${pl} 수원국 이벤트가 없습니다`}</div>`;
   if (shown.length > 40) $("#evFeed").insertAdjacentHTML("beforeend", `<div class="muted small">최근 40건만 보여줍니다 (전체 ${shown.length}건)</div>`);
 
@@ -385,6 +386,29 @@ export async function renderGeo() {
 
 // 사업지에서 가까운 이벤트 (거리 순). 위치를 모르면 같은 나라 이벤트
 const fmtKm = (d) => d < 10 ? "10km 안" : `${Math.round(d)}km`;
+const evKey = (e) => String(e.title || "").replace(new RegExp(`${cname(e.country)}|${cen(e.country)}`, "gi"), "").replace(/[^0-9a-zA-Z가-힣]/g, "").toLowerCase();
+const grams = (t) => { const g = new Set(); for (let i = 0; i < t.length - 1; i++) g.add(t.slice(i, i + 2)); return g; };
+const nums = (e) => new Set(String(e.title || "").match(/\d[\d,.]*\s?(?:만\s?)?[가-힣a-zA-Z%]{1,3}/g)?.map((x) => x.replace(/\s/g, "")) || []);
+function sameStory(a, b) {
+  if (a.country !== b.country || a.type !== b.type || Math.abs(a.ms - b.ms) > 3 * DAY) return false;
+  const ga = a._g || (a._g = grams(evKey(a))), gb = b._g || (b._g = grams(evKey(b)));
+  if (!ga.size || !gb.size) return false;
+  let hit = 0; ga.forEach((x) => { if (gb.has(x)) hit++; });
+  const dice = (2 * hit) / (ga.size + gb.size);
+  if (dice >= 0.42) return true;
+  const na = a._n || (a._n = nums(a)), nb = b._n || (b._n = nums(b));
+  return dice >= 0.18 && [...na].some((x) => nb.has(x));
+}
+// [대표 이벤트(가장 최근) + more(같은 내용의 다른 기사)] 목록으로. 공식 자료(USGS·GDACS·WHO)는 묶지 않음
+function groupEvents(list) {
+  const out = [];
+  [...list].sort((a, b) => b.ms - a.ms).forEach((e) => {
+    const isNews = String(e.id || "").startsWith("news-");
+    const g = isNews ? out.find((x) => x.news && (sameStory(x, e) || x.more.some((m) => sameStory(m, e)))) : null;
+    if (g) g.more.push(e); else out.push({ ...e, news: isNews, more: [] });
+  });
+  return out;
+}
 function nearEvents(pt, evs, country) {
   if (!pt) return evs.filter((e) => e.country === country);
   return evs.filter((e) => Number.isFinite(e.lat) && Number.isFinite(e.lng)).map((e) => ({ ...e, d: km(pt.ll, [e.lat, e.lng]) }))
