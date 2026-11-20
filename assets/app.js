@@ -1060,11 +1060,9 @@ a { color: #4F46E5; text-decoration: none; } td a { white-space: nowrap; }
 .hero h1 { margin: 6px 0 0; font-size: 28px; line-height: 1.15; font-weight: 800; letter-spacing: -.03em; color: #fff; }
 .hero h1 span { color: #8FA2FF; }
 .hero .meta { text-align: right; font-size: 12px; color: #A9B6CC; line-height: 1.5; } .hero .meta b { display: block; font-size: 16px; color: #fff; }
-.kpi { display: grid; grid-template-columns: 1.3fr 1.3fr .8fr; gap: 10px; margin-top: 16px; }
-.kpi > div { background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .1); border-left: 4px solid var(--c); border-radius: 12px; padding: 12px 15px 13px; }
-.kpi .k { display: flex; align-items: baseline; gap: 9px; color: var(--c); } .kpi .k b { font-size: 42px; line-height: 1; font-weight: 800; letter-spacing: -.03em; } .kpi .k span { font-size: 15px; font-weight: 800; }
-.kpi p { margin: 8px 0 0; font-size: 12px; color: #C8D1E0; line-height: 1.5; }
-.kpi .calm .k b { font-size: 28px; } .kpi .calm .k span { font-size: 13px; } .kpi .calm { opacity: .85; }
+.kpi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
+.kpi > div { display: flex; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .1); border-left: 4px solid var(--c); border-radius: 12px; padding: 12px 18px 12px 16px; color: var(--c); }
+.kpi span { font-size: 16px; font-weight: 800; } .kpi b { font-size: 44px; line-height: 1; font-weight: 800; letter-spacing: -.03em; }
 h2 { display: flex; align-items: center; gap: 8px; font-size: 16.5px; font-weight: 800; letter-spacing: -.01em; margin: 24px 0 0; padding-bottom: 8px; border-bottom: 2px solid #0B1220; break-after: avoid; }
 h2 .no { flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%; background: #4F46E5; color: #fff; font-size: 11.5px; font-weight: 700; display: grid; place-items: center; }
 h2 .mu { margin-left: auto; font-weight: 500; }
@@ -1085,8 +1083,8 @@ td b { font-size: 14px; } td .co + .co { margin-top: 4px; }
 .note { margin-top: 8px; }
 </style></head><body>
 <div class="hero"><div class="top"><div><div class="brand"><span class="mk"></span>EDCF RADAR</div><h1><span>EDCF 업체 리스크</span> 보고서</h1></div>
-  <div class="meta"><b>${esc(now.slice(0, 10))}</b>${esc(scopeL)} · 검사 ${esc((state.status.last_scan_at || "-").slice(5, 16).replace("-", "/"))}</div></div>
-<div class="kpi">${["red", "orange", "none"].map((lv) => { const l = cs.filter((c) => sc && c.risk === lv).sort((a, b) => b.open - a.open || a.name.localeCompare(b.name)), CD = { red: "#FF5A5F", orange: "#FF9F1C", none: "#2DD4BF" }; return `<div class="${lv === "none" ? "calm" : ""}" style="--c:${CD[lv]}"><div class="k"><b>${t[lv]}</b><span>${C[lv][2]}</span></div>${lv === "none" ? "" : `<p>${l.length ? esc(l.slice(0, 6).map((c) => c.name).join(", ")) + (l.length > 6 ? ` 외 ${l.length - 6}` : "") : "해당 업체 없음"}</p>`}</div>`; }).join("")}</div></div>
+  <div class="meta"><b>${esc((state.status.last_scan_at || now).slice(0, 16))} 기준</b>${esc(scopeL)} · 업체 ${cs.length}</div></div>
+<div class="kpi">${["red", "orange", "none"].map((lv) => `<div style="--c:${{ red: "#FF5A5F", orange: "#FF9F1C", none: "#2DD4BF" }[lv]}"><span>${C[lv][2]}</span><b>${t[lv]}</b></div>`).join("")}</div></div>
 ${(detail ? detailBody : simpleBody)}
 </body></html>`.replace(/<h2>/g, () => `<h2><span class="no">${++secNo}</span>`);
   return { title, html };
