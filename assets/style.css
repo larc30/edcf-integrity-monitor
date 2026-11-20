@@ -2093,3 +2093,12 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 #gboard .card-head h2, #evSummary .card-head h2 { gap: 8px; }
 .gp { border-left: 1px solid var(--line); }
 .pin-lb, .pin-lb.l, .pin-lb.b, .pin-lb.t { border: 1px solid var(--line-2); }
+
+/* 수원국 화면 2차 (2026-11-20): 설명 풍선이 지도 아래로 깔리지 않게 · 사업지 레이더는 가볍게 · 지도 출처 글씨 */
+#geoMap, .site-map { isolation: isolate; }
+#gboard .itip .tip { width: 300px; }
+.geo-sweep { background: conic-gradient(from 0deg, transparent 0deg 300deg, color-mix(in srgb, var(--accent-2) 16%, transparent) 360deg); }
+.ring-lb { border: 0; background: color-mix(in srgb, var(--panel-solid) 80%, transparent); color: var(--text-2); font-weight: 600; }
+.leaflet-control-attribution { margin: 0 10px 6px 0 !important; padding: 0 6px !important; border-radius: 6px; white-space: nowrap; }
+/* 설명 풍선이 지도(Leaflet 층 z-index 400~1000) 위에 오게: 왼쪽 칸을 더 높은 층으로 */
+.d-risk { position: relative; z-index: 1100; } .d-risk > .card:has(.itip:hover), .d-risk > .card:has(.itip:focus-within) { z-index: 2; position: relative; }

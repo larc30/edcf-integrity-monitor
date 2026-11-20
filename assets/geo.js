@@ -98,7 +98,7 @@ export const GEO_RULES = [
 
 let ctx = null, map = null, layers = null, live = { quakes: null, at: null, err: null, loading: false };
 const ui = { type: null, period: "14", lv: null, focus: null };
-const RINGS = [100, 200, 300, 400, 500]; // 사업을 누르면 사업지 둘레에 그리는 거리 원 (km)
+const RINGS = [100, 200, 300, 500]; // 사업을 누르면 사업지 둘레에 그리는 거리 원 (km)
 const NEAR_KM = 600;
 try { ui.period = localStorage.getItem("edcf_geo_period2") || "30d"; } catch {}
 const PERIODS = [["all", "전체"], ["1d", "24시간"], ["7d", "최근 7일"], ["30d", "최근 30일"], ["old", "30일 이전"]];
@@ -307,12 +307,10 @@ export async function renderGeo() {
   const byLv = { red: [], orange: [], none: [] };
   codes.forEach((c) => byLv[risk[c].lv].push(c));
   byLv.red.sort(); byLv.orange.sort(); byLv.none.sort();
-  const ruleRows = (lv) => GEO_RULES.filter((r) => r.lv === lv).map((r) => r.km ? `${r.text}: 사업지 ${r.km}km 안, ${r.days}일 이내` : `${r.text}, ${r.days}일 이내`).join("<br>");
-  const tip = `<div class="tip-p">사업지마다 정하고, 나라 등급은 그 나라 사업 중 가장 높은 등급입니다.</div>
-    <div class="tip-row"><span class="badge red">위험</span><span>사업지 여행경보 3·4단계, 전 지역 특별여행주의보<br>${ruleRows("red")}</span></div>
-    <div class="tip-row"><span class="badge orange">경고</span><span>사업지 여행경보 2단계, 일부 지역 특별여행주의보<br>${ruleRows("orange")}</span></div>
-    <div class="tip-row"><span class="badge none">정상</span><span>그 밖 (사업지 여행경보 1단계)</span></div>
-    <div class="tip-p muted">일부 지역만 단계가 높은 나라는 사업지가 그 지역일 때만 그 단계로 봅니다.</div>`;
+  const tip = `<div class="tip-p">사업지마다 정하고, 나라는 그 가운데 가장 높은 등급입니다.</div>
+    <div class="tip-grid lv"><span class="badge red">위험</span><span>여행경보 3·4단계 · 진도 6 이상 지진 · 50km 안 테러·분쟁</span>
+    <span class="badge orange">경고</span><span>여행경보 2단계 · 진도 5 지진 · 200km 안 테러·분쟁 · 100km 안 재난 · 50km 안 시위·감염병</span>
+    <span class="badge none">정상</span><span>그 밖</span></div>`;
   $("#gboard").innerHTML = `<div class="card-head"><h2>수원국 등급 ${info(tip)}</h2></div>`
     + ["red", "orange", "none"].map((lv) => {
       const l = byLv[lv];
@@ -566,8 +564,6 @@ function drawFocus(f, near) {
   // 레이더처럼: 십자선·대각선 + 실선 원 + 한 바퀴씩 도는 빛 (업체 리스크 레이더와 같은 모양)
   const line = isLight() ? "#0E7490" : "#67E8F9", R = RINGS[RINGS.length - 1], kLng = 111.2 * Math.cos((c[0] * Math.PI) / 180);
   const at = (deg, r) => [c[0] + (Math.cos((deg * Math.PI) / 180) * r) / 111.2, c[1] + (Math.sin((deg * Math.PI) / 180) * r) / kLng];
-  [0, 45, 90, 135].forEach((d) => L.polyline([at(d, R), at(d + 180, R)], { color: line, weight: d % 90 ? 0.6 : 1, opacity: d % 90 ? 0.3 : 0.5, interactive: false }).addTo(layers.focus));
-  for (let d = 0; d < 360; d += 10) L.polyline([at(d, R), at(d, R * (d % 30 ? 1.02 : 1.04))], { color: line, weight: 1.2, opacity: 0.8, interactive: false }).addTo(layers.focus); // 바깥 눈금
   const sweep = L.marker(c, { interactive: false, keyboard: false, icon: L.divIcon({ className: "", html: `<div class="geo-sweep"></div>`, iconSize: [0, 0] }) }).addTo(layers.focus);
   const sizeSweep = () => { const el = sweep.getElement()?.firstChild; if (!el) return; const r = Math.abs(map.latLngToLayerPoint(at(90, R)).x - map.latLngToLayerPoint(c).x); el.style.cssText = `width:${2 * r}px;height:${2 * r}px;margin:${-r}px 0 0 ${-r}px`; el.classList.remove("hide"); };
   if (map._sweepOff) map._sweepOff();
@@ -576,7 +572,8 @@ function drawFocus(f, near) {
   map._sweepOff = () => { map.off("zoomstart", hideSweep); map.off("zoomend", sizeSweep); map._sweepOff = null; };
   sizeSweep();
   RINGS.forEach((r, i) => {
-    L.circle(c, { radius: r * 1000, color: line, weight: i === RINGS.length - 1 ? 2.4 : 1.2, opacity: i === RINGS.length - 1 ? 0.95 : 0.7, fill: i === RINGS.length - 1, fillColor: accent, fillOpacity: 0.05, interactive: false }).addTo(layers.focus);
+    const last = i === RINGS.length - 1;
+    L.circle(c, { radius: r * 1000, color: line, weight: last ? 1.6 : 1, opacity: last ? 0.8 : 0.45, dashArray: last ? null : "3 5", fill: last, fillColor: accent, fillOpacity: 0.06, interactive: false }).addTo(layers.focus);
     const lat = c[0] - r / 111.2; // 원의 맨 아래에 거리 글씨 (위쪽은 핀 자리)
     L.marker([lat, c[1]], { interactive: false, icon: L.divIcon({ className: "", html: `<span class="ring-lb">${r}km</span>`, iconSize: [44, 16], iconAnchor: [22, 8] }) }).addTo(layers.focus);
   });
