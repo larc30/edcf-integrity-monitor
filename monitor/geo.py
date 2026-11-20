@@ -430,6 +430,19 @@ def update(projects: list[dict] | None = None, get=httpx.get, gnews=news.google_
         res["who"] = len(who)
     except Exception as e:
         who, res["who"] = [], f"오류 {type(e).__name__}"
+    # WHO 제목(영어)은 한국어 한 줄로 옮겨 보여 줌: 한 번 옮긴 것은 저장본에서 다시 쓰고 새 것만 AI 에 맡김 (실패하면 영어 그대로, 다음에 다시)
+    if who:
+        from . import analyzer as _an
+        done = {e["id"]: e for e in prev.get("events") or [] if e.get("ko") and e.get("source") == "WHO"}
+        fresh = sorted({e["title"] for e in who if e["id"] not in done})
+        tr = _an.ko_titles([t.replace("WHO 발표 · ", "", 1) for t in fresh]) if fresh else None
+        ko_by = {t: tr[i] for i, t in enumerate(fresh) if tr and tr.get(i)}
+        for e in who:
+            if e["id"] in done:
+                e.update(title=done[e["id"]]["title"], title_en=done[e["id"]].get("title_en") or e["title"], ko=True)
+            elif e["title"] in ko_by:
+                e.update(title_en=e["title"], title=f"WHO 발표 · {ko_by[e['title']]}"[:140], ko=True)
+        res["who_ko"] = sum(1 for e in who if e.get("ko"))
     evs, errs = f_news.result()
     res["news"], res["news_errors"] = len(evs), errs
     if evs or not errs:

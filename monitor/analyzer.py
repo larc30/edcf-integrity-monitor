@@ -345,6 +345,45 @@ def judge_events(items: list[dict]) -> dict[int, dict] | None:
     return out
 
 
+class KoTitle(BaseModel):
+    idx: int
+    ko: str
+
+
+class KoTitleBatch(BaseModel):
+    results: list[KoTitle]
+
+
+KO_TITLE_PROMPT = """WHO 감염병 발생 소식(Disease Outbreak News)의 영어 제목을 한국어 한 줄로 옮깁니다.
+- '나라 + 병명 + 발생' 꼴로 30자 안팎. 예: "Ebola disease caused by Bundibugyo virus, Democratic Republic of the Congo & Uganda"
+  → "콩고민주공화국·우간다 분디부교 에볼라 발생", "Cholera - Kenya" → "케냐 콜레라 발생"
+- 병명·나라 이름은 한국에서 흔히 쓰는 표기로. 제목에 없는 사실(환자 수·날짜 등)은 쓰지 마세요."""
+
+
+def ko_titles(titles: list[str]) -> dict[int, str] | None:
+    """영어 제목 → {idx: 한국어 한 줄}. 키가 없거나 실패하면 None (영어 제목 그대로 둠)"""
+    if not titles or not config.ANTHROPIC_API_KEY:
+        return None
+    import anthropic
+
+    try:
+        resp = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY).messages.parse(
+            model=config.CLAUDE_MODEL,
+            max_tokens=4000,
+            system=KO_TITLE_PROMPT,
+            output_config={"effort": config.CLAUDE_EFFORT},
+            messages=[{"role": "user", "content": json.dumps([{"idx": i, "title": t} for i, t in enumerate(titles)], ensure_ascii=False, indent=1) + "\n\n모든 제목(idx)을 옮겨 주세요."}],
+            output_format=KoTitleBatch,
+        )
+        usage.track(resp, config.CLAUDE_MODEL)
+        if resp.stop_reason == "refusal" or resp.parsed_output is None:
+            return None
+        return {j.idx: j.ko.strip()[:80] for j in resp.parsed_output.results if 0 <= j.idx < len(titles) and j.ko.strip()}
+    except Exception as e:
+        log.warning("WHO 제목 한국어 옮기기 실패: %s", type(e).__name__)
+        return None
+
+
 # 스캔 한 번 동안 모든 업체 판정에 함께 주는 것 (scanner.run_scan 이 채움)
 # guide: 팀 판정 지침(설정에서 쓴 것 + 담당자 판단을 AI가 요약한 것), dismissed/confirmed: 다른 업체에서 담당자가 누른 사례
 SHARED: dict = {}
