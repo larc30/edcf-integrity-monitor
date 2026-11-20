@@ -1711,9 +1711,13 @@ function renderProjects() {
     || `<div class="empty small">${state.companies.length ? "검색 결과가 없습니다" : "업체 관리에서 업체를 먼저 등록하세요"}</div>`;
   $$("#sideList [data-side-open]").forEach((el) => { const go = () => openCompany(el.dataset.sideOpen); el.onclick = go; el.onkeydown = (e) => { if (e.key === "Enter") go(); }; });
   const mineN = state.projects.filter(isMine).length;
-  $("#pjScope").innerHTML = [["all", "전체", state.projects.length], ["mine", myTeam() ? TEAMS[myTeam()] : "우리 팀", mineN]].map(([k, l, n]) => `<button data-s="${k}" class="${pjState.scope === k ? "active" : ""}">${l} <span class="n">${n}</span></button>`).join("");
+  // 슈퍼관리자는 모든 팀을 따로 볼 수 있음 · 그 밖은 전체와 우리 팀
+  const scopeTabs = isSuper() ? [["all", "전체", state.projects.length], ...Object.entries(TEAMS).map(([k, l]) => ["t:" + k, l, state.projects.filter((p) => p.team === k).length])]
+    : [["all", "전체", state.projects.length], ["mine", myTeam() ? TEAMS[myTeam()] : "우리 팀", mineN]];
+  if (!scopeTabs.some(([k]) => k === pjState.scope)) pjState.scope = "all";
+  $("#pjScope").innerHTML = scopeTabs.map(([k, l, n]) => `<button data-s="${k}" class="${pjState.scope === k ? "active" : ""}">${l} <span class="n">${n}</span></button>`).join("");
   $$("#pjScope button").forEach((b) => b.onclick = () => { pjState.scope = b.dataset.s; renderProjects(); });
-  const ps = state.projects.filter((p) => pjState.scope === "all" || isMine(p)).sort((a, b) => live(b) - live(a)); // 완료한 사업은 뒤로
+  const ps = state.projects.filter((p) => pjState.scope === "all" || (pjState.scope.startsWith("t:") ? p.team === pjState.scope.slice(2) : isMine(p))).sort((a, b) => live(b) - live(a)); // 완료한 사업은 뒤로
   $("#projBoard").innerHTML = ps.map((p) => projectCard(p, sc)).join("")
     || `<div class="empty">${state.projects.length ? "우리 팀 사업이 없습니다." : "사업이 없습니다. 오른쪽 위에서 새 사업을 추가하세요."}</div>`;
   bindDnd();
@@ -2867,6 +2871,10 @@ async function renderUsage(reload) {
     const usd = pr ? ((x.in || 0) * pr[0] + (x.out || 0) * pr[1]) / 1e6 : 0; aiUsd += usd;
     aiParts.push(`${/sonnet/.test(model) ? "Sonnet" : /haiku/.test(model) ? "Haiku" : model} ${num(x.calls)}회 · 토큰 ${num((x.in || 0) + (x.out || 0))}`);
   }
+  // 기록을 시작하기 전(2026-11-19 이전) 사용분 등 기록에 없는 금액: 슈퍼관리자가 콘솔의 실제 금액을 적으면 그 차이를 보정값으로 저장
+  const aiEst = aiUsd, adj = +(u.claude_adj?.[m]?.usd || 0);
+  aiUsd = Math.max(0, aiEst + adj);
+  state.usageAi = { m, est: aiEst };
   // Firestore: 오늘 · 이번 달 (화면 + 검사 프로그램)
   const rd = (day) => (u.web_days?.[day]?.reads || 0) + (u.batch_days?.[day]?.reads || 0);
   const today = rd(d);
@@ -2877,7 +2885,7 @@ async function renderUsage(reload) {
   // GitHub Actions
   const ac = u.actions?.[m] || {};
   const rows = [
-    ["Claude AI", "기사 판정 (Haiku · 위험·경고만 Sonnet 재검토)", aiParts.join(" · ") || "이번 달 기록 없음", aiUsd ? won(aiUsd) : "0원", aiUsd * KRW >= WARN_KRW ? "warn" : "ok", ""],
+    ["Claude AI", "기사 판정 (Haiku · 위험·경고만 Sonnet 재검토)", aiParts.join(" · ") || "이번 달 기록 없음", aiUsd ? `${won(aiUsd)} ($${aiUsd.toFixed(2)})` : "0원", aiUsd * KRW >= WARN_KRW ? "warn" : "ok", ""],
     ["Firebase DB", "읽기 · 하루 5만 건까지 무료", `오늘 ${num(today)}건 · 이번 달 ${num(fsMonth)}건 · 화면 열기 ${num(loads)}회`, fsUsd ? won(fsUsd) : "0원", today > FS_FREE * 0.8 ? "warn" : "ok", bar(today, FS_FREE)],
     ["Firebase 함수", "[지금 스캔] 즉시 실행 · 월 200만 회 무료", "요청이 있을 때만 실행", "0원", "ok", ""],
     ["GitHub Actions", "검사 실행 · 공개 저장소 무료 (비공개면 월 2,000분 무료)", `${num(ac.runs)}회 · 약 ${num(ac.minutes)}분`, "0원", "ok", bar(ac.minutes || 0, 2000)],
@@ -2891,6 +2899,19 @@ async function renderUsage(reload) {
   $("#usageNote").innerHTML = `${u.updated_at ? `마지막 기록 ${esc(String(u.updated_at).slice(5, 16))} · ` : ""}실제 청구액: <a href="https://console.firebase.google.com/project/${P}/usage" target="_blank" rel="noopener">Firebase</a> · <a href="https://console.cloud.google.com/billing" target="_blank" rel="noopener">Google Cloud</a> · <a href="https://console.anthropic.com/settings/usage" target="_blank" rel="noopener">Anthropic</a> · <a href="https://github.com/settings/billing" target="_blank" rel="noopener">GitHub</a>`;
 }
 $("#btnUsage").onclick = () => renderUsage(true);
+// 실제 금액 맞추기: Anthropic 콘솔의 '이번 달 지출'을 적으면, 기록으로 계산한 금액과의 차이를 저장해 이후 표시에 더함
+$("#btnUsageFix").onclick = async () => {
+  if (!isSuper()) return toast("슈퍼관리자만 할 수 있습니다");
+  const a = state.usageAi; if (!a) return;
+  const v = prompt("Anthropic 콘솔의 이번 달 지출(달러)을 적어 주세요. 예: 1.54", "");
+  if (v == null) return;
+  const usd = parseFloat(String(v).replace(/[^0-9.]/g, ""));
+  if (!isFinite(usd) || usd < 0 || usd > 100000) return toast("금액을 숫자로 적어 주세요");
+  try {
+    await setDoc(doc(db, "meta", "usage"), { claude_adj: { [a.m]: { usd: +(usd - a.est).toFixed(4), actual: usd, at: nowStr(), by: me() } } }, { merge: true });
+    toast("실제 금액에 맞췄습니다"); renderUsage(true);
+  } catch (e) { toast("저장하지 못했습니다: " + (e.code || e.message)); }
+};
 // [연결 확인]: 요청을 남기면 1~2분 안에 (Firebase 함수, 예비 5분) GitHub Actions 가 각 API를 실제로 불러 보고 결과를 저장
 $("#btnConnCheck").onclick = async () => {
   const b = $("#btnConnCheck");
