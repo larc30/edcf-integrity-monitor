@@ -79,17 +79,55 @@ function searchMaster(m, name, limit = 8) {
   return out;
 }
 // 기업목록(이름 → 고유번호)은 함수가 살아 있는 동안 기억해 두고 하루에 한 번만 다시 받음
+// 함수가 새로 뜰 때마다 DART 에서 목록(수 MB)을 받으면 10~20초가 걸려서, 받은 목록을 Firestore(dart_master)에 압축해 두고
+// 새로 뜬 함수는 거기서 읽음(1초 안팎). 저장본이 3일 넘었으면 DART 에서 다시 받아 바꿔 둠.
 let master = null, masterAt = 0, masterJob = null;
-async function loadMaster(key, get = fetch) {
+const CACHE_COL = "dart_master", CACHE_DAYS = 3, CHUNK = 900 * 1024;
+const packRows = (m) => zlib.gzipSync(Buffer.from(m.list.map(([, r]) => r.join("\t")).join("\n"), "utf8"));
+function unpackRows(buf) {
+  const idx = new Map(), idx2 = new Map(), list = [], byCode = new Map();
+  for (const line of zlib.gunzipSync(buf).toString("utf8").split("\n")) {
+    const row = line.split("\t"); if (row.length < 4 || !row[0]) continue;
+    const k = norm(row[1]), k2 = ko(k);
+    if (idx.has(k)) idx.get(k).push(row); else idx.set(k, [row]);
+    if (idx2.has(k2)) idx2.get(k2).push(row); else idx2.set(k2, [row]);
+    list.push([k, row, k2]); byCode.set(row[0], row);
+  }
+  return { idx, idx2, list, byCode };
+}
+async function readCache(db) {
+  const docs = (await db.collection(CACHE_COL).get()).docs.map((d) => d.data()).sort((a, b) => a.i - b.i);
+  if (!docs.length || docs.length !== docs[0].n) return null;
+  return { at: docs[0].at || 0, m: unpackRows(Buffer.concat(docs.map((d) => Buffer.from(d.data)))) };
+}
+async function writeCache(db, m) {
+  const buf = packRows(m), n = Math.ceil(buf.length / CHUNK), at = Date.now(), batch = db.batch();
+  for (let i = 0; i < n; i++) batch.set(db.doc(`${CACHE_COL}/c${i}`), { i, n, at, data: buf.subarray(i * CHUNK, (i + 1) * CHUNK) });
+  await batch.commit();
+}
+async function fromDart(key, get) {
+  const r = await get(`https://opendart.fss.or.kr/api/corpCode.xml?crtfc_key=${key}`);
+  if (!r.ok) throw new Error(`DART 기업목록 HTTP ${r.status}`);
+  return parseMaster(unzipFirst(Buffer.from(await r.arrayBuffer())).toString("utf8"));
+}
+async function loadMaster(key, get = fetch, db = null) {
   if (master && Date.now() - masterAt < 24 * 3600e3) return master;
   masterJob = masterJob || (async () => {
-    const r = await get(`https://opendart.fss.or.kr/api/corpCode.xml?crtfc_key=${key}`);
-    if (!r.ok) throw new Error(`DART 기업목록 HTTP ${r.status}`);
-    master = parseMaster(unzipFirst(Buffer.from(await r.arrayBuffer())).toString("utf8")); masterAt = Date.now();
+    let c = null;
+    if (db) { try { c = await readCache(db); } catch (e) { c = null; } }
+    if (c && Date.now() - c.at < CACHE_DAYS * 24 * 3600e3) { master = c.m; masterAt = Date.now(); return master; }
+    try {
+      master = await fromDart(key, get); masterAt = Date.now();
+      if (db) { try { await writeCache(db, master); } catch (e) { /* 저장을 못 해도 찾기는 됨 */ } }
+    } catch (e) {
+      if (!c) throw e; // DART 가 안 되면 오래된 저장본이라도 씀
+      master = c.m; masterAt = Date.now() - 23 * 3600e3;
+    }
     return master;
   })().finally(() => { masterJob = null; });
   return masterJob;
 }
+const adminDb = () => { if (!getApps().length) initializeApp(); return getFirestore(); };
 // 기업 1곳의 상세 (사업자번호·대표자·영문명·업종): DART company.json 한 번
 async function detail(r, exact, key, get = fetch) {
   let d = {};
@@ -97,8 +135,8 @@ async function detail(r, exact, key, get = fetch) {
   return { corp_code: r[0], name: r[1], name_en: d.corp_name_eng || r[2] || "", ceo: d.ceo_nm || "", biz_no: String(d.bizr_no || "").replace(/\D/g, ""),
     listed: !!r[3], induty_code: d.induty_code || "", category: fromKsic(d.induty_code), exact };
 }
-async function dartLookup(name, biz, key, get = fetch) {
-  const t0 = Date.now(), warm = !!master, rows = searchMaster(await loadMaster(key, get), name), t1 = Date.now();
+async function dartLookup(name, biz, key, get = fetch, db = null) {
+  const t0 = Date.now(), warm = !!master, rows = searchMaster(await loadMaster(key, get, db), name), t1 = Date.now();
   let out = await Promise.all(rows.map(([r, exact]) => detail(r, exact, key, get)));
   const b = String(biz || "").replace(/\D/g, ""), same = b ? out.filter((o) => o.biz_no === b) : []; // 사업자번호를 함께 적었으면 그 번호와 맞는 곳만
   if (same.length) out = same;
@@ -112,7 +150,7 @@ exports.kickQueue = onDocumentCreated({ document: "requests/{id}", region: REGIO
   // DART 찾기: 여기서 바로 처리하고 끝 (실패하면 아래로 내려가 예전처럼 GitHub 에 맡김)
   if (req.task === "dartlookup") {
     try {
-      const t0 = Date.now(), res = await dartLookup(req.name, req.biz, DART_API_KEY.value());
+      const t0 = Date.now(), res = await dartLookup(req.name, req.biz, DART_API_KEY.value(), fetch, adminDb());
       await event.data.ref.update({ status: "done", finished_at: nowKst(), result: res, handled_by: "function" });
       logger.info("dart lookup", { count: res.count, ms: Date.now() - t0 }); // 공개 로그에는 건수·걸린 시간만
       return;
@@ -135,23 +173,28 @@ exports.dartFind = onCall({ region: REGION, secrets: [DART_API_KEY], memory: "51
   const tk = request.auth && request.auth.token, email = tk && tk.email_verified ? String(tk.email || "").toLowerCase() : "";
   if (!email) throw new HttpsError("unauthenticated", "로그인이 필요합니다");
   if (!SUPERS.includes(email)) {
-    if (!fsdb) { if (!getApps().length) initializeApp(); fsdb = getFirestore(); }
+    if (!fsdb) fsdb = adminDb();
     if (!(await fsdb.doc(`users/${email}`).get()).exists) throw new HttpsError("permission-denied", "등록된 계정이 아닙니다");
   }
-  const key = DART_API_KEY.value(), d = request.data || {};
-  if (d.warm) { const w = !!master; await loadMaster(key); return { ok: true, warm: w }; }
+  const key = DART_API_KEY.value(), d = request.data || {}, db = adminDb();
+  // 고른 기업 한 곳의 상세: 화면이 이름을 같이 보내면 기업목록을 읽지 않고 DART 에 한 번만 물음 (가장 빠른 길)
+  if (d.code && d.name) {
+    const t0 = Date.now(), code = String(d.code).replace(/\D/g, "").slice(0, 8);
+    return { ...(await detail([code, String(d.name).slice(0, 80), String(d.name_en || "").slice(0, 120), d.listed ? "1" : ""], d.exact !== false, key)), ms: Date.now() - t0 };
+  }
+  if (d.warm) { const w = !!master; await loadMaster(key, fetch, db); return { ok: true, warm: w }; }
   // 이름 목록만 (상세 조회 없이 바로): 업체명을 적는 동안 보여 주는 후보. 고르면 아래 code 로 그 한 곳만 상세 조회
   if (d.q != null) {
-    const rows = searchMaster(await loadMaster(key), String(d.q).slice(0, 40), Math.min(Math.max(+d.limit || 30, 1), 50));
+    const rows = searchMaster(await loadMaster(key, fetch, db), String(d.q).slice(0, 40), Math.min(Math.max(+d.limit || 30, 1), 50));
     return { items: rows.map(([r, exact]) => ({ corp_code: r[0], name: r[1], name_en: r[2] || "", listed: !!r[3], exact })) };
   }
   if (d.code) {
-    const t0 = Date.now(), r = (await loadMaster(key)).byCode.get(String(d.code).replace(/\D/g, "").slice(0, 8));
+    const t0 = Date.now(), r = (await loadMaster(key, fetch, db)).byCode.get(String(d.code).replace(/\D/g, "").slice(0, 8));
     if (!r) throw new HttpsError("not-found", "DART 기업목록에 없는 번호입니다");
     return { ...(await detail(r, d.exact !== false, key)), ms: Date.now() - t0 };
   }
-  const res = await dartLookup(String(d.name || "").slice(0, 80), String(d.biz || "").slice(0, 20), key);
+  const res = await dartLookup(String(d.name || "").slice(0, 80), String(d.biz || "").slice(0, 20), key, fetch, db);
   logger.info("dart find", { count: res.count, ms: res.ms, warm: res.warm }); // 공개 로그에는 건수·걸린 시간만
   return res;
 });
-exports._test = { norm, fromKsic, unzipFirst, parseMaster, searchMaster, dartLookup }; // 점검용 (가짜 응답으로 확인) // 점검용 (tools 에서 가짜 응답으로 확인)
+exports._test = { norm, fromKsic, unzipFirst, parseMaster, searchMaster, dartLookup, loadMaster, packRows, unpackRows, readCache, writeCache, reset: () => { master = null; masterAt = 0; } }; // 점검용 (가짜 응답으로 확인) // 점검용 (tools 에서 가짜 응답으로 확인)

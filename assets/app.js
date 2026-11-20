@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch, increment,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO, SUPER_ADMIN, SUPER_ADMINS, TEAMS } from "./firebase-config.js?v=33";
-import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=70";
+import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=71";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -1707,8 +1707,9 @@ function renderProjects() {
   const side = state.companies.filter((c) => !q || c.name.toLowerCase().includes(q) || (c.aliases || "").toLowerCase().includes(q) || (c.name_en || "").toLowerCase().includes(q))
     .sort((a, b) => a.name.localeCompare(b.name));
   $("#sideN").textContent = q ? `${side.length} / ${state.companies.length}개` : `${state.companies.length}개`;
-  $("#sideList").innerHTML = side.map((c) => `<div class="side-co" draggable="true" data-cid="${c.id}" title="끌어서 사업의 역할 칸에 놓기"><span class="dot ${sc ? c.risk : ""}"></span><span class="nm">${esc(c.name)}</span></div>`).join("")
+  $("#sideList").innerHTML = side.map((c) => `<div class="side-co" draggable="true" data-cid="${c.id}" data-side-open="${c.id}" role="button" tabindex="0" title="누르면 업체 정보 · 끌면 사업의 역할 칸에 연결"><span class="dot ${sc ? c.risk : ""}"></span><span class="nm">${esc(c.name)}</span></div>`).join("")
     || `<div class="empty small">${state.companies.length ? "검색 결과가 없습니다" : "업체 관리에서 업체를 먼저 등록하세요"}</div>`;
+  $$("#sideList [data-side-open]").forEach((el) => { const go = () => openCompany(el.dataset.sideOpen); el.onclick = go; el.onkeydown = (e) => { if (e.key === "Enter") go(); }; });
   const mineN = state.projects.filter(isMine).length;
   $("#pjScope").innerHTML = [["all", "전체", state.projects.length], ["mine", myTeam() ? TEAMS[myTeam()] : "우리 팀", mineN]].map(([k, l, n]) => `<button data-s="${k}" class="${pjState.scope === k ? "active" : ""}">${l} <span class="n">${n}</span></button>`).join("");
   $$("#pjScope button").forEach((b) => b.onclick = () => { pjState.scope = b.dataset.s; renderProjects(); });
@@ -1756,7 +1757,7 @@ function projectCard(p, sc) {
     <div class="pbox-body">${ROLES.map((role) => {
       const rr = rows.filter((r) => r.e.role === role).sort(byOrder);
       return `<div class="dropzone ${rr.length ? "" : "is-empty"}" data-pid="${p.id}" data-role="${esc(role)}">
-        <div class="dz-head">${roleTag(role)}${rr.length > 1 ? `<span class="dz-note">맨 위가 대표사 · 끌거나 ▲로 순서 변경</span>` : ""}</div>
+        <div class="dz-head" ${rr.length > 1 ? `title="맨 위가 대표사 · 끌거나 ▲로 순서 변경"` : ""}>${roleTag(role)}${rr.length ? `<span class="count">${rr.length}</span>` : ""}</div>
         ${rr.map(({ c, e, i }, k) => `<div class="corow" draggable="true" data-cid="${c.id}" data-from="${p.id}|${i}">
           <span class="dot ${sc ? c.risk : ""}"></span>${rr.length > 1 && k === 0 ? `<span class="lead" title="대표사">대표</span>` : ""}<button class="cn" data-open="${c.id}">${esc(c.name)}</button>
           <span class="right">
@@ -1764,7 +1765,7 @@ function projectCard(p, sc) {
             <select class="stage-sel ${e.stage && e.stage !== "계약" ? "on" : ""}" data-stage-sel="${c.id}|${i}" title="단계${e.stage === "우선협상" && e.rank ? ` · ${e.rank}순위` : ""}" aria-label="단계">${STAGE_OPTS.map(([v, l]) => `<option value="${v}" ${v === stageVal(e) ? "selected" : ""}>${l}</option>`).join("")}</select>
             <button class="xbtn" data-unlink="${c.id}|${i}" title="이 사업에서 빼기">✕</button>
           </span></div>`).join("")}
-        <div class="drop-hint">여기로 끌어다 놓기</div>
+        <div class="drop-hint">끌어다 놓기</div>
       </div>`;
     }).join("")}</div>
     <div class="pbox-foot">${ownerTag(p)}${canEditProject(p) ? "" : `<span class="muted small">보기 전용 (다른 팀 사업)</span>`}<span class="pf-act ${canEditProject(p) ? "" : "hidden"}"><button class="btn sm ghost" data-edit-proj="${p.id}">수정</button><button class="btn sm ghost danger" data-del-proj="${p.id}">삭제</button></span></div>
@@ -2069,9 +2070,8 @@ function openCompanyForm(cid = null) {
   const catNow = c0 ? (c0.catGuess ? "" : c0.cat || "") : "";
   const engs = c0?.engagements || [];
   modal(`<h2>${isNew ? "업체 추가" : "업체 정보"}</h2>
-    <p class="muted small">업체명을 넣고 [DART에서 가져오기]를 누르면 공식 이름·사업자번호·대표자·영문명·업종이 채워집니다. DART에 없는 업체(비상장·소규모)는 직접 적어 주세요.</p>
     <form id="coForm" class="form" autocomplete="off" novalidate>
-      <label class="city-box">업체명 *<span class="dl-row"><input name="name" maxlength="60" placeholder="예: 서마루엔지니어링 (적는 동안 DART 기업을 찾아 줍니다)" value="${esc(c0?.name_official || c0?.name || "")}"><button type="button" class="btn sm" id="dlBtn">DART에서 가져오기</button></span><div class="city-sug co-sug hidden" id="coSug"></div></label>
+      <label class="city-box">업체명 *<span class="dl-row"><input name="name" maxlength="60" placeholder="예: 서마루엔지니어링" value="${esc(c0?.name_official || c0?.name || "")}"><button type="button" class="btn sm" id="dlBtn">DART에서 가져오기</button></span><div class="city-sug co-sug hidden" id="coSug"></div></label>
       <div id="nameNote" class="muted small hidden"></div>
       <div id="dlRes" class="dl-res hidden"></div>
       <div class="row">
@@ -2084,11 +2084,11 @@ function openCompanyForm(cid = null) {
       </div>
       <div class="row">
         <label>별칭 (쉼표 구분)<input name="aliases" maxlength="200" placeholder="예: 서마루ENG" value="${v("aliases")}"></label>
-        ${isNew ? "" : `<label>보조 키워드 (동명 업체 구분)<input name="context_keywords" maxlength="100" placeholder="예: 감리, 대표자명" value="${v("context_keywords")}"></label>`}
+        ${isNew ? `<label class="check co-foreign" title="사업자등록번호 없음 · 조달청 조회 제외 · 영문 뉴스 검색"><input type="checkbox" name="foreign" ${isForeign ? "checked" : ""}> 해외 업체</label>` : `<label>보조 키워드 (동명 업체 구분)<input name="context_keywords" maxlength="100" placeholder="예: 감리, 대표자명" value="${v("context_keywords")}"></label>`}
       </div>
       ${isNew ? "" : `<div class="row"><label>검색 언어<input name="search_langs" maxlength="20" placeholder="ko,en,id" value="${esc(c0.search_langs || "ko")}"></label><label>메모<input name="note" maxlength="200" value="${v("note")}"></label></div>`}
-      <label class="check"><input type="checkbox" name="foreign" ${isForeign ? "checked" : ""}> 해외 업체 (사업자등록번호 없음 · 조달청 조회 제외 · 영문 뉴스 검색)</label>
-      ${isNew && state.projects.length ? `<div class="row"><label>사업에 바로 연결 (선택)<select name="pid"><option value="">연결 안 함</option>${projOptions()}</select></label>
+      ${isNew ? "" : `<label class="check" title="사업자등록번호 없음 · 조달청 조회 제외 · 영문 뉴스 검색"><input type="checkbox" name="foreign" ${isForeign ? "checked" : ""}> 해외 업체</label>`}
+      ${isNew && state.projects.length ? `<div class="row r21"><label>사업 연결<select name="pid"><option value="">연결 안 함</option>${projOptions()}</select></label>
         <label>역할<select name="role">${roleOptions()}</select></label></div>` : ""}
       ${engs.length ? `<div class="co-engs"><span class="muted small">참여 사업</span>${byRole(engs).map((e) => `<span class="d-eng">${roleTag(e.role)}<span>${esc(projName(e.project_id))}</span>${stageTag(e)}</span>`).join("")}</div>` : ""}
       <div class="actions">${isNew ? "" : `<button type="button" class="btn ghost danger" id="coDel" style="margin-right:auto">업체 삭제</button><button type="button" class="btn" id="coIssues">이슈 · 검사 결과 보기</button>`}<button class="btn primary">${isNew ? "추가" : "저장"}</button></div>
@@ -2112,7 +2112,7 @@ function openCompanyForm(cid = null) {
     const box = $("#dlRes"); box.classList.remove("hidden");
     let msg = $("#dlMsg"); if (!msg) { box.innerHTML = `<div id="dlMsg"></div>`; msg = $("#dlMsg"); }
     msg.innerHTML = `<span class="dl-wait"><i class="spin"></i>'${esc(it.name)}' 정보를 가져오는 중입니다</span>`;
-    const o = await dartCall({ code: it.corp_code, exact: it.exact }, 15000);
+    const o = await dartCall({ code: it.corp_code, exact: it.exact, name: it.name, name_en: it.name_en || "", listed: !!it.listed }, 15000);
     if (!msg.isConnected) return;
     if (o && o.corp_code) { fillFrom(o); msg.innerHTML = `DART에서 채웠습니다: <b>${esc(o.name)}</b> <span class="muted">${candLine(o)}</span>${o.ms ? ` <span class="muted small">(${(o.ms / 1000).toFixed(1)}초)</span>` : ""}`; }
     else msg.innerHTML = `'${esc(it.name)}' 정보를 가져오지 못했습니다. 잠시 뒤 다시 고르거나 직접 적어 주세요.`;
@@ -2195,7 +2195,7 @@ function openCompanyForm(cid = null) {
     if ((isNew || renamed) && odd && !confirm(`업체명 '${name}': ${odd}\n\n그대로 저장할까요?`)) { f1.name.focus(); return; }
     if (renamed && !confirm(`업체명을 바꿉니다.\n\n  ${c0.name}  →  ${name}\n\n뉴스 검색과 중복 확인이 새 이름 기준으로 바뀝니다. 회사 이름이 실제로 바뀐 것이면 옛 이름을 '별칭'에 넣어 두세요.\n계속할까요?`)) { f1.name.focus(); return; }
     const biz = (fd.biz_no || "").replace(/\D/g, ""), bizOld = String(c0?.biz_no || "").replace(/\D/g, "");
-    if (isNew && !fd.foreign && !biz) { f1.biz_no.focus(); return toast("사업자등록번호를 넣어 주세요. 해외 업체면 아래 '해외 업체'에 체크하세요", 6000); }
+    if (isNew && !fd.foreign && !biz) { f1.biz_no.focus(); return toast("사업자등록번호를 넣어 주세요. 해외 업체면 '해외 업체'에 체크하세요", 6000); }
     if (biz && biz.length !== 10) { f1.biz_no.focus(); return toast("사업자등록번호는 숫자 10자리입니다"); }
     if (biz && biz !== bizOld && !bizValid(biz)) { f1.biz_no.focus(); return toast("사업자등록번호가 맞지 않습니다 (검증번호 불일치). 숫자를 다시 확인해 주세요", 6000); }
     const dup = biz !== bizOld ? bizOwner(biz, cid) : null; // 번호를 바꾸거나 새로 넣을 때만 중복 확인 (예전부터 겹쳐 있던 업체도 다른 칸은 고칠 수 있게)

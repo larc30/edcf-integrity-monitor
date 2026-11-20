@@ -498,8 +498,7 @@ function applyTheme() { if (worldLayer) worldLayer.setStyle(landStyle); }
 function ensureMap() {
   if (map || !window.L) return !!map;
   // 휠 확대·축소를 잘게(0.25단계) 나눠 부드럽게
-  map = L.map("geoMap", { worldCopyJump: true, minZoom: 2, maxZoom: 10, zoomSnap: 0.25, zoomDelta: 0.5, wheelPxPerZoomLevel: 110, wheelDebounceTime: 20, attributionControl: true }).setView([15, 80], 3);
-  map.attributionControl.setPrefix("").addAttribution('지도 자료: <a href="https://www.naturalearthdata.com" target="_blank" rel="noopener">Natural Earth</a>');
+  map = L.map("geoMap", { worldCopyJump: true, minZoom: 2, maxZoom: 10, zoomSnap: 0.25, zoomDelta: 0.5, wheelPxPerZoomLevel: 110, wheelDebounceTime: 20, attributionControl: false }).setView([15, 80], 3); // 지도 바탕(Natural Earth)은 공개 자료라 표기 의무 없음 · 출처는 설정 > 고급에
   map.createPane("land"); map.getPane("land").style.zIndex = 200;
   map.createPane("names"); map.getPane("names").style.zIndex = 450; map.getPane("names").style.pointerEvents = "none";
   layers = { halo: L.layerGroup().addTo(map), focus: L.layerGroup().addTo(map), ev: L.layerGroup().addTo(map), pin: L.layerGroup().addTo(map) };

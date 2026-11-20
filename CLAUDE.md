@@ -161,6 +161,10 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
 - WHO 제목 한국어(2026-11-20): geo.update 가 WHO 발표의 영어 제목을 AI 로 한국어 한 줄('케냐 콜레라 발생' 꼴)로 옮겨 title 에 넣음(원문은 title_en, ko=true). 한 번 옮긴 것은 저장본에서 다시 쓰고 새 것만 호출(analyzer.ko_titles). 키가 없거나 실패하면 영어 그대로 두고 다음 수집 때 다시.
 
+- 관리 화면 정리(2026-11-20): 업체 관리 필터 줄은 검색칸 최대 26em·고르기 칸 같은 폭(사업만 18em)·[상세 필터]는 오른쪽 끝. 업체 추가 창은 설명 문단 없이, 별칭 옆에 '해외 업체' 체크, 사업 연결 2 : 역할 1(가로 스크롤 생기던 문제). 사업 관리: 역할 칸의 '맨 위가 대표사…' 안내는 마우스를 올리면, 역할 옆에 업체 수, 빈 역할 칸은 한 줄로 낮게, 왼쪽 업체를 누르면 업체 상세(끌면 연결). 카드 배치는 그대로(끌어다 놓을 자리가 필요).
+- 지도 출처(2026-11-20): 지도 위 'Natural Earth' 표기는 뺌(공개 자료라 의무 없음). 설정 > 고급 아래에 '지도 Natural Earth · 도시 목록 GeoNames (CC BY 4.0)' 한 줄(GeoNames 는 표기 의무).
+- DART 찾기 5차(2026-11-20, '2~30초 걸림'): 함수가 새로 뜰 때마다 DART 에서 기업목록을 통째로 받던 것이 원인으로 보여, 받은 목록을 Firestore dart_master(압축 조각 c0…)에 두고 새로 뜬 함수는 거기서 읽음(3일 지나면 다시 받음, DART 장애면 오래된 저장본 사용). 고른 기업 상세는 화면이 이름을 같이 보내 목록 없이 DART 한 번만(dartFind {code, name}). 목록 저장·읽기는 가짜 Firestore 로 확인, 상세 길은 실행 확인 못 함(보안 검사로 로컬 실행이 막힘). 함수 재배포 필요. 그래도 느리면 다음 수단은 함수 상시 대기(minInstances 1, 월 몇 천 원).
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 
