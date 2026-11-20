@@ -32,8 +32,9 @@ const LEVEL_DEF = {
 const levelTip = () => `<div class="tip-p">업체에 걸린 이슈 가운데 가장 높은 등급입니다.</div>
   <div class="tip-grid lv"><span>${badge("red")}</span><span>지금 유효한 제재 (입찰 제한 · MDB · 영업정지)</span>
   <span>${badge("orange")}</span><span>제재로 이어질 수 있는 진행 중 사안 (수사 · 기소 · 과징금)</span>
-  <span>${badge("none")}</span><span>위험·경고 이슈 없음</span>
-  <span>${badge("yellow")}</span><span>등급에 넣지 않는 과거·간접 이력</span></div>`;
+  <span>${badge("none")}</span><span>위험·경고 이슈 없음</span></div>
+  <div class="tip-sep">등급이 아닌 표시 (기사에 붙음)</div>
+  <div class="tip-grid lv"><span>${badge("yellow")}</span><span>기록만 남기는 과거·간접 이력. 참고만 있는 업체는 정상</span></div>`;
 // i 버튼: 마우스를 올리거나 누르면 설명 (cls 'r' = 오른쪽 맞춤)
 const sumText = (f) => String(f?.summary || f?.title || "").replace(/^※[^.]*확인\.\s*/, "");
 const info = (html, cls = "") => `<span class="itip ${cls}" tabindex="0" role="note" aria-label="설명">i<span class="tip">${html}</span></span>`;

@@ -2024,3 +2024,8 @@ select optgroup option { background: var(--panel-solid); color: var(--text); fon
 /* 메인 화면 점검 3차 (2026-11-20) */
 .tip-grid.lv { gap: 7px 10px; align-items: center; } .tip-grid.lv .badge { margin: 0; }
 .acct-row .font-ctl .fsize { min-width: 3.6em; text-align: center; font-weight: 600; color: var(--text); }
+
+/* 팝업·오른쪽 창이 열려 있는 동안 뒤 화면은 움직이지 않게 (스크롤 막대 자리는 남겨 화면이 옆으로 밀리지 않게) */
+html { scrollbar-gutter: stable; }
+html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
+#modalBg, #drawerBg, #drawer, #modal { overscroll-behavior: contain; }
