@@ -1946,3 +1946,8 @@ input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 2px color-mix(in s
 #fMoreBtn .fn { display: inline-grid; place-items: center; min-width: 1.5em; height: 1.5em; padding: 0 .35em; border-radius: 999px; background: var(--accent); color: #fff; font-size: var(--fs-xs); font-weight: 700; }
 .co-more { padding: .6em .7em; border-radius: 10px; background: color-mix(in srgb, var(--text) 4%, transparent); border: 1px dashed var(--line-2); align-items: center; }
 .co-more::before { content: "상세 필터"; font-size: var(--fs-xs); font-weight: 700; color: var(--muted); margin-right: .3em; }
+
+/* 고르기 칸의 묶음 제목(수원국 이름): 어두운 화면에서 흰 바탕에 흐린 글자로 나오던 것 → 목록과 같은 바탕, 또렷한 글자 */
+select optgroup { background: var(--panel-solid); color: var(--accent-2); font-weight: 700; font-style: normal; }
+select optgroup option { background: var(--panel-solid); color: var(--text); font-weight: 500; }
+:root[data-theme="light"] select optgroup { color: #2563EB; }
