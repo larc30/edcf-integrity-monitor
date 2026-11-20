@@ -1603,6 +1603,7 @@ const inView = (c, v) => v === "all" ? true
   : v === "open" ? c.open > 0
   : v === "info" ? needInfo(c) : true;
 const coState = { view: "all", sort: "risk", dir: 1, sel: new Set() };
+const FILTER_IC = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>`;
 const CO_MORE = ["#fRole", "#fStage", "#fNat"]; // 덜 쓰는 필터: [상세 필터]를 눌러야 보임
 const CO_FILTERS = ["#poolSearch", "#fOwner", "#fProj", "#fRole", "#fStage", "#fRisk", "#fCat", "#fNat"];
 function poolMatches(c) {
@@ -1636,7 +1637,8 @@ function renderCompanies() {
   renderDartBar();
   // 필터 항목 (선택값 유지)
   const keep = (id, html) => { const v = $(id).value; $(id).innerHTML = html; if ([...$(id).options].some((o) => o.value === v)) $(id).value = v; };
-  keep("#fProj", `<option value="">사업 전체</option><option value="__none">사업 미연결</option>` + state.projects.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join(""));
+  keep("#fProj", `<option value="">사업 전체</option><option value="__none">사업 미연결</option>` + projOptions(live)
+    + (state.projects.some((p) => !live(p)) ? `<optgroup label="완료된 사업">${state.projects.filter((p) => !live(p)).sort((x, y) => x.name.localeCompare(y.name, "ko")).map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</optgroup>` : ""));
   keep("#fCat", `<option value="">업종 전체</option>` + CATS.map((k) => `<option value="${k}">${k}</option>`).join(""));
   $("#coViews").innerHTML = CO_VIEWS.map(([k, l, d]) => `<button data-v="${k}" class="cv-btn ${k} ${k === coState.view ? "active" : ""}" title="${d}">${l}<span class="n">${state.companies.filter((c) => inView(c, k)).length}</span></button>`).join("");
   $$("#coViews button").forEach((b) => b.onclick = () => { coState.view = b.dataset.v; renderCompanies(); });
@@ -1646,7 +1648,7 @@ function renderCompanies() {
   $("#fReset").classList.toggle("hidden", !CO_FILTERS.some((id) => $(id).value));
   // 상세 필터(역할·단계·국내해외): 평소에는 접어 두고, 고른 것이 있으면 펼친 채로 개수 표시
   { const n = CO_MORE.filter((id) => $(id).value).length, btn = $("#fMoreBtn"), open = n > 0 || btn.getAttribute("aria-expanded") === "true";
-    $("#fMore").classList.toggle("hidden", !open); btn.classList.toggle("on", open); btn.textContent = n ? `상세 필터 ${n}` : "상세 필터"; }
+    $("#fMore").classList.toggle("hidden", !open); btn.classList.toggle("on", open); btn.innerHTML = `${FILTER_IC}<span>상세 필터</span>${n ? `<b class="fn">${n}</b>` : ""}<i class="chev">${open ? "▴" : "▾"}</i>`; }
   $("#poolShown").textContent = list.length === state.companies.length ? "" : `${state.companies.length}개 중 ${list.length}개`;
   $$("#coTable th[data-sort]").forEach((th) => { th.classList.toggle("on", th.dataset.sort === coState.sort); th.classList.toggle("desc", th.dataset.sort === coState.sort && coState.dir < 0); });
   const engChip = (e) => `<span class="ej" title="${esc(projName(e.project_id))} · ${esc(e.role)} · ${esc(e.stage || "계약")}">${roleTag(e.role)}<span class="ej-p">${esc(projName(e.project_id))}</span>${stageTag(e)}</span>`;
@@ -2251,9 +2253,9 @@ $("#btnAddCompany").onclick = () => openCompanyForm(null);
 let cityDb = null, cityDbP = null;
 const loadCityDb = () => cityDbP || (cityDbP = fetch("assets/cities.json?v=2").then((r) => r.ok ? r.json() : null).then((d) => { cityDb = d; }).catch(() => { cityDbP = null; }));
 // 사업 고르기 칸: 수원국별로 묶고(가나다순) 그 안에서 사업명 가나다순. 내가 고칠 수 있는 진행 중 사업만
-function projOptions() {
+function projOptions(pred = (p) => canEditProject(p) && live(p)) {
   const by = {};
-  state.projects.filter((p) => canEditProject(p) && live(p)).forEach((p) => { const k = COUNTRY[p.country] || "수원국 미지정"; (by[k] = by[k] || []).push(p); });
+  state.projects.filter(pred).forEach((p) => { const k = COUNTRY[p.country] || "수원국 미지정"; (by[k] = by[k] || []).push(p); });
   return Object.keys(by).sort((x, y) => (x === "수원국 미지정") - (y === "수원국 미지정") || x.localeCompare(y, "ko"))
     .map((k) => `<optgroup label="${esc(k)} (${by[k].length})">${by[k].sort((x, y) => x.name.localeCompare(y.name, "ko")).map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</optgroup>`).join("");
 }

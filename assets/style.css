@@ -1939,3 +1939,10 @@ input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 2px color-mix(in s
 .co-more { flex: 1 0 100%; display: flex; flex-wrap: wrap; gap: .5em; padding-top: .1em; }
 .co-more.hidden { display: none; }
 @media (max-width: 760px) { .co-more { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; } }
+
+/* [상세 필터] 버튼: 필터 아이콘 + 펼침 화살표 + 고른 개수 (누르면 아래 줄이 열리는 버튼임을 보이게) */
+#fMoreBtn { display: inline-flex; align-items: center; gap: .4em; }
+#fMoreBtn .chev { font-style: normal; font-size: .8em; opacity: .7; }
+#fMoreBtn .fn { display: inline-grid; place-items: center; min-width: 1.5em; height: 1.5em; padding: 0 .35em; border-radius: 999px; background: var(--accent); color: #fff; font-size: var(--fs-xs); font-weight: 700; }
+.co-more { padding: .6em .7em; border-radius: 10px; background: color-mix(in srgb, var(--text) 4%, transparent); border: 1px dashed var(--line-2); align-items: center; }
+.co-more::before { content: "상세 필터"; font-size: var(--fs-xs); font-weight: 700; color: var(--muted); margin-right: .3em; }
