@@ -107,6 +107,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
 - 업체 관리 필터 줄(2026-11-20): 검색칸·고르기 칸·버튼 높이 같게(2.5em). 평소에는 팀·사업·등급·업종만 보이고, 역할·단계·국내해외(app.js CO_MORE)는 [상세 필터]를 눌러야 아래 줄에 보임(고른 것이 있으면 펼친 채 개수 표시, 접으면 그 값은 지움).
 
+- 업체명 확인 창(2026-11-20, '수정하면 숫자가 그냥 들어감'): 추가·수정은 같은 팝업·같은 검사(nameProblem). 숫자는 실제 이름에도 쓰여 막지 않고, 한글 이름 끝에 숫자 3자리 이상이 붙거나 DART에서 고른 이름과 다르면 저장 전에 확인(nameOdd). 기존 업체의 이름을 바꿀 때는 항상 '옛 이름 → 새 이름' 확인 창.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 

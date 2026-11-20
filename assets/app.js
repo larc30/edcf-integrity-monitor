@@ -2032,6 +2032,12 @@ function nameProblem(name) {
   if (BAD_WORDS.some((w) => core.toLowerCase().includes(w))) return "업체명으로 쓸 수 없는 말이 들어 있습니다";
   return "";
 }
+// 막지는 않지만 한 번 확인할 이름: 한글 이름 뒤에 숫자가 길게 붙음 · DART에서 고른 이름과 다름
+function nameOdd(name, picked) {
+  if (/[가-힣]\s*\d{3,}$/.test(name)) return "이름 끝에 숫자가 붙어 있습니다. 잘못 들어간 글자가 아닌지 확인해 주세요.";
+  if (picked && picked.name && normName(cleanCompanyName(picked.name).name) !== normName(name)) return `DART에서 가져온 이름('${picked.name}')과 다릅니다.`;
+  return "";
+}
 // 한 칸에 여러 업체를 쉼표·빗금으로 적은 경우 나눔 (영문 'CO., LTD.'의 쉼표는 그대로)
 const splitNames = (raw) => { const t = String(raw || ""); return /[가-힣]/.test(t) && /[,，;；\/]/.test(t) ? t.split(/[,，;；\/]/).map((x) => x.trim()).filter(Boolean) : [t.trim()].filter(Boolean); };
 // 사업자등록번호 검증번호 확인 (국세청 방식: 앞 9자리로 마지막 자리를 계산)
@@ -2183,11 +2189,15 @@ function openCompanyForm(cid = null) {
     const bad = nameProblem(name);
     if (bad) { f1.name.focus(); return toast(bad, 5000); }
     if (state.companies.some((c) => c.id !== cid && normName(c.name) === normName(name))) return toast(`'${name}'은(는) 이미 있는 업체입니다`);
+    // 숫자는 실제 회사 이름에도 쓰여서(E1 · 3M 등) 막지 않음. 대신 오타처럼 보이는 이름과, 기존 업체의 이름 바꾸기는 저장 전에 확인
+    const odd = nameOdd(name, picked), renamed = !isNew && name !== c0.name;
+    if ((isNew || renamed) && odd && !confirm(`업체명 '${name}': ${odd}\n\n그대로 저장할까요?`)) { f1.name.focus(); return; }
+    if (renamed && !confirm(`업체명을 바꿉니다.\n\n  ${c0.name}  →  ${name}\n\n뉴스 검색과 중복 확인이 새 이름 기준으로 바뀝니다. 회사 이름이 실제로 바뀐 것이면 옛 이름을 '별칭'에 넣어 두세요.\n계속할까요?`)) { f1.name.focus(); return; }
     const biz = (fd.biz_no || "").replace(/\D/g, ""), bizOld = String(c0?.biz_no || "").replace(/\D/g, "");
     if (isNew && !fd.foreign && !biz) { f1.biz_no.focus(); return toast("사업자등록번호를 넣어 주세요. 해외 업체면 아래 '해외 업체'에 체크하세요", 6000); }
     if (biz && biz.length !== 10) { f1.biz_no.focus(); return toast("사업자등록번호는 숫자 10자리입니다"); }
     if (biz && biz !== bizOld && !bizValid(biz)) { f1.biz_no.focus(); return toast("사업자등록번호가 맞지 않습니다 (검증번호 불일치). 숫자를 다시 확인해 주세요", 6000); }
-    const dup = bizOwner(biz, cid);
+    const dup = biz !== bizOld ? bizOwner(biz, cid) : null; // 번호를 바꾸거나 새로 넣을 때만 중복 확인 (예전부터 겹쳐 있던 업체도 다른 칸은 고칠 수 있게)
     if (dup) return toast(`사업자등록번호 ${fmtBiz(biz)}는 이미 '${dup.name}'(으)로 등록돼 있습니다. 회사 이름이 바뀐 경우면 그 업체에 별칭으로 넣어 주세요`, 6000);
     if (fd.name_en && /[가-힣ㄱ-ㅎ]/.test(fd.name_en)) { f1.name_en.focus(); return toast("영문명에는 한글을 넣을 수 없습니다"); }
     if (fd.ceo && /[ㄱ-ㅎㅏ-ㅣ0-9]/.test(fd.ceo)) { f1.ceo.focus(); return toast("대표자 이름을 다시 확인해 주세요"); }
