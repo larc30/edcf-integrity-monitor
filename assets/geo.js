@@ -308,11 +308,11 @@ export async function renderGeo() {
   codes.forEach((c) => byLv[risk[c].lv].push(c));
   byLv.red.sort(); byLv.orange.sort(); byLv.none.sort();
   const ruleRows = (lv) => GEO_RULES.filter((r) => r.lv === lv).map((r) => r.km ? `${r.text}: 사업지 ${r.km}km 안, ${r.days}일 이내` : `${r.text}, ${r.days}일 이내`).join("<br>");
-  const tip = `<div class="tip-p">사업지마다 아래 기준으로 정하고, 나라 등급은 그 나라 사업 가운데 가장 높은 등급입니다.</div>
+  const tip = `<div class="tip-p">사업지마다 정하고, 나라 등급은 그 나라 사업 중 가장 높은 등급입니다.</div>
     <div class="tip-row"><span class="badge red">위험</span><span>사업지 여행경보 3·4단계, 전 지역 특별여행주의보<br>${ruleRows("red")}</span></div>
     <div class="tip-row"><span class="badge orange">경고</span><span>사업지 여행경보 2단계, 일부 지역 특별여행주의보<br>${ruleRows("orange")}</span></div>
     <div class="tip-row"><span class="badge none">정상</span><span>그 밖 (사업지 여행경보 1단계)</span></div>
-    <div class="tip-p muted">여행경보가 나라 안 일부 지역만 높으면(예: 라오스 골든트라이앵글 4단계), 사업지가 그 지역일 때만 그 단계로 봅니다. 사업지 핀이 없으면 '나머지 지역' 단계로 보고, 높은 지역은 사업 카드에 참고로만 적습니다.</div>`;
+    <div class="tip-p muted">일부 지역만 단계가 높은 나라는 사업지가 그 지역일 때만 그 단계로 봅니다.</div>`;
   $("#gboard").innerHTML = `<div class="card-head"><h2>수원국 등급 ${info(tip)}</h2></div>`
     + ["red", "orange", "none"].map((lv) => {
       const l = byLv[lv];
@@ -326,7 +326,7 @@ export async function renderGeo() {
 
   // 왼쪽 아래: 이벤트 종류별 건수 (누르면 지도·목록 거르기)
   const tc = {}; evs.forEach((e) => (tc[e.type] = (tc[e.type] || 0) + 1));
-  $("#evSummary").innerHTML = `<div class="card-head"><h2>이벤트 요약 ${info("수원국 안팎에서 최근 일어난 지진·분쟁·테러·재난입니다.<br><b>지진</b> USGS(미국지질조사국) 규모 5.5 이상, 사업지·수원국에서 600km 안<br><b>재난 경보</b> GDACS(UN·EU 공동 재난경보) 태풍·홍수·화산·산불 주황·빨강 경보<br><b>감염병</b> WHO 감염병 발생 소식(Disease Outbreak News), 나라 단위<br><b>그 밖</b> Google·네이버 뉴스에서 나라 이름과 사건 단어로 찾은 뒤, AI가 사업에 영향을 줄 만한 사건인지 판정해 남김<br><b>정치·선거</b>는 참고용이라 등급에는 넣지 않습니다.<br>종류를 누르면 지도와 목록이 그 종류만 보여줍니다.")}</h2><span class="muted small">${pl}</span></div>
+  $("#evSummary").innerHTML = `<div class="card-head"><h2>이벤트 요약 ${info(`<div class="tip-p">수원국 안팎의 최근 사건입니다. 종류를 누르면 그것만 봅니다.</div><div class="tip-grid"><b>지진</b><span>USGS 규모 5.5 이상</span><b>재난</b><span>GDACS 주황·빨강 경보</span><b>감염병</b><span>WHO 발생 소식</span><b>그 밖</b><span>뉴스에서 찾아 AI가 판정</span></div><div class="tip-p muted">정치·선거는 참고용이라 등급에서 뺍니다.</div>`)}</h2><span class="muted small">${pl}</span></div>
     <div class="ev-grid"><button class="ev-chip all on ${ui.type ? "" : "sel"}" data-et=""><span class="lb">전체</span><b>${Object.values(tc).reduce((x, y) => x + y, 0)}</b></button>${Object.entries(GEO_GROUPS).map(([k, [label, types]]) => { const n = types.reduce((x, t) => x + (tc[t] || 0), 0); return `<button class="ev-chip ${n ? "on" : ""} ${ui.type === k ? "sel" : ""}" data-et="${k}" ${n ? "" : "disabled"}>${ibadge(k, "sm")}<span class="lb">${label}</span><b>${n}</b></button>`; }).join("")}</div>`;
   $$("#evSummary [data-et]:not(:disabled)").forEach((b) => b.onclick = () => { ui.type = !b.dataset.et || ui.type === b.dataset.et ? null : b.dataset.et; renderGeo(); });
 

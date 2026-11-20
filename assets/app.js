@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch, increment,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO, SUPER_ADMIN, SUPER_ADMINS, TEAMS } from "./firebase-config.js?v=33";
-import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=63";
+import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=64";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -331,7 +331,7 @@ setInterval(() => { if (document.visibilityState === "visible") autoRefresh(10 *
 function showGuide(html) { const g = $("#guide"); g.innerHTML = html; g.classList.toggle("hidden", !html); }
 
 // 테마 (다크 기본 / 라이트)
-function applyThemeLabel() { $("#btnTheme").textContent = document.documentElement.dataset.theme === "light" ? "☾ 다크" : "☀ 라이트"; }
+function applyThemeLabel() { $("#btnTheme").textContent = document.documentElement.dataset.theme === "light" ? "어둡게 바꾸기" : "밝게 바꾸기"; }
 $("#btnTheme").onclick = () => {
   const t = document.documentElement.dataset.theme === "light" ? "dark" : "light";
   document.documentElement.dataset.theme = t;
@@ -453,7 +453,7 @@ function renderRadar(cs) {
     const [x, y] = polar(ang, r), pids = c.engagements.map((e) => e.project_id).join(" ");
     const tip = `${c.name} · ${sc ? LEVEL[c.risk] : "스캔 전"}${c.open ? ` · 미확인 ${c.open}건` : ""}`;
     return `<button class="rdot ${lv}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%;--d:calc(${Math.round(ang)} * var(--sweep, 6s) / 360)" data-cid="${c.id}" data-pids="${pids}" data-tip="${esc(tip)}" aria-label="${esc(tip)}"></button>`
-      + (label ? `<span class="rlabel ${lv} ${x >= 50 ? "r" : "l"}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%" data-cid="${c.id}" data-pids="${pids}">${esc(c.name)}</span>` : "");
+      + (label ? (() => { const [lx, ly] = lv === "red" ? polar(ang, 35) : [x, y]; return `<span class="rlabel ${lv} ${lx >= 50 ? "r" : "l"}" style="left:${lx.toFixed(2)}%;top:${ly.toFixed(2)}%" data-cid="${c.id}" data-lv="${lv}" data-pids="${pids}">${esc(c.name)}</span>`; })() : "");
   };
   // 이름표가 겹치지 않게 좌우를 번갈아 배치 (위쪽은 등급 글자 자리라 비움)
   const SLOTS = [100, 260, 145, 215, 62, 298];
@@ -516,6 +516,17 @@ function fixLabels() {
     lb.style.marginTop = dy + "px";
     placed.push({ left: r.left, right: r.right, top: r.top + dy, bottom: r.bottom + dy });
   });
+  // 이름표가 점에서 떨어져 있으면 가는 선으로 이음
+  const R = el.getBoundingClientRect();
+  let svg = el.querySelector("svg.leads");
+  if (!svg) { svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("class", "leads"); svg.setAttribute("aria-hidden", "true"); el.appendChild(svg); }
+  svg.setAttribute("viewBox", `0 0 ${R.width} ${R.height}`);
+  svg.innerHTML = $$(".rlabel", el).map((lb) => {
+    const d = el.querySelector(`.rdot[data-cid="${lb.dataset.cid}"]`); if (!d) return "";
+    const a = d.getBoundingClientRect(), b = lb.getBoundingClientRect();
+    const x1 = a.left + a.width / 2 - R.left, y1 = a.top + a.height / 2 - R.top, x2 = (b.left + b.right) / 2 < a.left + a.width / 2 ? b.right - R.left : b.left - R.left, y2 = b.top + b.height / 2 - R.top;
+    return Math.hypot(x2 - x1, y2 - y1) < 14 ? "" : `<line class="${lb.dataset.lv || ""}" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"/>`;
+  }).join("");
 }
 let fixT = null;
 window.addEventListener("resize", () => { clearTimeout(fixT); fixT = setTimeout(fixLabels, 150); });
@@ -548,7 +559,7 @@ function renderHome() {
   $("#scopeSeg").innerHTML = !state.companies.length ? "" : [["mine", mineLabel(), mineN, myP, ICON_USER], ["all", "EDCF 전체", state.companies.length, state.projects.length, ICON_ORG]]
     .map(([k, l, cnt, pn, ic]) => `<button data-s="${k}" class="sc-btn ${k} ${k === scope ? "active" : ""}" title="${l}: 사업 ${pn}개 · 업체 ${cnt}"><span class="sc-ic">${ic}</span>${l}<span class="sc-n">업체 ${cnt}</span></button>`).join("");
   $$("#scopeSeg button").forEach((b) => b.onclick = () => { scope = b.dataset.s; try { localStorage.setItem("edcf_scope2", scope); } catch {} renderHome(); });
-  $("#scopeInfo").innerHTML = !state.companies.length ? "" : info(`<b>${esc(mineLabel())}</b>: ${myP ? `우리 팀 사업 ${myP}개에 참여한 업체 ${mineN}` : myTeam() ? "우리 팀 사업이 없습니다 (사업 관리에서 사업의 담당 팀 지정)" : "아직 팀이 지정되지 않은 계정입니다 (관리자에게 요청)"}<br><b>EDCF 전체</b>: 등록된 업체 ${state.companies.length} 전체 (사업 미연결 업체 포함)`, "r");
+  $("#scopeInfo").innerHTML = ""; // 범위 설명 i 는 뺌 (버튼에 이름과 업체 수가 이미 보임)
 
   if (!state.companies.length) showGuide(`<b>시작하기</b>: <b>업체 관리</b>에서 [일괄 등록]으로 업체를 넣고 <b>지금 스캔</b>을 누르세요.`);
   else if (!sc) showGuide(`업체 ${cs.length}이 등록됐습니다. <b>지금 스캔</b>을 눌러 첫 스캔을 실행하세요.`);
@@ -620,7 +631,7 @@ function renderHome() {
   off.forEach((f) => oc[officialSrc(f)][f.level === "red" ? 0 : 1].add(f.company_id));
   const evN = state.edcf.filter(edcfValid).length;
   const ocRow = (name, k, other, extra) => `<div class="oc-row"><span class="oc-k">${name}</span><span class="oc-v">${oc[k][0].size ? `<b class="red-t">제재 중 ${oc[k][0].size}</b>` : `<span class="muted">제재 중 0</span>`}${oc[k][1].size ? ` <span class="muted">· ${other} ${oc[k][1].size}</span>` : ""}</span>${extra || ""}</div>`;
-  $("#noteCard").innerHTML = `<div class="oc-head"><h2>공식 제재 명단 ${info(`<div class="tip-p">우리 업체 가운데 공식 제재 명단에서 지금 제재 중인 업체 수입니다.</div><div class="tip-grid"><b>EDCF</b><span>EXIMIIS 부정당업자 명단</span><b>조달청</b><span>나라장터 현재 제재</span><b>MDB</b><span>World Bank · ADB · AfDB · IDB · EBRD</span></div><div class="tip-p muted">'제재 중'은 지금 유효한 제재(= 위험)입니다. 카드를 누르면 업체별 내용을 봅니다.</div>`)}</h2>${evN ? "" : `<span class="oc-x"><span class="warn-t">EXIMIIS 명단 없음</span></span>`}</div>
+  $("#noteCard").innerHTML = `<div class="oc-head"><h2>공식 제재 명단 ${info(`<div class="tip-p">지금 제재 중인 우리 업체 수입니다.</div><div class="tip-grid"><b>EDCF</b><span>EXIMIIS 부정당업자</span><b>조달청</b><span>나라장터 부정당제재</span><b>MDB</b><span>세계은행 등 5개 기관</span></div>`)}</h2>${evN ? "" : `<span class="oc-x"><span class="warn-t">EXIMIIS 명단 없음</span></span>`}</div>
     <div class="oc-mini">${[["EDCF", "edcf"], ["조달청", "pps"], ["MDB", "mdb"]].map(([n, k]) => `<span class="oc-c ${oc[k][0].size ? "hot" : ""}"><i>${n}</i><b>${oc[k][0].size}</b></span>`).join("")}</div>`;
   const nums = [$("#kboard"), $("#noteCard")];
   if (!state.kpiAnimated) { state.kpiAnimated = true; nums.forEach(countUp); } // 숫자 올라가는 효과는 처음 한 번만
@@ -633,7 +644,7 @@ function renderHome() {
   renderRadar(cs);
   $("#radarHud").innerHTML = `<span class="hud tl"><b>RISK RADAR</b><i>${scope === "mine" ? mineLabel() : "EDCF 전체"}</i></span>
     <span class="hud bl"><span><i class="lg red"></i>위험</span><span><i class="lg orange"></i>경고</span><span><i class="lg none"></i>정상</span></span>`;
-  $("#radarInfo").innerHTML = info(`<b>${scope === "mine" ? esc(mineLabel()) : "전체"} 업체 ${cs.length}</b>: 가운데로 갈수록 위험합니다.<br>점은 위험·경고 업체만 표시하고(최대 ${RADAR_MAX}개), 정상 업체는 바깥 원에 숫자로만 보여줍니다.<br>점을 누르면 업체 상세, 빈 곳을 누르면 다시 훑어봅니다.`, "r");
+  $("#radarInfo").innerHTML = info(`<div class="tip-p">가운데에 가까울수록 위험합니다.</div><div class="tip-grid"><b>점</b><span>위험·경고 업체 (누르면 상세)</span><b>정상</b><span>바깥 원에 숫자로만</span></div>`, "r");
 
   // ④ 확인이 필요한 이슈 (위험 → 공식 제재 → 최신)
   const counts = Object.fromEntries(PERIODS.map(([k]) => [k, openG.filter((g) => groupIn(g, k)).length]));
@@ -642,7 +653,7 @@ function renderHome() {
   $$("#periodSeg button").forEach((b) => b.onclick = () => { period = b.dataset.p; try { localStorage.setItem("edcf_period", period); } catch {} renderHome(); });
   const shown = openG.filter((g) => groupIn(g, period));
   $("#issueCount").textContent = openG.length;
-  $("#actHelp").innerHTML = info(`<div class="tip-p"><b>이 업체 이야기가 맞나요?</b></div><div class="tip-grid wide"><b>✓ 관련 있음</b><span>이 업체 이야기가 <b>맞음</b>. 목록에서 내려가고 <b>등급은 유지</b>. 비슷한 유형의 <b>새</b> 사건은 계속 알려줌</span><b>✕ 관련 없음</b><span>이 업체 이야기가 <b>아님</b>(동명이인·다른 회사·단순 언급). <b>등급에서 빠지고</b>, AI가 비슷한 유형을 앞으로 걸러냄</span></div><div class="tip-p muted">둘 다 같은 기사는 다시 가져오지 않고, 업체 상세에서 되돌릴 수 있습니다.</div>`);
+  $("#actHelp").innerHTML = ""; // 처리 버튼 설명 i 는 뺌 ([판단 가이드]와 버튼 위 설명으로 충분)
   if (shown.length) renderGroups(shown, $("#feed"));
   else $("#feed").innerHTML = !sc ? `<div class="empty">스캔 후 이곳에 이슈가 출처와 함께 표시됩니다.</div>`
     : openG.length ? `<div class="ok-box">이 조건에는 확인할 이슈가 없습니다 <span class="muted small">(전체 ${openG.length}건)</span></div>`
