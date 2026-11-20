@@ -154,6 +154,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
 - 지도 색(2026-11-20 사용자 선택): 다크에서 땅만 한 단계 밝게(--map-land #263349, --map-border #50607A, 바다 #0C1A2E 그대로). 더 밝은 안(#2E3D57)은 지도가 카드보다 떠 보여 안 씀.
 
+- 수원국 사건 종류 판정(2026-11-20, '홍수 대응에 항의하는 시위'가 홍수로 분류된 사례): 종류는 배경·원인이 아니라 지금 벌어지는 일로(analyzer.EVENT_PROMPT). 지침을 고치면 analyzer.EVENT_AI_V 를 올림 → geo.update 가 예전 지침으로 판정한 뉴스 이벤트(ai_v 낮음)를 한 번에 60건씩 다시 판정.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 
