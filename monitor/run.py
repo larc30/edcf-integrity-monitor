@@ -15,6 +15,8 @@ import json
 import logging
 import os
 import sys
+import threading
+import time
 
 from . import report, scanner, store
 from .sources import dart
@@ -80,12 +82,24 @@ def process_queue() -> int:
         full = any(not (r.get("companies") or "").strip() for r in scans)
         quick = all(r.get("task") == "quick" for r in scans)  # 빠른 스캔만 있을 때만 빠르게 (전체 요청이 섞이면 전체)
         names = None if full else sorted({n.strip() for r in scans for n in r["companies"].split(",") if n.strip()})
+        last = {"p": 0.0, "s": 0.0, "stop": False}
+
         def progress(done, total, current):
+            if 0 < done < total and time.time() - last["p"] < 2:
+                return
+            last["p"] = time.time()
             data = {"progress": {"done": done, "total": total, "current": current, "at": store.now_str()}}
             store.update_many("requests", {r["id"]: data for r in scans})
             store.update("meta", "progress", {**data["progress"], "running": done < total})
 
         def should_stop():
+            if last["stop"] or time.time() - last["s"] < 3:
+                return last["stop"]
+            last["s"] = time.time()
+            last["stop"] = _stop_asked()
+            return last["stop"]
+
+        def _stop_asked():
             for r in scans:
                 d = store.db().collection("requests").document(r["id"]).get()
                 if d.exists and d.to_dict().get("status") == "cancel_requested":
@@ -93,10 +107,22 @@ def process_queue() -> int:
             return False
 
         try:
+            # [지금 스캔]은 업체·수원국 리스크를 함께: 수원국 수집은 업체 스캔과 동시에 돌림
+            geo_err, geo_th = [], None
+            if full:
+                def _geo():
+                    try:
+                        update_geo()
+                    except Exception as e:  # 한도 초과는 아래에서 다시 올림
+                        geo_err.append(e)
+                geo_th = threading.Thread(target=_geo, daemon=True)
+                geo_th.start()
             res = scanner.run_scan(names, progress=progress, should_stop=should_stop, quick=quick)
             report.save_preview()
-            if full and not res.get("stopped"):
-                update_geo()  # [지금 스캔]은 업체·수원국 리스크를 함께
+            if geo_th:
+                geo_th.join(timeout=300)
+                if geo_err:
+                    raise geo_err[0]
             summary = {k: res.get(k) for k in ("companies", "fetched", "new_findings", "official", "cleaned", "seconds")}
             summary["errors"] = len(res.get("errors") or [])
             log.info("스캔 결과(요청): %s", json.dumps(summary, ensure_ascii=False))  # 업체 이름 없이 건수만
