@@ -2127,3 +2127,6 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .dropzone.is-empty .drop-hint { display: inline; font-size: var(--fs-xs); }
 .side-co { cursor: pointer; }
 .conn-btns { display: inline-flex; gap: 6px; }
+
+/* 단계 고르기 칸: 글자 길이에 맞게 좁힘 (안쪽 오른쪽 빈자리가 넓었음) */
+.stage-sel, .stage-sel.on { width: 6.3em; padding: 0 .1em 0 .6em; }
