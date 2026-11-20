@@ -98,7 +98,7 @@ export const GEO_RULES = [
 
 let ctx = null, map = null, layers = null, live = { quakes: null, at: null, err: null, loading: false };
 const ui = { type: null, period: "14", lv: null, focus: null };
-const RINGS = [100, 200, 300, 500]; // 사업을 누르면 사업지 둘레에 그리는 거리 원 (km)
+const RINGS = [100, 200, 300, 400, 500]; // 사업을 누르면 사업지 둘레에 그리는 거리 원 (km)
 const NEAR_KM = 600;
 try { ui.period = localStorage.getItem("edcf_geo_period2") || "30d"; } catch {}
 const PERIODS = [["all", "전체"], ["1d", "24시간"], ["7d", "최근 7일"], ["30d", "최근 30일"], ["old", "30일 이전"]];
@@ -564,6 +564,8 @@ function drawFocus(f, near) {
   // 레이더처럼: 십자선·대각선 + 실선 원 + 한 바퀴씩 도는 빛 (업체 리스크 레이더와 같은 모양)
   const line = isLight() ? "#0E7490" : "#67E8F9", R = RINGS[RINGS.length - 1], kLng = 111.2 * Math.cos((c[0] * Math.PI) / 180);
   const at = (deg, r) => [c[0] + (Math.cos((deg * Math.PI) / 180) * r) / 111.2, c[1] + (Math.sin((deg * Math.PI) / 180) * r) / kLng];
+  [0, 45, 90, 135].forEach((d) => L.polyline([at(d, R), at(d + 180, R)], { color: line, weight: d % 90 ? 0.6 : 1, opacity: d % 90 ? 0.3 : 0.5, interactive: false }).addTo(layers.focus));
+  for (let d = 0; d < 360; d += 10) L.polyline([at(d, R), at(d, R * (d % 30 ? 1.02 : 1.04))], { color: line, weight: 1.2, opacity: 0.8, interactive: false }).addTo(layers.focus); // 바깥 눈금
   const sweep = L.marker(c, { interactive: false, keyboard: false, icon: L.divIcon({ className: "", html: `<div class="geo-sweep"></div>`, iconSize: [0, 0] }) }).addTo(layers.focus);
   const sizeSweep = () => { const el = sweep.getElement()?.firstChild; if (!el) return; const r = Math.abs(map.latLngToLayerPoint(at(90, R)).x - map.latLngToLayerPoint(c).x); el.style.cssText = `width:${2 * r}px;height:${2 * r}px;margin:${-r}px 0 0 ${-r}px`; el.classList.remove("hide"); };
   if (map._sweepOff) map._sweepOff();
@@ -572,8 +574,7 @@ function drawFocus(f, near) {
   map._sweepOff = () => { map.off("zoomstart", hideSweep); map.off("zoomend", sizeSweep); map._sweepOff = null; };
   sizeSweep();
   RINGS.forEach((r, i) => {
-    const last = i === RINGS.length - 1;
-    L.circle(c, { radius: r * 1000, color: line, weight: last ? 1.6 : 1, opacity: last ? 0.8 : 0.45, dashArray: last ? null : "3 5", fill: last, fillColor: accent, fillOpacity: 0.06, interactive: false }).addTo(layers.focus);
+    L.circle(c, { radius: r * 1000, color: line, weight: i === RINGS.length - 1 ? 2.4 : 1.2, opacity: i === RINGS.length - 1 ? 0.95 : 0.7, fill: i === RINGS.length - 1, fillColor: accent, fillOpacity: 0.05, interactive: false }).addTo(layers.focus);
     const lat = c[0] - r / 111.2; // 원의 맨 아래에 거리 글씨 (위쪽은 핀 자리)
     L.marker([lat, c[1]], { interactive: false, icon: L.divIcon({ className: "", html: `<span class="ring-lb">${r}km</span>`, iconSize: [44, 16], iconAnchor: [22, 8] }) }).addTo(layers.focus);
   });
