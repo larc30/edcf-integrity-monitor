@@ -29,8 +29,11 @@ const LEVEL_DEF = {
   none: "<b>위험·경고 이슈 없음</b><br>아래 참고 이력만 있는 업체도 정상",
   yellow: "기록만 남기는 이력: 1년 지난 제재와 처분(EXIMIIS '해지' 포함), 계열사가 받은 처분, 의혹과 고발, 소송과 분쟁, 중대재해와 부실시공, 재무 악화",
 };
-const levelTip = () => ["red", "orange", "none"].map((lv) => `<div class="tip-row">${badge(lv)}<span>${LEVEL_DEF[lv]}</span></div>`).join("")
-  + `<div class="tip-sep">등급이 아닌 표시</div><div class="tip-row">${badge("yellow")}<span>${LEVEL_DEF.yellow}</span></div>`;
+const levelTip = () => `<div class="tip-p">업체에 걸린 이슈 가운데 가장 높은 등급입니다.</div>
+  <div class="tip-grid lv"><span>${badge("red")}</span><span>지금 유효한 제재 (입찰 제한 · MDB · 영업정지)</span>
+  <span>${badge("orange")}</span><span>제재로 이어질 수 있는 진행 중 사안 (수사 · 기소 · 과징금)</span>
+  <span>${badge("none")}</span><span>위험·경고 이슈 없음</span>
+  <span>${badge("yellow")}</span><span>등급에 넣지 않는 과거·간접 이력</span></div>`;
 // i 버튼: 마우스를 올리거나 누르면 설명 (cls 'r' = 오른쪽 맞춤)
 const info = (html, cls = "") => `<span class="itip ${cls}" tabindex="0" role="note" aria-label="설명">i<span class="tip">${html}</span></span>`;
 const LV = { red: 3, orange: 2, yellow: 1, none: 0 };
@@ -127,7 +130,7 @@ onAuthStateChanged(auth, async (user) => {
   state.me = meRole;
   // 슈퍼관리자·팀 관리자만 [관리자 모드] 버튼이 보임: 팀원은 업체·수원국 리스크 화면만
   state.admin = canManage();
-  $("#acctSettings").classList.toggle("hidden", !state.admin);
+
   $("#btnAdmin").classList.toggle("hidden", !state.admin);
   $("#userRole").textContent = `${ROLE_L[meRole.role]}${meRole.team ? " · " + teamName(meRole.team) : ""}`;
   document.body.classList.toggle("viewer", !state.admin); // 팀원: 스캔·등록·수정 버튼을 숨김 (Firestore 규칙도 같게)
@@ -241,23 +244,7 @@ function showView(v) {
   if (ADMIN_VIEWS.includes(v) && !state.adminOn) v = "home"; // 관리자 모드가 아니면 관리 화면은 열지 않음
   const prev = $(".view.active")?.id?.slice(5);
   $("#modeSwitch").dataset.mode = v === "geo" ? "geo" : v === "home" ? "home" : "off";
-  const flip = prev && prev !== v && FLIP.includes(prev) && FLIP.includes(v) && !document.documentElement.classList.contains("lite"); // 회사 PC는 윈도우 '애니메이션 효과'가 꺼져 있어 전환이 안 보였음 → 가벼운 모드일 때만 끔
-  if (flip) {
-    if (state.flipping) return;
-    state.flipping = true;
-    $$("#tabs button").forEach((x) => x.classList.toggle("active", x.dataset.view === v));
-    const out = $(`#view-${prev}`);
-    out.classList.add("flip-out");
-    setTimeout(() => {
-      out.classList.toggle("flip-out", false);
-      state.flipping = false;
-      openView(v);
-      const inn = $(`#view-${v}`);
-      inn.classList.add("flip-in");
-      setTimeout(() => inn.classList.toggle("flip-in", false), 520);
-    }, 260);
-    return;
-  }
+  // 업체 ↔ 수원국 카드 뒤집기는 뺌 (2026-11-20: 회사 PC에서 버벅임 · 필수가 아니라 바로 전환)
   openView(v);
 }
 function openView(v) {
@@ -285,13 +272,12 @@ function applyFont() {
   if (k) document.documentElement.dataset.font = k; else delete document.documentElement.dataset.font;
   $("#fontDown").disabled = fontStep === 0; $("#fontUp").disabled = fontStep === FONT_STEPS.length - 1;
   $("#fontDown").title = $("#fontUp").title = `글자 크기: ${label}`;
-  $("#fontReset").textContent = label + (k ? "" : " (기본)"); $("#fontReset").classList.toggle("def", !k);
-  $("#fontReset").title = k ? "누르면 기본 크기(보통)로" : "기본 글자 크기";
+  $("#fontReset").textContent = label; $("#fontReset").classList.toggle("def", !k);
   requestAnimationFrame(() => { if (typeof fixLabels === "function") fixLabels(); });
 }
 const stepFont = (d) => { fontStep = Math.min(FONT_STEPS.length - 1, Math.max(0, fontStep + d)); try { localStorage.setItem("edcf_font", FONT_STEPS[fontStep][0]); } catch {} applyFont(); toast(`글자 크기: ${FONT_STEPS[fontStep][1]}`, 1500); };
 $("#fontDown").onclick = () => stepFont(-1); $("#fontUp").onclick = () => stepFont(1);
-$("#fontReset").onclick = () => stepFont(1 - fontStep); // 기본(보통)으로
+
 applyFont();
 // 가벼운 모드: 화면이 버벅이면(초당 30프레임 미만) 레이더 파동·발광 효과를 자동으로 줄임
 let liteSaved = null;
@@ -453,7 +439,7 @@ function renderRadar(cs) {
     const [x, y] = polar(ang, r), pids = c.engagements.map((e) => e.project_id).join(" ");
     const tip = `${c.name} · ${sc ? LEVEL[c.risk] : "스캔 전"}${c.open ? ` · 미확인 ${c.open}건` : ""}`;
     return `<button class="rdot ${lv}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%;--d:calc(${Math.round(ang)} * var(--sweep, 6s) / 360)" data-cid="${c.id}" data-pids="${pids}" data-tip="${esc(tip)}" aria-label="${esc(tip)}"></button>`
-      + (label ? (() => { const [lx, ly] = lv === "red" ? polar(ang, 35) : [x, y]; return `<span class="rlabel ${lv} ${lx >= 50 ? "r" : "l"}" style="left:${lx.toFixed(2)}%;top:${ly.toFixed(2)}%" data-cid="${c.id}" data-lv="${lv}" data-pids="${pids}">${esc(c.name)}</span>`; })() : "");
+      + (label ? (() => { const [lx, ly] = lv === "red" ? polar(ang, 63) : [x, y]; return `<span class="rlabel ${lv} ${lx >= 50 ? "r" : "l"}" style="left:${lx.toFixed(2)}%;top:${ly.toFixed(2)}%" data-cid="${c.id}" data-lv="${lv}" data-pids="${pids}">${esc(c.name)}</span>`; })() : "");
   };
   // 이름표가 겹치지 않게 좌우를 번갈아 배치 (위쪽은 등급 글자 자리라 비움)
   const SLOTS = [100, 260, 145, 215, 62, 298];
@@ -815,7 +801,7 @@ function findingHtml(g, showCompany = true) {
     </div>
     <div class="item-summary"${why ? ` title="${esc(why)}"` : ""}>${esc(f.summary || f.title)}</div>
     <div class="item-meta">
-      <span class="src">${esc(f.source_name || "-")} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}</span>
+      <span class="src">${esc(String(f.source_name || "-").replace(/\s*·\s*(제재 키워드|업체명 검색|심층)\)/, ")"))} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}</span>
       <span class="item-age">${g.newest ? relTime(g.newest) : ""}</span>
     </div>
     ${more.length ? `<details class="dup"><summary>같은 내용 ${more.length}건 더${srcs.length ? ` <span class="dup-src">${esc(srcs.slice(0, 3).join(" · "))}${srcs.length > 3 ? " 외" : ""}</span>` : ""}</summary>
@@ -3139,7 +3125,7 @@ $("#geoScan").onclick = () => $("#btnScan").click(); // 같은 스캔 (업체·�
 document.addEventListener("click", (e) => { const a = $("#acct"); if (a?.open && !a.contains(e.target)) a.open = false; });
 
 // 계정 메뉴의 [설정]: 관리자 모드로 들어가 설정 화면을 바로 엶
-$("#acctSettings").onclick = () => { $("#acct").open = false; setAdmin(true); showView("settings"); };
+
 
 // 상단 업체 검색: 누구나 업체명·별칭·영문명·사업자번호로 찾아 상태(등급·이슈)를 바로 봄
 {
