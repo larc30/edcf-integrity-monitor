@@ -168,6 +168,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 사업 관리 팀 보기(2026-11-20): 슈퍼관리자는 [전체] + 네 팀 모두(pjState.scope 't:팀'), 그 밖은 [전체]·[우리 팀].
 - Claude 실제 금액 맞추기(2026-11-20): 사용량 기록은 2026-11-19부터라 그 전 사용분이 빠져 콘솔 금액보다 적게 나옴(단가 Haiku $0.10/$0.50 · Sonnet $2/$10 은 맞음, 모든 AI 호출을 셈). 설정 > 고급 > 사용량의 [실제 금액 맞추기](슈퍼만): 콘솔의 이번 달 지출을 적으면 차이를 meta/usage.claude_adj{월{usd, actual, at, by}}에 저장하고 이후 표시에 더함. 금액은 원 + 달러로 표시.
 
+- 단계 표시 2차(2026-11-20 사용자: '계약 체결만 띄어쓰기가 있음'): 화면 표기는 붙여서 '계약체결'·'우선협상'·'입찰중'(저장 값은 그대로 '계약'). 단계 고르기 칸 폭 6.3em.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 
