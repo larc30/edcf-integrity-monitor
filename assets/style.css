@@ -2126,3 +2126,4 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .dropzone.is-empty .dz-head { display: inline-flex; margin: 0 8px 0 0; vertical-align: middle; }
 .dropzone.is-empty .drop-hint { display: inline; font-size: var(--fs-xs); }
 .side-co { cursor: pointer; }
+.conn-btns { display: inline-flex; gap: 6px; }
