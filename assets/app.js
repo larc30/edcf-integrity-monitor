@@ -1603,6 +1603,7 @@ const inView = (c, v) => v === "all" ? true
   : v === "open" ? c.open > 0
   : v === "info" ? needInfo(c) : true;
 const coState = { view: "all", sort: "risk", dir: 1, sel: new Set() };
+const FILTER_IC = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>`;
 const CO_MORE = ["#fRole", "#fStage", "#fNat"]; // 덜 쓰는 필터: [상세 필터]를 눌러야 보임
 const CO_FILTERS = ["#poolSearch", "#fOwner", "#fProj", "#fRole", "#fStage", "#fRisk", "#fCat", "#fNat"];
 function poolMatches(c) {
@@ -1636,7 +1637,8 @@ function renderCompanies() {
   renderDartBar();
   // 필터 항목 (선택값 유지)
   const keep = (id, html) => { const v = $(id).value; $(id).innerHTML = html; if ([...$(id).options].some((o) => o.value === v)) $(id).value = v; };
-  keep("#fProj", `<option value="">사업 전체</option><option value="__none">사업 미연결</option>` + state.projects.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join(""));
+  keep("#fProj", `<option value="">사업 전체</option><option value="__none">사업 미연결</option>` + projOptions(live)
+    + (state.projects.some((p) => !live(p)) ? `<optgroup label="완료된 사업">${state.projects.filter((p) => !live(p)).sort((x, y) => x.name.localeCompare(y.name, "ko")).map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</optgroup>` : ""));
   keep("#fCat", `<option value="">업종 전체</option>` + CATS.map((k) => `<option value="${k}">${k}</option>`).join(""));
   $("#coViews").innerHTML = CO_VIEWS.map(([k, l, d]) => `<button data-v="${k}" class="cv-btn ${k} ${k === coState.view ? "active" : ""}" title="${d}">${l}<span class="n">${state.companies.filter((c) => inView(c, k)).length}</span></button>`).join("");
   $$("#coViews button").forEach((b) => b.onclick = () => { coState.view = b.dataset.v; renderCompanies(); });
@@ -1646,7 +1648,7 @@ function renderCompanies() {
   $("#fReset").classList.toggle("hidden", !CO_FILTERS.some((id) => $(id).value));
   // 상세 필터(역할·단계·국내해외): 평소에는 접어 두고, 고른 것이 있으면 펼친 채로 개수 표시
   { const n = CO_MORE.filter((id) => $(id).value).length, btn = $("#fMoreBtn"), open = n > 0 || btn.getAttribute("aria-expanded") === "true";
-    $("#fMore").classList.toggle("hidden", !open); btn.classList.toggle("on", open); btn.textContent = n ? `상세 필터 ${n}` : "상세 필터"; }
+    $("#fMore").classList.toggle("hidden", !open); btn.classList.toggle("on", open); btn.innerHTML = `${FILTER_IC}<span>상세 필터</span>${n ? `<b class="fn">${n}</b>` : ""}<i class="chev">${open ? "▴" : "▾"}</i>`; }
   $("#poolShown").textContent = list.length === state.companies.length ? "" : `${state.companies.length}개 중 ${list.length}개`;
   $$("#coTable th[data-sort]").forEach((th) => { th.classList.toggle("on", th.dataset.sort === coState.sort); th.classList.toggle("desc", th.dataset.sort === coState.sort && coState.dir < 0); });
   const engChip = (e) => `<span class="ej" title="${esc(projName(e.project_id))} · ${esc(e.role)} · ${esc(e.stage || "계약")}">${roleTag(e.role)}<span class="ej-p">${esc(projName(e.project_id))}</span>${stageTag(e)}</span>`;
@@ -2032,6 +2034,12 @@ function nameProblem(name) {
   if (BAD_WORDS.some((w) => core.toLowerCase().includes(w))) return "업체명으로 쓸 수 없는 말이 들어 있습니다";
   return "";
 }
+// 막지는 않지만 한 번 확인할 이름: 한글 이름 뒤에 숫자가 길게 붙음 · DART에서 고른 이름과 다름
+function nameOdd(name, picked) {
+  if (/[가-힣]\s*\d{3,}$/.test(name)) return "이름 끝에 숫자가 붙어 있습니다. 잘못 들어간 글자가 아닌지 확인해 주세요.";
+  if (picked && picked.name && normName(cleanCompanyName(picked.name).name) !== normName(name)) return `DART에서 가져온 이름('${picked.name}')과 다릅니다.`;
+  return "";
+}
 // 한 칸에 여러 업체를 쉼표·빗금으로 적은 경우 나눔 (영문 'CO., LTD.'의 쉼표는 그대로)
 const splitNames = (raw) => { const t = String(raw || ""); return /[가-힣]/.test(t) && /[,，;；\/]/.test(t) ? t.split(/[,，;；\/]/).map((x) => x.trim()).filter(Boolean) : [t.trim()].filter(Boolean); };
 // 사업자등록번호 검증번호 확인 (국세청 방식: 앞 9자리로 마지막 자리를 계산)
@@ -2183,11 +2191,15 @@ function openCompanyForm(cid = null) {
     const bad = nameProblem(name);
     if (bad) { f1.name.focus(); return toast(bad, 5000); }
     if (state.companies.some((c) => c.id !== cid && normName(c.name) === normName(name))) return toast(`'${name}'은(는) 이미 있는 업체입니다`);
+    // 숫자는 실제 회사 이름에도 쓰여서(E1 · 3M 등) 막지 않음. 대신 오타처럼 보이는 이름과, 기존 업체의 이름 바꾸기는 저장 전에 확인
+    const odd = nameOdd(name, picked), renamed = !isNew && name !== c0.name;
+    if ((isNew || renamed) && odd && !confirm(`업체명 '${name}': ${odd}\n\n그대로 저장할까요?`)) { f1.name.focus(); return; }
+    if (renamed && !confirm(`업체명을 바꿉니다.\n\n  ${c0.name}  →  ${name}\n\n뉴스 검색과 중복 확인이 새 이름 기준으로 바뀝니다. 회사 이름이 실제로 바뀐 것이면 옛 이름을 '별칭'에 넣어 두세요.\n계속할까요?`)) { f1.name.focus(); return; }
     const biz = (fd.biz_no || "").replace(/\D/g, ""), bizOld = String(c0?.biz_no || "").replace(/\D/g, "");
     if (isNew && !fd.foreign && !biz) { f1.biz_no.focus(); return toast("사업자등록번호를 넣어 주세요. 해외 업체면 아래 '해외 업체'에 체크하세요", 6000); }
     if (biz && biz.length !== 10) { f1.biz_no.focus(); return toast("사업자등록번호는 숫자 10자리입니다"); }
     if (biz && biz !== bizOld && !bizValid(biz)) { f1.biz_no.focus(); return toast("사업자등록번호가 맞지 않습니다 (검증번호 불일치). 숫자를 다시 확인해 주세요", 6000); }
-    const dup = bizOwner(biz, cid);
+    const dup = biz !== bizOld ? bizOwner(biz, cid) : null; // 번호를 바꾸거나 새로 넣을 때만 중복 확인 (예전부터 겹쳐 있던 업체도 다른 칸은 고칠 수 있게)
     if (dup) return toast(`사업자등록번호 ${fmtBiz(biz)}는 이미 '${dup.name}'(으)로 등록돼 있습니다. 회사 이름이 바뀐 경우면 그 업체에 별칭으로 넣어 주세요`, 6000);
     if (fd.name_en && /[가-힣ㄱ-ㅎ]/.test(fd.name_en)) { f1.name_en.focus(); return toast("영문명에는 한글을 넣을 수 없습니다"); }
     if (fd.ceo && /[ㄱ-ㅎㅏ-ㅣ0-9]/.test(fd.ceo)) { f1.ceo.focus(); return toast("대표자 이름을 다시 확인해 주세요"); }
@@ -2241,9 +2253,9 @@ $("#btnAddCompany").onclick = () => openCompanyForm(null);
 let cityDb = null, cityDbP = null;
 const loadCityDb = () => cityDbP || (cityDbP = fetch("assets/cities.json?v=2").then((r) => r.ok ? r.json() : null).then((d) => { cityDb = d; }).catch(() => { cityDbP = null; }));
 // 사업 고르기 칸: 수원국별로 묶고(가나다순) 그 안에서 사업명 가나다순. 내가 고칠 수 있는 진행 중 사업만
-function projOptions() {
+function projOptions(pred = (p) => canEditProject(p) && live(p)) {
   const by = {};
-  state.projects.filter((p) => canEditProject(p) && live(p)).forEach((p) => { const k = COUNTRY[p.country] || "수원국 미지정"; (by[k] = by[k] || []).push(p); });
+  state.projects.filter(pred).forEach((p) => { const k = COUNTRY[p.country] || "수원국 미지정"; (by[k] = by[k] || []).push(p); });
   return Object.keys(by).sort((x, y) => (x === "수원국 미지정") - (y === "수원국 미지정") || x.localeCompare(y, "ko"))
     .map((k) => `<optgroup label="${esc(k)} (${by[k].length})">${by[k].sort((x, y) => x.name.localeCompare(y.name, "ko")).map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</optgroup>`).join("");
 }
