@@ -1604,7 +1604,7 @@ const inView = (c, v) => v === "all" ? true
   : v === "info" ? needInfo(c) : true;
 const coState = { view: "all", sort: "risk", dir: 1, sel: new Set() };
 const FILTER_IC = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>`;
-const CO_MORE = ["#fRole", "#fStage", "#fNat"]; // 덜 쓰는 필터: [상세 필터]를 눌러야 보임
+const CO_MORE = ["#fRisk", "#fRole", "#fStage", "#fNat"]; // 덜 쓰는 필터: [상세 필터]를 눌러야 보임
 const CO_FILTERS = ["#poolSearch", "#fOwner", "#fProj", "#fRole", "#fStage", "#fRisk", "#fCat", "#fNat"];
 function poolMatches(c) {
   const q = ($("#poolSearch").value || "").trim().toLowerCase(), qd = q.replace(/\D/g, "");
