@@ -1925,3 +1925,6 @@ input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 2px color-mix(in s
 .act-done.dismissed { color: var(--text-2); background: var(--gray-bg); }
 .item.reviewed .item-actions { opacity: 1; }
 .btn.act-ok, .btn.act-no { min-width: 6.4em; justify-content: center; }
+
+/* 도시 찾기: 온라인 찾기·그대로 쓰기 줄은 후보 아래에 구분해서 */
+.city-sug button.alt b { font-weight: 600; color: var(--accent-2); } .city-sug button.alt:first-of-type, .city-sug button:not(.alt) + button.alt { border-top: 1px dashed var(--line-2); border-radius: 0 0 7px 7px; margin-top: 3px; padding-top: 9px; }

@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch, increment,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO, SUPER_ADMIN, SUPER_ADMINS, TEAMS } from "./firebase-config.js?v=33";
-import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=60";
+import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=61";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -1913,7 +1913,7 @@ function openProjectEdit(pid) {
     const own = Object.entries(GEO_CITY).filter(([k, v]) => normC(k).includes(q) || normC(v[2]).includes(q) || (v[3] && normC(v[3]).includes(q))).sort((x, y) => st(y[0], y[1]) - st(x[0], x[1])).slice(0, 8);
     if (own.length >= 8 || !cityDb || q.length < 2) return own;
     const seen = new Set(own.map(([, v]) => normC(v[2]))), cc0 = f0.country.value, more = [];
-    for (const cc of [cc0, ...Object.keys(cityDb).filter((k) => k !== cc0 && k !== "_src")]) {
+    for (const cc of cc0 ? [cc0] : Object.keys(cityDb).filter((k) => k !== "_src")) {
       for (const r of cityDb[cc] || []) {
         const en = normC(r[0]);
         if (seen.has(en) || !(en.includes(q) || (r[3] && normC(r[3]).includes(q)))) continue;
@@ -1928,12 +1928,30 @@ function openProjectEdit(pid) {
   const pickCity = ([k, v]) => { picker.set([v[0], v[1]]); f0.city.value = k; if (!f0.site_en.value) f0.site_en.value = v[2]; $("#citySug").classList.add("hidden"); };
   // 목록에 없는 도시: 적은 이름을 '지도에 보일 이름'으로 쓰고, 위치는 지도에서 직접 찍음
   const freeCity = () => { const t = f0.city.value.trim(); if (!t) return; f0.site_en.value = t; $("#citySug").classList.add("hidden"); toast(site.lat == null ? `'${t}'(으)로 적어 두었습니다. 아래 지도에서 위치를 눌러 핀을 놓아 주세요` : `지도에 보일 이름을 '${t}'(으)로 바꿨습니다`, 5000); };
+  // 목록(수원국 인구 1천 이상 도시)에 없는 곳: 온라인 지도(OpenStreetMap 검색)에서 이름으로 찾음. 버튼을 눌렀을 때만 한 번 물어봄. 회사망에서 막히면 안내
+  const webCity = async () => {
+    const q = f0.city.value.trim(), el = $("#citySug"), cc = f0.country.value;
+    if (!q) return;
+    el.innerHTML = `<div class="muted small">온라인 지도에서 찾는 중입니다</div>`; el.classList.remove("hidden");
+    try {
+      const u = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=ko,en&q=${encodeURIComponent(q)}${cc ? `&countrycodes=${cc.toLowerCase()}` : ""}`;
+      const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 8000);
+      const list = await (await fetch(u, { signal: ctl.signal })).json(); clearTimeout(timer);
+      if (!el.isConnected) return;
+      if (!Array.isArray(list) || !list.length) { el.innerHTML = `<div class="muted small">온라인 지도에서도 '${esc(q)}'을(를) 찾지 못했습니다${cc ? ` (${esc(COUNTRY[cc] || cc)} 안에서 찾음)` : ""}. 영문 표기로 다시 적거나 지도에서 직접 눌러 주세요</div><button type="button" data-cfree="1"><b>'${esc(q)}' 그대로 쓰기</b><span>위치는 지도에서 직접 누르기</span></button>`; }
+      else el.innerHTML = list.map((x, i) => `<button type="button" data-cw="${i}"><b>${esc(x.name || String(x.display_name).split(",")[0])}</b><span>${esc(String(x.display_name || "").split(",").slice(1, 4).join(",").trim())}</span></button>`).join("");
+      $$("[data-cw]", el).forEach((b) => b.onmousedown = (e) => { e.preventDefault(); const x = list[+b.dataset.cw]; picker.set([+x.lat, +x.lon]); f0.site_en.value = x.name || String(x.display_name).split(",")[0]; el.classList.add("hidden"); });
+      $$("[data-cfree]", el).forEach((b) => b.onmousedown = (e) => { e.preventDefault(); freeCity(); });
+    } catch { if (el.isConnected) { el.innerHTML = `<div class="muted small">온라인 지도에 연결하지 못했습니다 (회사망에서 막혔을 수 있습니다). 구글 지도에서 좌표를 복사해 '좌표 붙여넣기'에 넣거나 지도에서 직접 눌러 주세요</div>`; } }
+  };
   const showSug = () => {
     const hits = cityHits(normC(f0.city.value)), el = $("#citySug");
-    el.innerHTML = hits.map(([k, v], i) => `<button type="button" data-ci="${i}"><b>${esc(k)}</b><span>${esc(v[4] ? [v[3] && v[3].split(",").pop(), COUNTRY[v[4]] || v[4]].filter(Boolean).join(" · ") : v[2])}</span></button>`).join("") || (f0.city.value.trim() ? `<button type="button" data-cfree="1"><b>'${esc(f0.city.value.trim())}' 그대로 쓰기</b><span>목록에 없는 도시 · 위치는 지도에서 눌러 주세요</span></button>` : "");
+    el.innerHTML = hits.map(([k, v], i) => `<button type="button" data-ci="${i}"><b>${esc(k)}</b><span>${esc(v[4] ? [v[3] && v[3].split(",").pop(), COUNTRY[v[4]] || v[4]].filter(Boolean).join(" · ") : v[2])}</span></button>`).join("")
+      + (f0.city.value.trim().length >= 2 ? `<button type="button" class="alt" data-cweb="1"><b>온라인 지도에서 '${esc(f0.city.value.trim())}' 찾기</b><span>${hits.length ? "위에 없으면" : "목록에 없는 작은 도시·마을"} (OpenStreetMap)</span></button><button type="button" class="alt" data-cfree="1"><b>'${esc(f0.city.value.trim())}' 그대로 쓰기</b><span>위치는 지도에서 직접 누르기</span></button>` : "");
     el.classList.toggle("hidden", !el.innerHTML);
     $$("[data-ci]", el).forEach((b) => b.onmousedown = (e) => { e.preventDefault(); pickCity(hits[+b.dataset.ci]); });
     $$("[data-cfree]", el).forEach((b) => b.onmousedown = (e) => { e.preventDefault(); freeCity(); });
+    $$("[data-cweb]", el).forEach((b) => b.onmousedown = (e) => { e.preventDefault(); webCity(); });
   };
   f0.city.oninput = showSug; f0.city.onfocus = () => { showSug(); loadCityDb().then(() => { if (document.activeElement === f0.city) showSug(); }); }; f0.city.addEventListener("compositionupdate", () => setTimeout(showSug, 0));
   f0.city.onblur = () => setTimeout(() => $("#citySug")?.classList.add("hidden"), 150);
@@ -2216,7 +2234,7 @@ function openCompanyForm(cid = null) {
 $("#btnAddCompany").onclick = () => openCompanyForm(null);
 // 넓은 도시 목록 (GeoNames, tools/build_cities.py 로 만듦): 사업 등록 창에서 도시를 처음 찾을 때 한 번만 받음
 let cityDb = null, cityDbP = null;
-const loadCityDb = () => cityDbP || (cityDbP = fetch("assets/cities.json?v=1").then((r) => r.ok ? r.json() : null).then((d) => { cityDb = d; }).catch(() => { cityDbP = null; }));
+const loadCityDb = () => cityDbP || (cityDbP = fetch("assets/cities.json?v=2").then((r) => r.ok ? r.json() : null).then((d) => { cityDb = d; }).catch(() => { cityDbP = null; }));
 // 사업 고르기 칸: 수원국별로 묶고(가나다순) 그 안에서 사업명 가나다순. 내가 고칠 수 있는 진행 중 사업만
 function projOptions() {
   const by = {};

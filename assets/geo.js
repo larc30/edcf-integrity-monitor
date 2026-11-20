@@ -607,7 +607,23 @@ export function mountSitePicker(el, { lat, lng, country }, onPick) {
     if (!world || !el.isConnected) return;
     L.geoJSON(worldWrap || world, { pane: "land", renderer: L.canvas({ pane: "land", padding: 0.5 }), interactive: false, style: () => ({ stroke: true, color: cssv("--map-border"), weight: 0.8, opacity: 1, fill: true, fillColor: cssv("--map-land"), fillOpacity: 1 }) }).addTo(m);
     // 자리를 찾기 쉽게: 아는 도시를 작은 점과 이름으로
-    Object.values(GEO_CITY).forEach(([la, ln, en]) => L.marker([la, ln], { interactive: false, keyboard: false, icon: L.divIcon({ className: "", html: `<span class="sp-city"><i></i>${en}</span>`, iconSize: [0, 0] }) }).addTo(m));
+    // 처음(나라 전체가 보이는 배율)에는 이름을 뿌리지 않고, 확대하면(5.5 이상) 보이는 범위의 도시만 · 서로 겹치면 뒤의 것을 숨김
+    const cityLayer = L.layerGroup();
+    Object.values(GEO_CITY).forEach(([la, ln, en]) => L.marker([la, ln], { interactive: false, keyboard: false, icon: L.divIcon({ className: "", html: `<span class="sp-city"><i></i>${en}</span>`, iconSize: [0, 0] }) }).addTo(cityLayer));
+    const tidy = () => {
+      if (!el.isConnected) return;
+      const on = m.getZoom() >= 5.5;
+      if (on && !m.hasLayer(cityLayer)) cityLayer.addTo(m); else if (!on && m.hasLayer(cityLayer)) m.removeLayer(cityLayer);
+      if (!on) return;
+      const edge = el.getBoundingClientRect(), placed = [];
+      el.querySelectorAll(".sp-city").forEach((x) => {
+        x.style.visibility = "";
+        const q = x.getBoundingClientRect();
+        if (q.right < edge.left || q.left > edge.right || q.bottom < edge.top || q.top > edge.bottom) return;
+        if (placed.some((p) => !(q.right + 4 < p.left || q.left - 4 > p.right || q.bottom + 2 < p.top || q.top - 2 > p.bottom))) x.style.visibility = "hidden"; else placed.push(q);
+      });
+    };
+    m.on("zoomend moveend", () => setTimeout(tidy, 30)); setTimeout(tidy, 80);
   };
   const w = loadWorld(); if (w && w.then) w.then(draw); else draw();
   let pin = null;
