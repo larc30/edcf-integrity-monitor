@@ -2087,3 +2087,9 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 #projectMap .pj-role { display: flex; align-items: flex-start; gap: .45em; }
 #projectMap .pj-role.mini { display: inline-flex; align-items: center; }
 .issue-foot details[open] > .feed > * { flex-shrink: 0; }
+
+/* 수원국 리스크 화면 정렬 (2026-11-20): 왼쪽 카드 여백을 업체 화면과 같게 · 사업 카드와 지도 이름표의 왼쪽 색 띠는 뺌(번호·핀·배지가 이미 등급 색) */
+#gboard { padding: 20px 20px 10px; } #evSummary { padding: 20px; }
+#gboard .card-head h2, #evSummary .card-head h2 { gap: 8px; }
+.gp { border-left: 1px solid var(--line); }
+.pin-lb, .pin-lb.l, .pin-lb.b, .pin-lb.t { border: 1px solid var(--line-2); }

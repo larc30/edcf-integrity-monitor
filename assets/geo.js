@@ -424,6 +424,21 @@ const isLight = () => document.documentElement.dataset.theme === "light";
 // 나라 숫자 코드(ISO 3166-1) ↔ 두 글자 코드
 const ISO_NUM = { TZ: "834", PK: "586", KE: "404", MN: "496", LA: "418", ID: "360", KR: "410", VN: "704", KH: "116", BD: "050", PH: "608", UZ: "860", ET: "231", GH: "288", MM: "104", LK: "144", NP: "524", RW: "646", UG: "800", TN: "788", EG: "818", BO: "068", PY: "600", CO: "170", PE: "604", EC: "218", GT: "320", SN: "686", MZ: "508", CM: "120", NG: "566", TR: "792", UA: "804", GE: "268", AZ: "031", KZ: "398", KG: "417", TJ: "762", TL: "626", HN: "340", NI: "558", SV: "222", CR: "188", PA: "591", DO: "214", BR: "076" };
 const NUM_ISO = Object.fromEntries(Object.entries(ISO_NUM).map(([k, v]) => [v, k]));
+// 땅 그림(캔버스)은 화면 둘레 절반까지만 그려 두고 끌기가 끝나야 다시 그려서, 멀리 끌면 땅이 잠깐 비어 보였음
+// → 끄는 동안에도 화면 폭·높이의 30% 넘게 움직일 때마다 다시 그림 (지도마다 그리개 하나를 계속 씀)
+function landRenderer(m) {
+  if (m._landRd) return m._landRd;
+  const rd = m._landRd = L.canvas({ pane: "land", padding: 0.5 });
+  let last = null;
+  m.on("moveend zoomend", () => { last = m.containerPointToLayerPoint([0, 0]); });
+  m.on("move", () => {
+    if (m._animatingZoom) return;
+    const now = m.containerPointToLayerPoint([0, 0]), sz = m.getSize();
+    if (!last) { last = now; return; }
+    if (Math.abs(now.x - last.x) > sz.x * 0.3 || Math.abs(now.y - last.y) > sz.y * 0.3) { last = now; try { rd._update(); } catch {} }
+  });
+  return rd;
+}
 let world = null, worldWrap = null, worldLayer = null, nameLayer = null, riskNow = {}, worldLoading = null;
 const cssv = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 function loadWorld() {
@@ -462,7 +477,7 @@ function drawWorld() {
   if (!world || !map) return;
   if (worldLayer) map.removeLayer(worldLayer);
   if (nameLayer) map.removeLayer(nameLayer);
-  worldLayer = L.geoJSON(worldWrap || world, { pane: "land", renderer: L.canvas({ pane: "land", padding: 0.5 }), style: landStyle, interactive: false }).addTo(map);
+  worldLayer = L.geoJSON(worldWrap || world, { pane: "land", renderer: landRenderer(map), style: landStyle, interactive: false }).addTo(map);
   nameLayer = L.layerGroup().addTo(map);
   world.forEach((f) => {
     const code = NUM_ISO[f.id], lp = labelPoint(f), mine = !!riskNow[code];
@@ -629,7 +644,7 @@ export function mountSitePicker(el, { lat, lng, country }, onPick) {
   m.createPane("land"); m.getPane("land").style.zIndex = 200;
   const draw = () => {
     if (!world || !el.isConnected) return;
-    L.geoJSON(worldWrap || world, { pane: "land", renderer: L.canvas({ pane: "land", padding: 0.5 }), interactive: false, style: () => ({ stroke: true, color: cssv("--map-border"), weight: 0.8, opacity: 1, fill: true, fillColor: cssv("--map-land"), fillOpacity: 1 }) }).addTo(m);
+    L.geoJSON(worldWrap || world, { pane: "land", renderer: landRenderer(m), interactive: false, style: () => ({ stroke: true, color: cssv("--map-border"), weight: 0.8, opacity: 1, fill: true, fillColor: cssv("--map-land"), fillOpacity: 1 }) }).addTo(m);
     // 자리를 찾기 쉽게: 아는 도시를 작은 점과 이름으로
     // 처음(나라 전체가 보이는 배율)에는 이름을 뿌리지 않고, 확대하면(5.5 이상) 보이는 범위의 도시만 · 서로 겹치면 뒤의 것을 숨김
     // 나라 이름은 늘 보이게 (어느 나라를 보고 있는지 알 수 있게): 수원국 영문 이름을 나라 가운데에
