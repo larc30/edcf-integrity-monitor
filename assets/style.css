@@ -1999,3 +1999,24 @@ select optgroup option { background: var(--panel-solid); color: var(--text); fon
   html:not(.lite) .view.flip-out { animation: flipOut .26s cubic-bezier(.5, 0, .9, .4) forwards !important; }
   html:not(.lite) .view.flip-in { animation: flipIn .52s cubic-bezier(.15, .85, .25, 1) !important; }
 }
+
+/* ===== 메인 화면 점검 2차 (2026-11-20) ===== */
+/* 정상 숫자는 한 단계 작고 차분하게 (위험·경고가 먼저 보이게) */
+.rk.none .rk-num { font-size: 1.6rem; opacity: .7; } .rk.none .rk-num + * { opacity: .85; }
+/* 레이더 이름표를 잇는 선 */
+.radar svg.leads { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 2; }
+.radar svg.leads line { stroke: var(--red); stroke-width: 1; opacity: .6; } .radar svg.leads line.orange { stroke: var(--orange); }
+/* 레이더 부담 줄이기: 움직이는 요소를 감싼 그림자 필터는 매 장면 다시 그려져 무거움 → 뺌(테두리 빛은 box-shadow 로 이미 있음). 점선 고리는 멈춤 */
+.radar, :root[data-theme="light"] .radar { filter: none; }
+.radar .orbit.o1 { animation: none; }
+/* 설명 풍선(i): 폭·줄 간격 통일, 짧은 문장 + 표 */
+.itip .tip, #gboard .itip .tip, .itip .tip:has(.tip-grid.wide) { width: 300px; text-align: left; word-break: keep-all; line-height: 1.5; }
+#gboard .itip .tip { width: 380px; }
+.tip-p + .tip-row, .tip-row + .tip-p { margin-top: 8px; } .tip-grid { gap: 5px 12px; } .tip-grid > b { font-weight: 700; }
+/* 상단 검색창: 글자 크기를 본문과 같게, 폭 넓게 */
+.top-search { flex: 0 1 22em; } .top-search input { font-size: var(--fs-base); padding: 8px 12px 8px 34px; } .top-search svg { left: 11px; width: 16px; height: 16px; }
+/* 계정 메뉴 안의 화면 설정 줄 (글자 크기 · 화면 밝기) */
+.acct-row { display: flex; align-items: center; justify-content: space-between; gap: 1em; font-size: var(--fs-sm); color: var(--text-2); }
+.acct-row .font-ctl { display: inline-flex; align-items: center; gap: 4px; } .acct-row .btn { padding: 3px 10px; }
+.acct-menu .acct-check { font-size: var(--fs-sm); }
+.acct-row > span { white-space: nowrap; flex: 0 0 auto; } .acct-menu { min-width: 19em; }
