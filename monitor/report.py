@@ -28,6 +28,11 @@ E = html.escape
 ROLE_ORDER = {"F/S": 0, "컨설턴트": 1, "본구매": 2}  # 사업 진행 순서
 
 
+
+def _sum(f: dict) -> str:
+    """요약 글 (예전 기록 앞에 붙어 저장된 안내문 '※ … 확인.'은 뗌: app.js sumText 와 같게)"""
+    return re.sub(r"^※[^.]*확인\.\s*", "", f.get("summary") or f.get("title") or "")
+
 def load_overview() -> tuple[list[dict], list[dict], dict]:
     """(companies with risk, active findings, engagements_by_company)"""
     projects = {p["id"]: p for p in store.all_docs("projects")}
@@ -186,7 +191,7 @@ def build() -> tuple[str, str, list[str]]:
                 f'<td style="vertical-align:top;">'
                 f'<div style="font-size:16px;font-weight:800;color:{TEXT};line-height:1.4;">{E(" · ".join(grouping.companies_of(g)))} {_badge(f["level"])} {cat}</div>'
                 f'<div style="margin-top:3px;font-size:12px;color:{MUTED};">{E(_src(f))} · {E(f.get("published_at") or "날짜 미상")}{more}{link}</div>'
-                f'<div style="margin-top:6px;font-size:14px;line-height:1.6;color:{TEXT};">{E((f.get("summary") or f.get("title") or "")[:180])}</div>'
+                f'<div style="margin-top:6px;font-size:14px;line-height:1.6;color:{TEXT};">{E(_sum(f)[:180])}</div>'
                 + (f'<div style="margin-top:8px;padding:7px 12px;border-left:3px solid {ACCENT};background:#F2F3FE;font-size:12.5px;line-height:1.7;">'
                    f'<b style="color:{ACCENT};">관련 사업</b>&nbsp; {et}</div>' if et else "")
                 + '</td></tr></table></td></tr>')
@@ -210,7 +215,7 @@ def build() -> tuple[str, str, list[str]]:
         top_rows = "".join(
             f'<tr><td style="padding:9px 0;border-top:1px solid #F3E2B8;font-size:14px;line-height:1.55;color:{TEXT};">'
             f'{_badge(g[0]["level"])} <b>{E(" · ".join(grouping.companies_of(g)))}</b> '
-            f'<span style="color:{TEXT2};">{E((g[0].get("summary") or g[0].get("title") or "")[:70])}</span></td></tr>' for g in top3)
+            f'<span style="color:{TEXT2};">{E(_sum(g[0])[:70])}</span></td></tr>' for g in top3)
         top_html = (f'<tr><td style="padding:18px 28px 0;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#FFF8E6;border:1px solid #F3D58A;border-radius:12px;">'
                     f'<tr><td style="padding:14px 18px 6px;font-size:16px;font-weight:800;color:{TEXT};">오늘 먼저 볼 이슈</td></tr>'
                     f'<tr><td style="padding:0 18px 8px;"><table width="100%" cellpadding="0" cellspacing="0">{top_rows}</table></td></tr></table></td></tr>')
@@ -273,7 +278,7 @@ def build() -> tuple[str, str, list[str]]:
     # 텍스트 본문 (HTML 을 못 보는 메일·스팸 필터용): 같은 사실을 줄글로
     def tline(g):
         f = g[0]
-        return (f"- [{COLORS[f['level']][2]}] {' · '.join(grouping.companies_of(g))}: {(f.get('summary') or f.get('title') or '')[:140]}"
+        return (f"- [{COLORS[f['level']][2]}] {' · '.join(grouping.companies_of(g))}: {_sum(f)[:140]}"
                 f" (출처 {_src(f)}, {f.get('published_at') or '날짜 미상'})" + (f" {f['url']}" if f.get("url") else ""))
     text = "\n".join([f"EDCF RADAR 일일 보고 {today} ({weekday})", summary, ""]
                      + ([f"공식 제재 명단 {len(official)}건"] + [tline(g) for g in shown_off] + [""] if shown_off else [])
