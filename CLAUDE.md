@@ -159,6 +159,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - DART 이름 찾기 4차(2026-11-20, '삼성SDS 로 찾으면 삼성에스디에스가 안 나옴'): 영문자를 한글 이름으로 읽은 것으로도 맞춤(S→에스 등, functions ko·idx2 ↔ dart.ko, 삼성SDS = 삼성에스디에스 · 엘지전자 = LG전자 · KT = 케이티 는 정확 일치로 봄). 자동 채움(match_by_name)은 그대로 엄격. 함수 재배포 필요. 사업자번호로 DART 찾기는 불가(DART 는 번호 검색이 없고 기업목록에도 번호가 없음: 이름으로 찾은 뒤 번호로 거르는 지금 방식 유지).
 - 수원국 사업 카드(2026-11-20): 가까운 사건에서 같은 제목은 한 번만, 나라 단위 사건(WHO 등)은 거리(km)를 안 붙임(나라 가운데 점까지의 거리라 뜻이 없음). [전체 지도] 버튼은 강조색 면으로. 시사점·해석 문구는 넣지 않음(사실 + 등급만: 사용자 방향).
 
+- WHO 제목 한국어(2026-11-20): geo.update 가 WHO 발표의 영어 제목을 AI 로 한국어 한 줄('케냐 콜레라 발생' 꼴)로 옮겨 title 에 넣음(원문은 title_en, ko=true). 한 번 옮긴 것은 저장본에서 다시 쓰고 새 것만 호출(analyzer.ko_titles). 키가 없거나 실패하면 영어 그대로 두고 다음 수집 때 다시.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 
