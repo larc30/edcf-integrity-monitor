@@ -1722,7 +1722,7 @@ function renderProjects() {
   bindDnd();
 }
 // 단계 선택 상자 (진행 순서: 입찰중 → 우선협상 → 계약)
-const STAGE_OPTS = [["입찰중", "입찰중"], ["우선협상", "우선협상"], ["계약", "계약"]];
+const STAGE_OPTS = [["입찰중", "입찰중"], ["우선협상", "우선협상"], ["계약", "계약 체결"]]; // 저장 값은 그대로 "계약", 화면에만 "계약 체결"(이미 계약된 상태임이 분명하게)
 const stageVal = (e) => e.stage || "계약";
 // 사업·역할 칸 안의 업체 순서 (맨 위가 대표사). 순서 없는 업체는 이름순으로 뒤에
 const byOrder = (a, b) => (a.e.order ?? 1e9) - (b.e.order ?? 1e9) || a.c.name.localeCompare(b.c.name);
