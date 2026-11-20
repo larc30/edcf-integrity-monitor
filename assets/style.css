@@ -2045,3 +2045,6 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .oc-raw td { vertical-align: middle; overflow-wrap: anywhere; white-space: normal !important; font-size: var(--fs-sm); }
 .oc-more .tbl-wrap { max-height: 22em; overflow: auto; margin-top: .6em; }
 .oc-src-h .d a { color: var(--accent-2); }
+
+.oc-raw th:nth-child(1) { width: 24%; } .oc-raw th:nth-child(2) { width: 14%; } .oc-raw th:nth-child(3) { width: 24%; } .oc-raw th:nth-child(5) { width: auto; }
+.oc-rawsum { margin: .6em 0 0; }
