@@ -128,6 +128,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 레이더 이름표(2026-11-20 사용자 결정): 위험 업체만 이름표(10개까지, 미확인 많은 순), 경고는 이름 없는 점(마우스를 올리면 이름). 이름표는 경고 띠 바깥(반지름 64)에 두고 선으로 잇는다(SLOTS 자리 10개, 오른쪽·왼쪽 번갈아). 팝업·오른쪽 창이 열린 동안 뒤 화면은 고정(html:has(#modalBg.open/#drawerBg.open) overflow hidden). 업체 등급 i 는 위험·경고·정상만 등급으로 묶고 참고는 '등급이 아닌 표시'로 따로.
 - 주의: app.js 는 `node --check` 가 문법 오류를 못 잡은 적이 있음(템플릿 안 한 줄 코드에 // 주석을 넣어 뒤가 잘린 경우). 고친 뒤에는 꼭 데모 화면을 실제로 띄워 오류가 없는지 볼 것.
 
+- 공식 제재 명단 팝업(2026-11-20): 출처별 칸에는 지금 볼 것(제재 중·확인 필요)만 펼쳐 두고 과거 기록(해지·만료)은 '과거 기록 N건'으로 접음. 세 표의 칸 폭은 같게(업체 26% · 상태 10em · 내용), 내용 칸에서 업체 이름 반복은 뺌(기관 · 기간만).
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 
