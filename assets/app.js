@@ -434,7 +434,7 @@ function renderRadar(cs) {
   const n = { red: 0, orange: 0, yellow: 0, none: 0 };
   cs.forEach((c) => n[sc ? c.risk : "none"]++);
   const risky = sc ? cs.filter((c) => c.risk !== "none").sort((a, b) => (LV[b.risk] - LV[a.risk]) || b.open - a.open || a.name.localeCompare(b.name)) : [];
-  const labeled = risky.slice(0, 10); // 이름은 가장 중요한 10곳까지 (위험 먼저, 미확인 많은 순), 나머지는 마우스를 올리면
+  const labeled = risky.filter((c) => c.risk === "red").slice(0, 10); // 이름은 위험 업체만 10곳까지(미확인 많은 순), 경고는 점으로만 · 마우스를 올리면 이름
   const dot = (c, ang, lv, label) => {
     const [r0, r1] = BANDS[lv];
     const r = label ? (r0 + r1) / 2 : r0 + ((hash(c.id + "r") % 1000) / 1000) * (r1 - r0);
@@ -447,7 +447,7 @@ function renderRadar(cs) {
   const SLOTS = [106, 254, 78, 282, 134, 226, 50, 310, 160, 200]; // 오른쪽·왼쪽 번갈아, 위쪽(등급 글자 자리)은 비움
   const dots = [
     ...labeled.map((c, i) => dot(c, SLOTS[i], c.risk, true)),
-    ...risky.slice(labeled.length, RADAR_MAX).map((c) => dot(c, 62 + (hash(c.id) % 236), c.risk, false)),
+    ...risky.filter((c) => !labeled.includes(c)).slice(0, RADAR_MAX).map((c) => dot(c, 62 + (hash(c.id) % 236), c.risk, false)),
     ...(sc ? [] : cs.slice(0, RADAR_MAX).map((c) => dot(c, 32 + (hash(c.id) % 296), "pending", false))), // 정상 업체는 점 없이 바깥 원 숫자로
   ].join("");
   const t = (lv, y, label) => `<text class="bl ${lv}" x="100" y="${y}">${label} ${sc ? n[lv] : "-"}</text>`;
