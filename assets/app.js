@@ -241,7 +241,7 @@ function showView(v) {
   if (ADMIN_VIEWS.includes(v) && !state.adminOn) v = "home"; // 관리자 모드가 아니면 관리 화면은 열지 않음
   const prev = $(".view.active")?.id?.slice(5);
   $("#modeSwitch").dataset.mode = v === "geo" ? "geo" : v === "home" ? "home" : "off";
-  const flip = prev && prev !== v && FLIP.includes(prev) && FLIP.includes(v) && !document.documentElement.classList.contains("lite") && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const flip = prev && prev !== v && FLIP.includes(prev) && FLIP.includes(v) && !document.documentElement.classList.contains("lite"); // 회사 PC는 윈도우 '애니메이션 효과'가 꺼져 있어 전환이 안 보였음 → 가벼운 모드일 때만 끔
   if (flip) {
     if (state.flipping) return;
     state.flipping = true;
