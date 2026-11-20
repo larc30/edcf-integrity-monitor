@@ -583,6 +583,7 @@ function drawFocus(f, near) {
     if (e.d < 30) return; // 사업지 바로 옆은 선 대신 안내 상자에만
     L.polyline([c, [e.lat, e.lng]], { color, weight: 1.6, opacity: 0.85, dashArray: "1 5", lineCap: "round", interactive: false }).addTo(layers.focus);
     const mid = [(c[0] + e.lat) / 2, (c[1] + e.lng) / 2];
+    if (e.d < 120) return; // 가까우면 거리 글씨가 핀·사건 표시를 덮음 (거리는 오른쪽 카드에 나옴)
     L.marker(mid, { interactive: false, icon: L.divIcon({ className: "", html: `<span class="dist-lb" style="--ec:${color}">${fmtKm(e.d)}</span>`, iconSize: [60, 18], iconAnchor: [30, 9] }) }).addTo(layers.focus);
   });
   const dLat = 560 / 111.2, dLng = 560 / (111.2 * Math.cos((c[0] * Math.PI) / 180));
