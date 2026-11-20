@@ -35,6 +35,7 @@ const levelTip = () => `<div class="tip-p">업체에 걸린 이슈 가운데 가
   <span>${badge("none")}</span><span>위험·경고 이슈 없음</span>
   <span>${badge("yellow")}</span><span>등급에 넣지 않는 과거·간접 이력</span></div>`;
 // i 버튼: 마우스를 올리거나 누르면 설명 (cls 'r' = 오른쪽 맞춤)
+const sumText = (f) => String(f?.summary || f?.title || "").replace(/^※[^.]*확인\.\s*/, "");
 const info = (html, cls = "") => `<span class="itip ${cls}" tabindex="0" role="note" aria-label="설명">i<span class="tip">${html}</span></span>`;
 const LV = { red: 3, orange: 2, yellow: 1, none: 0 };
 const ROLE_CLS = { 컨설턴트: "consult", 본구매: "buy", "F/S": "fs" };
@@ -783,7 +784,7 @@ function findingHtml(g, showCompany = true) {
   const f = g.rep, more = g.items.slice(1);
   const official = isOfficial(f);
   const isNew = f.status === "new" && Date.now() - (g.newest || 0) < DAY;
-  const why = [f.rationale && `판단 근거: ${f.rationale}`, f.title && `원문 제목: ${f.title}`].filter(Boolean).join("\n");
+  const why = [f.rationale && `판단 근거: ${f.rationale}`, f.title && `원문 제목: ${f.title}`, /조달청/.test(f.source_name || "") && f.level === "red" && "계약 전 확인: 법원 집행정지가 나면 나라장터 '부정당제재 이력'에 '제재정지' 줄이 생깁니다"].filter(Boolean).join("\n");
   const srcs = [...new Set(more.map((x) => String(x.source_name || "").replace(/\s*\((Google News|Naver|네이버)\)$/i, "")).filter(Boolean))];
   return `<div class="item lv-${f.level} ${f.status === "reviewed" ? "reviewed" : ""}" data-fid="${esc(f.id)}" data-fids="${esc(g.ids.join(","))}">
     <div class="item-head">
@@ -799,7 +800,7 @@ function findingHtml(g, showCompany = true) {
         <button class="btn sm ghost" data-act="new" title="처리 전 상태로 돌립니다. 판단을 바꾸려면 되돌린 뒤 다시 고르세요">되돌리기</button>`}
       </span>
     </div>
-    <div class="item-summary"${why ? ` title="${esc(why)}"` : ""}>${esc(f.summary || f.title)}</div>
+    <div class="item-summary"${why ? ` title="${esc(why)}"` : ""}>${esc(sumText(f))}</div>
     <div class="item-meta">
       <span class="src">${esc(String(f.source_name || "-").replace(/\s*·\s*(제재 키워드|업체명 검색|심층)\)/, ")"))} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}</span>
       <span class="item-age">${g.newest ? relTime(g.newest) : ""}</span>
@@ -1004,7 +1005,7 @@ function buildReport({ scope: sc0, period, done, detail = false }) {
     const f = g.rep, [fg] = C[f.level] || C.none, more = g.items.slice(1);
     return `<div class="is" style="border-left-color:${fg}">
       <div class="is-h">${bd(f.level)} <b>${esc(g.companies.map((c) => c.name).join(" · "))}</b>${f.source_type !== "news" ? ` <span class="tg red">공식 제재 명단</span>` : ""}${f.category && f.category !== "기타" ? ` <span class="tg">${esc(f.category)}</span>` : ""}${f.status === "reviewed" ? ` <span class="tg">관련 있음</span>` : ""}</div>
-      <div class="is-s">${esc(f.summary || f.title)}</div>
+      <div class="is-s">${esc(sumText(f))}</div>
       <div class="mu">${esc(f.source_name || "-")} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}">원문</a>` : ""}</div>
       <div class="mu">「${esc(f.title || "")}」</div>
       ${more.length ? `<div class="dup">같은 내용 ${more.length}건 더: ${more.slice(0, 5).map((x) => esc(String(x.source_name || "").replace(/\s*\((Google News|Naver|네이버)\)$/i, "")) + (x.published_at ? " " + esc(x.published_at) : "")).join(" · ")}${more.length > 5 ? " 외" : ""}</div>` : ""}
@@ -1023,7 +1024,7 @@ function buildReport({ scope: sc0, period, done, detail = false }) {
   const pStat = (p) => { const s = new Set(); state.companies.forEach((c) => { if (c.engagements.some((e) => e.project_id === p.id)) s.add(c); }); const k = { red: 0, orange: 0 }; s.forEach((c) => { if (sc && k[c.risk] != null) k[c.risk]++; }); return { n: s.size, k }; };
   const hotCo = byCo(hotG);
   const simpleBody = `<h2>확인이 필요한 이슈 <span class="mu">위험·경고 업체 ${hotCo.length} · 이슈 ${hotG.length}건${yelN ? ` · 참고 이력 ${yelN}건은 생략` : ""}</span></h2>
-${hotG.length ? `<table class="iss"><tr><th style="width:9%">등급</th><th style="width:25%">업체 · 관련 사업</th><th>내용 · 출처</th></tr>${hotCo.slice(0, 20).map((gs) => { const g0 = gs[0]; return `<tr class="lv-${g0.rep.level}"><td>${bd(g0.rep.level)}</td><td><b>${esc(g0.companies.map((c) => c.name).join(" · "))}</b><div class="mu">${engShort(g0)}</div></td><td>${gs.slice(0, 3).map((g) => `<div class="ln">${esc(brief(g.rep.summary || g.rep.title))}<div class="mu">${g.rep.source_type !== "news" ? `<span class="tg red">공식 명단</span> ` : ""}${esc(srcName(g.rep))} · ${esc(g.rep.published_at || "날짜 미상")}${g.rep.url ? ` · <a href="${esc(g.rep.url)}">원문</a>` : ""}</div></div>`).join("")}${gs.length > 3 ? `<div class="mu more">외 ${gs.length - 3}건</div>` : ""}</td></tr>`; }).join("")}</table>${hotCo.length > 20 ? `<div class="mu" style="margin-top:6px">이 밖에 업체 ${hotCo.length - 20}: 대시보드 또는 '자세한 목록 포함'에서 확인</div>` : ""}` : `<div class="empty">해당 기간에 확인할 위험·경고 이슈가 없습니다</div>`}
+${hotG.length ? `<table class="iss"><tr><th style="width:9%">등급</th><th style="width:25%">업체 · 관련 사업</th><th>내용 · 출처</th></tr>${hotCo.slice(0, 20).map((gs) => { const g0 = gs[0]; return `<tr class="lv-${g0.rep.level}"><td>${bd(g0.rep.level)}</td><td><b>${esc(g0.companies.map((c) => c.name).join(" · "))}</b><div class="mu">${engShort(g0)}</div></td><td>${gs.slice(0, 3).map((g) => `<div class="ln">${esc(brief(sumText(g.rep)))}<div class="mu">${g.rep.source_type !== "news" ? `<span class="tg red">공식 명단</span> ` : ""}${esc(srcName(g.rep))} · ${esc(g.rep.published_at || "날짜 미상")}${g.rep.url ? ` · <a href="${esc(g.rep.url)}">원문</a>` : ""}</div></div>`).join("")}${gs.length > 3 ? `<div class="mu more">외 ${gs.length - 3}건</div>` : ""}</td></tr>`; }).join("")}</table>${hotCo.length > 20 ? `<div class="mu" style="margin-top:6px">이 밖에 업체 ${hotCo.length - 20}: 대시보드 또는 '자세한 목록 포함'에서 확인</div>` : ""}` : `<div class="empty">해당 기간에 확인할 위험·경고 이슈가 없습니다</div>`}
 ${ps.length ? `<h2>사업별 현황 <span class="mu">${ps.length}개</span></h2><table><tr><th>사업</th><th class="c" style="width:9%">업체</th><th class="c" style="width:16%">업체 리스크</th><th style="width:33%">수원국 리스크</th></tr>${ps.map((p) => { const { n, k } = pStat(p); return `<tr><td><b>${esc(p.name)}</b>${p.country ? ` <span class="mu">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</td><td class="c">${n}</td><td class="c">${["red", "orange"].map((lv) => k[lv] ? `<span style="color:${C[lv][0]};font-weight:700">${C[lv][2]} ${k[lv]}</span>` : "").filter(Boolean).join(" · ") || `<span style="color:${C.none[0]}">이상 없음</span>`}</td><td>${geoCell(p)}</td></tr>`; }).join("")}</table>` : ""}
 `;
   const detailBody = `<h2>${done ? "이슈" : "확인할 이슈"} <span class="mu">${groups.length}건 · 등급 높은 순${groups.length > MAX ? ` · 앞의 ${MAX}건` : ""}</span></h2>
@@ -1036,7 +1037,7 @@ ${ps.length ? `<h2>사업별 현황 <span class="mu">${ps.length}개</span></h2>
   let secNo = 0;
   // 먼저 볼 이슈: 업체마다 한 줄씩 3곳 (같은 업체가 세 줄을 다 차지하지 않게). 위험·경고 업체가 3곳 이하면 바로 아래 표와 같은 내용이라 생략
   const topCo = byCo(groups.filter((g) => g.rep.level === "red" || g.rep.level === "orange"));
-  const top3Html = topCo.length > 3 ? `<div class="top3"><div class="t3h">먼저 볼 이슈</div>${topCo.slice(0, 3).map(([g]) => `<div class="t3">${bd(g.rep.level)} <b>${esc(g.companies.map((c) => c.name).join(" · "))}</b> <span>${esc(brief(g.rep.summary || g.rep.title, 70))}</span></div>`).join("")}</div>` : "";
+  const top3Html = topCo.length > 3 ? `<div class="top3"><div class="t3h">먼저 볼 이슈</div>${topCo.slice(0, 3).map(([g]) => `<div class="t3">${bd(g.rep.level)} <b>${esc(g.companies.map((c) => c.name).join(" · "))}</b> <span>${esc(brief(sumText(g.rep), 70))}</span></div>`).join("")}</div>` : "";
   const title = `EDCF_리스크보고서_${sc0 === "mine" ? (myTeam() ? TEAMS[myTeam()] : "우리팀") : "전체"}_${now.slice(0, 10)}`;
   const html = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>${esc(title)}</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
@@ -1204,7 +1205,7 @@ function openRiskList(lv, scroll = "top") {
   const list = scopeCompanies().filter((c) => c.risk === lv).sort((a, b) => b.open - a.open || a.name.localeCompare(b.name));
   state.openCid = null; state.drawerBack = null; state.riskList = lv; state.openPid = null;
   $("#drawerTitle").innerHTML = `<div class="d-name"><span class="nm">${LEVEL[lv]} 업체</span><span class="cnt">${list.length}개</span><span class="tag">${scope === "mine" ? mineLabel() : "EDCF 전체"}</span></div>
-    <div class="d-sub">${LEVEL_DEF[lv]}</div>`;
+    <div class="d-sub">${{ red: "지금 유효한 제재가 있는 업체", orange: "제재로 이어질 수 있는 사안이 진행 중인 업체", none: "위험·경고 이슈가 없는 업체" }[lv] || ""}</div>`;
   const body = $("#drawerBody");
   body.innerHTML = list.length ? `<div class="rl">${list.map(riskRow).join("")}</div>` : `<div class="empty small">해당 업체가 없습니다</div>`;
   $$("[data-rl]", body).forEach((x) => {
@@ -1221,7 +1222,7 @@ function riskRow(c) {
   return `<div class="rl-row ${c.risk}" data-rl="${c.id}" role="button" tabindex="0">
     <div class="rl-top"><b class="rl-name">${esc(c.name)}</b><span class="rl-cat">${esc(c.cat || "")}</span>${c.open ? `<span class="rl-open">미확인 ${c.open}</span>` : `<span class="rl-done">관련 있음</span>`}<span class="rl-arr">›</span></div>
     ${engs.length ? `<div class="rl-engs">${engs.slice(0, 3).map((e) => `<span class="d-eng">${roleTag(e.role)}<span>${esc(projName(e.project_id))}</span>${stageTag(e)}</span>`).join("")}${engs.length > 3 ? `<span class="muted small">외 ${engs.length - 3}</span>` : ""}</div>` : ""}
-    ${top ? `<div class="rl-why">${esc(top.summary || top.title || "")}</div>
+    ${top ? `<div class="rl-why">${esc(sumText(top))}</div>
     <div class="rl-src">${esc(top.source_name || "-")} · ${esc(top.published_at || "날짜 미상")}${groups.length > 1 ? ` · 이슈 ${groups.length}건` : ""}</div>` : ""}
   </div>`;
 }
