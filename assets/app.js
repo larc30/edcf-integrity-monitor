@@ -434,20 +434,20 @@ function renderRadar(cs) {
   const n = { red: 0, orange: 0, yellow: 0, none: 0 };
   cs.forEach((c) => n[sc ? c.risk : "none"]++);
   const risky = sc ? cs.filter((c) => c.risk !== "none").sort((a, b) => (LV[b.risk] - LV[a.risk]) || b.open - a.open || a.name.localeCompare(b.name)) : [];
-  const labeled = risky.slice(0, 6); // 이름은 가장 중요한 6곳만, 나머지는 마우스를 올리면
+  const labeled = risky.filter((c) => c.risk === "red").slice(0, 10); // 이름은 위험 업체만 10곳까지(미확인 많은 순), 경고는 점으로만 · 마우스를 올리면 이름
   const dot = (c, ang, lv, label) => {
     const [r0, r1] = BANDS[lv];
     const r = label ? (r0 + r1) / 2 : r0 + ((hash(c.id + "r") % 1000) / 1000) * (r1 - r0);
     const [x, y] = polar(ang, r), pids = c.engagements.map((e) => e.project_id).join(" ");
     const tip = `${c.name} · ${sc ? LEVEL[c.risk] : "스캔 전"}${c.open ? ` · 미확인 ${c.open}건` : ""}`;
     return `<button class="rdot ${lv}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%;--d:calc(${Math.round(ang)} * var(--sweep, 6s) / 360)" data-cid="${c.id}" data-pids="${pids}" data-tip="${esc(tip)}" aria-label="${esc(tip)}"></button>`
-      + (label ? (() => { const [lx, ly] = lv === "red" ? polar(ang, 63) : [x, y]; return `<span class="rlabel ${lv} ${lx >= 50 ? "r" : "l"}" style="left:${lx.toFixed(2)}%;top:${ly.toFixed(2)}%" data-cid="${c.id}" data-lv="${lv}" data-pids="${pids}">${esc(c.name)}</span>`; })() : "");
+      + (label ? (() => { const [lx, ly] = polar(ang, 64); return `<span class="rlabel ${lv} ${lx >= 50 ? "r" : "l"}" style="left:${lx.toFixed(2)}%;top:${ly.toFixed(2)}%" data-cid="${c.id}" data-lv="${lv}" data-pids="${pids}">${esc(c.name)}</span>`; })() : "");
   };
   // 이름표가 겹치지 않게 좌우를 번갈아 배치 (위쪽은 등급 글자 자리라 비움)
-  const SLOTS = [100, 260, 145, 215, 62, 298];
+  const SLOTS = [106, 254, 78, 282, 134, 226, 50, 310, 160, 200]; // 오른쪽·왼쪽 번갈아, 위쪽(등급 글자 자리)은 비움
   const dots = [
     ...labeled.map((c, i) => dot(c, SLOTS[i], c.risk, true)),
-    ...risky.slice(labeled.length, RADAR_MAX).map((c) => dot(c, 62 + (hash(c.id) % 236), c.risk, false)),
+    ...risky.filter((c) => !labeled.includes(c)).slice(0, RADAR_MAX).map((c) => dot(c, 62 + (hash(c.id) % 236), c.risk, false)),
     ...(sc ? [] : cs.slice(0, RADAR_MAX).map((c) => dot(c, 32 + (hash(c.id) % 296), "pending", false))), // 정상 업체는 점 없이 바깥 원 숫자로
   ].join("");
   const t = (lv, y, label) => `<text class="bl ${lv}" x="100" y="${y}">${label} ${sc ? n[lv] : "-"}</text>`;
