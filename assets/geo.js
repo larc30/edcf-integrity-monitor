@@ -334,7 +334,7 @@ export async function renderGeo() {
   $("#geoProjN").textContent = ps.length;
   if (ui.focus && !pins.some((x) => x.p.id === ui.focus)) ui.focus = null;
   $("#geoProjects").innerHTML = pins.map(({ p, pt, r }, idx) => {
-    const a = r.alert, sel = ui.focus === p.id, near = nearEvents(pt, evs, p.country).slice(0, sel ? 6 : 2);
+    const a = r.alert, sel = ui.focus === p.id, near = nearEvents(pt, evs, p.country).filter((e, i, l) => l.findIndex((x) => x.title === e.title) === i).slice(0, sel ? 6 : 2); // 같은 제목은 한 번만
     const co = ctx.companyTally(p.id);
     const sa = r.site || { lv: 0, refs: [] };
     const whyEv = r.why.filter((w) => !/^(여행경보|특별여행주의보)/.test(w)); // 여행경보는 위 칩과 같은 말이라 근거에서는 뺌
@@ -347,7 +347,7 @@ export async function renderGeo() {
       <div class="gp-row"><span class="gp-k">여행경보</span><span class="gp-alert">${alertHtml}</span></div>
       ${a?.level && a.partial ? `<div class="gp-reg">${esc(HOW[sa.how] || "")}${sa.zone ? `: ${esc(short(sa.zone, 60))}` : ""}${sa.refs.length ? `<br>참고 (등급에 안 넣음): ${esc(alertZones(a).zones.filter((z) => sa.refs.includes(z.text)).map((z) => `${z.lv}단계 ${short(z.text, 50)}`).join(" / "))}${sa.how === "base" ? " · 사업지가 이 지역이면 사업 수정 창에서 고르세요" : ""}` : ""}</div>` : ""}
       ${whyEv.length ? `<div class="gp-row"><span class="gp-k">근거</span><span class="gp-why">${whyEv.slice(0, sel ? 4 : 2).map((w) => `<span>${esc(w)}</span>`).join("")}</span></div>` : ""}
-      <div class="gp-row"><span class="gp-k">${sel ? "가까운 사건" : "이벤트"}</span><span class="gp-evs">${near.length ? near.map((e) => `<span class="gp-ev" title="${esc(e.title)}">${ibadge(e.type, "xs")}<span class="gp-ev-t">${esc(e.title)}</span>${e.d != null ? `<b class="gp-km">${fmtKm(e.d)}</b>` : ""}</span>`).join("") : `<span class="muted small">${pl} · ${NEAR_KM}km 안 없음</span>`}</span></div>
+      <div class="gp-row"><span class="gp-k">${sel ? "가까운 사건" : "이벤트"}</span><span class="gp-evs">${near.length ? near.map((e) => `<span class="gp-ev" title="${esc(e.title)}">${ibadge(e.type, "xs")}<span class="gp-ev-t">${esc(e.title)}</span>${e.d != null && !e.country_level ? `<b class="gp-km">${fmtKm(e.d)}</b>` : ""}</span>`).join("") : `<span class="muted small">${pl} · ${NEAR_KM}km 안 없음</span>`}</span></div>
       <div class="gp-row"><span class="gp-k">참여 업체</span><span class="pj-sum">${co.total ? (["red", "orange"].filter((lv) => co[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${co[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) + `<span class="tot">/ ${co.total}</span>` : `<span class="tot">연결된 업체 없음</span>`}</span></div>` : `<div class="gp-brief"><span class="gp-alert">${alertHtml}</span>${whyEv.length ? `<span class="gp-why1" title="${esc(whyEv.join(" / "))}">${esc(whyEv[0])}</span>` : ""}${co.total && (co.red || co.orange) ? `<span class="gp-co pj-sum">업체 ${["red", "orange"].filter((lv) => co[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${co[lv]}</span>`).join("")}</span>` : ""}</div>`}
     </div>`;
   }).join("") || `<div class="empty small">${scope === "mine" ? "우리 팀 사업이 없습니다." : "등록된 사업이 없습니다."}</div>`;

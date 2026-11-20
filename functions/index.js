@@ -26,6 +26,9 @@ function norm(name) {
   for (const suf of CORP_SUFFIXES) s = s.split(suf).join(" ");
   return s.replace(/[^0-9a-z가-힣]/g, "");
 }
+// 영문자를 한글 이름으로 읽은 것: '삼성SDS' 로 찾아도 DART 의 '삼성에스디에스'가 나오게 (monitor/sources/dart.ko 와 같게)
+const KO_LETTER = { a: "에이", b: "비", c: "씨", d: "디", e: "이", f: "에프", g: "지", h: "에이치", i: "아이", j: "제이", k: "케이", l: "엘", m: "엠", n: "엔", o: "오", p: "피", q: "큐", r: "알", s: "에스", t: "티", u: "유", v: "브이", w: "더블유", x: "엑스", y: "와이", z: "제트" };
+const ko = (k) => k.replace(/[a-z]/g, (ch) => KO_LETTER[ch]);
 // 업종코드(KSIC) → 분류: monitor/category.from_ksic 과 같게
 function fromKsic(code) {
   const c = String(code || "").replace(/\D/g, "");
@@ -50,23 +53,26 @@ function unzipFirst(buf) {
 }
 const unesc = (s) => String(s || "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").trim();
 function parseMaster(xml) {
-  const idx = new Map(), list = [], byCode = new Map(), tag = (b, t) => { const m = b.match(new RegExp(`<${t}>([^<]*)</${t}>`)); return m ? unesc(m[1]) : ""; };
+  const idx = new Map(), idx2 = new Map(), list = [], byCode = new Map(), tag = (b, t) => { const m = b.match(new RegExp(`<${t}>([^<]*)</${t}>`)); return m ? unesc(m[1]) : ""; };
   for (const m of xml.matchAll(/<list>([\s\S]*?)<\/list>/g)) {
     const code = tag(m[1], "corp_code"), name = tag(m[1], "corp_name");
     if (!code || !name) continue;
-    const k = norm(name), row = [code, name, tag(m[1], "corp_eng_name"), tag(m[1], "stock_code")];
+    const k = norm(name), k2 = ko(k), row = [code, name, tag(m[1], "corp_eng_name"), tag(m[1], "stock_code")];
     if (idx.has(k)) idx.get(k).push(row); else idx.set(k, [row]);
-    list.push([k, row]); byCode.set(code, row);
+    if (idx2.has(k2)) idx2.get(k2).push(row); else idx2.set(k2, [row]);
+    list.push([k, row, k2]); byCode.set(code, row);
   }
-  return { idx, list, byCode };
+  return { idx, idx2, list, byCode };
 }
 // 이름 찾기: 정확히 같은 이름 먼저 → 이름에 그 글자가 들어 있는 곳(앞이든 뒤든, '롯데' → 호텔롯데도). 상장사 → 짧은 이름 → 그 글자로 시작하는 곳 순서
 function searchMaster(m, name, limit = 8) {
   const target = norm(name);
   if (target.length < 2) return [];
-  const out = (m.idx.get(target) || []).slice(0, limit).map((r) => [r, true]);
+  // 영문자를 한글로 읽은 이름으로도 맞춰 봄 (삼성SDS = 삼성에스디에스, 엘지 = LG)
+  const t2 = ko(target), exact = [...new Set([...(m.idx.get(target) || []), ...((m.idx2 && m.idx2.get(t2)) || [])])];
+  const out = exact.slice(0, limit).map((r) => [r, true]);
   if (out.length < limit) {
-    const part = m.list.filter(([k]) => k !== target && k.includes(target));
+    const part = m.list.filter(([k, r, k2]) => !exact.includes(r) && (k.includes(target) || (k2 || k).includes(t2)));
     part.sort((x, y) => (!!y[1][3] - !!x[1][3]) || (x[0].length - y[0].length) || (y[0].startsWith(target) - x[0].startsWith(target)));
     for (const [, r] of part.slice(0, limit - out.length)) out.push([r, false]);
   }
