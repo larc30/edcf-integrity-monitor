@@ -1964,3 +1964,15 @@ select optgroup option { background: var(--panel-solid); color: var(--text); fon
 /* 사업지 고르기 지도: 나라 이름 (항상 보임) */
 .sp-country { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-size: var(--fs-sm); font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--map-name, var(--text-2)); opacity: .85; pointer-events: none; }
 .sp-chip { position: absolute; top: 10px; right: 10px; z-index: 500; padding: .25em .7em; border-radius: 8px; background: color-mix(in srgb, var(--panel-solid) 88%, transparent); border: 1px solid var(--line-2); font-size: var(--fs-sm); font-weight: 700; color: var(--text); pointer-events: none; }
+
+/* 사업 카드의 업체 줄(2026-11-20): 단계 칸을 모두 같은 모양·크기로 (계약 = 차분한 면, 우선협상·입찰중 = 주황 면: 계약 전이라 점검 대상임을 표시) · 글자 굵기·여백 정리 */
+.corow { gap: .55em; padding-top: .28em; padding-bottom: .28em; align-items: center; }
+.corow .cn { font-size: var(--fs-base); font-weight: 650; letter-spacing: -.01em; }
+.corow .lead { font-weight: 700; padding: .05em .5em; border-radius: 6px; }
+.corow .right { display: inline-flex; align-items: center; gap: .3em; }
+.stage-sel, .stage-sel.on { width: 6.8em; min-width: 0; field-sizing: fixed; height: 1.95em; padding: 0 .3em 0 .7em; border: 0; border-radius: 7px; font-size: var(--fs-xs); font-weight: 650; line-height: 1; }
+.stage-sel { color: var(--text-2); background-color: color-mix(in srgb, var(--text) 7%, transparent); }
+.stage-sel.on { color: var(--orange); background-color: var(--orange-bg); }
+.stage-sel:hover, .stage-sel:focus { border: 0; box-shadow: 0 0 0 1px var(--line-2); }
+.corow .xbtn, .corow .upbtn { font-size: var(--fs-sm); padding: .25em .45em; }
+.dz-note { font-weight: 500; }
