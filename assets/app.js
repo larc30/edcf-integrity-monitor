@@ -758,7 +758,7 @@ function openOfficial(cs = scopeCompanies()) {
       ${bad ? `<div class="edcf-bad"><b>제재 기록이 아닌 행 ${bad}건</b>(상태·제재기간 없음)이 들어 있습니다. 대조에는 쓰지 않습니다. <button class="btn sm danger" id="edcfClear">잘못된 명단 비우기</button></div>` : ""}
       ${ev.length ? (() => {
         const un = ev.filter((e) => !matchBy.get(e));
-        return `<p class="muted small oc-rawsum">올린 ${ev.length}건 가운데 ${ev.length - un.length}건은 우리 업체와 일치해 위 EDCF 칸에 나옵니다.${un.length ? ` 아래 ${un.length}건은 우리 명단에 없는 업체입니다.` : ""}</p>`
+        return ""
           + (un.length ? `<div class="tbl-wrap"><table class="tbl oc-raw"><thead><tr><th>업체명</th><th>상태</th><th>제재기간</th><th>관련 사업</th></tr></thead><tbody>${un.map((e) => `<tr><td>${esc(e.name)}</td><td>${edcfActive(e) ? `<span class="badge red">등록</span>` : `<span class="muted">${esc(e.status || "-")}${/등록/.test(e.status || "") ? " (기간 만료)" : ""}</span>`}</td><td>${esc(e.period || "")}</td><td>${esc(e.project_name || "")}${e.country ? ` <span class="muted">(${esc(e.country)})</span>` : ""}</td></tr>`).join("")}</tbody></table></div>` : "");
       })() : ""}
     </details>
@@ -767,21 +767,21 @@ function openOfficial(cs = scopeCompanies()) {
       ${row(stt(cv.mdb, cv.scanned), "MDB 제재 리스트", `${cv.mdb}/${cv.scanned} · 영문명으로 대조${cv.mdb < cv.scanned ? " (영문명이 없는 업체는 불완전)" : ""}`)}
       ${cv.ppsConnected ? row(stt(cv.pps, cv.ppsTotal), "조달청 부정당제재", `${cv.pps}/${cv.ppsTotal} · 사업자번호로 현재 유효한 제재 조회${cv.pps < cv.ppsTotal ? " (사업자번호가 없는 업체는 조회 못 함)" : ""}`) : row("na", "조달청 부정당제재", "미연결")}
       ${row(mk?.count ? "warn" : "ok", "MDB 한국 국적 제재 기업", mk ? `${mk.count || 0}개 (우리 명단과 별개로 참고) <a href="#" id="dcMdb">목록 보기</a>` : "첫 스캔 후 표시")}
-      ${gapN ? `<div class="actions left"><button class="btn sm" id="dcGaps">사업자번호·영문명 보완할 업체 ${gapN}</button></div>` : ""}
     </details>`);
   $("#modal").classList.add("wide");
   $$("#modal [data-oc]").forEach((a) => a.onclick = (e) => { e.preventDefault(); closeModal(); openCompany(a.dataset.oc, "official"); });
   $("#edcfUp").onclick = () => $("#edcfFile").click();
   $("#edcfPaste").onclick = openEdcfPaste;
   $("#edcfClear")?.addEventListener("click", clearEdcf);
-  $("#dcMdb")?.addEventListener("click", (e) => { e.preventDefault(); showMdbKorea(); });
+  $("#dcMdb")?.addEventListener("click", (e) => { e.preventDefault(); showMdbKorea(() => openOfficial()); });
   $("#dcGaps")?.addEventListener("click", showGaps);
 }
-function showMdbKorea() {
+function showMdbKorea(back) {
   const mk = state.mdbKorea || {};
   modal(`<h2>MDB 한국 국적 제재 기업 <span class="count">${mk.count || 0}</span></h2>
-    <p class="muted small">팀 매뉴얼: 영문명으로 MDB 제재 리스트 조회 후 결과가 없으면 국적 '대한민국'으로 최종 확인. World Bank·ADB·AfDB·IDB·EBRD 제재 리스트(OpenSanctions)에서 국적이 한국인 기업입니다. ${esc(mk.at || "")} 기준.</p>
+    <p class="muted small">MDB 제재 리스트에서 국적이 한국인 기업 · ${esc(mk.at || "")} 기준</p>
     ${mk.items?.length ? `<div class="mk-list">${mk.items.map((e) => `<a class="mk-row" href="${esc(e.url)}" target="_blank" rel="noopener" title="${esc(e.sanctions || "")}"><span>${esc(e.name)}</span><span class="ds">${esc(MDB_NAME[e.dataset] || e.dataset)} ↗</span></a>`).join("")}</div>` : `<div class="empty">현재 한국 국적 제재 기업이 없습니다.</div>`}`);
+  if (back) $("#modalClose").onclick = back;
 }
 const MDB_NAME = { worldbank_debarred: "World Bank", adb_sanctions: "ADB", afdb_sanctions: "AfDB", iadb_sanctions: "IDB", ebrd_ineligible: "EBRD" };
 
