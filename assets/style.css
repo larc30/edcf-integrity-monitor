@@ -1970,7 +1970,7 @@ select optgroup option { background: var(--panel-solid); color: var(--text); fon
 .corow .cn { font-size: var(--fs-base); font-weight: 650; letter-spacing: -.01em; }
 .corow .lead { font-weight: 700; padding: .05em .5em; border-radius: 6px; }
 .corow .right { display: inline-flex; align-items: center; gap: .3em; }
-.stage-sel, .stage-sel.on { width: 6.8em; min-width: 0; field-sizing: fixed; height: 1.95em; padding: 0 .3em 0 .7em; border: 0; border-radius: 7px; font-size: var(--fs-xs); font-weight: 650; line-height: 1; }
+.stage-sel, .stage-sel.on { width: 7.6em; min-width: 0; field-sizing: fixed; height: 1.95em; padding: 0 .3em 0 .7em; border: 0; border-radius: 7px; font-size: var(--fs-xs); font-weight: 650; line-height: 1; }
 .stage-sel { color: var(--text-2); background-color: color-mix(in srgb, var(--text) 7%, transparent); }
 .stage-sel.on { color: var(--orange); background-color: var(--orange-bg); }
 .stage-sel:hover, .stage-sel:focus { border: 0; box-shadow: 0 0 0 1px var(--line-2); }
