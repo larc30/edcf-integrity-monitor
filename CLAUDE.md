@@ -156,6 +156,9 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
 - 수원국 사건 종류 판정(2026-11-20, '홍수 대응에 항의하는 시위'가 홍수로 분류된 사례): 종류는 배경·원인이 아니라 지금 벌어지는 일로(analyzer.EVENT_PROMPT). 지침을 고치면 analyzer.EVENT_AI_V 를 올림 → geo.update 가 예전 지침으로 판정한 뉴스 이벤트(ai_v 낮음)를 한 번에 60건씩 다시 판정.
 
+- DART 이름 찾기 4차(2026-11-20, '삼성SDS 로 찾으면 삼성에스디에스가 안 나옴'): 영문자를 한글 이름으로 읽은 것으로도 맞춤(S→에스 등, functions ko·idx2 ↔ dart.ko, 삼성SDS = 삼성에스디에스 · 엘지전자 = LG전자 · KT = 케이티 는 정확 일치로 봄). 자동 채움(match_by_name)은 그대로 엄격. 함수 재배포 필요. 사업자번호로 DART 찾기는 불가(DART 는 번호 검색이 없고 기업목록에도 번호가 없음: 이름으로 찾은 뒤 번호로 거르는 지금 방식 유지).
+- 수원국 사업 카드(2026-11-20): 가까운 사건에서 같은 제목은 한 번만, 나라 단위 사건(WHO 등)은 거리(km)를 안 붙임(나라 가운데 점까지의 거리라 뜻이 없음). [전체 지도] 버튼은 강조색 면으로. 시사점·해석 문구는 넣지 않음(사실 + 등급만: 사용자 방향).
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 

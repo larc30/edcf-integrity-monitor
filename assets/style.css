@@ -2100,3 +2100,7 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .leaflet-control-attribution { margin: 0 10px 6px 0 !important; padding: 0 6px !important; border-radius: 6px; white-space: nowrap; }
 /* 설명 풍선이 지도(Leaflet 층 z-index 400~1000) 위에 오게: 왼쪽 칸을 더 높은 층으로 */
 .d-risk { position: relative; z-index: 1100; } .d-risk > .card:has(.itip:hover), .d-risk > .card:has(.itip:focus-within) { z-index: 2; position: relative; }
+
+/* 전체 지도 버튼: 사업을 골랐을 때만 보이니 눈에 띄게 (2026-11-20) */
+.map-all { background: color-mix(in srgb, var(--accent-2) 22%, var(--panel-solid)); border-color: color-mix(in srgb, var(--accent-2) 60%, transparent); color: var(--text); font-weight: 700; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); }
+.map-all:hover { background: color-mix(in srgb, var(--accent-2) 34%, var(--panel-solid)); }

@@ -81,16 +81,26 @@ def names_by_code() -> dict:
     return {r[0]: r[1] for rows in load_master().values() for r in rows}
 
 
+# 영문자를 한글 이름으로 읽은 것: '삼성SDS' 로 찾아도 DART 의 '삼성에스디에스'가 나오게 (functions 쪽 ko 와 같게)
+_KO_LETTER = dict(zip("abcdefghijklmnopqrstuvwxyz", "에이 비 씨 디 이 에프 지 에이치 아이 제이 케이 엘 엠 엔 오 피 큐 알 에스 티 유 브이 더블유 엑스 와이 제트".split()))
+
+
+def ko(k: str) -> str:
+    return "".join(_KO_LETTER.get(ch, ch) for ch in k)
+
+
 def search_by_name(name: str, limit: int = 8) -> list[tuple[list, bool]]:
     """업체 추가 창의 찾기용: 정확히 같은 이름 먼저 → 이름에 그 글자가 든 곳(상장사 → 짧은 이름 순). [(기업, 정확 일치 여부)]
     functions/index.js searchMaster 와 같게. 자동 채움(dart_fill·스캔)은 여전히 match_by_name(정확 일치)만 씀."""
     target = norm(name)
     if len(target) < 2:
         return []
-    m = load_master()
-    out = [(r, True) for r in m.get(target, [])[:limit]]
+    m, t2 = load_master(), ko(target)
+    exact = list(m.get(target, []))
+    exact += [r for k, rows in m.items() if k != target and ko(k) == t2 for r in rows]  # 삼성SDS = 삼성에스디에스
+    out = [(r, True) for r in exact[:limit]]
     if len(out) < limit:
-        part = [(k, r) for k, rows in m.items() if k != target and target in k for r in rows]
+        part = [(k, r) for k, rows in m.items() for r in rows if r not in exact and (target in k or t2 in ko(k))]
         part.sort(key=lambda x: (not (x[1][3] or "").strip(), len(x[0]), not x[0].startswith(target)))
         out += [(r, False) for _, r in part[:limit - len(out)]]
     return out
