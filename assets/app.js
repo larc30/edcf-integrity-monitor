@@ -1603,6 +1603,7 @@ const inView = (c, v) => v === "all" ? true
   : v === "open" ? c.open > 0
   : v === "info" ? needInfo(c) : true;
 const coState = { view: "all", sort: "risk", dir: 1, sel: new Set() };
+const CO_MORE = ["#fRole", "#fStage", "#fNat"]; // 덜 쓰는 필터: [상세 필터]를 눌러야 보임
 const CO_FILTERS = ["#poolSearch", "#fOwner", "#fProj", "#fRole", "#fStage", "#fRisk", "#fCat", "#fNat"];
 function poolMatches(c) {
   const q = ($("#poolSearch").value || "").trim().toLowerCase(), qd = q.replace(/\D/g, "");
@@ -1643,6 +1644,9 @@ function renderCompanies() {
   const list = state.companies.filter(poolMatches).sort((a, b) => CO_SORT[coState.sort](a, b) * coState.dir);
   for (const id of [...coState.sel]) if (!state.companies.some((c) => c.id === id)) coState.sel.delete(id);
   $("#fReset").classList.toggle("hidden", !CO_FILTERS.some((id) => $(id).value));
+  // 상세 필터(역할·단계·국내해외): 평소에는 접어 두고, 고른 것이 있으면 펼친 채로 개수 표시
+  { const n = CO_MORE.filter((id) => $(id).value).length, btn = $("#fMoreBtn"), open = n > 0 || btn.getAttribute("aria-expanded") === "true";
+    $("#fMore").classList.toggle("hidden", !open); btn.classList.toggle("on", open); btn.textContent = n ? `상세 필터 ${n}` : "상세 필터"; }
   $("#poolShown").textContent = list.length === state.companies.length ? "" : `${state.companies.length}개 중 ${list.length}개`;
   $$("#coTable th[data-sort]").forEach((th) => { th.classList.toggle("on", th.dataset.sort === coState.sort); th.classList.toggle("desc", th.dataset.sort === coState.sort && coState.dir < 0); });
   const engChip = (e) => `<span class="ej" title="${esc(projName(e.project_id))} · ${esc(e.role)} · ${esc(e.stage || "계약")}">${roleTag(e.role)}<span class="ej-p">${esc(projName(e.project_id))}</span>${stageTag(e)}</span>`;
@@ -1684,6 +1688,7 @@ async function deleteCompanies(ids) {
 }
 $("#poolSearch").addEventListener("input", () => renderCompanies());
 CO_FILTERS.slice(1).forEach((s) => $(s).addEventListener("change", () => renderCompanies()));
+$("#fMoreBtn").onclick = () => { const b = $("#fMoreBtn"); b.setAttribute("aria-expanded", b.getAttribute("aria-expanded") === "true" ? "false" : "true"); if (b.getAttribute("aria-expanded") === "false") CO_MORE.forEach((id) => ($(id).value = "")); renderCompanies(); };
 $("#fReset").onclick = () => { CO_FILTERS.forEach((id) => ($(id).value = "")); renderCompanies(); };
 $("#coDelSel").onclick = () => deleteCompanies([...coState.sel]);
 $("#coSelClear").onclick = () => { coState.sel.clear(); renderCompanies(); };
