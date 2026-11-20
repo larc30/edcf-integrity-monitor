@@ -2076,3 +2076,14 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .rp-opts h2 { margin-bottom: 14px; }
 .rp-opts .check { font-size: var(--fs-sm); align-items: center; }
 .rp-opts .check { margin-top: 2px; } .rp-opts label + .check { margin-top: 8px; }
+
+/* 이슈 목록 아래 접힌 칸은 목록 밖 맨 아래에 고정 · 펼치면 그 안에서 스크롤 (2026-11-20) */
+.issue-foot { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 0 1.6em; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.issue-foot:not(:has(details:not(.hidden))) { display: none; }
+.issue-foot details.more { margin: 0; }
+.issue-foot details[open] { flex: 0 0 100%; order: 2; min-width: 0; }
+.issue-foot details[open] > .feed { margin-top: 8px; max-height: 42vh; overflow: auto; overscroll-behavior: contain; padding-right: 8px; }
+/* 사업 카드 역할 줄: 어느 카드든 같은 간격 */
+#projectMap .pj-role { display: flex; align-items: flex-start; gap: .45em; }
+#projectMap .pj-role.mini { display: inline-flex; align-items: center; }
+.issue-foot details[open] > .feed > * { flex-shrink: 0; }
