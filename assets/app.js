@@ -1756,11 +1756,11 @@ function projectCard(p, sc) {
     <div class="pbox-body">${ROLES.map((role) => {
       const rr = rows.filter((r) => r.e.role === role).sort(byOrder);
       return `<div class="dropzone ${rr.length ? "" : "is-empty"}" data-pid="${p.id}" data-role="${esc(role)}">
-        <div class="dz-head" ${rr.length > 1 ? `title="맨 위가 대표사 · 끌거나 ▲로 순서 변경"` : ""}>${roleTag(role)}${rr.length ? `<span class="count">${rr.length}</span>` : ""}</div>
+        <div class="dz-head" ${rr.length > 1 ? `title="맨 위가 대표사"` : ""}>${roleTag(role)}${rr.length ? `<span class="count">${rr.length}</span>` : ""}</div>
         ${rr.map(({ c, e, i }, k) => `<div class="corow" draggable="true" data-cid="${c.id}" data-from="${p.id}|${i}">
           <span class="dot ${sc ? c.risk : ""}"></span>${rr.length > 1 && k === 0 ? `<span class="lead" title="대표사">대표</span>` : ""}<button class="cn" data-open="${c.id}">${esc(c.name)}</button>
           <span class="right">
-            ${k > 0 ? `<button class="upbtn" data-up="${p.id}|${esc(role)}|${c.id}|${rr[k - 1].c.id}" title="위로 (맨 위 = 대표사)">▲</button>` : ""}
+            ${k > 0 ? `<button class="upbtn leadbtn" data-up="${p.id}|${esc(role)}|${c.id}|${rr[0].c.id}" title="대표사로 지정">대표</button>` : ""}
             <select class="stage-sel ${e.stage && e.stage !== "계약" ? "on" : ""}" data-stage-sel="${c.id}|${i}" title="단계${e.stage === "우선협상" && e.rank ? ` · ${e.rank}순위` : ""}" aria-label="단계">${STAGE_OPTS.map(([v, l]) => `<option value="${v}" ${v === stageVal(e) ? "selected" : ""}>${l}</option>`).join("")}</select>
             <button class="xbtn" data-unlink="${c.id}|${i}" title="이 사업에서 빼기">✕</button>
           </span></div>`).join("")}
@@ -1981,6 +1981,8 @@ function openProjectEdit(pid) {
     const name = String(fd.name || "").trim();
     if (!name) return;
     if (state.projects.some((x) => x.id !== pid && x.name === name)) return toast("같은 이름의 사업이 이미 있습니다");
+    const off = site.lat != null && fd.country ? await siteMismatch(fd.country, [site.lat, site.lng]) : null;
+    if (off && !confirm(`사업지 핀이 ${COUNTRY[fd.country] || fd.country} 밖에 있는 것 같습니다${off.near ? ` (${off.near} 쪽)` : ""}.\n\n그대로 저장할까요?`)) return;
     const team = isSuper() ? (fd.team || null) : myTeam();
     const patch = { name, team, country: fd.country || null, owner: fd.owner || null, lat: site.lat, lng: site.lng, site_en: String(fd.site_en || "").trim() || null, status: fd.done ? "done" : null, alert_lv: zoneSel ? +zoneSel : null };
     if (isNew) { const data = { ...patch, created_at: nowStr() }, ref = await addDoc(collection(db, "projects"), data); state.projects.push({ id: ref.id, ...data }); }
@@ -1990,6 +1992,18 @@ function openProjectEdit(pid) {
   f0.name.addEventListener("input", showSite);
   if (isNew) f0.name.onchange = () => { if (!f0.country.value) { const g = guessCountry(f0.name.value); if (g) { f0.country.value = g; picker.country(g); } } }; // 사업명 속 나라 이름으로 수원국 자동 선택
   $("#pjDelete")?.addEventListener("click", () => deleteProject(pid));
+}
+// 사업지 핀이 고른 수원국과 맞는지: 그 나라 도시(인구 1천 이상) 가운데 가장 가까운 곳이 150km 넘게 떨어져 있으면 알려 줌
+// 도시 목록에 없는 나라는 나라 가운데에서 1,500km. 맞으면 null, 아니면 { near: 가장 가까운 다른 나라 이름 }
+async function siteMismatch(cc, ll) {
+  const dist = (a, b) => { const r = Math.PI / 180, x = Math.sin((b[0] - a[0]) * r / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin((b[1] - a[1]) * r / 2) ** 2; return 12742 * Math.asin(Math.sqrt(x)); };
+  await loadCityDb();
+  const nearest = (rows) => rows.reduce((m, r) => Math.min(m, dist(ll, [r[1], r[2]])), Infinity);
+  const mine = cityDb?.[cc];
+  if (mine?.length ? nearest(mine) <= 150 : !GEO_COUNTRY[cc] || dist(ll, [GEO_COUNTRY[cc][2], GEO_COUNTRY[cc][3]]) <= 1500) return null;
+  let best = null, bd = 300;
+  for (const k of Object.keys(cityDb || {})) { if (k === "_src" || k === cc) continue; const d = nearest(cityDb[k]); if (d < bd) { bd = d; best = k; } }
+  return { near: best ? COUNTRY[best] || best : "" };
 }
 async function deleteProject(pid) {
   const p = state.projects.find((x) => x.id === pid);
@@ -2021,8 +2035,9 @@ function cleanCompanyName(raw) {
   const m = name.match(/\(\s*(\d+)\s*순위\s*\)/);
   if (m) { rank = +m[1]; name = name.replace(m[0], ""); }
   const full = name.replace(/\s+/g, " ").trim();
-  name = name.replace(/주식회사|\(주\)|㈜/g, "").replace(/\s+/g, " ").trim();
-  return { name, rank, official: full !== name ? full : null };
+  // 한글 사이에 낀 공백은 붙임 ('삼 부 토건' → '삼부토건'). 영문·숫자 옆 공백('LG CNS')은 그대로
+  name = name.replace(/주식회사|\(주\)|㈜/g, "").replace(/\s+/g, " ").trim().replace(/([가-힣])\s+(?=[가-힣])/g, "$1");
+  return { name, rank, official: /주식회사|\(주\)|㈜/.test(full) ? full : null };
 }
 // 업체명 기본 검사: 문제가 있으면 이유(문장), 없으면 "" (업체 추가·수정·일괄 등록 공통)
 const BAD_WORDS = ["시발", "씨발", "병신", "새끼", "지랄", "존나", "좆", "fuck", "shit"];
@@ -2453,15 +2468,13 @@ $("#btnBulk").onclick = () => {
     </details>
     <div id="bulkOut" class="import-preview"></div>
     <div class="actions"><button class="btn primary" id="bulkRun" disabled>등록하기</button></div>
-    <details class="bulk-more"><summary>도움말 · DART 일괄 조회</summary>
+    <details class="bulk-more"><summary>도움말</summary>
       <ul class="bulk-help">
         <li>같은 사업·역할에 업체가 여럿이면 먼저 적은 업체가 대표사입니다 ('대표사' 칸에 O를 적으면 그 업체)</li>
         <li>이미 있는 업체는 빈 정보만 채웁니다. 업종을 비워 두면 자동으로 분류합니다</li>
         <li>사내 보안(DRM)으로 파일이 안 열리면 표를 복사해 붙여넣으세요</li>
       </ul>
-      <div class="bulk-dart"><span class="muted small">이미 등록한 업체의 빈 사업자번호·영문명을 DART에서 한꺼번에 찾기</span><button type="button" class="btn sm" id="btnDartFill">DART 일괄 조회</button></div>
     </details>`);
-  $("#btnDartFill").onclick = dartFillAll;
   $("#bulkTpl").onclick = downloadTemplate;
   $("#bulkPrev").onclick = () => bulkPreview(parseAny($("#bulkText").value));
   $("#bulkFile").addEventListener("change", async (ev) => {
@@ -3041,6 +3054,7 @@ $("#btnBizDup").onclick = () => {
     <div class="nc-list">${groups.map((g) => `<div class="srow"><span class="muted">${esc(fmtBiz(g[0].biz_no))}</span><span>${g.map((c) => `<a href="#" data-dup-open="${c.id}">${esc(c.name)}</a>`).join(" · ")}</span></div>`).join("")}</div>`);
   $$("[data-dup-open]").forEach((a) => a.onclick = (e) => { e.preventDefault(); closeModal(); openCompany(a.dataset.dupOpen); });
 };
+$("#btnDartFill").onclick = () => dartFillAll();
 function dartFillAll() {
   const n = state.companies.filter((c) => (c.country || "KR") === "KR" && !(c.biz_no && c.name_en)).length;
   if (!n) return toast("사업자번호와 영문명이 빈 국내 업체가 없습니다");
