@@ -20,7 +20,7 @@
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=106">
+<link rel="stylesheet" href="assets/style.css?v=107">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -229,24 +229,21 @@
         <div class="set-side set-left super-only">
         <div class="card kw-card super-only">
           <div class="card-head"><h2>리스크 키워드 <span class="count" id="kwCount">0</span></h2></div>
-          <p class="card-desc">매일 아침 이 단어들로 뉴스를 찾습니다. 등급은 단어가 아니라 기사 내용으로 AI가 정합니다.</p>
-          <div class="kw-fixed"><div class="kw-fixed-head"><b>기본 키워드</b><span class="muted small">고정 <span id="kwFixedN">0</span>개 · 화면에서 바꿀 수 없음</span></div><div class="kw-chips" id="kwFixed"></div></div>
-          <div class="kw-fixed kw-user"><div class="kw-fixed-head"><b>추가 키워드</b><span class="muted small">직접 넣고 뺄 수 있음 · <span id="kwCount2">0</span>개</span></div>
+          <div class="kw-fixed"><div class="kw-fixed-head"><b>기본</b><span class="set-n" id="kwFixedN">0</span></div><div class="kw-chips" id="kwFixed"></div></div>
+          <div class="kw-fixed kw-user"><div class="kw-fixed-head"><b>추가</b><span class="set-n" id="kwCount2">0</span></div>
             <div class="kw-chips" id="kwList"></div>
-            <form id="kwForm" class="kw-form" autocomplete="off"><input name="word" placeholder="추가할 단어 (예: 임금체불)" required><button class="btn primary">추가</button></form></div>
+            <form id="kwForm" class="kw-form" autocomplete="off"><input name="word" placeholder="추가할 단어" required><button class="btn">추가</button></form></div>
         </div>
         <div class="card mail-card super-only">
-          <div class="card-head"><h2>메일</h2><div class="head-actions"><button class="btn sm primary" id="btnPreview" title="내일 아침 갈 메일을 미리 보고, 테스트로 받아 보거나 지금 보낼 수 있습니다">미리보기 · 보내기</button></div></div>
-          <p class="card-desc">매일 아침, 새로 나온 위험·경고 이슈를 아래 주소로 보냅니다.</p>
-          <form id="rcForm" class="add-row"><input name="email" type="email" placeholder="받는 사람 이메일" required><button class="btn primary">추가</button></form>
+          <div class="card-head"><h2>메일 받는 사람 <span class="count" id="rcCount">0</span></h2><div class="head-actions"><button class="btn sm primary" id="btnPreview" title="내일 아침 갈 메일을 미리 보고, 테스트로 받아 보거나 지금 보낼 수 있습니다">미리보기 · 보내기</button></div></div>
+          <form id="rcForm" class="add-row"><input name="email" type="email" placeholder="받는 사람 이메일" required><button class="btn">추가</button></form>
           <div id="rcList" class="simple-list"></div>
         </div>
         </div>
         <div class="set-side">
         <div class="card acc-card">
           <div class="card-head"><h2>계정·권한</h2></div>
-          <p class="card-desc acc-desc">등록된 Google 계정만 접속 · 슈퍼관리자 전체 · 팀 관리자 우리 팀 · 팀원 보기·이슈 확인</p>
-          <form id="accForm" class="add-row acc-form"><input name="email" type="email" placeholder="추가할 Google 계정" required><select name="team"></select><select name="role"></select><button class="btn primary">추가</button></form>
+          <form id="accForm" class="add-row acc-form"><input name="email" type="email" placeholder="추가할 Google 계정" required><select name="team"></select><select name="role"></select><button class="btn">추가</button></form>
           <div id="accTools" class="acc-tools"></div>
           <div id="accList" class="simple-list acc-list"></div>
         </div>
@@ -257,7 +254,7 @@
         <div class="adv-run">
           <b>수동 실행</b><span class="muted small">평소에는 매일 아침 자동으로 돕니다</span>
           <div class="adv-run-btns">
-            <button class="btn sm primary" id="btnFullScan" title="업체명으로 하나씩 뉴스를 찾는 전체 스캔">전체 스캔</button><span class="muted small">업체명 검색까지 · 4~5분</span>
+            <button class="btn sm primary" id="btnFullScan" title="업체명으로 하나씩 뉴스를 찾는 전체 스캔">전체 스캔</button><span class="muted small">업체명 검색까지</span>
             <button class="btn sm" id="btnConnCheck" title="각 API를 실제로 한 번씩 불러 키가 살아 있는지 확인합니다"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3-8 4 16 3-8h6"/></svg><span>연결 확인</span></button><span class="muted small">각 API 실제 응답 · 1~2분</span>
           </div>
         </div>
@@ -288,6 +285,6 @@
 <aside class="drawer" id="drawer"><div class="drawer-head"><div id="drawerTitle"></div><button type="button" class="x-close" id="drawerClose" title="닫기" aria-label="닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div id="drawerBody" class="drawer-body"></div></aside>
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div id="toast" class="toast"></div>
-<script type="module" src="assets/app.js?v=120"></script>
+<script type="module" src="assets/app.js?v=122"></script>
 </body>
 </html>

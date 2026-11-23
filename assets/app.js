@@ -49,7 +49,7 @@ const roleTag = (r) => `<span class="role ${ROLE_CLS[r] || "fs"}">${esc(r)}</spa
 const stageTag = (e) => e.stage && e.stage !== "계약" ? `<span class="stage">${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""}</span>` : "";
 const state = { projects: [], companies: [], findings: [], keywords: [], recipients: [], status: {}, runs: [], edcf: [], mdbKorea: null, users: [], me: { role: "member", team: null }, loadedAt: 0 };
 const me = () => auth.currentUser?.email || "";
-const live = (p) => p.status !== "done"; // 완료한 사업은 대시보드·내 담당·집중 감시에서 빠짐 (사업 관리에는 남음)
+const live = (p) => p.status !== "done"; // 완료한 사업은 대시보드·내 담당에서 빠짐 (사업 관리에는 남음)
 // ---------- 권한 (users/{메일}: role super·admin·member, team) ----------
 // 슈퍼관리자: 전부 / 팀 관리자: 자기 팀 사업·업체 연결·팀원 / 팀원: 보기 + 자기 팀 업체 이슈의 관련 있음·관련 없음
 const ROLE_L = { super: "슈퍼관리자", admin: "팀 관리자", member: "팀원" };
@@ -203,10 +203,10 @@ function trackWebReads(n) {
 function compute() {
   for (const c of state.companies) {
     c.engagements = c.engagements || [];
-    c.focus = c.engagements.some((e) => { const p = state.projects.find((x) => x.id === e.project_id); return p && live(p); }) || !!c.watch;
+    c.focus = c.engagements.some((e) => { const p = state.projects.find((x) => x.id === e.project_id); return p && live(p); });
     c.cat = normCat(c.category); // 업종이 아직 없으면 화면에는 이름으로 추정해 보여줌 (스캔 때 DART 업종으로 저장)
     c.catGuess = !c.cat; if (!c.cat) c.cat = guessCat(c.name) || guessCat(c.name_en) || "기타";
-    // 내 담당 = 내가 담당인 사업에 참여한 업체만 (집중 감시 ★는 매일 업체명 검색만 하고 내 담당에는 넣지 않음)
+    // 내 담당 = 내가 담당인 사업에 참여한 업체만
     c.mine = c.engagements.some((e) => { const p = state.projects.find((x) => x.id === e.project_id); return p && isMine(p); });
     const fs = state.findings.filter((f) => f.company_id === c.id && f.status !== "dismissed");
     c.risk = fs.reduce((m, f) => (f.level === "red" || f.level === "orange") && LV[f.level] > (LV[m] || 0) ? f.level : m, "none"); // 3단계: 참고(yellow)는 정상
@@ -406,7 +406,7 @@ function inPeriod(f, p) {
 }
 let period = null;
 try { period = localStorage.getItem("edcf_period"); } catch {}
-// 보기 범위: 진행중 사업 업체(내가 담당하는 사업에 연결된 업체 + 집중 감시) / EDCF 주요 업체(전체 명단)
+// 보기 범위: 진행중 사업 업체(내가 담당하는 사업에 연결된 업체) / EDCF 주요 업체(전체 명단)
 let scope = null;
 try { scope = localStorage.getItem("edcf_scope2"); } catch {}
 function scopeCompanies() {
@@ -1240,7 +1240,6 @@ function openCompany(cid, back = null) {
     <div class="d-actions">
       <button class="btn sm primary" id="dScan">다시 스캔</button>
       <a class="btn sm" target="_blank" rel="noopener" href="https://search.naver.com/search.naver?where=news&query=${encodeURIComponent('"' + c.name + '"')}">네이버 뉴스 ↗</a>
-      ${c.engagements.length ? "" : `<button class="btn sm ${c.watch ? "on" : ""}" id="dWatch" title="사업에 연결되지 않은 업체도 매일 업체명으로 검색">${c.watch ? "★ 집중 감시 중" : "☆ 집중 감시"}</button>`}
     </div>
 
     <section class="d-sec">
@@ -1271,10 +1270,6 @@ function openCompany(cid, back = null) {
   if (dismissed.length) renderFeed(dismissed, $("#dDismissed"), false);
   $$("#drawerBody [data-open]").forEach((x) => x.onclick = () => openCompany(x.dataset.open));
   $("#dScan").onclick = () => runWorkflow({ task: "scan", companies: c.name }, `'${c.name}' 재스캔`);
-  $("#dWatch")?.addEventListener("click", async () => {
-    c.watch = !c.watch; await updateDoc(doc(db, "companies", cid), { watch: c.watch });
-    toast(c.watch ? "집중 감시로 지정했습니다 (매일 업체명 검색)" : "집중 감시를 해제했습니다"); rerender();
-  });
   $("#linkForm")?.addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const fd = new FormData(ev.target);
@@ -1522,7 +1517,7 @@ $("#btnGuide").onclick = openGuide;
 // 처음 한 번 열어 볼 때까지 NEW 표시
 try { if (localStorage.getItem("edcf_guide_seen")) $("#guideNew").remove(); } catch {}
 $("#btnScan").title = "새로 나온 제재 기사와 공식 명단(EXIMIIS, 조달청, MDB)만 빠르게 확인합니다. 업체명으로 하나씩 찾는 전체 스캔은 매일 아침 자동으로 돕니다";
-$("#btnFullScan").onclick = () => { if (confirm("업체명으로 하나씩 뉴스를 찾는 전체 스캔을 지금 돌릴까요? 4~5분쯤 걸립니다. (매일 아침 자동으로 한 번 돕니다)")) runWorkflow({ task: "scan" }, "전체 스캔"); };
+$("#btnFullScan").onclick = () => { if (confirm("업체명으로 하나씩 뉴스를 찾는 전체 스캔을 지금 돌릴까요? (매일 아침 자동으로 한 번 돕니다)")) runWorkflow({ task: "scan" }, "전체 스캔"); };
 // 스캔 중지: 대기 중이면 바로 취소, 실행 중이면 '중지 요청' → 스캐너가 업체 몇 곳마다 확인해 멈춤
 $("#btnStop").onclick = async () => {
   const j = state.job;
@@ -1652,7 +1647,7 @@ function renderCompanies() {
   $("#pool").innerHTML = !list.length ? `<tr><td colspan="9" class="empty">${state.companies.length ? "조건에 맞는 업체가 없습니다." : "업체가 없습니다. [일괄 등록] 또는 [+ 업체 추가]를 이용하세요."}</td></tr>`
     : list.map((c) => `<tr data-cid="${c.id}" class="${coState.sel.has(c.id) ? "sel" : ""}">
       <td class="t-chk"><input type="checkbox" data-sel="${c.id}" ${coState.sel.has(c.id) ? "checked" : ""} aria-label="${esc(c.name)} 선택"></td>
-      <td class="t-name"><button class="co-name" data-open="${c.id}">${esc(c.name)}</button>${c.watch ? `<span class="watch" title="집중 감시">★</span>` : ""}${c.name_en ? `<div class="sub">${esc(c.name_en)}</div>` : ""}</td>
+      <td class="t-name"><button class="co-name" data-open="${c.id}">${esc(c.name)}</button>${c.name_en ? `<div class="sub">${esc(c.name_en)}</div>` : ""}</td>
       <td class="t-cat">${esc(c.cat || "-")}${c.catGuess || c.category_source === "이름 추정" ? `<span class="src guess" title="업체명으로 추정: 스캔 때 DART 업종이 있으면 바뀜">추정</span>` : ""}</td>
       <td class="t-proj">${c.engagements.length ? byRole(c.engagements).map(engChip).join("") : `<span class="muted">-</span>`}</td>
       <td class="t-risk">${sc ? (c.risk !== "none" ? badge(c.risk) : `<span class="ok-t">정상</span>`) : `<span class="muted">-</span>`}</td>
@@ -2688,6 +2683,7 @@ function renderSettings() {
   renderKeywords();
   renderAccess();
 
+  if ($("#rcCount")) $("#rcCount").textContent = state.recipients.length;
   $("#rcList").innerHTML = state.recipients.map((r) => `<div class="srow"><span>${esc(r.email)}</span><button class="xbtn" data-del-rc="${r.id}" title="삭제">✕</button></div>`).join("") || `<div class="muted small">아직 없습니다.</div>`;
   $$("[data-del-rc]").forEach((b) => b.onclick = async () => { await deleteDoc(doc(db, "recipients", b.dataset.delRc)); state.recipients = state.recipients.filter((r) => r.id !== b.dataset.delRc); renderSettings(); });
   if ($("#advCard").open) renderAdvanced();

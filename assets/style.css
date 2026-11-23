@@ -2169,3 +2169,45 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .btn.dart-btn svg, .btn.dart-re svg { width: 1.05em; height: 1.05em; flex: 0 0 auto; }
 .btn.dart-re { padding: 0; width: 2.9em; justify-content: center; color: var(--text-2); }
 .dart-tag { display: inline-flex; align-items: center; margin-left: .6em; padding: 2px 9px; border-radius: 8px; font-size: var(--fs-xs); font-weight: 700; color: var(--green); background: var(--green-bg); vertical-align: middle; }
+
+/* =====================================================================
+   설정 화면 정리 (2026-11-23): 설명 문단·팀 색 띠·상자 안 상자를 빼고 줄 맞춤
+   ===================================================================== */
+@media (min-width: 1101px) { body.role-super .set-grid { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); } }
+.set-left { display: flex; flex-direction: column; gap: 16px; }
+.set-grid .card-head { margin-bottom: 14px; }
+.set-n { font-size: var(--fs-xs); font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* 키워드: 점선 상자 없이 작은 제목 + 칩 */
+.kw-fixed { border: 0; border-radius: 0; background: transparent; padding: 0; margin: 0; }
+.kw-fixed + .kw-fixed { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.kw-fixed-head { margin-bottom: 9px; gap: 6px; }
+.kw-fixed-head b { font-size: var(--fs-sm); color: var(--text-2); font-weight: 700; }
+.kw-chips { gap: 6px; }
+.kchip, .kchip.kfix { border-radius: 8px; border-color: transparent; background: color-mix(in srgb, var(--text) 6%, transparent); font-weight: 550; padding: 3px 10px; }
+.kchip.kfix { color: var(--text-2); }
+.kchip:not(.kfix) { padding: 3px 3px 3px 10px; background: var(--accent-soft); }
+.kw-user .kw-form, .set-grid .add-row { display: flex; gap: 8px; margin: 0 0 12px; max-width: 30em; flex-wrap: nowrap; }
+.kw-user .kw-form { margin: 0; }
+.kw-user .kw-form input, .set-grid .add-row input { flex: 1 1 auto; min-width: 0; height: 2.5em; padding: 0 .9em; font-size: var(--fs-sm); }
+.kw-user .kw-form .btn, .set-grid .add-row .btn { height: 2.5em; min-width: 0; padding: 0 1.1em; font-size: var(--fs-sm); flex: 0 0 auto; }
+.set-grid .add-row select { height: 2.5em; padding-top: 0; padding-bottom: 0; font-size: var(--fs-sm); flex: 0 0 auto; }
+.set-grid .acc-form { max-width: none; }
+/* 계정: 팀 색을 빼고 한 가지 틀로 */
+.acc-tools { margin: 0 0 10px; }
+.acc-chip { border-radius: 8px; border-color: transparent; background: color-mix(in srgb, var(--text) 5%, transparent); padding: 4px 11px; }
+.acc-chip.on { border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: var(--accent-soft); }
+.acc-chip.on b { color: var(--accent-2); }
+.acc-chip[data-acc-f="all"] { margin-right: 6px; }
+.acc-find input, .acc-find select { height: 2.2em; padding-top: 0; padding-bottom: 0; }
+.acc-list { gap: 14px; }
+.acc-team { border: 0; border-radius: 0; padding: 0; }
+.acc-team-h { padding: 6px 0; border-bottom: 1px solid var(--line-2); }
+.acc-team-h b { font-size: var(--fs-sm); }
+.acc-dot { display: none; }
+.acc-n { color: var(--muted); }
+.acc-row .acc-mail em { color: var(--accent-2); }
+.acc-list .acc-row { padding: 6px 0; }
+.tag.super { background: var(--accent-soft); color: var(--accent); font-weight: 650; }
+:root:not([data-theme="light"]) .tag.super { color: #AEB3FF; }
+.acc-empty { padding: 8px 0; color: var(--muted); font-size: var(--fs-sm); }
+@media (max-width: 640px) { .set-grid .acc-form { flex-wrap: wrap; } .set-grid .acc-form input { flex-basis: 100%; } .set-grid .acc-form select { flex: 1 1 0; } .acc-tools { flex-direction: column; align-items: stretch; } }

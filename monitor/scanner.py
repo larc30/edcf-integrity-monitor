@@ -1,7 +1,7 @@
 """스캔: 업체 식별(사업자번호·영문명) → 뉴스 수집·판정 → MDB 제재리스트 대조 → 조달청 부정당제재 조회
 
 - 업체 6곳을 동시에 처리하고, DB 저장은 업체별로 한 번에 묶어서 한다(속도).
-- 평소(데일리)에는 최신 기사만, 7일에 한 번은 '업체명+리스크 키워드' 심층 검색(과거 사건 포함).
+- 전체 스캔은 모든 업체를 매일 업체명으로 검색(최신순). 첫 스캔·다시 스캔만 10년 범위.
 - 업체마다 '무엇을 확인했는지'(last_check)를 기록해, 이슈가 없을 때도 검사 범위를 보여준다.
 """
 import hashlib
@@ -19,6 +19,8 @@ from .textutil import _flat, context_words, dedup_key, mentions, needles, search
 log = logging.getLogger(__name__)
 
 EN_RISK_QUERY = '(corruption OR fraud OR sanction OR debarment OR bribery OR collusion OR "bid rigging")'
+# 업체명과 함께 찾는 제재 단어 (업체명만으로 찾으면 Google 이 관련도순 30건만 줘서 제재 기사가 빠지는 경우가 있음: 2026-11-23 예시 업체로 확인)
+KO_RISK_QUERY = "(부정당 OR 입찰제한 OR 입찰참가자격 OR 담합 OR 영업정지 OR 과징금 OR 압수수색 OR 기소 OR 회생)"
 ID_RISK_QUERY = '(korupsi OR tersangka OR suap OR sanksi OR "daftar hitam")'
 
 
@@ -159,25 +161,27 @@ def _days_since(ts: str | None) -> float:
         return 1e9
 
 
-def _queries(company: dict, keywords: list[dict], deep: bool) -> list[tuple[str, str, str, str]]:
-    """(engine, lang, query, sort) 목록.
-    데일리: 업체명 최신순 검색만 / 심층(deep): + '업체명 리스크키워드' 관련도순(과거 사건 포함)"""
+def _queries(company: dict, days: int | None = None, extra: list[str] | None = None) -> list[tuple[str, str, str, str]]:
+    """(engine, lang, query, sort) 목록. 모든 업체 같은 방식: 업체명 + '업체명 (제재 단어)' + '업체명 (설정의 추가 키워드)'.
+    extra: 설정 > 리스크 키워드의 추가 키워드 (기본 제재 단어에 이미 있는 것은 뺌).
+    days: 매일 스캔이면 그 기간 안 기사만(Google when:Nd). 첫 스캔·다시 스캔(None)은 기간 없이 과거 이력까지"""
     langs = [l.strip() for l in (company.get("search_langs") or "ko").split(",") if l.strip()]
     names = search_names(company)
+    when = f" when:{days}d" if days else ""
     qs = []
     if "ko" in langs:
-        boosters = [k["word"] for k in keywords if k.get("user") and k.get("lang") == "ko"][:6] if deep else []
         for n in names[:2]:
             qs.append(("naver", "ko", f'"{n}"', "date"))
-            qs.append(("google", "ko", f'"{n}"', "date"))
-            for b in boosters:
-                qs.append(("naver", "ko", f'"{n}" {b}', "sim"))
-            if boosters:
-                qs.append(("google", "ko", f'"{n}" ({" OR ".join(boosters)})', "date"))
+            qs.append(("google", "ko", f'"{n}"{when}', "date"))
+        if names:
+            qs.append(("google", "ko", f'"{names[0]}" {KO_RISK_QUERY}{when}', "date"))
+            more = [w for w in dict.fromkeys(extra or []) if w and w not in KO_RISK_QUERY][:12]
+            if more:
+                qs.append(("google", "ko", f'"{names[0]}" ({" OR ".join(f'"{w}"' if " " in w else w for w in more)}){when}', "date"))
     en_name = company.get("name_en") or (company["name"] if company["name"].isascii() else "")
     if en_name and ("en" in langs or company.get("country") not in (None, "", "KR")):
         qs.append(("google", "en", f'"{en_name}" {EN_RISK_QUERY}', "date"))
-        if deep or company.get("country") not in (None, "", "KR"):
+        if company.get("country") not in (None, "", "KR"):
             qs.append(("google", "en", f'"{en_name}"', "date"))
     if "id" in langs:
         qs.append(("google", "id", f'"{en_name or company["name"]}" {ID_RISK_QUERY}', "date"))
@@ -285,30 +289,18 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
     engagements = [
         {**e, "project_name": projects.get(e.get("project_id"), {}).get("name", "(삭제된 사업)")}
         for e in company.get("engagements") or []
-        if projects.get(e.get("project_id"), {}).get("status") != "done"  # 완료한 사업은 집중 감시에서 뺌 (기본 감시만)
+        if projects.get(e.get("project_id"), {}).get("status") != "done"
     ]
-    # 집중 감시: 우리 사업에 연결된 업체(또는 직접 지정) → 매일 업체명 검색 + '업체명 + 추가 키워드' 검색
-    # 기본 감시: 그 외 명단 업체 → 매일 키워드 기사 대조 + 조달청·MDB, 업체명 검색은 주 1회
-    focus = bool(engagements) or bool(company.get("watch"))
-    weekly_due = force or _days_since(company.get("last_deep_at")) >= config.DEEP_EVERY_DAYS
-    deep = focus  # v33: 심층 검색을 주 1회 → 매일 (이미 본 기사는 건너뛰어 AI 비용은 거의 그대로)
-    if focus:
-        queries = _queries(company, keywords, deep)
-    elif weekly_due:  # 기본 감시 업체도 주 1회 업체명 최신순 검색 (Google + 네이버)
-        qs = _queries(company, keywords, False)
-        queries = [q for q in qs if q[0] == "google"][:1] + [q for q in qs if q[0] == "naver"][:1]
-    else:
-        queries = []
-    if quick:
-        queries = []
-
+    # 업체명 검색: 전체 스캔·다시 스캔에서 모든 업체 매일 (2026-11-23: 집중·기본 감시 구분과 심층 검색을 없앰). 빠른 스캔은 건너뜀
     # 1) 뉴스 수집 (제재 키워드 검색에서 이 업체가 나온 기사 + 업체명 검색)
     # 기간: 첫 스캔·다시 스캔은 10년(과거 이력 포함), 그 뒤 매일은 마지막 확인 7일 전부터 (이미 본 기사는 키로 건너뜀)
     last_news = company.get("last_news_at")
     if force or not last_news:
-        cutoff = (date.today() - timedelta(days=config.NEWS_LOOKBACK_DAYS)).isoformat()
+        cutoff, days = (date.today() - timedelta(days=config.NEWS_LOOKBACK_DAYS)).isoformat(), None
     else:
-        cutoff = (datetime.strptime(last_news[:10], "%Y-%m-%d").date() - timedelta(days=7)).isoformat()
+        start = datetime.strptime(last_news[:10], "%Y-%m-%d").date() - timedelta(days=7)
+        cutoff, days = start.isoformat(), max(2, (date.today() - start).days + 1)
+    queries = [] if quick else _queries(company, days, [k["word"] for k in keywords if k.get("user") and k.get("lang") == "ko"])
     seen, articles, engines_ok = {}, [], set(sweep_engines or [])
     for a in sweep_hits or []:
         if a["dedup_key"] not in seen:
@@ -492,7 +484,7 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
     # 6) 검사 내역 기록
     patch = {"last_check": {
         "at": store.now_str(),
-        "mode": ("집중·심층" if deep else "집중·데일리") if focus else ("기본·주간검색" if queries else "기본"),
+        "mode": "업체명 검색" if queries else "키워드·명단",
         "seconds": round(time.time() - t0, 1),
         "news": {"engines": sorted(engines_ok), "queries": len(queries), "fetched": stats["fetched"],
                  "mentioned": len(mentioned), "new_analyzed": len(cands),
@@ -504,8 +496,8 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
                      "name_en": company.get("name_en") or None, "notes": ident["notes"]},
         "errors": errors[:5],
     }}
-    if (deep or (not focus and queries)) and engines_ok:
-        patch["last_deep_at"] = store.now_str()
+    if queries and engines_ok:
+        patch["last_deep_at"] = store.now_str()  # 마지막 업체명 검색 시각 (칸 이름은 예전 그대로)
     if engines_ok:
         patch["last_news_at"] = store.now_str()
     # 이미 본 기사 키 요약 갱신 (다음 스캔 때 전체 기록을 읽지 않도록)
@@ -515,7 +507,6 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
                                              "updated_at": store.now_str()})
     store.update("companies", company["id"], patch)
     stats["errors"] = errors
-    stats["deep"] = deep
     return stats
 
 
@@ -617,9 +608,8 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
     if progress:
         progress(0, total, f"제재 키워드 기사 {len(sweep_articles)}건 대조 완료")
 
-    totals = {"companies": total, "fetched": 0, "candidates": 0, "new_findings": 0, "official": 0, "cleaned": 0, "auto_same": 0, "deep": 0,
-              "sweep_articles": len(sweep_articles), "sweep_matched_companies": len(hits),
-              "focus": sum(1 for c in companies if c.get("engagements") or c.get("watch"))}
+    totals = {"companies": total, "fetched": 0, "candidates": 0, "new_findings": 0, "official": 0, "cleaned": 0, "auto_same": 0,
+              "sweep_articles": len(sweep_articles), "sweep_matched_companies": len(hits)}
     lock, done = threading.Lock(), 0
     # 빠른 스캔은 업체마다 하는 일이 가벼워(검색 없음) 동시에 더 많이 처리
     with ThreadPoolExecutor(max_workers=config.SCAN_WORKERS * 2 if quick else config.SCAN_WORKERS) as ex:
@@ -634,7 +624,6 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
                 with lock:
                     for k in ("fetched", "candidates", "new_findings", "official", "cleaned", "auto_same"):
                         totals[k] += s.get(k, 0)
-                    totals["deep"] += 1 if s["deep"] else 0
                     errors += s["errors"]
             except Exception as e:
                 log.warning("업체 스캔 실패 (%d번째): %s", done + 1, type(e).__name__)  # 이름·내용은 실행 기록에만
