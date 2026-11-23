@@ -161,8 +161,9 @@ def _days_since(ts: str | None) -> float:
         return 1e9
 
 
-def _queries(company: dict, days: int | None = None) -> list[tuple[str, str, str, str]]:
-    """(engine, lang, query, sort) 목록. 모든 업체 같은 방식: 업체명 + '업체명 (제재 단어)' 한 번.
+def _queries(company: dict, days: int | None = None, extra: list[str] | None = None) -> list[tuple[str, str, str, str]]:
+    """(engine, lang, query, sort) 목록. 모든 업체 같은 방식: 업체명 + '업체명 (제재 단어)' + '업체명 (설정의 추가 키워드)'.
+    extra: 설정 > 리스크 키워드의 추가 키워드 (기본 제재 단어에 이미 있는 것은 뺌).
     days: 매일 스캔이면 그 기간 안 기사만(Google when:Nd). 첫 스캔·다시 스캔(None)은 기간 없이 과거 이력까지"""
     langs = [l.strip() for l in (company.get("search_langs") or "ko").split(",") if l.strip()]
     names = search_names(company)
@@ -174,6 +175,9 @@ def _queries(company: dict, days: int | None = None) -> list[tuple[str, str, str
             qs.append(("google", "ko", f'"{n}"{when}', "date"))
         if names:
             qs.append(("google", "ko", f'"{names[0]}" {KO_RISK_QUERY}{when}', "date"))
+            more = [w for w in dict.fromkeys(extra or []) if w and w not in KO_RISK_QUERY][:12]
+            if more:
+                qs.append(("google", "ko", f'"{names[0]}" ({" OR ".join(f'"{w}"' if " " in w else w for w in more)}){when}', "date"))
     en_name = company.get("name_en") or (company["name"] if company["name"].isascii() else "")
     if en_name and ("en" in langs or company.get("country") not in (None, "", "KR")):
         qs.append(("google", "en", f'"{en_name}" {EN_RISK_QUERY}', "date"))
@@ -296,7 +300,7 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
     else:
         start = datetime.strptime(last_news[:10], "%Y-%m-%d").date() - timedelta(days=7)
         cutoff, days = start.isoformat(), max(2, (date.today() - start).days + 1)
-    queries = [] if quick else _queries(company, days)
+    queries = [] if quick else _queries(company, days, [k["word"] for k in keywords if k.get("user") and k.get("lang") == "ko"])
     seen, articles, engines_ok = {}, [], set(sweep_engines or [])
     for a in sweep_hits or []:
         if a["dedup_key"] not in seen:
