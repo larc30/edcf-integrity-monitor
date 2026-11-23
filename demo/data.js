@@ -23,7 +23,7 @@ export function seed() {
     p9: { name: "필리핀 민다나오 홍수 조기경보 시스템 구축사업", country: "PH", team: "water", owner: OTHER, created_at: "9" },
   };
   const lc = (o = {}) => ({
-    at: kst(now - 2 * 3600e3), mode: o.base ? "기본·데일리" : "집중·데일리", analyzer: "claude",
+    at: kst(now - 2 * 3600e3), mode: "업체명 검색", analyzer: "claude",
     news: o.base ? { engines: ["Google", "Naver"], queries: 0, fetched: 0, mentioned: 0, new_analyzed: 0 } : { engines: ["Google", "Naver"], queries: 4, fetched: 60, mentioned: 4, new_analyzed: 1 },
     mdb: { lists: 5, names: ["SAMPLE"], status: o.noEn ? "no_en" : "ok" },
     pps: o.noBiz ? { status: "no_bizno" } : { status: "ok", bizno: "0000000000", hits: 0 },
@@ -38,7 +38,7 @@ export function seed() {
     name_en: extra.noEn ? null : `${roman(root).toUpperCase()} ${EN[suffix] || "CO."} CO., LTD.`, category: cat, category_source: "명단",
   });
   const K = (root, suffix, cat, engs, extra) => C(root + suffix, root, suffix, cat, engs, extra);
-  // 집중 감시: 사업에 연결된 업체 22곳
+  // 사업에 연결된 업체 22곳
   const companies = {
     c1: K("서마루", "엔지니어링", "엔지니어링·설계·감리", [eng("p1", "F/S")]),
     c3: K("휘담", "기술", "엔지니어링·설계·감리", [eng("p1", "컨설턴트")]),

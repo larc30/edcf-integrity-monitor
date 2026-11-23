@@ -44,10 +44,10 @@ def check() -> dict:
     out: dict = {}
 
     # 1) 데이터
-    focus = [c for c in companies if c.get("engagements") or c.get("watch")]
+    linked = [c for c in companies if c.get("engagements")]
     edcf_ok = [e for e in edcf if str(e.get("status") or "").strip() or str(e.get("period") or "").strip()]
     out["데이터"] = {
-        "업체": len(companies), "집중감시": len(focus), "사업": len(projects),
+        "업체": len(companies), "사업연결업체": len(linked), "사업": len(projects),
         "사업연결": sum(len(c.get("engagements") or []) for c in companies),
         "EXIMIIS": len(edcf), "EXIMIIS_제재기록아님": len(edcf) - len(edcf_ok),
         "이슈_전체": _count("findings"), "이슈_관련": len(rel), "메일수신자": _count("recipients"),
@@ -66,8 +66,7 @@ def check() -> dict:
         "Google사용": sum(1 for x in lc if "Google" in ((x.get("news") or {}).get("engines") or [])),
         "네이버사용": sum(1 for x in lc if "네이버" in ((x.get("news") or {}).get("engines") or [])),
         "판정": dict(Counter(x.get("analyzer") or "-" for x in lc)),
-        "업체명검색_8일내": sum(1 for c in companies if (_age_days(c.get("last_deep_at"), now) or 99) <= 8),
-        "집중_업체명검색_26시간내": sum(1 for c in focus if (_age_days(c.get("last_news_at"), now) or 99) <= 26 / 24),
+        "업체명검색_26시간내": sum(1 for c in companies if (_age_days(c.get("last_deep_at"), now) or 99) <= 26 / 24),
     }
 
     # 3) 식별·공식 명단 조회 상태

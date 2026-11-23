@@ -175,6 +175,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 - 업체 정보 창 DART(2026-11-23): 아직 DART와 연결 안 된 업체는 강조색 면 [DART 검색] 버튼, 이미 가져온 업체(corp_code 있음)는 제목 옆 'DART 확인' 표시 + 작은 새로고침 버튼(다시 가져오기: 대표자·상호가 바뀐 경우).
 - 커밋 메시지에는 Co-Authored-By 모델 이름 줄을 넣지 않음(넣으면 커밋이 권한 확인에서 막힘, 2026-11-23). Claude-Session 줄만.
 
+- 스캔 단순화(2026-11-23 사용자 결정): 집중 감시·기본 감시 구분과 심층 검색('업체명 + 추가 키워드')을 없앰. 업체명 검색은 전체 스캔에서 모든 업체 매일 같은 방식(scanner._queries: 이름 2개까지 네이버·구글 최신순, 해외 업체는 영문명도). ☆ 집중 감시 버튼·★ 표시 삭제(companies.watch 값은 남아 있어도 안 씀), last_deep_at = 마지막 업체명 검색 시각(칸 이름만 예전 그대로), last_check.mode = '업체명 검색' / '키워드·명단'. 위쪽 '검사' 절의 집중·기본·심층 설명은 예전 내용. 스캔 종류 = 전체 스캔(매일 아침 자동 + 설정 > 고급) · 지금 스캔(빠른: 업체명 검색 없음) · 업체 [다시 스캔](그 업체만 10년 범위). 아침 전체 스캔 시간(바꾸기 전 약 6분 30초)이 얼마나 늘었는지 실행 기록으로 확인할 것.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 
