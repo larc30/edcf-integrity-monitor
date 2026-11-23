@@ -152,7 +152,7 @@ async function loadLiveQuakes(force) {
       return { id: "usgs-" + f.id, type: "quake", mag: p.mag, title: `규모 ${(+p.mag).toFixed(1)} 지진 · ${p.place || ""}`, url: p.url, lat, lng, country: near.t.country, ms: p.time, at_ms: p.time, source: "USGS (실시간)", dist_km: Math.round(near.d), depth: f.geometry?.coordinates?.[2] };
     }).filter(Boolean);
     live.at = Date.now(); live.err = null;
-  } catch (e) { live.err = String(e.message || e); live.quakes = live.quakes || []; }
+  } catch (e) { live.err = String(e.message || e); live.quakes = live.quakes || []; live.at = Date.now(); } // 막혀 있으면(회사망 등) 10분 뒤에 다시: 실패할 때마다 바로 다시 받으면 화면을 끝없이 다시 그림
   live.loading = false;
 }
 function targets() {
@@ -362,8 +362,8 @@ export async function renderGeo() {
       <div class="ev-body"><div class="ev-top"><span class="ev-type" style="color:${GEO_TYPES[e.type][1]}">${GEO_TYPES[e.type][0]}</span><span class="ev-ctry">${esc(cname(e.country))} · ${esc(cen(e.country))}</span>${e.mag ? `<span class="ev-mag ${e.mag >= 6 ? "big" : ""}">M${(+e.mag).toFixed(1)}</span>` : ""}<span class="ev-time" title="${ymd(e.ms)}">${rel(e.ms)}</span></div>
       <div class="ev-title">${esc(e.title)}</div>
       ${e.note && !sameText(e.note, e.title) ? `<div class="ev-note">${esc(e.note)}</div>` : ""}
-      <div class="ev-src">${String(e.id || "").startsWith("news-") ? (e.ai ? `<span class="ev-ai" title="AI가 기사 내용을 보고 사업에 영향을 줄 수 있는 사건으로 판정">AI 판정</span> · ` : `<span class="ev-ai wait" title="단어로만 분류된 상태입니다. 다음 스캔 때 AI가 판정합니다">판정 전</span> · `) : ""}${esc(e.source || "-")} · ${ymd(e.ms)}${e.url ? ` · <a href="${esc(e.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}</div>
-      ${e.more?.length ? `<details class="ev-dup"><summary>같은 내용 ${e.more.length}건 더 <span>${esc([...new Set(e.more.map((m) => String(m.source || "").split(" · ").pop()))].slice(0, 3).join(" · "))}</span></summary>${e.more.map((m) => `<div class="ev-dup-row">${m.url ? `<a href="${esc(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a>` : esc(m.title)} <span>${esc(String(m.source || "").split(" · ").pop())} · ${ymd(m.ms)}</span></div>`).join("")}</details>` : ""}</div></div>`).join("")
+      <div class="ev-src">${String(e.id || "").startsWith("news-") ? (e.ai ? `<span class="ev-ai" title="AI가 기사 내용을 보고 사업에 영향을 줄 수 있는 사건으로 판정">AI 판정</span> · ` : `<span class="ev-ai wait" title="단어로만 분류된 상태입니다. 다음 스캔 때 AI가 판정합니다">판정 전</span> · `) : ""}${esc(e.source || "-")} · ${ymd(e.ms)}${e.url ? ` · <a href="${esc(e.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}${e.more?.length ? ` · <button type="button" class="ev-more" data-evmore>같은 내용 ${e.more.length}건 더</button>` : ""}</div>
+      ${e.more?.length ? `<div class="ev-dup hidden">${e.more.map((m) => `<div class="ev-dup-row">${m.url ? `<a href="${esc(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a>` : esc(m.title)} <span>${esc(String(m.source || "").split(" · ").pop())} · ${ymd(m.ms)}</span></div>`).join("")}</div>` : ""}</div></div>`).join("")
     || `<div class="ok-box">${ui.type || ui.lv ? "이 조건에 맞는 이벤트가 없습니다" : `${pl} 수원국 이벤트가 없습니다`}</div>`;
   if (shown.length > 40) $("#evFeed").insertAdjacentHTML("beforeend", `<div class="muted small">최근 40건만 보여줍니다 (전체 ${shown.length}건)</div>`);
 
@@ -377,7 +377,8 @@ export async function renderGeo() {
     el.onmouseenter = () => hiPin(pid, true); el.onmouseleave = () => hiPin(pid, false);
     el.onclick = () => setFocus(ui.focus === pid ? null : pid); el.onkeydown = (e) => { if (e.key === "Enter") setFocus(ui.focus === pid ? null : pid); };
   });
-  $$("#evFeed [data-eid]").forEach((el) => el.onclick = (e) => { if (!e.target.closest("a")) flyEvent(el.dataset.eid); });
+  $$("#evFeed [data-eid]").forEach((el) => el.onclick = (e) => { if (!e.target.closest("a, [data-evmore], .ev-dup")) flyEvent(el.dataset.eid); });
+  $$("#evFeed [data-evmore]").forEach((bt) => bt.onclick = () => { const d = bt.closest(".ev-body").querySelector(".ev-dup"); d.classList.toggle("hidden"); bt.classList.toggle("open", !d.classList.contains("hidden")); });
 
   if (!live.at && !live.loading) loadLiveQuakes().then(() => { if ($("#view-geo").classList.contains("active")) renderGeo(); });
 }

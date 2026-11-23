@@ -2441,3 +2441,17 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .dp-cand.dl2 { grid-template-columns: 12em minmax(0, 1fr) 3em; }
 .dp-cand.dl2 .c-ceo, .dp-cand.dl4 .c-ceo { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dp-cand.dl4 { grid-template-columns: minmax(7em, 11em) 7em 8.5em minmax(0, 1fr); }
+
+/* 수원국 이벤트: 카드는 높이 제한 없이 내용만큼 (업체 화면용 높이 제한이 같이 걸려 목록이 카드 밖으로 넘쳤음) */
+.geo-dash .d-issues { max-height: none; }
+.ev-more { border: 0; background: none; padding: 0; font: inherit; font-weight: 650; color: var(--accent-2); cursor: pointer; }
+.ev-more::after { content: " ▾"; font-size: .85em; } .ev-more.open::after { content: " ▴"; }
+.ev-dup { margin-top: .5em; padding-top: .5em; border-top: 1px dashed var(--line-2); }
+/* 업체 정보 창: 참여 사업은 제목 + 두 칸 목록 */
+.co-engs { display: block; margin-top: 2px; }
+.co-engs-h { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); font-weight: 650; color: var(--text-2); margin-bottom: 6px; }
+.co-engs-l { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; max-height: 9.5em; overflow: auto; }
+.co-eng { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: var(--fs-sm); padding: 3px 0; }
+.co-eng > span:not(.role):not(.stage) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-eng .role { flex: 0 0 auto; }
+@media (max-width: 640px) { .co-engs-l { grid-template-columns: 1fr; } }
