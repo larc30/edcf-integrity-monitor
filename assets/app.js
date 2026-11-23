@@ -45,6 +45,8 @@ const COUNTRY = { TZ: "탄자니아", PK: "파키스탄", KE: "케냐", MN: "몽
 const COUNTRY_BY_NAME = { ...Object.fromEntries(Object.entries(COUNTRY).map(([k, v]) => [v, k])), 카라치: "PK", 이슬라마바드: "PK", 나이로비: "KE", 다르에스살람: "TZ", 울란바토르: "MN", 비엔티안: "LA", 자카르타: "ID", 하노이: "VN", 프놈펜: "KH", 다카: "BD", 마닐라: "PH", 타슈켄트: "UZ" };
 const byRole = (es) => [...es].sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role));
 const badge = (lv) => `<span class="badge ${lv || "none"}">${LEVEL[lv || "none"]}</span>`;
+// 역할 이름 통일: 일괄 등록 등에서 '본공사'·'시공'·'감리'처럼 다르게 적힌 것을 세 가지로 (그 밖의 말은 적은 그대로)
+const normRole = (r) => { const t = String(r || "").replace(/\s/g, ""); return /^(f\/?s|타당성)/i.test(t) ? "F/S" : /컨설|감리|자문|설계|pmc?$/i.test(t) ? "컨설턴트" : /본구매|본공사|본사업|시공|공사|구매|공급|건설/.test(t) ? "본구매" : String(r || "").trim(); };
 const roleTag = (r) => `<span class="role ${ROLE_CLS[r] || "fs"}">${esc(r)}</span>`;
 const stageTag = (e) => e.stage && e.stage !== "계약" ? `<span class="stage">${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""}</span>` : "";
 const state = { projects: [], companies: [], findings: [], keywords: [], recipients: [], status: {}, runs: [], edcf: [], mdbKorea: null, users: [], me: { role: "member", team: null }, loadedAt: 0 };
@@ -137,7 +139,7 @@ onAuthStateChanged(auth, async (user) => {
   document.body.classList.toggle("role-super", isSuper());
   document.body.classList.toggle("role-admin", isTeamAdmin());
   setAdmin(state.admin && adminSaved());
-  $("#lnkActions").href = ACTIONS_URL; $("#lnkSecrets").href = SECRETS_URL;
+
   try {
     await loadAll();
   } catch (e) {
@@ -205,6 +207,7 @@ function trackWebReads(n) {
 function compute() {
   for (const c of state.companies) {
     c.engagements = c.engagements || [];
+    c.engagements.forEach((e) => { const r = normRole(e.role); if (r && r !== e.role) e.role = r; }); // 화면에서는 통일해 보여 주고, 그 업체를 다음에 저장할 때 같이 고쳐짐
     c.focus = c.engagements.some((e) => { const p = state.projects.find((x) => x.id === e.project_id); return p && live(p); });
     c.cat = normCat(c.category); // 업종이 아직 없으면 화면에는 이름으로 추정해 보여줌 (스캔 때 DART 업종으로 저장)
     c.catGuess = !c.cat; if (!c.cat) c.cat = guessCat(c.name) || guessCat(c.name_en) || "기타";
@@ -1716,6 +1719,7 @@ async function deleteCompanies(ids) {
   toast(`${names.length}개을 삭제했습니다`); rerender();
 }
 $("#poolSearch").addEventListener("input", () => renderCompanies());
+$("#pjSearch").addEventListener("input", (e) => { pjState.q = e.target.value; renderProjects(); });
 CO_FILTERS.slice(1).forEach((s) => $(s).addEventListener("change", () => renderCompanies()));
 $("#fMoreBtn").onclick = () => { const b = $("#fMoreBtn"); b.setAttribute("aria-expanded", b.getAttribute("aria-expanded") === "true" ? "false" : "true"); if (b.getAttribute("aria-expanded") === "false") CO_MORE.forEach((id) => ($(id).value = "")); renderCompanies(); };
 $("#fReset").onclick = () => { CO_FILTERS.forEach((id) => ($(id).value = "")); renderCompanies(); };
@@ -1727,7 +1731,27 @@ $$("#coTable th[data-sort]").forEach((th) => th.addEventListener("click", () => 
 }));
 
 // ---------- 사업 탭: 왼쪽 업체 이름을 끌어서 사업의 역할 칸에 놓기 ----------
-const pjState = { scope: "all" };
+const pjState = { scope: "all", view: null, q: "", open: null };
+try { pjState.view = localStorage.getItem("edcf_pj_view"); } catch {}
+const PJ_ICON = { list: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>`, card: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>` };
+// 목록 한 줄: 사업명 · 수원국 · 팀 · 역할별 업체 수 · 등급. 누르면 그 줄 아래에 역할 칸(업체 연결)이 펼쳐짐
+function pjListRow(p, sc) {
+  const cs = new Set(), n = {};
+  for (const c of state.companies) c.engagements.forEach((e) => { if (e.project_id === p.id) { cs.add(c); n[e.role] = (n[e.role] || 0) + 1; } });
+  const t = { red: 0, orange: 0 }; cs.forEach((c) => { if (t[c.risk] != null) t[c.risk]++; });
+  const open = pjState.open === p.id;
+  return `<div class="pl-item ${open ? "open" : ""} ${live(p) ? "" : "done"}">
+    <div class="pl-row" data-pl="${p.id}" role="button" tabindex="0">
+      <span class="pl-name" title="${esc(p.name)}">${esc(p.name)}${live(p) ? "" : `<span class="tag">완료</span>`}</span>
+      <span class="pl-ctry">${esc(COUNTRY[p.country] || "")}</span>
+      <span class="pl-team">${esc(teamName(p.team))}</span>
+      <span class="pl-roles">${ROLES.map((r) => `<span class="${n[r] ? "" : "zero"}">${roleTag(r)}<b>${n[r] || 0}</b></span>`).join("")}</span>
+      <span class="pl-risk pj-sum">${!cs.size ? "" : sc ? (["red", "orange"].filter((lv) => t[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${t[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) : ""}</span>
+      <span class="pl-caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+    </div>
+    ${open ? projectCard(p, sc) : ""}
+  </div>`;
+}
 function renderProjects() {
   const sc = scanned();
   $("#pjTotal").textContent = state.projects.length;
@@ -1745,9 +1769,17 @@ function renderProjects() {
   if (!scopeTabs.some(([k]) => k === pjState.scope)) pjState.scope = "all";
   $("#pjScope").innerHTML = scopeTabs.map(([k, l, n]) => `<button data-s="${k}" class="${pjState.scope === k ? "active" : ""}">${l} <span class="n">${n}</span></button>`).join("");
   $$("#pjScope button").forEach((b) => b.onclick = () => { pjState.scope = b.dataset.s; renderProjects(); });
-  const ps = state.projects.filter((p) => pjState.scope === "all" || (pjState.scope.startsWith("t:") ? p.team === pjState.scope.slice(2) : isMine(p))).sort((a, b) => live(b) - live(a)); // 완료한 사업은 뒤로
-  $("#projBoard").innerHTML = ps.map((p) => projectCard(p, sc)).join("")
-    || `<div class="empty">${state.projects.length ? "우리 팀 사업이 없습니다." : "사업이 없습니다. 오른쪽 위에서 새 사업을 추가하세요."}</div>`;
+  const pq = pjState.q.trim().toLowerCase();
+  const ps = state.projects.filter((p) => pjState.scope === "all" || (pjState.scope.startsWith("t:") ? p.team === pjState.scope.slice(2) : isMine(p)))
+    .filter((p) => !pq || p.name.toLowerCase().includes(pq) || (COUNTRY[p.country] || "").toLowerCase().includes(pq))
+    .sort((a, b) => live(b) - live(a) || (COUNTRY[a.country] || "").localeCompare(COUNTRY[b.country] || "", "ko") || a.name.localeCompare(b.name, "ko")); // 완료한 사업은 뒤로, 수원국·이름순
+  const view = pjState.view || (state.projects.length > 24 ? "list" : "card"); // 사업이 많으면 목록이 기본
+  $("#pjView").innerHTML = [["list", "목록"], ["card", "카드"]].map(([k, l]) => `<button data-pv="${k}" class="${view === k ? "active" : ""}">${PJ_ICON[k]}${l}</button>`).join("");
+  $$("#pjView button").forEach((b) => b.onclick = () => { pjState.view = b.dataset.pv; try { localStorage.setItem("edcf_pj_view", pjState.view); } catch {} renderProjects(); });
+  const board = $("#projBoard"); board.className = view === "list" ? "pj-list" : "pj-grid";
+  board.innerHTML = (view === "list" ? ps.map((p) => pjListRow(p, sc)) : ps.map((p) => projectCard(p, sc))).join("")
+    || `<div class="empty">${pq ? "찾는 사업이 없습니다" : state.projects.length ? "우리 팀 사업이 없습니다." : "사업이 없습니다. 오른쪽 위에서 새 사업을 추가하세요."}</div>`;
+  $$("#projBoard [data-pl]").forEach((el) => { const go = () => { pjState.open = pjState.open === el.dataset.pl ? null : el.dataset.pl; renderProjects(); }; el.onclick = go; el.onkeydown = (e) => { if (e.key === "Enter") go(); }; });
   bindDnd();
 }
 // 단계 선택 상자 (진행 순서: 입찰중 → 우선협상 → 계약)
@@ -2381,7 +2413,7 @@ function rowsToBulk(rows) {
       const { name, rank, official } = cleanCompanyName(raw), bad = nameProblem(name);
       if (bad) return errors.push(`${ln}번째 줄 '${raw}': ${bad} → 건너뜁니다`);
       base.push({ name, official, aliases: many ? [] : (o.aliases || "").split(/[,，]/).map((x) => x.trim()).filter(Boolean), category: o.category || null, biz_no: bizOk ? biz : null, name_en: many ? null : o.name_en || null, ceo: many ? null : o.ceo || null });
-      if (project) links.push({ project, role: ROLES.includes(o.role) ? o.role : (o.role || "컨설턴트"), name, rank, stage: o.stage, lead: !many && /^(o|y|yes|예|대표|대표사|✓|v|1)$/i.test(o.lead || "") });
+      if (project) links.push({ project, role: normRole(o.role) || "컨설턴트", name, rank, stage: o.stage, lead: !many && /^(o|y|yes|예|대표|대표사|✓|v|1)$/i.test(o.lead || "") });
     });
   });
   return { links, base, errors };
@@ -2419,7 +2451,7 @@ function parseAny(text) {
       for (const one of splitNames(raw)) {
         const { name, rank, official } = cleanCompanyName(one), bad = nameProblem(name);
         if (bad) { errors.push(`${i + 1}번째 줄 '${one}': ${bad} → 건너뜁니다`); continue; }
-        links.push({ project, role: ROLES.includes(role) ? role : (role || "컨설턴트"), name, rank, official });
+        links.push({ project, role: normRole(role) || "컨설턴트", name, rank, official });
       }
       return;
     }
@@ -2894,13 +2926,12 @@ function renderConnections() {
   // [연결 확인]으로 실제로 불러 본 결과가 있으면 그것을 우선
   const cc = s.conn_check, CK = { "Google 뉴스": "google_news", "네이버 뉴스": "naver", "Claude AI": "claude", DART: "dart", 조달청: "pps", "MDB 제재 명단": "mdb", "외교부 여행경보": "mofa", "USGS 지진": "usgs", "GDACS 재난경보": "gdacs", "WHO 감염병": "who", "메일 발송": "smtp" };
   if (cc?.results) G.forEach(([, rows]) => rows.forEach((r) => { const x = cc.results[CK[r[0]]]; if (x) { r[2] = `${x.ok ? "정상 응답" : "실패"} · ${x.msg}`; r[3] = x.ok ? "ok" : "off"; r[4] = at(cc.at); } }));
-  $("#connNote").innerHTML = cc?.at
-    ? `<b>${esc(at(cc.at))}</b> 연결 확인 결과 반영`
-    : `마지막 스캔 때 키 등록 여부 기준`;
+  if (!state.connReq) $("#connNote").textContent = cc?.at ? `${at(cc.at)} 확인` : "";
   const BADGE = { ok: `<span class="badge none">정상</span>`, warn: `<span class="badge yellow">확인 필요</span>`, off: `<span class="badge orange">미연결</span>`, unknown: `<span class="badge gray">확인 전</span>` };
   $("#connList").innerHTML = G.map(([g, rows]) => {
     const bad = rows.filter((r) => r[3] === "off" || r[3] === "warn").length;
-    return `<div class="conn-grp"><div class="conn-gh"><b>${g}</b><span>${rows.length}개${bad ? ` · <em>확인 필요 ${bad}</em>` : " · 모두 정상"}</span></div>${rows.map(([k, role, d, stt, t]) => `<div class="conn"><div class="ct"><div class="k">${k}<span class="r">${esc(role)}</span></div><div class="d" title="${esc(d)}">${esc(d)}</div></div><div class="cs">${BADGE[stt]}<span class="t">${esc(t || "-")}</span></div></div>`).join("")}</div>`;
+    // 한 줄에 이름 · 상태만. 문제가 있을 때만 이유를 아래에 보여 줌 (하는 일·세부는 마우스를 올리면)
+    return `<div class="conn-grp"><div class="conn-gh"><b>${g}</b>${bad ? `<span><em>확인 필요 ${bad}</em></span>` : ""}</div><div class="conn-rows">${rows.map(([k, role, d, stt, t]) => `<div class="conn1 ${stt}" title="${esc(`${role} · ${d}${t ? ` · ${t}` : ""}`)}"><span class="k">${k}</span>${BADGE[stt]}${stt === "ok" ? "" : `<span class="d">${esc(d)}</span>`}</div>`).join("")}</div></div>`;
   }).join("");
 }
 // ---------- 사용량 · 요금 (meta/usage: 검사 프로그램과 화면이 쌓는 사용량 · 금액은 공개 단가로 계산한 추정) ----------
@@ -2946,10 +2977,10 @@ async function renderUsage(reload) {
   ];
   const BADGE = { ok: `<span class="badge none">정상</span>`, warn: `<span class="badge yellow">확인 필요</span>` };
   const total = aiUsd + fsUsd;
-  $("#usageList").innerHTML = `<div class="u-total"><span>이번 달 예상 합계</span><b>${total ? won(total) : "0원"}</b></div>`
-    + rows.map(([k, role, dd, amt, stt, b]) => `<div class="conn"><div class="ct"><div class="k">${k}<span class="r">${esc(role)}</span></div><div class="d">${esc(dd)}${b}</div></div><div class="cs"><b class="amt">${amt}</b>${BADGE[stt]}</div></div>`).join("");
-  const P = "edcf-monitor";
-  $("#usageNote").innerHTML = `${u.updated_at ? `마지막 기록 ${esc(String(u.updated_at).slice(5, 16))} · ` : ""}실제 청구액: <a href="https://console.firebase.google.com/project/${P}/usage" target="_blank" rel="noopener">Firebase</a> · <a href="https://console.cloud.google.com/billing" target="_blank" rel="noopener">Google Cloud</a> · <a href="https://console.anthropic.com/settings/usage" target="_blank" rel="noopener">Anthropic</a> · <a href="https://github.com/settings/billing" target="_blank" rel="noopener">GitHub</a>`;
+  // 돈이 나가는 것(Claude)과 무료 한도를 봐야 하는 것(Firebase 읽기)만. 0원인 항목은 주의가 필요할 때만
+  const shown = rows.filter(([k, , , amt, stt]) => k === "Claude AI" || k === "Firebase DB" || amt !== "0원" || stt !== "ok");
+  $("#usageList").innerHTML = `<div class="u-total"><span>합계</span><b>${total ? won(total) : "0원"}</b></div>`
+    + shown.map(([k, role, dd, amt, stt, b]) => `<div class="conn" title="${esc(role)}"><div class="ct"><div class="k">${k}</div><div class="d">${esc(dd)}${b}</div></div><div class="cs"><b class="amt">${amt}</b>${stt === "ok" ? "" : BADGE[stt]}</div></div>`).join("");
 }
 $("#btnUsage").onclick = () => renderUsage(true);
 // 실제 금액 맞추기: Anthropic 콘솔의 '이번 달 지출'을 적으면, 기록으로 계산한 금액과의 차이를 저장해 이후 표시에 더함

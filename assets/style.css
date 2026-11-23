@@ -2215,3 +2215,67 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .corow .leadbtn { font-size: var(--fs-xs); font-weight: 700; padding: .1em .55em; border-radius: 6px; border: 1px dashed var(--line-2); background: transparent; color: var(--muted); cursor: pointer; }
 .corow .leadbtn:hover { border-style: solid; border-color: color-mix(in srgb, var(--accent-2) 60%, transparent); color: var(--accent-2); }
 .corow .leadbtn { width: auto; height: auto; }
+
+/* =====================================================================
+   사업 관리: 목록 보기 (2026-11-23, 사업이 100개를 넘어 카드로는 찾기 어려움)
+   ===================================================================== */
+.pj-tools { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.pj-tools input { width: 15em; height: 2.4em; padding: 0 .9em; font-size: var(--fs-sm); }
+.pj-view button { gap: 5px; } .pj-view svg { width: 1.05em; height: 1.05em; }
+.pj-list { display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.pl-item + .pl-item { border-top: 1px solid var(--line); }
+.pl-item.done .pl-row { opacity: .55; }
+.pl-row { display: grid; grid-template-columns: minmax(0, 1fr) 7em 7.5em 17.5em 9em 1.4em; align-items: center; gap: 12px; padding: 9px 16px; cursor: pointer; font-size: var(--fs-sm); }
+.pl-row:hover, .pl-item.open > .pl-row { background: color-mix(in srgb, var(--text) 4%, transparent); }
+.pl-name { font-size: var(--fs-base); font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-name .tag { margin-left: 6px; }
+.pl-ctry, .pl-team { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-roles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.pl-roles > span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.pl-roles b { font-variant-numeric: tabular-nums; }
+.pl-roles .zero { opacity: .35; }
+.pl-risk { justify-content: flex-end; white-space: nowrap; }
+.pl-caret { display: inline-flex; color: var(--muted); transition: transform .15s; } .pl-caret svg { width: 16px; height: 16px; }
+.pl-item.open .pl-caret { transform: rotate(180deg); }
+.pj-list .pbox { border: 0; border-top: 1px dashed var(--line); border-radius: 0; background: transparent; box-shadow: none; }
+.pj-list .pbox-head, .pj-list .pj-dist { display: none; }
+.pj-list .pbox-body { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 12px 16px; align-items: start; }
+@media (max-width: 1200px) { .pl-row { grid-template-columns: minmax(0, 1fr) 6em 15em 7em 1.4em; } .pl-team { display: none; } }
+@media (max-width: 760px) { .pl-row { grid-template-columns: minmax(0, 1fr) auto 1.4em; } .pl-ctry, .pl-roles { display: none; } .pj-list .pbox-body { grid-template-columns: 1fr; } .pj-tools { width: 100%; } .pj-tools input { flex: 1; width: auto; } }
+
+/* =====================================================================
+   설정 > 고급 정리 (2026-11-23): 설명 줄을 빼고 API 연결은 한 줄씩, 요금은 필요한 것만
+   ===================================================================== */
+.adv-run { display: flex; align-items: center; gap: 10px; padding: 0; border: 0; background: transparent; margin: 4px 20px 18px; }
+.adv-run-btns { display: flex; align-items: center; gap: 8px; margin: 0; }
+.adv-run .conn-note { margin: 0 0 0 4px; }
+.conn-grp + .conn-grp { margin-top: 14px; }
+.conn-gh { margin-bottom: 6px; }
+.conn-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.conn1 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 7px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: var(--fs-sm); }
+.conn1 .k { font-weight: 650; margin-right: auto; }
+.conn1 .d { flex: 1 1 100%; color: var(--muted); font-size: var(--fs-xs); word-break: keep-all; }
+.conn1 .badge { font-size: var(--fs-xs); }
+.usage-box .conn .d { display: flex; flex-direction: column; gap: 5px; }
+@media (max-width: 640px) { .conn-rows { grid-template-columns: 1fr; } }
+
+/* =====================================================================
+   사업 등록·수정 창 줄 맞춤 + 지도 확대·축소 버튼 (2026-11-23)
+   ===================================================================== */
+.modal.wide:has(.pjf) { max-width: 1040px; }
+.form.pjf { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); gap: 16px 22px; }
+.pjf label { font-size: var(--fs-sm); font-weight: 650; color: var(--text-2); gap: 6px; }
+.pjf input:not([type=checkbox]), .pjf select { height: 2.75em; padding: 0 .85em; font-size: var(--fs-base); font-weight: 500; line-height: 1.2; border-radius: 10px; box-sizing: border-box; width: 100%; }
+.pjf .row { gap: 10px; }
+.pjf-l { gap: 12px; }
+.pjf-site { margin-top: 2px; padding-top: 14px; font-size: var(--fs-sm); }
+.pjf .site-pick { min-height: 380px; border-radius: 12px; }
+.pjf .site-f { min-height: 2em; }
+.pjf .actions { margin-top: 2px; }
+/* 지도 확대·축소: 둥근 한 덩어리, 가는 기호 */
+.leaflet-touch .leaflet-bar, .leaflet-bar { border: 1px solid var(--line-2); border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0, 0, 0, .25); background-clip: padding-box; }
+.leaflet-touch .leaflet-bar a, .leaflet-bar a { width: 30px; height: 30px; line-height: 28px; font-size: 17px; font-weight: 400; font-family: inherit; color: var(--text-2); background: var(--panel-solid); border-bottom: 1px solid var(--line); text-indent: 0; }
+.leaflet-bar a:last-child { border-bottom: 0; }
+.leaflet-bar a:hover { background: color-mix(in srgb, var(--text) 9%, var(--panel-solid)); color: var(--text); }
+.leaflet-bar a.leaflet-disabled { color: var(--muted); opacity: .5; background: var(--panel-solid); }
+.leaflet-top.leaflet-left .leaflet-control { margin: 12px 0 0 12px; }

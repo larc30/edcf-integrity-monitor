@@ -117,3 +117,7 @@ monitor/                   매일 실행되는 Python (GitHub Actions)
   sources/                 news(네이버·구글), sanctions(MDB·조달청), dart
 .github/workflows/monitor.yml
 ```
+
+## 자료 출처
+- 세계 지도: Natural Earth (공개 자료)
+- 도시 목록(assets/cities.json): GeoNames, CC BY 4.0

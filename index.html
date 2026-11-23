@@ -20,7 +20,7 @@
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=108">
+<link rel="stylesheet" href="assets/style.css?v=110">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -217,7 +217,7 @@
           <div class="side-list" id="sideList"></div>
         </aside>
         <div class="pj-main">
-          <div class="pj-toolbar"><div class="seg" id="pjScope"></div></div>
+          <div class="pj-toolbar"><div class="seg" id="pjScope"></div><span class="pj-tools"><input id="pjSearch" type="search" placeholder="사업명·수원국 검색" autocomplete="off"><span class="seg pj-view" id="pjView"></span></span></div>
           <div id="projBoard" class="pj-grid"></div>
         </div>
       </div>
@@ -251,29 +251,24 @@
         </div>
       </div>
       <details class="card adv-card super-only" id="advCard">
-        <summary><h2>고급</h2><span class="muted small">API 연결 · 실행 기록 · 사용량 · 요금</span></summary>
+        <summary><h2>고급</h2></summary>
         <div class="adv-run">
-          <b>수동 실행</b><span class="muted small">평소에는 매일 아침 자동으로 돕니다</span>
           <div class="adv-run-btns">
             <button class="btn sm primary" id="btnFullScan" title="사업에 연결되지 않은 업체까지 모두 스캔">전체 업체 스캔</button>
-            <button class="btn sm" id="btnConnCheck" title="각 API를 실제로 한 번씩 불러 키가 살아 있는지 확인합니다"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3-8 4 16 3-8h6"/></svg><span>연결 확인</span></button><span class="muted small">각 API 실제 응답 · 1~2분</span>
+            <button class="btn sm" id="btnConnCheck" title="각 API를 실제로 한 번씩 불러 키가 살아 있는지 확인합니다"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3-8 4 16 3-8h6"/></svg><span>연결 확인</span></button><span class="conn-note" id="connNote"></span>
           </div>
         </div>
         <div class="adv-grid">
           <div>
             <div class="conn-head"><h3>API 연결</h3></div>
             <div id="connList" class="conn-list"></div>
-            <div class="conn-note" id="connNote"></div>
-            <div class="actions left"><a class="btn sm" id="lnkActions" target="_blank" rel="noopener">GitHub Actions ↗</a><a class="btn sm" id="lnkSecrets" target="_blank" rel="noopener">키 관리 (Secrets) ↗</a></div>
           </div>
           <div>
             <div class="conn-head"><h3>실행 기록 <span class="muted small" id="runCount"></span></h3></div>
             <div id="runList" class="run-list"></div>
             <div class="usage-box">
-              <div class="conn-head"><h3>사용량 · 요금 <span class="est-tag">이번 달 추정</span></h3><span class="conn-btns"><button class="btn sm super-only" id="btnUsageFix" title="Anthropic 콘솔의 이번 달 지출을 적으면 그 금액에 맞춥니다">실제 금액 맞추기</button><button class="btn sm" id="btnUsage">새로 고침</button></span></div>
+              <div class="conn-head"><h3>이번 달 요금</h3><span class="conn-btns"><button class="btn sm super-only" id="btnUsageFix" title="Anthropic 콘솔의 이번 달 지출을 적으면 그 금액에 맞춥니다">실제 금액 맞추기</button><button class="btn sm" id="btnUsage">새로 고침</button></span></div>
               <div id="usageList" class="usage-list"></div>
-              <div class="conn-note usage-note" id="usageNote"></div>
-              <div class="conn-note">지도 Natural Earth · 도시 목록 GeoNames (CC BY 4.0)</div>
             </div>
           </div>
         </div>
@@ -286,6 +281,6 @@
 <aside class="drawer" id="drawer"><div class="drawer-head"><div id="drawerTitle"></div><button type="button" class="x-close" id="drawerClose" title="닫기" aria-label="닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div id="drawerBody" class="drawer-body"></div></aside>
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div id="toast" class="toast"></div>
-<script type="module" src="assets/app.js?v=123"></script>
+<script type="module" src="assets/app.js?v=125"></script>
 </body>
 </html>

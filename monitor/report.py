@@ -33,6 +33,18 @@ def _sum(f: dict) -> str:
     """요약 글 (예전 기록 앞에 붙어 저장된 안내문 '※ … 확인.'은 뗌: app.js sumText 와 같게)"""
     return re.sub(r"^※[^.]*확인\.\s*", "", f.get("summary") or f.get("title") or "")
 
+def norm_role(r) -> str:
+    """역할 이름 통일 (app.js normRole 과 같게): '본공사'·'시공' → 본구매, '감리' → 컨설턴트"""
+    t = re.sub(r"\s", "", str(r or ""))
+    if re.match(r"(?i)^(f/?s|타당성)", t):
+        return "F/S"
+    if re.search(r"(?i)컨설|감리|자문|설계|pmc?$", t):
+        return "컨설턴트"
+    if re.search(r"본구매|본공사|본사업|시공|공사|구매|공급|건설", t):
+        return "본구매"
+    return str(r or "").strip()
+
+
 def load_overview() -> tuple[list[dict], list[dict], dict]:
     """(companies with risk, active findings, engagements_by_company)"""
     projects = {p["id"]: p for p in store.all_docs("projects")}
@@ -45,7 +57,7 @@ def load_overview() -> tuple[list[dict], list[dict], dict]:
     engs = {}
     for c in companies:
         c["engagements"] = [
-            {**e, "project_name": projects.get(e.get("project_id"), {}).get("name", "(삭제된 사업)")}
+            {**e, "role": norm_role(e.get("role")), "project_name": projects.get(e.get("project_id"), {}).get("name", "(삭제된 사업)")}
             for e in c.get("engagements") or []
         ]
         engs[c["id"]] = c["engagements"]
