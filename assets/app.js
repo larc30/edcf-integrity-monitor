@@ -2932,8 +2932,8 @@ function renderConnections() {
   const BADGE = { ok: `<span class="badge none">정상</span>`, warn: `<span class="badge yellow">확인 필요</span>`, off: `<span class="badge orange">미연결</span>`, unknown: `<span class="badge gray">확인 전</span>` };
   $("#connList").innerHTML = G.map(([g, rows]) => {
     const bad = rows.filter((r) => r[3] === "off" || r[3] === "warn").length;
-    // 한 줄에 이름 · 상태만. 문제가 있을 때만 이유를 아래에 보여 줌 (하는 일·세부는 마우스를 올리면)
-    return `<div class="conn-grp"><div class="conn-gh"><b>${g}</b>${bad ? `<span><em>확인 필요 ${bad}</em></span>` : ""}</div><div class="conn-rows">${rows.map(([k, role, d, stt, t]) => `<div class="conn1 ${stt}" title="${esc(`${role} · ${d}${t ? ` · ${t}` : ""}`)}"><span class="k">${k}</span>${BADGE[stt]}${stt === "ok" ? "" : `<span class="d">${esc(d)}</span>`}</div>`).join("")}</div></div>`;
+    // 표처럼 한 줄씩: 이름 · 지금 상태(한 줄) · 배지. 하는 일과 확인 시각은 마우스를 올리면
+    return `<div class="conn-grp"><div class="conn-gh"><b>${g}</b>${bad ? `<span><em>확인 필요 ${bad}</em></span>` : ""}</div><div class="conn-rows">${rows.map(([k, role, d, stt, t]) => `<div class="conn1 ${stt}" title="${esc(`${role}${t ? ` · ${t} 확인` : ""}`)}"><span class="k">${k}</span><span class="d">${esc(d)}</span>${BADGE[stt]}</div>`).join("")}</div></div>`;
   }).join("");
 }
 // ---------- 사용량 · 요금 (meta/usage: 검사 프로그램과 화면이 쌓는 사용량 · 금액은 공개 단가로 계산한 추정) ----------

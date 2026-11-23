@@ -2327,3 +2327,20 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .adv-grid .conn-btns .conn-note { margin: 0; }
 .u-link { margin-left: 10px; font-size: var(--fs-xs); font-weight: 600; color: var(--accent-2); text-decoration: none; }
 .u-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* 고급: [연결 확인]은 눈에 띄게(강조색 면), 접는 제목을 눌렀을 때 흰 테두리는 없앰 */
+#btnConnCheck { border-color: transparent; background: var(--accent-soft); color: var(--accent); font-weight: 650; padding-left: 1em; padding-right: 1.1em; }
+:root:not([data-theme="light"]) #btnConnCheck { color: #AEB3FF; }
+#btnConnCheck:hover { background: color-mix(in srgb, var(--accent) 26%, transparent); border-color: transparent; }
+#btnConnCheck:disabled { opacity: .6; }
+.adv-card > summary { outline: none; }
+.adv-card > summary:focus-visible { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); border-radius: var(--radius); }
+
+/* 고급 > API 연결: 묶음마다 한 상자, 그 안은 표처럼 한 줄씩 (이름 · 상태 설명 · 배지) */
+.conn-rows { display: block; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.conn1 { display: grid; grid-template-columns: 10.5em minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 8px 14px; border: 0; border-radius: 0; flex-wrap: nowrap; }
+.conn1 + .conn1 { border-top: 1px solid var(--line); }
+.conn1 .k { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conn1 .d { flex: none; font-size: var(--fs-sm); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conn1.warn .d, .conn1.off .d { color: var(--orange); white-space: normal; }
+.conn-grp + .conn-grp { margin-top: 16px; }
