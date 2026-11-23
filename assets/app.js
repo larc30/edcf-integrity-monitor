@@ -1555,7 +1555,7 @@ $("#btnGuide").onclick = openGuide;
 // 처음 한 번 열어 볼 때까지 NEW 표시
 try { if (localStorage.getItem("edcf_guide_seen")) $("#guideNew").remove(); } catch {}
 $("#btnScan").title = "사업에 연결된 업체를 스캔합니다";
-$("#btnFullScan").onclick = () => { if (confirm("사업에 연결되지 않은 업체까지, 등록된 모든 업체를 스캔할까요?")) runWorkflow({ task: "scan" }, "전체 업체 스캔"); };
+$("#btnFullScan").onclick = () => { const all = state.companies.length, off = state.companies.filter((c) => !c.focus).length; if (confirm(`등록된 업체 ${all}곳을 모두 스캔합니다 (사업에 연결되지 않은 ${off}곳 포함).\n평소 스캔은 사업에 연결된 ${all - off}곳만 합니다. 진행할까요?`)) runWorkflow({ task: "scan" }, "전체 업체 스캔"); };
 // 스캔 중지: 대기 중이면 바로 취소, 실행 중이면 '중지 요청' → 스캐너가 업체 몇 곳마다 확인해 멈춤
 $("#btnStop").onclick = async () => {
   const j = state.job;
@@ -2971,8 +2971,8 @@ async function renderUsage(reload) {
   // GitHub Actions
   const ac = u.actions?.[m] || {};
   const rows = [
-    ["Claude AI", "기사 판정 (Haiku · 경고·주의만 Sonnet 재검토)", aiParts.join(" · ") || "이번 달 기록 없음", aiUsd ? `${won(aiUsd)} ($${aiUsd.toFixed(2)})` : "0원", aiUsd * KRW >= WARN_KRW ? "warn" : "ok", ""],
-    ["Firebase DB", "읽기 · 하루 5만 건까지 무료", `오늘 ${num(today)}건 · 이번 달 ${num(fsMonth)}건 · 화면 열기 ${num(loads)}회`, fsUsd ? won(fsUsd) : "0원", today > FS_FREE * 0.8 ? "warn" : "ok", bar(today, FS_FREE)],
+    ["Claude AI", "기사 판정 (Haiku · 경고·주의만 Sonnet 재검토) · 막대는 월 3만 원 기준", aiParts.join(" · ") || "이번 달 기록 없음", aiUsd ? `${won(aiUsd)} ($${aiUsd.toFixed(2)})` : "0원", aiUsd * KRW >= WARN_KRW ? "warn" : "ok", bar(aiUsd * KRW, WARN_KRW), "https://console.anthropic.com/settings/usage"],
+    ["Firebase DB", "읽기 · 하루 5만 건까지 무료 · 막대는 오늘 읽기", `오늘 ${num(today)}건 · 이번 달 ${num(fsMonth)}건 · 화면 열기 ${num(loads)}회`, fsUsd ? won(fsUsd) : "0원", today > FS_FREE * 0.8 ? "warn" : "ok", bar(today, FS_FREE), "https://console.firebase.google.com/project/edcf-monitor/usage"],
     ["Firebase 함수", "[지금 스캔] 즉시 실행 · 월 200만 회 무료", "요청이 있을 때만 실행", "0원", "ok", ""],
     ["GitHub Actions", "검사 실행 · 공개 저장소 무료 (비공개면 월 2,000분 무료)", `${num(ac.runs)}회 · 약 ${num(ac.minutes)}분`, "0원", "ok", bar(ac.minutes || 0, 2000)],
     ["Apps Script · Gmail", "예비 실행 · 메일 발송", "Google 계정 무료 한도 안", "0원", "ok", ""],
@@ -2982,7 +2982,7 @@ async function renderUsage(reload) {
   // 돈이 나가는 것(Claude)과 무료 한도를 봐야 하는 것(Firebase 읽기)만. 0원인 항목은 주의가 필요할 때만
   const shown = rows.filter(([k, , , amt, stt]) => k === "Claude AI" || k === "Firebase DB" || amt !== "0원" || stt !== "ok");
   $("#usageList").innerHTML = `<div class="u-total"><span>합계</span><b>${total ? won(total) : "0원"}</b></div>`
-    + shown.map(([k, role, dd, amt, stt, b]) => `<div class="conn" title="${esc(role)}"><div class="ct"><div class="k">${k}</div><div class="d">${esc(dd)}${b}</div></div><div class="cs"><b class="amt">${amt}</b>${stt === "ok" ? "" : BADGE[stt]}</div></div>`).join("");
+    + shown.map(([k, role, dd, amt, stt, b, link]) => `<div class="conn" title="${esc(role)}"><div class="ct"><div class="k">${k}${link ? `<a class="u-link" href="${link}" target="_blank" rel="noopener" title="실제 청구 화면">실제 사용량 ↗</a>` : ""}</div><div class="d">${esc(dd)}${b}</div></div><div class="cs"><b class="amt">${amt}</b>${stt === "ok" ? "" : BADGE[stt]}</div></div>`).join("");
 }
 $("#btnUsage").onclick = () => renderUsage(true);
 // 실제 금액 맞추기: Anthropic 콘솔의 '이번 달 지출'을 적으면, 기록으로 계산한 금액과의 차이를 저장해 이후 표시에 더함

@@ -2320,3 +2320,10 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .pj-list .pbox-body { align-items: stretch; gap: 12px; }
 .pj-list .dropzone, .pj-list .dropzone.is-empty { margin: 0; padding: 10px 12px; min-height: 5.2em; border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel-2); }
 .pj-list .dropzone.is-empty { border-style: dashed; background: transparent; }
+
+/* 고급: 연결 확인은 API 연결 제목 줄에, 요금 줄의 실제 사용량 링크 */
+.adv-grid { padding-top: 6px; }
+.conn-btns { display: inline-flex; align-items: center; gap: 8px; }
+.adv-grid .conn-btns .conn-note { margin: 0; }
+.u-link { margin-left: 10px; font-size: var(--fs-xs); font-weight: 600; color: var(--accent-2); text-decoration: none; }
+.u-link:hover { text-decoration: underline; text-underline-offset: 3px; }
