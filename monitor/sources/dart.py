@@ -101,7 +101,7 @@ def search_by_name(name: str, limit: int = 8) -> list[tuple[list, bool]]:
     out = [(r, True) for r in exact[:limit]]
     if len(out) < limit:
         part = [(k, r) for k, rows in m.items() for r in rows if r not in exact and (target in k or t2 in ko(k))]
-        part.sort(key=lambda x: (not (x[1][3] or "").strip(), len(x[0]), not x[0].startswith(target)))
+        part.sort(key=lambda x: (not (x[0].startswith(target) or ko(x[0]).startswith(t2)), not (x[1][3] or "").strip(), len(x[0])))
         out += [(r, False) for _, r in part[:limit - len(out)]]
     return out
 
