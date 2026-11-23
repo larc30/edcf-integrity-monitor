@@ -2279,3 +2279,44 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .leaflet-bar a:hover { background: color-mix(in srgb, var(--text) 9%, var(--panel-solid)); color: var(--text); }
 .leaflet-bar a.leaflet-disabled { color: var(--muted); opacity: .5; background: var(--panel-solid); }
 .leaflet-top.leaflet-left .leaflet-control { margin: 12px 0 0 12px; }
+
+/* =====================================================================
+   사업자번호 중복 · DART 동명 기업 고르기 창, 사업 관리 도구 줄 높이, 목록의 역할 칸 (2026-11-23)
+   ===================================================================== */
+.bd-list { display: flex; flex-direction: column; margin-top: 4px; }
+.bd-row { display: grid; grid-template-columns: 8.5em minmax(0, 1fr); align-items: center; gap: 14px; padding: 9px 2px; border-top: 1px solid var(--line); }
+.bd-row:first-child { border-top: 0; }
+.bd-no { font-variant-numeric: tabular-nums; color: var(--text-2); font-size: var(--fs-sm); white-space: nowrap; }
+.bd-names { display: flex; flex-wrap: wrap; gap: 6px; }
+.bd-co { display: inline-flex; align-items: center; gap: 8px; padding: 5px 11px; border-radius: 8px; border: 1px solid var(--line-2); background: color-mix(in srgb, var(--text) 4%, transparent); color: var(--text); font: inherit; font-size: var(--fs-sm); font-weight: 600; cursor: pointer; }
+.bd-co:hover { border-color: color-mix(in srgb, var(--accent-2) 55%, transparent); color: var(--accent-2); }
+.bd-co i { font-style: normal; font-weight: 500; font-size: var(--fs-xs); color: var(--muted); }
+.dp-list { gap: 8px; margin: 4px 0 0; max-height: min(64vh, 720px); padding-right: 4px; }
+.dp-co { padding: 12px 14px; background: transparent; }
+.dp-h { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.dp-h b { font-size: var(--fs-base); white-space: nowrap; }
+.dp-pj { color: var(--muted); font-size: var(--fs-xs); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dp-skip { margin-left: auto; display: inline-flex; gap: 4px; flex: 0 0 auto; }
+.dp-skip label, .dp-cand { cursor: pointer; }
+.dp-skip input, .dp-cand input { position: absolute; opacity: 0; pointer-events: none; }
+.dp-skip span { display: inline-block; padding: 3px 10px; border-radius: 7px; font-size: var(--fs-xs); font-weight: 600; color: var(--muted); border: 1px solid transparent; }
+.dp-skip label:has(input:checked) span { color: var(--text); background: color-mix(in srgb, var(--text) 8%, transparent); border-color: var(--line-2); }
+.dp-cands { display: flex; flex-direction: column; gap: 4px; }
+.dp-cand { position: relative; display: grid; grid-template-columns: 9em 8.5em minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 9px; font-size: var(--fs-sm); }
+.dp-cand:hover { border-color: var(--line-2); background: color-mix(in srgb, var(--text) 4%, transparent); }
+.dp-cand:has(input:checked) { border-color: color-mix(in srgb, var(--accent) 60%, transparent); background: var(--accent-soft); }
+.dp-cand:has(input:focus-visible), .dp-skip label:has(input:focus-visible) span { outline: 2px solid color-mix(in srgb, var(--accent) 50%, transparent); }
+.dp-cand .c-ceo { font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dp-cand .c-biz { font-variant-numeric: tabular-nums; color: var(--text-2); white-space: nowrap; }
+.dp-cand .c-en { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dp-foot { position: sticky; bottom: -22px; margin: 12px -22px -22px; padding: 12px 22px; background: var(--panel-solid); border-top: 1px solid var(--line); }
+/* 사업 관리 도구 줄: 필터 · 검색 · 보기 전환 높이를 같게 */
+.pj-toolbar { align-items: stretch; }
+.pj-toolbar .seg { height: 40px; box-sizing: border-box; align-items: stretch; flex-wrap: nowrap; }
+.pj-toolbar .seg button { padding-top: 0; padding-bottom: 0; }
+.pj-tools { align-items: stretch; }
+.pj-tools input { height: 40px; width: 16em; border-radius: 12px; box-sizing: border-box; }
+/* 목록에서 펼친 역할 칸: 세 칸이 따로 보이게 */
+.pj-list .pbox-body { align-items: stretch; gap: 12px; }
+.pj-list .dropzone, .pj-list .dropzone.is-empty { margin: 0; padding: 10px 12px; min-height: 5.2em; border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel-2); }
+.pj-list .dropzone.is-empty { border-style: dashed; background: transparent; }
