@@ -172,6 +172,9 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
 - 화면 점검(2026-11-23): ① 수원국 이벤트 카드의 요약(note)은 제목을 다시 말한 것이면 숨김(geo.js sameText: 요약 글자 조각의 절반 이상이 제목에 있음). ② 이벤트 묶기 보완: 자연재해·감염병(fire·flood·storm·volcano·quake·disease) 뉴스는 같은 나라·같은 종류·이틀 안이면 제목이 달라도 하나로(ONE_EVENT, 시위·분쟁·테러는 예전 제목 유사도 그대로). ③ [전체] 버튼은 나머지 필터와 성격이 달라 가는 세로선으로 떼어 둠(.seg 의 data-p/data-s="all", 업체 관리 .cv-btn.all · 모든 화면 공통, 고른 표시는 예전 그대로). ④ 사업 등록·수정 창: 넓은 팝업에 왼쪽 입력(수원국 → 사업명 순서, 담당 팀·담당자, 사업지 도시·좌표·지도 이름, 사업 완료) + 오른쪽 지도, 설명 문단은 모두 뺌(핀이 없으면 '핀 없음 · 사업명의 OO 기준'만). 사업명에는 나라 이름을 그대로 적음(사업명에서 나라를 빼는 것은 사용자 답을 기다리는 중). ⑤ 업체 관리 오른쪽 위 주황 버튼은 [상세 필터] 오른쪽 끝과 맞춤.
 
+- 업체 정보 창 DART(2026-11-23): 아직 DART와 연결 안 된 업체는 강조색 면 [DART 검색] 버튼, 이미 가져온 업체(corp_code 있음)는 제목 옆 'DART 확인' 표시 + 작은 새로고침 버튼(다시 가져오기: 대표자·상호가 바뀐 경우).
+- 커밋 메시지에는 Co-Authored-By 모델 이름 줄을 넣지 않음(넣으면 커밋이 권한 확인에서 막힘, 2026-11-23). Claude-Session 줄만.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 

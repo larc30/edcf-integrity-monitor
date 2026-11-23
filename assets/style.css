@@ -2162,3 +2162,10 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 @media (max-width: 760px) { .form.pjf { grid-template-columns: 1fr; } .pjf .site-pick { min-height: 260px; } }
 .site-pick:focus, .site-pick:focus-visible { outline: none; }
 .drawer .d-sec .empty.small { padding: 10px 0; text-align: left; }
+/* 업체 정보 창의 DART 버튼: 강조색 면(검색) · 이미 가져온 업체는 표시 + 작은 새로고침 */
+.btn.dart-btn { gap: .4em; border-color: transparent; background: var(--accent-soft); color: var(--accent); font-weight: 650; padding-left: .9em; padding-right: 1em; }
+:root:not([data-theme="light"]) .btn.dart-btn { color: #AEB3FF; }
+.btn.dart-btn:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); border-color: transparent; }
+.btn.dart-btn svg, .btn.dart-re svg { width: 1.05em; height: 1.05em; flex: 0 0 auto; }
+.btn.dart-re { padding: 0; width: 2.9em; justify-content: center; color: var(--text-2); }
+.dart-tag { display: inline-flex; align-items: center; margin-left: .6em; padding: 2px 9px; border-radius: 8px; font-size: var(--fs-xs); font-weight: 700; color: var(--green); background: var(--green-bg); vertical-align: middle; }

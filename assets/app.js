@@ -2077,9 +2077,12 @@ function openCompanyForm(cid = null) {
   const v = (k) => esc(c0?.[k] || ""), isForeign = c0 ? (c0.country || "KR") !== "KR" : false;
   const catNow = c0 ? (c0.catGuess ? "" : c0.cat || "") : "";
   const engs = c0?.engagements || [];
-  modal(`<h2>${isNew ? "업체 추가" : "업체 정보"}</h2>
+  const linked = !!c0?.corp_code; // DART에서 이미 가져온 업체: 표시만 하고, 다시 가져오기는 작은 새로고침 버튼으로
+  const DART_BTN = linked ? `<button type="button" class="btn sm dart-re" id="dlBtn" title="DART에서 다시 가져오기" aria-label="DART에서 다시 가져오기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>`
+    : `<button type="button" class="btn sm dart-btn" id="dlBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>DART 검색</button>`;
+  modal(`<h2>${isNew ? "업체 추가" : "업체 정보"}${linked ? `<span class="dart-tag" title="DART 고유번호 ${esc(c0.corp_code)}">DART 확인</span>` : ""}</h2>
     <form id="coForm" class="form" autocomplete="off" novalidate>
-      <label class="city-box">업체명 *<span class="dl-row"><input name="name" maxlength="60" placeholder="예: 서마루엔지니어링" value="${esc(c0?.name_official || c0?.name || "")}"><button type="button" class="btn sm" id="dlBtn">DART에서 가져오기</button></span><div class="city-sug co-sug hidden" id="coSug"></div></label>
+      <label class="city-box">업체명 *<span class="dl-row"><input name="name" maxlength="60" placeholder="예: 서마루엔지니어링" value="${esc(c0?.name_official || c0?.name || "")}">${DART_BTN}</span><div class="city-sug co-sug hidden" id="coSug"></div></label>
       <div id="nameNote" class="muted small hidden"></div>
       <div id="dlRes" class="dl-res hidden"></div>
       <div class="row">
