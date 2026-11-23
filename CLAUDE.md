@@ -190,6 +190,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
   - 사업 저장 때 핀이 고른 수원국의 도시(cities.json)에서 150km 넘게 떨어져 있으면 확인 창(app.js siteMismatch).
   - DART 이름 찾기 6차: 브라우저가 Firestore dart_master(함수가 압축해 둔 기업 이름 목록, 문서 몇 개)를 직접 읽어 화면에서 바로 찾음(app.js loadDartIdx·dartSearchLocal, 후보 50곳). 목록을 못 읽으면 예전처럼 함수. 순서 = 정확 일치 → 그 글자로 시작 → 상장사 → 짧은 이름(functions searchMaster ↔ dart.search_by_name ↔ dartSearchLocal). 사업자번호를 같이 적고 찾으면 함수가 후보 30곳까지 번호를 대조(이름을 일부만 적어도). 고른 기업 상세(사업자번호·대표자)는 여전히 함수 한 번. 함수 재배포 필요, 함수 쪽은 문법만 확인(보안 검사로 실행 시험 못 함).
 
+  - 칼럼·시황 걸러내기(2026-11-23, 2007년 칼럼 '파키스탄으로 확산되는 테러와의 전쟁'이 수원국 이벤트로 뜬 사례): 수원국 뉴스는 구글 검색에 최근 14일(when:14d, geo.NEW_DAYS)만, 새로 넣는 기사도 14일 안 것만(보관은 1년 그대로). AI 지침(EVENT_PROMPT, EVENT_AI_V 3 → 예전 이벤트 다시 판정): 칼럼·기고·연재·해설·전망·시황·책 소개·인터뷰와 '제목에 구체적인 사건이 없는 글'은 제외. 업체 뉴스 지침에도 증시 시황·특징주·칼럼·과거 기획 기사는 none(새 처분·수사를 직접 전할 때만 등급).
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 

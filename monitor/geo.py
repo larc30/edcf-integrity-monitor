@@ -94,6 +94,7 @@ EVENT_WORDS = [
 ]
 NEWS_QUERY_WORDS = ["지진", "홍수", "태풍", "테러", "내전", "쿠데타", "폭동", "산불", "콜레라", "선거", "정권"]
 KEEP_DAYS = 365  # 과거 이력(30일 이상)도 볼 수 있게 1년 보관
+NEW_DAYS = 14  # 뉴스 이벤트로 새로 넣는 기사의 기간 (오래된 기사가 다시 색인돼 최근 날짜로 들어오는 것을 줄임)
 QUAKE_KM = 600
 KST = timezone(timedelta(hours=9))
 
@@ -239,13 +240,8 @@ def fetch_quakes(tg, get=httpx.get) -> list[dict]:
         if lat is None or lng is None or p.get("mag") is None or float(p["mag"]) < QUAKE_MIN:
             continue
         d, code = min((_km((lat, lng), ll), c) for ll, c in tg)
-        far = d > QUAKE_KM
-        if far:
-            # 태풍은 '마지막 위치' 한 점으로만 와서 지나온 나라가 멀어 보임 → GDACS 가 적은 영향 국가에 사업 나라가 있으면 참고로 남김 (거리 규칙·등급에는 안 넣음)
-            hit = [a.get("iso2") for a in (p.get("affectedcountries") or []) if isinstance(a, dict)]
-            code = next((c for c in hit if c in codes), None)
-            if not code:
-                continue
+        if d > QUAKE_KM:  # 사업지·수원국에서 먼 지진은 뺌
+            continue
         out.append({"id": f"usgs-{f.get('id')}", "type": "quake", "country": code, "lat": round(lat, 3), "lng": round(lng, 3),
                     "mag": round(float(p["mag"]), 1), "title": f"규모 {float(p['mag']):.1f} 지진 · {p.get('place') or ''}".strip(),
                     "url": p.get("url") or "", "at_ms": int(p.get("time") or 0), "source": "USGS", "dist_km": round(d),
@@ -353,13 +349,13 @@ def _ms(pub: str) -> int:
 
 def news_events(codes: list[str], gnews=news.google_news, naver=news.naver_news) -> tuple[list[dict], int]:
     out, seen, errors = [], set(), 0
-    since = int((datetime.now(KST) - timedelta(days=KEEP_DAYS)).timestamp() * 1000)
+    since = int((datetime.now(KST) - timedelta(days=NEW_DAYS)).timestamp() * 1000)  # 새로 넣는 것은 최근 기사만 (보관은 KEEP_DAYS)
     codes = [c for c in codes if c in COUNTRY and c != "KR"]
 
     def fetch(code):
         name, items, bad = COUNTRY[code][0], [], 0
         try:
-            items += gnews(f"{name} ({' OR '.join(NEWS_QUERY_WORDS)})", "ko", 20)
+            items += gnews(f"{name} ({' OR '.join(NEWS_QUERY_WORDS)}) when:{NEW_DAYS}d", "ko", 20)  # 오래된 기사·칼럼이 섞이지 않게 최근 기간만
         except Exception:
             bad += 1
         try:
