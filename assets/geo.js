@@ -361,7 +361,7 @@ export async function renderGeo() {
       ${ibadge(e.type, "lg")}
       <div class="ev-body"><div class="ev-top"><span class="ev-type" style="color:${GEO_TYPES[e.type][1]}">${GEO_TYPES[e.type][0]}</span><span class="ev-ctry">${esc(cname(e.country))} · ${esc(cen(e.country))}</span>${e.mag ? `<span class="ev-mag ${e.mag >= 6 ? "big" : ""}">M${(+e.mag).toFixed(1)}</span>` : ""}<span class="ev-time" title="${ymd(e.ms)}">${rel(e.ms)}</span></div>
       <div class="ev-title">${esc(e.title)}</div>
-      ${e.note ? `<div class="ev-note">${esc(e.note)}</div>` : ""}
+      ${e.note && !sameText(e.note, e.title) ? `<div class="ev-note">${esc(e.note)}</div>` : ""}
       <div class="ev-src">${String(e.id || "").startsWith("news-") ? (e.ai ? `<span class="ev-ai" title="AI가 기사 내용을 보고 사업에 영향을 줄 수 있는 사건으로 판정">AI 판정</span> · ` : `<span class="ev-ai wait" title="단어로만 분류된 상태입니다. 다음 스캔 때 AI가 판정합니다">판정 전</span> · `) : ""}${esc(e.source || "-")} · ${ymd(e.ms)}${e.url ? ` · <a href="${esc(e.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}</div>
       ${e.more?.length ? `<details class="ev-dup"><summary>같은 내용 ${e.more.length}건 더 <span>${esc([...new Set(e.more.map((m) => String(m.source || "").split(" · ").pop()))].slice(0, 3).join(" · "))}</span></summary>${e.more.map((m) => `<div class="ev-dup-row">${m.url ? `<a href="${esc(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a>` : esc(m.title)} <span>${esc(String(m.source || "").split(" · ").pop())} · ${ymd(m.ms)}</span></div>`).join("")}</details>` : ""}</div></div>`).join("")
     || `<div class="ok-box">${ui.type || ui.lv ? "이 조건에 맞는 이벤트가 없습니다" : `${pl} 수원국 이벤트가 없습니다`}</div>`;
@@ -387,8 +387,19 @@ const fmtKm = (d) => d < 10 ? "10km 안" : `${Math.round(d)}km`;
 const evKey = (e) => String(e.title || "").replace(new RegExp(`${cname(e.country)}|${cen(e.country)}`, "gi"), "").replace(/[^0-9a-zA-Z가-힣]/g, "").toLowerCase();
 const grams = (t) => { const g = new Set(); for (let i = 0; i < t.length - 1; i++) g.add(t.slice(i, i + 2)); return g; };
 const nums = (e) => new Set(String(e.title || "").match(/\d[\d,.]*\s?(?:만\s?)?[가-힣a-zA-Z%]{1,3}/g)?.map((x) => x.replace(/\s/g, "")) || []);
+// 요약이 제목을 다시 말한 것이면 제목만 보여 줌 (요약 글자 조각의 절반 이상이 제목에 있음)
+const flat = (t) => String(t || "").replace(/[^0-9a-zA-Z가-힣]/g, "").toLowerCase();
+function sameText(note, title) {
+  const a = grams(flat(note)), b = grams(flat(title));
+  if (!a.size || !b.size) return false;
+  let hit = 0; a.forEach((x) => { if (b.has(x)) hit++; });
+  return hit / Math.min(a.size, b.size) >= 0.5;
+}
+// 자연재해·감염병은 같은 나라·같은 종류·이틀 안이면 같은 사건으로 봄 (제목이 달라도: 피해액 41조원 / 300억 달러 / 288만 헥타르)
+const ONE_EVENT = new Set(["fire", "flood", "storm", "volcano", "quake", "disease"]);
 function sameStory(a, b) {
   if (a.country !== b.country || a.type !== b.type || Math.abs(a.ms - b.ms) > 3 * DAY) return false;
+  if (ONE_EVENT.has(a.type) && Math.abs(a.ms - b.ms) <= 2 * DAY) return true;
   const ga = a._g || (a._g = grams(evKey(a))), gb = b._g || (b._g = grams(evKey(b)));
   if (!ga.size || !gb.size) return false;
   let hit = 0; ga.forEach((x) => { if (gb.has(x)) hit++; });

@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch, increment,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO, SUPER_ADMIN, SUPER_ADMINS, TEAMS } from "./firebase-config.js?v=33";
-import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=71";
+import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=72";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -78,14 +78,12 @@ function toast(msg, ms = 2800) {
   const t = $("#toast"); t.textContent = msg; t.classList.add("show");
   clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), ms);
 }
-// 창: 닫기 버튼은 마지막 버튼 줄에 나란히 (주 버튼은 오른쪽 끝)
+// 창: 닫기는 오른쪽 위 X 하나 (아래 버튼 줄에는 주 버튼만)
+const X_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
 function modal(html) {
   const m = $("#modal"); m.className = "modal"; m.innerHTML = html;
-  const rows = $$(".actions", m).filter((r) => !r.closest("details")), row = rows[rows.length - 1]; // 접힌 칸 안의 버튼 줄에 넣으면 닫기가 안 보임
-  const close = document.createElement("button"); close.type = "button"; close.className = "btn"; close.id = "modalClose"; close.textContent = "닫기";
-  if (!row) { const d = document.createElement("div"); d.className = "actions"; d.appendChild(close); m.appendChild(d); }
-  else if (row.classList.contains("left")) { close.style.marginLeft = "auto"; row.appendChild(close); }
-  else row.insertBefore(close, row.firstChild);
+  const close = document.createElement("button"); close.type = "button"; close.className = "x-close"; close.id = "modalClose"; close.title = "닫기"; close.setAttribute("aria-label", "닫기"); close.innerHTML = X_SVG;
+  m.prepend(close);
   $("#modalBg").classList.add("open"); close.onclick = closeModal;
 }
 function closeModal() { $("#modalBg").classList.remove("open"); $("#modal").classList.remove("report"); }
@@ -1872,27 +1870,32 @@ function openProjectEdit(pid) {
   const ownerOpts = (t, sel) => `<option value="">담당자 미지정</option>${teamUsers(t).map((o) => `<option value="${esc(o)}" ${sel === o ? "selected" : ""}>${o === me() ? `나 (${esc(o.split("@")[0])})` : esc(o.split("@")[0])}</option>`).join("")}`;
   const countries = Object.entries(COUNTRY).filter(([k]) => k !== "KR").sort((a, b) => a[1].localeCompare(b[1]));
   modal(`<h2>${isNew ? "사업 등록" : "사업 수정"}</h2>
-    <form id="pjEditForm" class="form" autocomplete="off">
-      <label>사업명<input name="name" value="${esc(p.name)}" required></label>
-      <div class="row">
-        <label>수원국<select name="country"><option value="">선택 안 함</option>${countries.map(([k, v]) => `<option value="${k}" ${p.country === k ? "selected" : ""}>${esc(v)}</option>`).join("")}</select></label>
-        <label>담당 팀<select name="team" ${isSuper() ? "" : "disabled"}>${Object.entries(TEAMS).map(([k, v]) => `<option value="${k}" ${(p.team || myTeam()) === k ? "selected" : ""}>${esc(v)}</option>`).join("")}</select></label>
-        <label>담당자 (선택)<select name="owner">${ownerOpts(p.team || myTeam(), p.owner)}</select></label>
-      </div>
-      ${isNew ? "" : `<label class="check"><input type="checkbox" name="done" ${live(p) ? "" : "checked"}> 사업 완료 (대시보드와 집중 감시에서 뺍니다. 업체는 명단에 남아 기본 감시만 받습니다)</label>`}
-      <div class="site-box">
-        <div class="site-h"><b>사업지</b><span class="muted small">수원국 리스크 지도의 핀 자리입니다. 사업지가 여러 곳이면 대표 사업지 한 곳만 정합니다 (너무 많으면 중심 도시의 시청 같은 대표 지점). 도시를 고르거나, 지도를 눌러 핀을 놓거나(끌어서 옮기기), 좌표를 붙여 넣으세요</span></div>
-        <div class="row">
-          <label class="city-box">도시 (찾기 또는 직접 입력)<input name="city" placeholder="예: 다카, Dhaka" autocomplete="off"><div class="city-sug hidden" id="citySug"></div></label>
-          <label>좌표 붙여넣기<input name="ll" placeholder="위도, 경도 (구글 지도에서 복사)" value="${Number.isFinite(p.lat) ? `${p.lat}, ${p.lng}` : ""}"></label>
-          <label>지도에 보일 이름<input name="site_en" placeholder="예: Dhaka" value="${esc(p.site_en || "")}"></label>
+    <form id="pjEditForm" class="form pjf" autocomplete="off">
+      <div class="pjf-l">
+        <div class="row r12">
+          <label>수원국<select name="country"><option value="">선택</option>${countries.map(([k, v]) => `<option value="${k}" ${p.country === k ? "selected" : ""}>${esc(v)}</option>`).join("")}</select></label>
+          <label>사업명<input name="name" value="${esc(p.name)}" required></label>
         </div>
+        <div class="row">
+          <label>담당 팀<select name="team" ${isSuper() ? "" : "disabled"}>${Object.entries(TEAMS).map(([k, v]) => `<option value="${k}" ${(p.team || myTeam()) === k ? "selected" : ""}>${esc(v)}</option>`).join("")}</select></label>
+          <label>담당자<select name="owner">${ownerOpts(p.team || myTeam(), p.owner)}</select></label>
+        </div>
+        <div class="pjf-site">사업지</div>
+        <label class="city-box">도시<input name="city" placeholder="도시 이름으로 찾기" autocomplete="off"><div class="city-sug hidden" id="citySug"></div></label>
+        <div class="row">
+          <label>좌표<input name="ll" placeholder="위도, 경도" value="${Number.isFinite(p.lat) ? `${p.lat}, ${p.lng}` : ""}"></label>
+          <label>지도에 보일 이름<input name="site_en" placeholder="Dhaka" value="${esc(p.site_en || "")}"></label>
+        </div>
+        <div id="zoneBox" class="zone-box"></div>
+        ${isNew ? "" : `<label class="check pjf-done"><input type="checkbox" name="done" ${live(p) ? "" : "checked"}> 사업 완료</label>`}
+      </div>
+      <div class="pjf-r">
         <div id="sitePick" class="site-pick"></div>
         <div class="site-f"><span class="muted small" id="siteState"></span><button type="button" class="btn sm ghost" id="siteClear">핀 지우기</button></div>
-        <div id="zoneBox" class="zone-box"></div>
       </div>
       <div class="actions">${isNew ? "" : `<button type="button" class="btn ghost danger" id="pjDelete" style="margin-right:auto">사업 삭제</button>`}<button class="btn primary">${isNew ? "등록" : "저장"}</button></div>
     </form>`);
+  $("#modal").classList.add("wide");
   // 사업지 고르기 (작은 지도)
   const f0 = $("#pjEditForm"), site = { lat: Number.isFinite(p.lat) ? p.lat : null, lng: Number.isFinite(p.lng) ? p.lng : null };
   f0.team.addEventListener("change", () => { f0.owner.innerHTML = ownerOpts(f0.team.value, f0.owner.value); }); // 팀을 바꾸면 그 팀 사람으로
@@ -1906,12 +1909,12 @@ function openProjectEdit(pid) {
     const pt = projectPoint(pl), auto = siteAlert(al, { ll: pt?.ll, country: cc, ...siteOpt(pl, pt) });
     const AL = ["", "1단계 여행유의", "2단계 여행자제", "3단계 출국권고", "4단계 여행금지"];
     const lvs = [...new Set(zs.map((z) => z.lv))];
-    box.innerHTML = `<label>사업지 여행경보 <span class="muted small">이 나라는 지역마다 단계가 다릅니다. 사업지가 높은 단계 지역에 들 때만 그 단계로 봅니다</span>
+    box.innerHTML = `<label title="이 나라는 지역마다 단계가 다릅니다">사업지 여행경보
       <select name="alert_lv"><option value="">자동: ${auto.lv ? esc(AL[auto.lv]) : "없음"}${auto.how === "base" ? " (사업지 위치 미상, 나머지 지역 기준)" : auto.zone ? " (사업지가 이 지역 안)" : " (사업지 위치로 판단)"}</option>
       ${lvs.map((lv) => `<option value="${lv}" ${zoneSel === String(lv) ? "selected" : ""}>${esc(AL[lv])}: ${esc(zs.filter((z) => z.lv === lv).map((z) => z.text).join(" / ").slice(0, 70))}</option>`).join("")}</select></label>`;
     box.querySelector("select").onchange = (e) => { zoneSel = e.target.value; };
   };
-  const showSite = () => { $("#siteState").textContent = site.lat == null ? "핀 없음: 사업명 속 도시 이름이나 수원국 가운데에 표시됩니다" : `핀 위치 ${site.lat.toFixed(3)}, ${site.lng.toFixed(3)}`; showZone(); };
+  const showSite = () => { const g = site.lat == null && projectPoint({ name: f0.name.value, country: f0.country.value }); $("#siteState").textContent = site.lat == null ? (g && g.how !== "국가 중심" ? `핀 없음 · 사업명의 ${g.how} 기준` : "핀 없음") : `핀 ${site.lat.toFixed(3)}, ${site.lng.toFixed(3)}`; showZone(); };
   let pk = null; // 지도 라이브러리를 받은 뒤에 사업지 지도를 붙임
   const picker = { set: (v) => pk?.set(v), country: (c, move) => pk?.country(c, move), clear: () => pk?.clear() };
   ensureGeoLibs().then((ok) => { const el = $("#sitePick"); if (ok && el && el.isConnected) pk = mountSitePicker(el, { ...site, country: f0.country.value || p.country }, (lat, lng) => { site.lat = +lat.toFixed(4); site.lng = +lng.toFixed(4); f0.ll.value = `${site.lat}, ${site.lng}`; showSite(); }); });
@@ -1987,6 +1990,7 @@ function openProjectEdit(pid) {
     else { const moved = p.team !== team; await updateDoc(doc(db, "projects", pid), patch); Object.assign(p, patch); if (moved) await syncCompanyTeams(); }
     closeModal(); toast(isNew ? `'${name}' 사업을 등록했습니다` : "사업을 수정했습니다"); rerender();
   };
+  f0.name.addEventListener("input", showSite);
   if (isNew) f0.name.onchange = () => { if (!f0.country.value) { const g = guessCountry(f0.name.value); if (g) { f0.country.value = g; picker.country(g); } } }; // 사업명 속 나라 이름으로 수원국 자동 선택
   $("#pjDelete")?.addEventListener("click", () => deleteProject(pid));
 }
@@ -2073,9 +2077,12 @@ function openCompanyForm(cid = null) {
   const v = (k) => esc(c0?.[k] || ""), isForeign = c0 ? (c0.country || "KR") !== "KR" : false;
   const catNow = c0 ? (c0.catGuess ? "" : c0.cat || "") : "";
   const engs = c0?.engagements || [];
-  modal(`<h2>${isNew ? "업체 추가" : "업체 정보"}</h2>
+  const linked = !!c0?.corp_code; // DART에서 이미 가져온 업체: 표시만 하고, 다시 가져오기는 작은 새로고침 버튼으로
+  const DART_BTN = linked ? `<button type="button" class="btn sm dart-re" id="dlBtn" title="DART에서 다시 가져오기" aria-label="DART에서 다시 가져오기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>`
+    : `<button type="button" class="btn sm dart-btn" id="dlBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>DART 검색</button>`;
+  modal(`<h2>${isNew ? "업체 추가" : "업체 정보"}${linked ? `<span class="dart-tag" title="DART 고유번호 ${esc(c0.corp_code)}">DART 확인</span>` : ""}</h2>
     <form id="coForm" class="form" autocomplete="off" novalidate>
-      <label class="city-box">업체명 *<span class="dl-row"><input name="name" maxlength="60" placeholder="예: 서마루엔지니어링" value="${esc(c0?.name_official || c0?.name || "")}"><button type="button" class="btn sm" id="dlBtn">DART에서 가져오기</button></span><div class="city-sug co-sug hidden" id="coSug"></div></label>
+      <label class="city-box">업체명 *<span class="dl-row"><input name="name" maxlength="60" placeholder="예: 서마루엔지니어링" value="${esc(c0?.name_official || c0?.name || "")}">${DART_BTN}</span><div class="city-sug co-sug hidden" id="coSug"></div></label>
       <div id="nameNote" class="muted small hidden"></div>
       <div id="dlRes" class="dl-res hidden"></div>
       <div class="row">
