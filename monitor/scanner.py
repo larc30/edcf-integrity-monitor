@@ -19,6 +19,8 @@ from .textutil import _flat, context_words, dedup_key, mentions, needles, search
 log = logging.getLogger(__name__)
 
 EN_RISK_QUERY = '(corruption OR fraud OR sanction OR debarment OR bribery OR collusion OR "bid rigging")'
+# 업체명과 함께 찾는 제재 단어 (업체명만으로 찾으면 Google 이 관련도순 30건만 줘서 제재 기사가 빠지는 경우가 있음: 2026-11-23 예시 업체로 확인)
+KO_RISK_QUERY = "(부정당 OR 입찰제한 OR 입찰참가자격 OR 담합 OR 영업정지 OR 과징금 OR 압수수색 OR 기소 OR 회생)"
 ID_RISK_QUERY = '(korupsi OR tersangka OR suap OR sanksi OR "daftar hitam")'
 
 
@@ -159,15 +161,19 @@ def _days_since(ts: str | None) -> float:
         return 1e9
 
 
-def _queries(company: dict) -> list[tuple[str, str, str, str]]:
-    """(engine, lang, query, sort) 목록: 업체명 최신순 검색 (모든 업체 같은 방식, 2026-11-23 심층 검색 없앰)"""
+def _queries(company: dict, days: int | None = None) -> list[tuple[str, str, str, str]]:
+    """(engine, lang, query, sort) 목록. 모든 업체 같은 방식: 업체명 + '업체명 (제재 단어)' 한 번.
+    days: 매일 스캔이면 그 기간 안 기사만(Google when:Nd). 첫 스캔·다시 스캔(None)은 기간 없이 과거 이력까지"""
     langs = [l.strip() for l in (company.get("search_langs") or "ko").split(",") if l.strip()]
     names = search_names(company)
+    when = f" when:{days}d" if days else ""
     qs = []
     if "ko" in langs:
         for n in names[:2]:
             qs.append(("naver", "ko", f'"{n}"', "date"))
-            qs.append(("google", "ko", f'"{n}"', "date"))
+            qs.append(("google", "ko", f'"{n}"{when}', "date"))
+        if names:
+            qs.append(("google", "ko", f'"{names[0]}" {KO_RISK_QUERY}{when}', "date"))
     en_name = company.get("name_en") or (company["name"] if company["name"].isascii() else "")
     if en_name and ("en" in langs or company.get("country") not in (None, "", "KR")):
         qs.append(("google", "en", f'"{en_name}" {EN_RISK_QUERY}', "date"))
@@ -282,15 +288,15 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         if projects.get(e.get("project_id"), {}).get("status") != "done"
     ]
     # 업체명 검색: 전체 스캔·다시 스캔에서 모든 업체 매일 (2026-11-23: 집중·기본 감시 구분과 심층 검색을 없앰). 빠른 스캔은 건너뜀
-    queries = [] if quick else _queries(company)
-
     # 1) 뉴스 수집 (제재 키워드 검색에서 이 업체가 나온 기사 + 업체명 검색)
     # 기간: 첫 스캔·다시 스캔은 10년(과거 이력 포함), 그 뒤 매일은 마지막 확인 7일 전부터 (이미 본 기사는 키로 건너뜀)
     last_news = company.get("last_news_at")
     if force or not last_news:
-        cutoff = (date.today() - timedelta(days=config.NEWS_LOOKBACK_DAYS)).isoformat()
+        cutoff, days = (date.today() - timedelta(days=config.NEWS_LOOKBACK_DAYS)).isoformat(), None
     else:
-        cutoff = (datetime.strptime(last_news[:10], "%Y-%m-%d").date() - timedelta(days=7)).isoformat()
+        start = datetime.strptime(last_news[:10], "%Y-%m-%d").date() - timedelta(days=7)
+        cutoff, days = start.isoformat(), max(2, (date.today() - start).days + 1)
+    queries = [] if quick else _queries(company, days)
     seen, articles, engines_ok = {}, [], set(sweep_engines or [])
     for a in sweep_hits or []:
         if a["dedup_key"] not in seen:
