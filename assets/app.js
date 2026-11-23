@@ -1395,15 +1395,18 @@ async function queueQuiet(data) {
 // DART에서 이름으로 찾기: 요청을 남기고 끝날 때까지 기다림 (최대 10분, 창을 닫으면 그만 기다림)
 // DART 바로 찾기 함수(functions/index.js dartFind)를 화면에서 직접 부름. 함수가 없거나 회사망에서 막히면 null → 요청을 남기는 예전 길로
 const DART_FN = `https://asia-northeast3-${firebaseConfig.projectId}.cloudfunctions.net/dartFind`;
+// 함수에 직접 닿지 않으면(회사망 차단·권한 등) 5분 동안은 바로 포기하고 요청 문서 길로 (매번 기다리지 않게)
+let dartDeadAt = 0;
 async function dartCall(data, ms = 25000) {
   if (window.__dartMock) return window.__dartMock(data); // 화면 점검용 가짜 응답 (평소에는 없음)
   if (new URLSearchParams(location.search).has("demo") || !auth.currentUser) return null;
+  if (Date.now() - dartDeadAt < 5 * 60e3) return null;
   const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), ms);
   try {
     const r = await fetch(DART_FN, { method: "POST", signal: ctl.signal, headers: { "Content-Type": "application/json", Authorization: `Bearer ${await auth.currentUser.getIdToken()}` }, body: JSON.stringify({ data }) });
-    if (!r.ok) return null;
+    if (!r.ok) { dartDeadAt = Date.now(); return null; }
     return (await r.json()).result || null;
-  } catch { return null; } finally { clearTimeout(timer); }
+  } catch { dartDeadAt = Date.now(); return null; } finally { clearTimeout(timer); }
 }
 // DART 기업 이름 목록을 브라우저가 직접 들고 찾음 (함수가 Firestore dart_master 에 압축해 둔 것: 문서 몇 개만 읽음)
 // → 이름 후보는 함수를 기다리지 않고 바로. 목록이 없거나 못 읽으면 예전처럼 함수에 물어봄
@@ -1443,11 +1446,11 @@ function dartSearchLocal(name, limit = 100) {
   return [...exact.map((x) => [x[1], true]), ...part.map((x) => [x[1], false])].slice(0, limit)
     .map(([r, ex]) => ({ corp_code: r[0], name: r[1], name_en: r[2] || "", listed: !!r[3].trim(), exact: ex }));
 }
-async function dartLookup(name, biz = "") {
-  const direct = await dartCall({ name, biz });
+async function dartLookup(name, biz = "", code = "") {
+  const direct = code ? null : await dartCall({ name, biz });
   if (direct && Array.isArray(direct.cands)) return direct;
   if (!document.getElementById("dlRes")) return null;
-  const id = await queueQuiet({ task: "dartlookup", name, biz, label: "DART 찾기" });
+  const id = await queueQuiet({ task: "dartlookup", name, biz, ...(code ? { code } : {}), label: "DART 찾기" });
   if (!id) throw new Error("요청을 남기지 못했습니다");
   if (ghToken() && !(await pingRelay())) { try { await gh("/actions/workflows/monitor.yml/dispatches", { method: "POST", body: JSON.stringify({ ref: "main", inputs: { task: "queue", companies: "", test_to: "" } }) }); } catch {} }
   const t0 = Date.now();
@@ -2213,7 +2216,9 @@ function openCompanyForm(cid = null) {
     let msg = $("#dlMsg"); if (!msg) { box.innerHTML = `<div id="dlMsg"></div>`; msg = $("#dlMsg"); }
     msg.innerHTML = `<span class="dl-wait"><i class="spin"></i>'${esc(it.name)}' 정보를 가져오는 중입니다</span>`;
     const t0 = performance.now();
-    const o = await dartCall({ code: it.corp_code, exact: it.exact, name: it.name, name_en: it.name_en || "", listed: !!it.listed }, 15000);
+    let o = await dartCall({ code: it.corp_code, exact: it.exact, name: it.name, name_en: it.name_en || "", listed: !!it.listed }, 8000);
+    // 함수에 직접 못 닿으면 요청 문서로 (Firestore 를 거쳐 같은 함수가 처리)
+    if (!(o && o.corp_code)) { try { const r = await dartLookup(it.name, "", it.corp_code); o = (r?.cands || []).find((c) => c.corp_code === it.corp_code) || null; if (o && !o.name_en) o.name_en = it.name_en || ""; } catch { o = null; } }
     if (!msg.isConnected) return;
     if (o && o.corp_code) { fillFrom(o); msg.innerHTML = `DART에서 채웠습니다: <b>${esc(o.name)}</b> <span class="muted">${candLine(o)}</span> <span class="muted small">(${((performance.now() - t0) / 1000).toFixed(1)}초)</span>`; }
     else msg.innerHTML = `'${esc(it.name)}' 정보를 가져오지 못했습니다. 잠시 뒤 다시 고르거나 직접 적어 주세요.`;

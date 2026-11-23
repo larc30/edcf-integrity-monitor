@@ -158,7 +158,11 @@ exports.kickQueue = onDocumentCreated({ document: "requests/{id}", region: REGIO
   // DART 찾기: 여기서 바로 처리하고 끝 (실패하면 아래로 내려가 예전처럼 GitHub 에 맡김)
   if (req.task === "dartlookup") {
     try {
-      const t0 = Date.now(), res = await dartLookup(req.name, req.biz, DART_API_KEY.value(), fetch, adminDb());
+      // 고른 기업 한 곳(code)이면 기업목록 없이 그 한 곳만 DART 에 물음
+      const t0 = Date.now(), code = String(req.code || "").replace(/\D/g, "").slice(0, 8);
+      const res = code.length === 8
+        ? { cands: [await detail([code, String(req.name || "").slice(0, 80), "", ""], true, DART_API_KEY.value())], count: 1, ms: Date.now() - t0 }
+        : await dartLookup(req.name, req.biz, DART_API_KEY.value(), fetch, adminDb());
       await event.data.ref.update({ status: "done", finished_at: nowKst(), result: res, handled_by: "function" });
       logger.info("dart lookup", { count: res.count, ms: Date.now() - t0 }); // 공개 로그에는 건수·걸린 시간만
       return;
