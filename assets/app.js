@@ -2099,8 +2099,11 @@ async function deleteCompany(cid) {
 
 // 업체명 다듬기: '(1순위)'와 법인 표기(주식회사·(주)·㈜)는 화면·검색용 이름에서 빼고, 적은 그대로는 공식 명칭(official)으로 따로 남김
 const CORP_MARK = /주식회사|유한회사|유한책임회사|합자회사|\(주\)|\(유\)|\(합\)|㈜/g; // 화면·검색·중복 확인용 이름에서 빼는 법인 표기
+const CORP_GLYPH = /[\u3200-\u321E\u3260-\u327F]/; // ㈜ ㈲ 처럼 괄호 글자가 한 글자로 된 특수문자
+const CORP_GLYPH_MSG = "㈜ 같은 특수문자 대신 (주) 또는 주식회사로 적어 주세요";
+const plainCorp = (t) => String(t || "").replace(/㈜/g, "(주)").replace(/㈲/g, "(유)");
 function cleanCompanyName(raw) {
-  let rank = null, name = String(raw || "");
+  let rank = null, name = plainCorp(raw);
   const m = name.match(/\(\s*(\d+)\s*순위\s*\)/);
   if (m) { rank = +m[1]; name = name.replace(m[0], ""); }
   const full = name.replace(/\s+/g, " ").trim();
@@ -2188,7 +2191,7 @@ function openCompanyForm(cid = null) {
   // 법인 표기는 화면·검색용 이름에서 빠진다는 것을 바로 알려줌 (적은 그대로는 공식 명칭으로 남김)
   const showNameNote = () => {
     const { name, official } = cleanCompanyName(f1.name.value), el = $("#nameNote");
-    const bad = f1.name.value.trim() ? nameProblem(name) : "";
+    const bad = CORP_GLYPH.test(f1.name.value) ? CORP_GLYPH_MSG : f1.name.value.trim() ? nameProblem(name) : "";
     el.innerHTML = bad ? `<span class="miss">${esc(bad)}</span>` : official ? `화면과 뉴스 검색에는 <b>${esc(name)}</b>(으)로 쓰고, 적은 그대로(<b>${esc(official)}</b>)는 공식 명칭으로 함께 저장합니다` : "";
     el.classList.toggle("hidden", !el.innerHTML);
   };
@@ -2228,7 +2231,7 @@ function openCompanyForm(cid = null) {
   // DART에서 가져오기: 키가 서버(GitHub)에만 있어서 '요청'으로 남기고 결과를 기다림
   const fillFrom = (o) => {
     picked = o;
-    if (o.name) f1.name.value = o.name;
+    if (o.name) f1.name.value = plainCorp(o.name);
     if (o.biz_no) f1.biz_no.value = fmtBiz(o.biz_no);
     if (o.ceo) f1.ceo.value = o.ceo;
     if (o.name_en) f1.name_en.value = o.name_en;
@@ -2294,7 +2297,7 @@ function openCompanyForm(cid = null) {
     ev.preventDefault();
     const fd = Object.fromEntries([...new FormData(f1)].map(([k, x]) => [k, String(x).replace(/\s+/g, " ").trim()]));
     const { name, official } = cleanCompanyName(fd.name || "");
-    const bad = nameProblem(name);
+    const bad = CORP_GLYPH.test(fd.name || "") ? CORP_GLYPH_MSG : nameProblem(name);
     if (bad) { f1.name.focus(); return toast(bad, 5000); }
     if (state.companies.some((c) => c.id !== cid && normName(c.name) === normName(name))) return toast(`'${name}'은(는) 이미 있는 업체입니다`);
     // 숫자는 실제 회사 이름에도 쓰여서(E1 · 3M 등) 막지 않음. 대신 오타처럼 보이는 이름과, 기존 업체의 이름 바꾸기는 저장 전에 확인
