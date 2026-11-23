@@ -51,9 +51,11 @@ def load_overview() -> tuple[list[dict], list[dict], dict]:
     companies = store.all_docs("companies")
     finds = [f for f in store.where("findings", "relevant", "==", True) if f.get("status") != "dismissed"]
     today = store.now_kst().strftime("%Y-%m-%d")
+    year_ago = (store.now_kst() - datetime.timedelta(days=365)).strftime("%Y-%m-%d")
     for f in finds:  # 기사에 적힌 처분 기간이 끝났으면 경고(red) → 주의(orange) (app.js loadAll 과 같은 기준)
-        if f.get("level") == "red" and f.get("valid_until") and str(f["valid_until"])[:10] < today:
-            f["level"] = "orange"
+        until = str(f.get("valid_until") or "")[:10]
+        if until and until < today and (f.get("level") == "red" or (f.get("level") == "orange" and until < year_ago)):
+            f["level"] = "yellow" if until < year_ago else "orange"  # 끝난 지 1년이 넘으면 참고
     engs = {}
     for c in companies:
         c["engagements"] = [

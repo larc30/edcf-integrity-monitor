@@ -24,13 +24,13 @@ const LEVEL = { red: "경고", orange: "주의", yellow: "참고", none: "정상
 const LEVEL_DESC = { red: "지금 제재 중", orange: "제재로 이어질 수 있는 진행 중 사안", yellow: "참고 이력 (등급에 넣지 않음)", none: "경고·주의 이슈 없음" };
 // 등급 뜻 (i 에 마우스를 올리면): 경고는 실제로 지금 제재를 받고 있는 경우만
 const LEVEL_DEF = {
-  red: "<b>확정된 제재</b><br>입찰참가자격 제한(부정당업자 제재), MDB 제재, 영업정지, 등록말소. 공식 명단(EXIMIIS '등록', 조달청, MDB)에 있거나, 기사로 처분 확정이 확인된 경우. 시작일 전이어도 확정이면 경고",
+  red: "<b>지금 유효한 제재</b><br>입찰참가자격 제한(부정당업자 제재), MDB 제재, 등록말소, 기간 중인 영업정지. 공식 명단(EXIMIIS '등록', 조달청, MDB)에 있거나, 기사에 처분 기간이 적혀 있고 오늘이 그 안인 경우. 기간이 끝나면 주의로 내려감",
   orange: "<b>제재로 이어질 수 있는 진행 중 사안</b><br>최근 1년 내 수사, 압수수색, 기소, 유죄판결, 담합 적발, 공정위 과징금, 처분 예고와 청문, 집행정지로 멈춘 제재, 부도와 회생절차",
   none: "<b>경고·주의 이슈 없음</b><br>아래 참고 이력만 있는 업체도 정상",
   yellow: "기록만 남기는 이력: 1년 지난 제재와 처분(EXIMIIS '해지' 포함), 계열사가 받은 처분, 의혹과 고발, 소송과 분쟁, 중대재해와 부실시공, 재무 악화",
 };
 const levelTip = () => `<div class="tip-p">업체에 걸린 이슈 가운데 가장 높은 등급입니다.</div>
-  <div class="tip-grid lv"><span>${badge("red")}</span><span>지금 유효한 제재 (입찰 제한 · MDB · 영업정지)</span>
+  <div class="tip-grid lv"><span>${badge("red")}</span><span>지금 유효한 제재 (입찰 제한 · MDB · 기간 중 영업정지)</span>
   <span>${badge("orange")}</span><span>제재로 이어질 수 있는 진행 중 사안 (수사 · 기소 · 과징금)</span>
   <span>${badge("none")}</span><span>경고·주의 이슈 없음</span></div>
   <div class="tip-sep">등급이 아닌 표시 (기사에 붙음)</div>
@@ -189,7 +189,8 @@ async function loadAll() {
   const okEdcf = new Set(edcfMatches(state.edcf).map((x) => x.c.id));
   state.findings = state.findings.filter((f) => !String(f.dedup_key || "").startsWith("edcf-") || okEdcf.has(f.company_id));
   const todayStr = nowStr().slice(0, 10);
-  state.findings.forEach((f) => { if (f.level === "red" && f.valid_until && String(f.valid_until).slice(0, 10) < todayStr) f.level = "orange"; }); // 기사에 적힌 처분 기간이 끝나면 경고 → 주의 (report.load_overview 와 같은 기준)
+  const yearAgo = new Date(Date.now() + 9 * 3600e3 - 365 * 864e5).toISOString().slice(0, 10);
+  state.findings.forEach((f) => { const u = f.valid_until && String(f.valid_until).slice(0, 10); if (u && u < todayStr && (f.level === "red" || (f.level === "orange" && u < yearAgo))) f.level = u < yearAgo ? "yellow" : "orange"; }); // 기사에 적힌 처분 기간이 끝나면 경고 → 주의 (report.load_overview 와 같은 기준)
   state.findings.forEach((f) => { if (f.level === "red" && String(f.dedup_key || "").startsWith("edcf-") && edcfEnded({ period: String(f.title || "").split(" · ").pop() })) { f.level = "yellow"; f.title = String(f.title).replace("[EDCF 제재 등록]", "[EDCF 제재 기간 만료]"); f.summary = "EDCF 부정당업자 제재기간이 끝났습니다 (명단에는 아직 '등록'). 최신 EXIMIIS 명단으로 확인하세요."; } });
   state.mdbKorea = mk.exists() ? mk.data() : null;
   state.access = acc.exists() ? (acc.data().emails || []) : [];
@@ -895,8 +896,8 @@ const GUIDE_HTML = `
 
   <section class="gd-s"><h3><span class="gd-n">1</span>업체 등급</h3>
   <div class="gd-lv">
-    <div class="gd-l red"><span class="badge red">경고</span><b>지금 유효한 제재</b><p>입찰참가자격 제한 · MDB 제재 · 영업정지 · 등록말소 · EXIMIIS 등록</p></div>
-    <div class="gd-l orange"><span class="badge orange">주의</span><b>제재로 이어질 수 있는 진행 중 사안</b><p>수사 · 기소 · 과징금 · 처분 예고 · 부도 · 회생 · 집행정지</p></div>
+    <div class="gd-l red"><span class="badge red">경고</span><b>지금 유효한 제재</b><p>입찰참가자격 제한 · MDB 제재 · EXIMIIS 등록 · 등록말소 · 기간 중인 영업정지</p></div>
+    <div class="gd-l orange"><span class="badge orange">주의</span><b>제재로 이어질 수 있는 진행 중 사안</b><p>수사 · 기소 · 과징금 · 처분 예고 · 부도 · 회생 · 집행정지 · 기간이 끝난 영업정지</p></div>
     <div class="gd-l none"><span class="badge none">정상</span><b>그 밖</b><p>회색 '참고'는 등급에 들지 않는 이력</p></div>
   </div></section>
 
@@ -916,6 +917,7 @@ const GUIDE_HTML = `
     <div><b>계열사 · 모회사 · 현지 법인</b><p>처분 대상이 다른 법인이면 <span class="no">관련 없음</span>, 같은 법인이면 <span class="ok">관련 있음</span></p></div>
     <div><b>공동수급 (컨소시엄)</b><p>처분 대상에 이 업체가 있으면 <span class="ok">관련 있음</span>, 다른 구성원만이면 <span class="no">관련 없음</span></p></div>
     <div><b>끝난 과거 처분</b><p>기간이 끝났고 새 내용이 없으면 <span class="no">관련 없음</span>, 기간 중이면 <span class="ok">관련 있음</span></p></div>
+    <div><b>영업정지 (기사로만 확인될 때)</b><p>기사에 기간이 적혀 있고 오늘이 그 안이면 <span class="badge red">경고</span>, 기간이 끝나면 자동으로 <span class="badge orange">주의</span>. 기간을 알 수 없으면 주의</p></div>
     <div><b>집행정지</b><p><span class="ok">관련 있음</span> (주의 유지). 판결이 나오면 다시 확인</p></div>
     <div><b>대표자 개인 사건</b><p>회사가 대상이 아니면 <span class="no">관련 없음</span>, 회사도 대상이면 <span class="ok">관련 있음</span></p></div>
     <div><b>공식 명단 (조달청 · MDB · EXIMIIS)</b><p>원 출처를 먼저 확인. 같은 회사면 <span class="ok">관련 있음</span>, 이름만 비슷하면 <span class="no">관련 없음</span></p></div>
