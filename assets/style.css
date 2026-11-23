@@ -2130,3 +2130,35 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 
 /* 단계 고르기 칸: 글자 길이에 맞게 좁힘 (안쪽 오른쪽 빈자리가 넓었음) */
 .stage-sel, .stage-sel.on { width: 6.3em; padding: 0 .1em 0 .6em; }
+
+/* =====================================================================
+   팝업 · 오른쪽 창 닫기 X, [전체] 필터 구분, 사업 등록 창 (2026-11-23)
+   ===================================================================== */
+.x-close { flex: 0 0 auto; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 9px; background: transparent; color: var(--text-2); cursor: pointer; }
+.x-close svg { width: 18px; height: 18px; }
+.x-close:hover { background: color-mix(in srgb, var(--text) 9%, transparent); color: var(--text); }
+.modal { position: relative; }
+.modal > .x-close { position: absolute; top: 14px; right: 14px; z-index: 5; }
+.modal > h2:first-of-type { padding-right: 40px; }
+.modal.report > .x-close { top: 8px; right: 10px; }
+.modal.report .rp-prev-h { padding-right: 52px; }
+/* [전체]는 나머지 필터와 성격이 달라 가는 선으로 떼어 둠 (모든 화면 공통) */
+.seg button[data-p="all"], .seg button[data-s="all"], .cv-btn.all { position: relative; margin-right: 13px; }
+.seg button[data-p="all"]::after, .seg button[data-s="all"]::after, .cv-btn.all::after { content: ""; position: absolute; right: -8px; top: 22%; bottom: 22%; width: 1px; background: var(--line-2); pointer-events: none; }
+.cv-btn.all::after { right: -10px; }
+/* 업체 관리 머리 줄: 오른쪽 버튼을 아래 [상세 필터] 끝과 맞춤 */
+.co-shown:empty { display: none; }
+/* 사업 등록 · 수정: 왼쪽 입력, 오른쪽 지도 */
+.form.pjf { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px 18px; }
+.pjf-l { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.pjf-r { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.pjf .actions { grid-column: 1 / -1; }
+.pjf .site-pick { flex: 1 1 auto; height: auto; min-height: 320px; }
+.pjf-site { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--line); font-size: var(--fs-sm); font-weight: 750; color: var(--text); }
+.pjf .zone-box { margin-top: 0; }
+.pjf .pjf-done { margin-top: auto; padding-top: 6px; align-items: center; font-size: var(--fs-sm); }
+.pjf .pjf-done input { margin-top: 0; }
+.form .row.r12 { grid-template-columns: 1fr 2fr; }
+@media (max-width: 760px) { .form.pjf { grid-template-columns: 1fr; } .pjf .site-pick { min-height: 260px; } }
+.site-pick:focus, .site-pick:focus-visible { outline: none; }
+.drawer .d-sec .empty.small { padding: 10px 0; text-align: left; }
