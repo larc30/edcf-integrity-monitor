@@ -2362,3 +2362,25 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .adv-grid .conn-head:has(#btnConnCheck) { justify-content: flex-start; gap: 12px; }
 @media (min-width: 1001px) { .adv-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); } }
 .conn1 { grid-template-columns: 9.5em minmax(0, 1fr) auto; }
+
+/* =====================================================================
+   설정 탭 전체 점검 (2026-11-23): 버튼·입력칸 높이와 모서리, 제목 크기 단계, 버튼 색을 한 가지 규칙으로
+   - 카드 제목 16px / 묶음 제목 15px / 작은 제목 13px
+   - 버튼·입력칸·고르기 칸 34px · 모서리 9px (목록 줄 안의 것은 28px)
+   - 카드의 주 버튼([미리보기 · 보내기], [연결 확인])은 강조색 면, 나머지는 보통 버튼
+   ===================================================================== */
+#view-settings .btn, #view-settings .add-row input, #view-settings .add-row select, #view-settings .kw-form input,
+#view-settings .acc-find input, #view-settings .acc-find select { height: 34px; padding-top: 0; padding-bottom: 0; border-radius: 9px; font-size: var(--fs-sm); box-sizing: border-box; }
+#view-settings .btn { padding-left: 14px; padding-right: 14px; font-weight: 600; }
+#view-settings .acc-chip { height: 34px; padding: 0 12px; border-radius: 9px; box-sizing: border-box; }
+#view-settings .acc-ctl select, #view-settings .acc-ctl .tag { height: 28px; border-radius: 8px; box-sizing: border-box; font-size: var(--fs-sm); }
+#view-settings .acc-ctl .tag { display: inline-flex; align-items: center; justify-content: center; font-size: var(--fs-xs); }
+#btnPreview { border-color: transparent; background: var(--accent-soft); color: var(--accent); font-weight: 650; box-shadow: none; }
+:root:not([data-theme="light"]) #btnPreview { color: #AEB3FF; }
+#btnPreview:hover { background: color-mix(in srgb, var(--accent) 26%, transparent); border-color: transparent; filter: none; box-shadow: none; }
+/* 제목 단계 */
+#view-settings .card-head h2, #view-settings .adv-card > summary h2 { font-size: var(--fs-md); font-weight: 750; }
+.adv-grid .conn-head h3 { font-size: var(--fs-base); font-weight: 700; color: var(--text); letter-spacing: 0; }
+.conn-gh b, #view-settings .kw-fixed-head b, #view-settings .acc-team-h b { font-size: var(--fs-sm); font-weight: 700; color: var(--text-2); }
+.conn-gh { padding-left: 2px; margin-bottom: 7px; }
+#view-settings .badge { font-size: var(--fs-xs); }
