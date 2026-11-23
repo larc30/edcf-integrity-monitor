@@ -2455,3 +2455,19 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .co-eng > span:not(.role):not(.stage) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .co-eng .role { flex: 0 0 auto; }
 @media (max-width: 640px) { .co-engs-l { grid-template-columns: 1fr; } }
+
+/* 사업 관리·고급 설정 정렬 (2026-11-23) */
+.pj-side .card-head { justify-content: flex-start; gap: 8px; margin-bottom: 12px; min-height: 0; }
+.pj-side .card-head .h-count { font-size: var(--fs-sm); padding: 1px 9px; }
+.pj-side #sideSearch { height: 38px; margin-bottom: 8px; font-size: var(--fs-sm); }
+.pl-roles .role { min-width: 4.9em; text-align: center; justify-content: center; box-sizing: border-box; }
+.adv-card > summary:focus-visible { box-shadow: none; }
+.conn-gh { padding-left: 0; }
+.conn-rows, .u-total, #usageList .conn, .run-list .run { border-radius: 12px; }
+.u-total, #usageList .conn { padding: 10px 14px; }
+#usageList .conn .k { font-size: var(--fs-sm); font-weight: 650; }
+#usageList .conn .amt { font-size: var(--fs-base); }
+.u-total { align-items: center; } .u-total b { font-size: var(--fs-md); }
+.run-list .run, .run-list .run-err > summary { padding: 8px 14px; }
+.run-list .run.run-err { padding: 0; }
+.adv-grid .run-list { padding-right: 0; }
