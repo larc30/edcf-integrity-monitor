@@ -2471,3 +2471,9 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .run-list .run, .run-list .run-err > summary { padding: 8px 14px; }
 .run-list .run.run-err { padding: 0; }
 .adv-grid .run-list { padding-right: 0; }
+
+/* DART 검색 결과: 목록 높이를 넉넉히 */
+.dl-res .dl-list { max-height: 19em; }
+.dl-res .dp-cand.dl2 { display: grid; grid-template-columns: minmax(8em, 13em) minmax(0, 1fr) 3em; gap: 12px; }
+.dl-res .dp-cand.dl4 { display: grid; }
+.dl-res .dp-cand.dl2 .tag { justify-self: end; }

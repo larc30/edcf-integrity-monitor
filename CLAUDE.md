@@ -213,6 +213,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
   - [지금 스캔]은 다시 가벼운 스캔(2026-11-23 밤 사용자 결정, 위 '스캔은 한 가지 로직'을 바꿈): 같은 로직의 연결 업체 스캔이 약 17분 걸려서(실행 기록 07:22~07:39 UTC), task quick 은 업체명 검색을 건너뜀(제재 키워드 기사 대조 + 공식 명단 + 수원국, scanner.run_scan light=True ↔ run.process_queue). 업체명 검색은 아침 자동(daily)·업체 [다시 스캔]·[전체 업체 스캔]에서. 한 번도 스캔 안 한 업체는 가벼운 스캔이어도 업체명 검색(첫 스캔 10년). 업체명 검색 기간은 last_deep_at 기준.
   - 사업 관리·고급 정렬(2026-11-23 밤): 사업 관리 왼쪽 업체 칸은 제목 + 수(숫자만) + 검색(38px, 오른쪽 도구 줄과 같은 높이), 끌어다 놓기 안내는 제목에 마우스를 올리면. 목록 보기의 역할 표시는 같은 폭. 고급: 묶음 제목·상자 왼쪽 맞춤, 상자 모서리 12px·안쪽 여백 14px 통일, 요금 항목 이름은 API 연결 이름과 같은 크기, 고급 머리의 초점 테두리는 뺌.
 
+  - DART 이름 찾기 7차(2026-11-23 밤, '삼성으로 찾으면 8곳만·느림·삼성중공업이 안 나옴'): 원인 = firestore.rules 에 dart_master 읽기 규칙이 없어 브라우저가 이름 목록을 못 읽고 예전 길(함수 상세 8곳)로 빠졌음. 이름 목록은 저장소 파일 data/corp_master.json(DART 공개 기업목록 약 12만 곳, 7MB · 전송 2.8MB, Pages 에서 바로 읽음: 로그인·규칙·함수 무관)을 먼저 읽고, 없으면 dart_master → 함수. 파일 갱신은 Actions 에서 작업 dart 실행(monitor.yml 이 커밋). 후보 100곳(스팩은 맨 뒤), 버튼을 눌러도 후보가 한 곳뿐일 때만 바로 채움(예전: 정확히 같은 이름 1곳이면 바로 채워 '삼성'이 엉뚱한 회사로 채워짐). 고른 기업의 사업자번호·대표자는 여전히 함수 한 번.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 

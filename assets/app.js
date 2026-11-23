@@ -1414,8 +1414,12 @@ const D_KO = { a: "에이", b: "비", c: "씨", d: "디", e: "이", f: "에프",
 const dKo = (k) => k.replace(/[a-z]/g, (ch) => D_KO[ch]);
 function loadDartIdx() {
   if (window.__dartRows) { dartIdx = window.__dartRows.map((r) => { const k = dNorm(r[1]); return [k, r, dKo(k)]; }); return Promise.resolve(); } // 화면 점검용
-  if (new URLSearchParams(location.search).has("demo")) return Promise.resolve();
   return dartIdxP || (dartIdxP = (async () => {
+    try { // 저장소에 올려 둔 공개 기업목록 (로그인·규칙·함수와 무관하게 읽힘)
+      const r = await fetch("./data/corp_master.json");
+      if (r.ok) { const list = (await r.json()).filter((x) => x && x[0] && x[1]).map((x) => { const row = [x[0], x[1], x[2] || "", x[3] || ""], k = dNorm(row[1]); return [k, row, dKo(k)]; }); if (list.length) { dartIdx = list; return; } }
+    } catch {}
+    if (new URLSearchParams(location.search).has("demo")) return;
     try {
       const docs = (await getDocs(collection(db, "dart_master"))).docs.map((d) => d.data()).sort((a, b) => a.i - b.i);
       if (!docs.length || docs.length !== docs[0].n) return;
@@ -1428,13 +1432,14 @@ function loadDartIdx() {
   })());
 }
 // 정확히 같은 이름 → 그 글자로 시작하는 곳 → 상장사 → 짧은 이름 (functions searchMaster 와 같게)
-function dartSearchLocal(name, limit = 50) {
+function dartSearchLocal(name, limit = 100) {
   const target = dNorm(name), t2 = dKo(target);
   if (!dartIdx || target.length < 2) return [];
   const exact = dartIdx.filter(([k, , k2]) => k === target || k2 === t2);
   const part = dartIdx.filter((x) => !exact.includes(x) && (x[0].includes(target) || x[2].includes(t2)));
   const st = (x) => x[0].startsWith(target) || x[2].startsWith(t2);
-  part.sort((x, y) => (st(y) - st(x)) || (!!y[1][3].trim() - !!x[1][3].trim()) || (x[0].length - y[0].length));
+  const spac = (x) => /기업인수목적|스팩/.test(x[1][1]); // 스팩은 맨 뒤로
+  part.sort((x, y) => (spac(x) - spac(y)) || (st(y) - st(x)) || (!!y[1][3].trim() - !!x[1][3].trim()) || (x[0].length - y[0].length) || x[1][1].localeCompare(y[1][1], "ko"));
   return [...exact.map((x) => [x[1], true]), ...part.map((x) => [x[1], false])].slice(0, limit)
     .map(([r, ex]) => ({ corp_code: r[0], name: r[1], name_en: r[2] || "", listed: !!r[3].trim(), exact: ex }));
 }
@@ -2216,7 +2221,7 @@ function openCompanyForm(cid = null) {
   const showCoSug = async () => {
     const el = $("#coSug"), q = cleanCompanyName(f1.name.value).name;
     if (!el || !(dartOk || dartIdx) || coreLen(q) < 2 || (picked && picked.name === f1.name.value)) return hideSug();
-    const seq = ++sugSeq, r = dartIdx ? { items: dartSearchLocal(q) } : await dartCall({ q, limit: 50 }, 8000);
+    const seq = ++sugSeq, r = dartIdx ? { items: dartSearchLocal(q) } : await dartCall({ q, limit: 100 }, 8000);
     if (seq !== sugSeq || !el.isConnected || document.activeElement !== f1.name) return;
     sugItems = r?.items || [];
     el.innerHTML = sugItems.map((o, i) => `<button type="button" data-di="${i}">${itemRow(o)}</button>`).join("") || `<div class="muted small">DART에 '${esc(q)}'이(가) 들어간 기업이 없습니다. 직접 적어 주세요</div>`;
@@ -2262,16 +2267,16 @@ function openCompanyForm(cid = null) {
         }
       }
       // 이름 목록(50곳)을 받고, 고른 한 곳만 상세 조회. 사업자번호를 직접 적었으면 번호 대조가 필요해 아래 방식으로
-      const noBiz = biz.length !== 10 || (picked && picked.biz_no === biz);
-      if (noBiz && !dartIdx) await Promise.race([loadDartIdx(), new Promise((r) => setTimeout(r, 3000))]);
-      const quick = !noBiz ? null : dartIdx ? { items: dartSearchLocal(name) } : await dartCall({ q: name, limit: 50 }, 10000);
+      const noBiz = biz.length !== 10 || (picked && String(picked.biz_no || "").replace(/\D/g, "") === biz);
+      if (noBiz && !dartIdx) await Promise.race([loadDartIdx(), new Promise((r) => setTimeout(r, 8000))]);
+      const quick = !noBiz ? null : dartIdx ? { items: dartSearchLocal(name) } : await dartCall({ q: name, limit: 100 }, 10000);
       if (quick?.items) {
         const items = quick.items, exact = items.filter((o) => o.exact);
         if (!items.length) { box.innerHTML = `DART에 '${esc(name)}'이(가) 들어간 기업이 없습니다 (비상장·소규모·건축사사무소 등). 사업자등록번호와 대표자를 직접 넣어 주세요.`; return; }
-        box.innerHTML = `<div id="dlMsg" class="muted small">${exact.length === 1 ? "" : exact.length ? `DART에 같은 이름이 ${exact.length}곳 있습니다. 맞는 곳을 고르세요` : `이름이 정확히 같은 곳은 없고, '${esc(name)}'이(가) 들어간 기업이 ${items.length}곳${items.length >= 50 ? " 넘게" : ""} 있습니다. 맞는 곳을 고르세요 (이름을 더 적으면 줄어듭니다)`}</div>
+        box.innerHTML = `<div id="dlMsg" class="muted small">${items.length === 1 ? "" : `'${esc(name)}' 검색 결과 ${items.length}${items.length >= 100 ? "+" : ""}`}</div>
           <div class="dl-list">${items.map((o, i) => `<label class="dp-cand dl2"><input type="radio" name="dl-pick" value="${i}"><span class="c-ceo">${esc(o.name)}</span><span class="c-en">${esc(o.name_en || "")}</span>${o.listed ? `<span class="tag">상장</span>` : "<span></span>"}</label>`).join("")}</div>`;
         $$("input[name=dl-pick]", box).forEach((x) => x.onchange = () => pickDart(items[+x.value]));
-        if (exact.length === 1) { const x = box.querySelector(`input[value="${items.indexOf(exact[0])}"]`); x.checked = true; await pickDart(exact[0]); }
+        if (items.length === 1) { box.querySelector("input[name=dl-pick]").checked = true; await pickDart(items[0]); }
         return;
       }
       const r = await dartLookup(name, biz.length === 10 ? biz : "");
