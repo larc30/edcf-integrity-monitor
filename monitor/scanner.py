@@ -746,6 +746,7 @@ def dart_fill(ids: list[str] | None = None) -> dict:
     if not config.DART_API_KEY:
         raise RuntimeError("DART_API_KEY 가 등록돼 있지 않습니다")
     res = {"filled": 0, "choose": 0, "none": 0, "count": 0}
+    t_fill = time.time()
     recent = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
     patches: dict[str, dict] = {}
     for c in store.all_docs("companies"):
@@ -792,6 +793,7 @@ def dart_fill(ids: list[str] | None = None) -> dict:
             log.warning("DART 채움 실패: %s", type(e).__name__)
     if patches:
         store.update_many("companies", patches)
+    res["seconds"] = round(time.time() - t_fill, 1)
     store.log_run("dartfill", True, res)
     return res
 

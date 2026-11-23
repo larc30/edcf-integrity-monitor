@@ -818,7 +818,7 @@ function findingHtml(g, showCompany = true) {
       <span class="item-age">${g.newest ? relTime(g.newest) : ""}</span>
     </div>
     ${more.length ? `<details class="dup"><summary>같은 내용 ${more.length}건 더${srcs.length ? ` <span class="dup-src">${esc(srcs.slice(0, 3).join(" · "))}${srcs.length > 3 ? " 외" : ""}</span>` : ""}</summary>
-      <div class="dup-list">${more.map((x) => `<div class="dup-row">${badge(x.level)}${showCompany && x.company_id !== f.company_id ? `<b>${esc(x.company_name)}</b>` : ""}
+      <div class="bd-list">${more.map((x) => `<div class="dup-row">${badge(x.level)}${showCompany && x.company_id !== f.company_id ? `<b>${esc(x.company_name)}</b>` : ""}
         ${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener" title="${esc(x.summary || "")}">${esc(x.title || x.summary || "-")}</a>` : `<span title="${esc(x.summary || "")}">${esc(x.title || x.summary || "-")}</span>`}
         <span class="muted">${esc(x.source_name || "")}${x.published_at ? " · " + esc(x.published_at) : ""}</span></div>`).join("")}</div></details>` : ""}
   </div>`;
@@ -1555,7 +1555,7 @@ $("#btnGuide").onclick = openGuide;
 // 처음 한 번 열어 볼 때까지 NEW 표시
 try { if (localStorage.getItem("edcf_guide_seen")) $("#guideNew").remove(); } catch {}
 $("#btnScan").title = "사업에 연결된 업체를 스캔합니다";
-$("#btnFullScan").onclick = () => { if (confirm("사업에 연결되지 않은 업체까지, 등록된 모든 업체를 스캔할까요?")) runWorkflow({ task: "scan" }, "전체 업체 스캔"); };
+$("#btnFullScan").onclick = () => { const all = state.companies.length, off = state.companies.filter((c) => !c.focus).length; if (confirm(`등록된 업체 ${all}곳을 모두 스캔합니다 (사업에 연결되지 않은 ${off}곳 포함).\n평소 스캔은 사업에 연결된 ${all - off}곳만 합니다. 진행할까요?`)) runWorkflow({ task: "scan" }, "전체 업체 스캔"); };
 // 스캔 중지: 대기 중이면 바로 취소, 실행 중이면 '중지 요청' → 스캐너가 업체 몇 곳마다 확인해 멈춤
 $("#btnStop").onclick = async () => {
   const j = state.job;
@@ -2095,14 +2095,15 @@ async function deleteCompany(cid) {
 }
 
 // 업체명 다듬기: '(1순위)'와 법인 표기(주식회사·(주)·㈜)는 화면·검색용 이름에서 빼고, 적은 그대로는 공식 명칭(official)으로 따로 남김
+const CORP_MARK = /주식회사|유한회사|유한책임회사|합자회사|\(주\)|\(유\)|\(합\)|㈜/g; // 화면·검색·중복 확인용 이름에서 빼는 법인 표기
 function cleanCompanyName(raw) {
   let rank = null, name = String(raw || "");
   const m = name.match(/\(\s*(\d+)\s*순위\s*\)/);
   if (m) { rank = +m[1]; name = name.replace(m[0], ""); }
   const full = name.replace(/\s+/g, " ").trim();
   // 한글 사이에 낀 공백은 붙임 ('삼 부 토건' → '삼부토건'). 영문·숫자 옆 공백('LG CNS')은 그대로
-  name = name.replace(/주식회사|\(주\)|㈜/g, "").replace(/\s+/g, " ").trim().replace(/([가-힣])\s+(?=[가-힣])/g, "$1");
-  return { name, rank, official: /주식회사|\(주\)|㈜/.test(full) ? full : null };
+  name = name.replace(CORP_MARK, "").replace(/\s+/g, " ").trim().replace(/([가-힣])\s+(?=[가-힣])/g, "$1");
+  return { name, rank, official: full.replace(CORP_MARK, "").trim() !== full ? full : null };
 }
 // 업체명 기본 검사: 문제가 있으면 이유(문장), 없으면 "" (업체 추가·수정·일괄 등록 공통)
 const BAD_WORDS = ["시발", "씨발", "병신", "새끼", "지랄", "존나", "좆", "fuck", "shit"];
@@ -2201,9 +2202,10 @@ function openCompanyForm(cid = null) {
     const box = $("#dlRes"); box.classList.remove("hidden");
     let msg = $("#dlMsg"); if (!msg) { box.innerHTML = `<div id="dlMsg"></div>`; msg = $("#dlMsg"); }
     msg.innerHTML = `<span class="dl-wait"><i class="spin"></i>'${esc(it.name)}' 정보를 가져오는 중입니다</span>`;
+    const t0 = performance.now();
     const o = await dartCall({ code: it.corp_code, exact: it.exact, name: it.name, name_en: it.name_en || "", listed: !!it.listed }, 15000);
     if (!msg.isConnected) return;
-    if (o && o.corp_code) { fillFrom(o); msg.innerHTML = `DART에서 채웠습니다: <b>${esc(o.name)}</b> <span class="muted">${candLine(o)}</span>${o.ms ? ` <span class="muted small">(${(o.ms / 1000).toFixed(1)}초)</span>` : ""}`; }
+    if (o && o.corp_code) { fillFrom(o); msg.innerHTML = `DART에서 채웠습니다: <b>${esc(o.name)}</b> <span class="muted">${candLine(o)}</span> <span class="muted small">(${((performance.now() - t0) / 1000).toFixed(1)}초)</span>`; }
     else msg.innerHTML = `'${esc(it.name)}' 정보를 가져오지 못했습니다. 잠시 뒤 다시 고르거나 직접 적어 주세요.`;
   };
   const showCoSug = async () => {
@@ -2435,7 +2437,7 @@ function parseAny(text) {
       let name = m[1].trim(); const al = [...m[2].matchAll(/["']([^"']+)["']/g)].map((x) => x[1].trim());
       const paren = name.match(/^(.+?)\s*\((.+)\)$/);
       if (paren) { name = paren[1].trim(); al.push(paren[2].trim()); }
-      name = name.replace(/주식회사|\(주\)|㈜/g, "").trim();
+      name = name.replace(CORP_MARK, "").trim();
       base.push({ name, aliases: [...new Set(al.filter((a) => a && a !== name))], category: cat });
       return;
     }
@@ -2969,8 +2971,8 @@ async function renderUsage(reload) {
   // GitHub Actions
   const ac = u.actions?.[m] || {};
   const rows = [
-    ["Claude AI", "기사 판정 (Haiku · 경고·주의만 Sonnet 재검토)", aiParts.join(" · ") || "이번 달 기록 없음", aiUsd ? `${won(aiUsd)} ($${aiUsd.toFixed(2)})` : "0원", aiUsd * KRW >= WARN_KRW ? "warn" : "ok", ""],
-    ["Firebase DB", "읽기 · 하루 5만 건까지 무료", `오늘 ${num(today)}건 · 이번 달 ${num(fsMonth)}건 · 화면 열기 ${num(loads)}회`, fsUsd ? won(fsUsd) : "0원", today > FS_FREE * 0.8 ? "warn" : "ok", bar(today, FS_FREE)],
+    ["Claude AI", "기사 판정 (Haiku · 경고·주의만 Sonnet 재검토) · 막대는 월 3만 원 기준", aiParts.join(" · ") || "이번 달 기록 없음", aiUsd ? `${won(aiUsd)} ($${aiUsd.toFixed(2)})` : "0원", aiUsd * KRW >= WARN_KRW ? "warn" : "ok", bar(aiUsd * KRW, WARN_KRW), "https://console.anthropic.com/settings/usage"],
+    ["Firebase DB", "읽기 · 하루 5만 건까지 무료 · 막대는 오늘 읽기", `오늘 ${num(today)}건 · 이번 달 ${num(fsMonth)}건 · 화면 열기 ${num(loads)}회`, fsUsd ? won(fsUsd) : "0원", today > FS_FREE * 0.8 ? "warn" : "ok", bar(today, FS_FREE), "https://console.firebase.google.com/project/edcf-monitor/usage"],
     ["Firebase 함수", "[지금 스캔] 즉시 실행 · 월 200만 회 무료", "요청이 있을 때만 실행", "0원", "ok", ""],
     ["GitHub Actions", "검사 실행 · 공개 저장소 무료 (비공개면 월 2,000분 무료)", `${num(ac.runs)}회 · 약 ${num(ac.minutes)}분`, "0원", "ok", bar(ac.minutes || 0, 2000)],
     ["Apps Script · Gmail", "예비 실행 · 메일 발송", "Google 계정 무료 한도 안", "0원", "ok", ""],
@@ -2980,7 +2982,7 @@ async function renderUsage(reload) {
   // 돈이 나가는 것(Claude)과 무료 한도를 봐야 하는 것(Firebase 읽기)만. 0원인 항목은 주의가 필요할 때만
   const shown = rows.filter(([k, , , amt, stt]) => k === "Claude AI" || k === "Firebase DB" || amt !== "0원" || stt !== "ok");
   $("#usageList").innerHTML = `<div class="u-total"><span>합계</span><b>${total ? won(total) : "0원"}</b></div>`
-    + shown.map(([k, role, dd, amt, stt, b]) => `<div class="conn" title="${esc(role)}"><div class="ct"><div class="k">${k}</div><div class="d">${esc(dd)}${b}</div></div><div class="cs"><b class="amt">${amt}</b>${stt === "ok" ? "" : BADGE[stt]}</div></div>`).join("");
+    + shown.map(([k, role, dd, amt, stt, b, link]) => `<div class="conn" title="${esc(role)}"><div class="ct"><div class="k">${k}${link ? `<a class="u-link" href="${link}" target="_blank" rel="noopener" title="실제 청구 화면">실제 사용량 ↗</a>` : ""}</div><div class="d">${esc(dd)}${b}</div></div><div class="cs"><b class="amt">${amt}</b>${stt === "ok" ? "" : BADGE[stt]}</div></div>`).join("");
 }
 $("#btnUsage").onclick = () => renderUsage(true);
 // 실제 금액 맞추기: Anthropic 콘솔의 '이번 달 지출'을 적으면, 기록으로 계산한 금액과의 차이를 저장해 이후 표시에 더함
@@ -3030,7 +3032,7 @@ function runSummary(r) {
   const parts = r.kind === "scan" ? [d.scope === "all" && "전체 업체", d.companies != null && `업체 ${d.companies}`, d.fetched != null && `기사 ${Number(d.fetched).toLocaleString()}건`, d.new_findings != null && `새 이슈 ${d.new_findings}건`, d.seconds != null && `${Math.round(d.seconds)}초`]
     : r.kind === "report" ? [d.error ? "발송 실패" : d.items != null && `이슈 ${d.items}건`, d.to && `받는 사람 ${[].concat(d.to).length}명`, d.test && "테스트"]
     : r.kind === "dart" ? [d.count != null && `기업 ${Number(d.count).toLocaleString()}개`]
-    : r.kind === "dartfill" ? [d.count != null && `대상 ${d.count}`, `채움 ${d.filled || 0}`, `고르기 ${d.choose || 0}`, `DART에 없음 ${d.none || 0}`]
+    : r.kind === "dartfill" ? [d.count != null && `대상 ${d.count}`, `채움 ${d.filled || 0}`, `고르기 ${d.choose || 0}`, `DART에 없음 ${d.none || 0}`, d.seconds != null && `${Math.round(d.seconds)}초`]
     : r.kind === "rejudge" ? [d.targets != null && `대상 ${d.targets}건`, d.updated != null && `갱신 ${d.updated}건`, d.failed ? `못 받음 ${d.failed}건` : ""] : [];
   return [...parts.filter(Boolean), errs ? `오류 ${errs}건` : ""].filter(Boolean).join(" · ");
 }
@@ -3116,8 +3118,7 @@ $("#btnBizDup").onclick = () => {
   const groups = bizDupes();
   if (!groups.length) return toast("중복된 사업자번호가 없습니다");
   modal(`<h2>사업자번호 중복 <span class="count">${groups.length}</span></h2>
-    <p class="muted small">사업자등록번호는 업체마다 하나여야 합니다. 같은 회사가 이름만 다르게 두 번 들어간 경우가 많습니다. 하나만 남기고(사업 연결 옮기기) 다른 이름은 별칭에 넣어 주세요. 이름을 누르면 업체 상세가 열립니다.</p>
-    <div class="nc-list">${groups.map((g) => `<div class="srow"><span class="muted">${esc(fmtBiz(g[0].biz_no))}</span><span>${g.map((c) => `<a href="#" data-dup-open="${c.id}">${esc(c.name)}</a>`).join(" · ")}</span></div>`).join("")}</div>`);
+    <div class="bd-list">${groups.map((g) => `<div class="bd-row"><span class="bd-no">${esc(fmtBiz(g[0].biz_no))}</span><span class="bd-names">${g.map((c) => `<button type="button" class="bd-co" data-dup-open="${c.id}">${esc(c.name)}${c.engagements?.length ? `<i>사업 ${c.engagements.length}</i>` : ""}</button>`).join("")}</span></div>`).join("")}</div>`);
   $$("[data-dup-open]").forEach((a) => a.onclick = (e) => { e.preventDefault(); closeModal(); openCompany(a.dataset.dupOpen); });
 };
 $("#btnDartFill").onclick = () => dartFillAll();
@@ -3131,12 +3132,11 @@ function openDartPick() {
   const list = dartPending();
   if (!list.length) return toast("고를 후보가 없습니다");
   modal(`<h2>DART 동명 기업 고르기 <span class="count">${list.length}</span></h2>
-    <p class="muted small">DART에 같은 이름의 기업이 여러 곳 있는 업체입니다. 맞는 기업을 고르면 사업자번호, 영문명, 대표자가 채워집니다. 모르면 '나중에'로 두세요.</p>
-    <form id="dartPickForm"><div class="dp-list">${list.map((c) => `<div class="dp-co"><div class="dp-name"><b>${esc(c.name)}</b>${c.engagements?.length ? ` <span class="muted small">${esc(c.engagements.map((e) => state.projects.find((p) => p.id === e.project_id)?.name).filter(Boolean).slice(0, 2).join(", "))}</span>` : ""}</div>
-      ${c.dart_cands.map((o, i) => `<label class="dp-opt"><input type="radio" name="dp-${c.id}" value="${i}"><span><b>${esc(o.name)}</b>${o.listed ? ` <span class="tag">상장</span>` : ""} <span class="muted">${esc([o.ceo && "대표 " + o.ceo, o.biz_no && fmtBiz(o.biz_no), o.name_en].filter(Boolean).join(" · ") || "상세 정보 없음")}</span></span></label>`).join("")}
-      <label class="dp-opt"><input type="radio" name="dp-${c.id}" value="none"><span>이 가운데 없음 <span class="muted">(직접 입력)</span></span></label>
-      <label class="dp-opt"><input type="radio" name="dp-${c.id}" value="" checked><span class="muted">나중에</span></label></div>`).join("")}</div>
-      <div class="actions"><button class="btn primary">고른 대로 채우기</button></div></form>`);
+    <form id="dartPickForm"><div class="dp-list">${list.map((c) => `<div class="dp-co">
+      <div class="dp-h"><b>${esc(c.name)}</b>${c.engagements?.length ? `<span class="dp-pj">${esc(c.engagements.map((e) => state.projects.find((p) => p.id === e.project_id)?.name).filter(Boolean).slice(0, 2).join(", "))}</span>` : ""}
+        <span class="dp-skip"><label><input type="radio" name="dp-${c.id}" value="" checked><span>나중에</span></label><label><input type="radio" name="dp-${c.id}" value="none"><span>해당 없음</span></label></span></div>
+      <div class="dp-cands">${c.dart_cands.map((o, i) => `<label class="dp-cand"><input type="radio" name="dp-${c.id}" value="${i}"><span class="c-ceo">${esc(o.ceo || "-")}</span><span class="c-biz">${esc(o.biz_no ? fmtBiz(o.biz_no) : "-")}</span><span class="c-en" title="${esc(o.name_en || "")}">${esc(o.name_en || "")}</span>${o.listed ? `<span class="tag">상장</span>` : ""}</label>`).join("")}</div></div>`).join("")}</div>
+      <div class="actions dp-foot"><button class="btn primary">고른 대로 채우기</button></div></form>`);
   $("#modal").classList.add("wide");
   $("#dartPickForm").onsubmit = async (ev) => {
     ev.preventDefault();
