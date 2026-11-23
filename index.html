@@ -20,7 +20,7 @@
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=122">
+<link rel="stylesheet" href="assets/style.css?v=123">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -165,9 +165,12 @@
       <div class="page-head">
         <h1>업체 관리 <span class="h-count" id="coTotal">0</span></h1>
         <div class="head-actions">
-          <button class="btn super-only" id="btnFullScan" title="사업에 연결되지 않은 업체까지 모두 스캔">전체 업체 스캔</button>
-          <button class="btn" id="btnDartFill" title="사업자번호·영문명이 빈 업체를 DART에서 한꺼번에 채웁니다">DART 일괄 조회</button>
-          <button class="btn" id="btnBulk">일괄 등록</button>
+          <details class="tool-menu" id="coToolMenu"><summary class="btn">도구<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary>
+            <div class="tool-pop">
+              <button type="button" id="btnBulk">일괄 등록</button>
+              <button type="button" id="btnDartFill">DART 일괄 조회</button>
+              <button type="button" class="super-only" id="btnFullScan">전체 업체 스캔</button>
+            </div></details>
           <button class="btn primary" id="btnAddCompany">+ 업체 추가</button>
         </div>
       </div>
@@ -276,6 +279,6 @@
 <aside class="drawer" id="drawer"><div class="drawer-head"><div id="drawerTitle"></div><button type="button" class="x-close" id="drawerClose" title="닫기" aria-label="닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div id="drawerBody" class="drawer-body"></div></aside>
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div id="toast" class="toast"></div>
-<script type="module" src="assets/app.js?v=129"></script>
+<script type="module" src="assets/app.js?v=130"></script>
 </body>
 </html>
