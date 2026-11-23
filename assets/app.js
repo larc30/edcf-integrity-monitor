@@ -2683,6 +2683,7 @@ function renderSettings() {
   renderKeywords();
   renderAccess();
 
+  if ($("#rcCount")) $("#rcCount").textContent = state.recipients.length;
   $("#rcList").innerHTML = state.recipients.map((r) => `<div class="srow"><span>${esc(r.email)}</span><button class="xbtn" data-del-rc="${r.id}" title="삭제">✕</button></div>`).join("") || `<div class="muted small">아직 없습니다.</div>`;
   $$("[data-del-rc]").forEach((b) => b.onclick = async () => { await deleteDoc(doc(db, "recipients", b.dataset.delRc)); state.recipients = state.recipients.filter((r) => r.id !== b.dataset.delRc); renderSettings(); });
   if ($("#advCard").open) renderAdvanced();
