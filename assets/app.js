@@ -1511,13 +1511,13 @@ function renderJob0() {
   el.innerHTML = `<span class="jline"><span class="spinner"></span>${what}</span>${pct != null ? `<span class="jbar"><i style="width:${pct}%"></i></span>` : ""}`;
 }
 setInterval(() => { if (state.job && !state.job.done) renderJob(); }, 1000);
-// [지금 스캔] = 빠른 스캔: 새 제재 기사 + 공식 명단만 (업체명 검색까지 하는 전체 스캔은 매일 아침 자동, 또는 설정 > 고급)
-$("#btnScan").onclick = () => runWorkflow({ task: "quick" }, "빠른 스캔");
+// [지금 스캔] = 진행 중 사업에 연결된 업체를 스캔 (아침 자동 스캔과 같은 일). 등록된 모든 업체 스캔은 설정 > 고급
+$("#btnScan").onclick = () => runWorkflow({ task: "quick" }, "지금 스캔");
 $("#btnGuide").onclick = openGuide;
 // 처음 한 번 열어 볼 때까지 NEW 표시
 try { if (localStorage.getItem("edcf_guide_seen")) $("#guideNew").remove(); } catch {}
-$("#btnScan").title = "새로 나온 제재 기사와 공식 명단(EXIMIIS, 조달청, MDB)만 빠르게 확인합니다. 업체명으로 하나씩 찾는 전체 스캔은 매일 아침 자동으로 돕니다";
-$("#btnFullScan").onclick = () => { if (confirm("업체명으로 하나씩 뉴스를 찾는 전체 스캔을 지금 돌릴까요? (매일 아침 자동으로 한 번 돕니다)")) runWorkflow({ task: "scan" }, "전체 스캔"); };
+$("#btnScan").title = "사업에 연결된 업체를 스캔합니다";
+$("#btnFullScan").onclick = () => { if (confirm("사업에 연결되지 않은 업체까지, 등록된 모든 업체를 스캔할까요?")) runWorkflow({ task: "scan" }, "전체 업체 스캔"); };
 // 스캔 중지: 대기 중이면 바로 취소, 실행 중이면 '중지 요청' → 스캐너가 업체 몇 곳마다 확인해 멈춤
 $("#btnStop").onclick = async () => {
   const j = state.job;
@@ -2946,7 +2946,7 @@ async function pollConnCheck() {
 // 실행 기록: 사람이 읽는 한 줄 요약
 function runSummary(r) {
   const d = r.detail || {}, errs = Array.isArray(d.errors) ? d.errors.length : d.errors || 0;
-  const parts = r.kind === "scan" ? [d.quick && "빠른 스캔", d.companies != null && `업체 ${d.companies}`, d.fetched != null && `기사 ${Number(d.fetched).toLocaleString()}건`, d.new_findings != null && `새 이슈 ${d.new_findings}건`, d.seconds != null && `${Math.round(d.seconds)}초`]
+  const parts = r.kind === "scan" ? [d.scope === "all" && "전체 업체", d.companies != null && `업체 ${d.companies}`, d.fetched != null && `기사 ${Number(d.fetched).toLocaleString()}건`, d.new_findings != null && `새 이슈 ${d.new_findings}건`, d.seconds != null && `${Math.round(d.seconds)}초`]
     : r.kind === "report" ? [d.error ? "발송 실패" : d.items != null && `이슈 ${d.items}건`, d.to && `받는 사람 ${[].concat(d.to).length}명`, d.test && "테스트"]
     : r.kind === "dart" ? [d.count != null && `기업 ${Number(d.count).toLocaleString()}개`]
     : r.kind === "dartfill" ? [d.count != null && `대상 ${d.count}`, `채움 ${d.filled || 0}`, `고르기 ${d.choose || 0}`, `DART에 없음 ${d.none || 0}`]

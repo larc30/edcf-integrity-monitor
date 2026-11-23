@@ -279,10 +279,10 @@ def _identify(company: dict, errors: list) -> dict:
 def scan_company(company: dict, projects: dict, keywords: list[dict], entries: list[dict], lists_ok: int,
                  sweep_hits: list[dict] | None = None, sweep_engines: list[str] | None = None, sweep_total: int = 0,
                  edcf: list[dict] | None = None, existing: list[dict] | None = None, seen_doc: dict | None = None,
-                 force: bool = False, quick: bool = False) -> dict:
-    """quick: 빠른 스캔 · 업체명 검색은 건너뛰고 제재 키워드 기사 대조 + 공식 명단만 (업체명 검색은 매일 아침 전체 스캔이 함)
+                 ) -> dict:
+    """스캔 로직은 한 가지 (2026-11-23 사용자 결정): 아침 자동·지금 스캔·업체 스캔·전체 업체 스캔이 모두 같은 일을 하고 대상만 다름.
     existing: 이 업체의 관련 이슈(relevant) 목록, seen_doc: 이미 본 기사 키 요약(seen/{업체 id}),
-    force: 업체 하나만 '다시 스캔' · 주간 제한 없이 업체명 검색, 10년 범위, 예전에 관련 없다고 본 기사도 다시 판정"""
+    """
     t0 = time.time()
     errors: list[str] = []
     stats = {"fetched": 0, "candidates": 0, "new_findings": 0, "official": 0, "cleaned": 0, "auto_same": 0}
@@ -291,16 +291,15 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         for e in company.get("engagements") or []
         if projects.get(e.get("project_id"), {}).get("status") != "done"
     ]
-    # 업체명 검색: 전체 스캔·다시 스캔에서 모든 업체 매일 (2026-11-23: 집중·기본 감시 구분과 심층 검색을 없앰). 빠른 스캔은 건너뜀
     # 1) 뉴스 수집 (제재 키워드 검색에서 이 업체가 나온 기사 + 업체명 검색)
-    # 기간: 첫 스캔·다시 스캔은 10년(과거 이력 포함), 그 뒤 매일은 마지막 확인 7일 전부터 (이미 본 기사는 키로 건너뜀)
+    # 기간: 첫 스캔은 10년(과거 이력 포함), 그 뒤로는 마지막 확인 7일 전부터 (이미 본 기사는 키로 건너뜀)
     last_news = company.get("last_news_at")
-    if force or not last_news:
+    if not last_news:
         cutoff, days = (date.today() - timedelta(days=config.NEWS_LOOKBACK_DAYS)).isoformat(), None
     else:
         start = datetime.strptime(last_news[:10], "%Y-%m-%d").date() - timedelta(days=7)
         cutoff, days = start.isoformat(), max(2, (date.today() - start).days + 1)
-    queries = [] if quick else _queries(company, days, [k["word"] for k in keywords if k.get("user") and k.get("lang") == "ko"])
+    queries = _queries(company, days, [k["word"] for k in keywords if k.get("user") and k.get("lang") == "ko"])
     seen, articles, engines_ok = {}, [], set(sweep_engines or [])
     for a in sweep_hits or []:
         if a["dedup_key"] not in seen:
@@ -331,7 +330,7 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         allf = store.where("findings", "company_id", "==", company["id"])
         seen_keys |= {f.get("dedup_key") for f in allf if f.get("dedup_key")}
         existing = [f for f in allf if f.get("relevant")]
-    known = {f.get("dedup_key") for f in existing} | (set() if force else seen_keys)
+    known = {f.get("dedup_key") for f in existing} | seen_keys
     mentioned = [
         a for a in articles
         if (not a["published_at"] or a["published_at"] >= cutoff) and mentions(f"{a['title']} {a.get('snippet', '')}", names, ctx)
@@ -421,8 +420,8 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         pps_st = {"status": "not_connected"}
     elif len(bizno) != 10:
         pps_st = {"status": "no_bizno"}
-    elif quick and _pps_today(company, bizno):
-        # 빠른 스캔: 오늘 이미 정상 조회했으면 다시 부르지 않음 (하루 호출 한도·지연 오류 줄이기). 저장된 조달청 기록은 그대로 둠
+    elif _pps_today(company, bizno):
+        # 오늘 이미 정상 조회했으면 다시 부르지 않음 (하루 호출 한도·지연 오류 줄이기). 저장된 조달청 기록은 그대로 둠
         pps_st = {**company["last_check"]["pps"], "reused": True}
     else:
         try:
@@ -550,31 +549,36 @@ def _load_guide(dis: list[str], conf: list[str], refresh: bool) -> str:
     return auto.strip()  # 직접 적는 칸은 없앰 (2026-11-12): AI가 정리한 기준만
 
 
-def run_scan(only_names: list[str] | None = None, progress=None, should_stop=None, quick: bool = False) -> dict:
+def run_scan(only_names: list[str] | None = None, progress=None, should_stop=None, scope: str = "linked") -> dict:
     """progress(done, total, current_name) 콜백으로 진행 상황을 알리고, should_stop()이 True면 남은 업체를 건너뛴다.
-    quick: 빠른 스캔 (제재 키워드 기사 + 공식 명단만, 업체명 검색 없음)"""
+    대상만 다르고 하는 일은 같음: only_names = 그 업체만 / scope "linked" = 진행 중 사업에 연결된 업체(아침 자동·지금 스캔)
+    / scope "all" = 등록된 모든 업체(설정 > 고급 [전체 업체 스캔])"""
     t_start = time.time()
     analyzer.CLAUDE_ERROR = None
     analyzer.check()
     projects = {p["id"]: p for p in store.all_docs("projects")}
     keywords = analyzer.build_keywords(store.all_docs("keywords"))  # 추가 키워드 + 예비 등급 기준
     companies = sorted(store.all_docs("companies"), key=lambda c: c["name"])
-    if only_names:
-        wanted = {n.strip() for n in only_names if n.strip()}
-        companies = [c for c in companies if c["name"] in wanted]
+    wanted = {n.strip() for n in only_names or [] if n.strip()}
+    live = lambda c: any(e.get("project_id") in projects and projects[e["project_id"]].get("status") != "done" for e in c.get("engagements") or [])
+    if wanted and scope != "all":
+        companies = [c for c in companies if c["name"] in wanted or (scope == "linked+" and live(c))]
+    elif scope != "all":
+        companies = [c for c in companies if live(c)]
+    whole = not wanted or scope in ("all", "linked+")  # 업체 몇 곳만이 아닌 스캔
     total = len(companies)
     if progress:
         progress(0, total, "제재 키워드 검색·제재리스트 준비")
 
     # DART 기업목록이 필요한 업체가 있으면 시작하자마자 백그라운드로 받기 시작
-    needs_dart = not quick and config.DART_API_KEY and any(
+    needs_dart = config.DART_API_KEY and any(
         c.get("country", "KR") in ("KR", "", None) and not c.get("biz_no") and not c.get("corp_code")
         and _days_since(c.get("dart_checked_at")) >= 30 for c in companies)
     if needs_dart:
         threading.Thread(target=lambda: _safe(dart.load_master), daemon=True).start()
 
     errors: list[str] = []
-    if not quick and not only_names and config.DART_API_KEY:
+    if whole and config.DART_API_KEY:
         _safe(lambda: _name_changes(companies))
     t_lists = time.time()
     with ThreadPoolExecutor(max_workers=2) as ex:
@@ -596,10 +600,9 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
     except Exception as e:
         log.warning("seen 요약 읽기 실패 → 업체별로 읽음: %s", e)
         seen_docs = {}
-    force = bool(only_names) and len(companies) <= 3  # 업체 1~3곳만 다시 스캔: 꼼꼼하게
     # AI가 계속 배우도록: 모든 업체에서 담당자가 누른 판단 사례 + 그것을 요약한 판정 지침을 판정마다 함께 줌
     fb_dis, fb_conf = _shared_feedback(rel_by)
-    analyzer.SHARED = {"dismissed": fb_dis[:40], "confirmed": fb_conf[:40], "guide": _load_guide(fb_dis, fb_conf, refresh=not only_names and not quick)}
+    analyzer.SHARED = {"dismissed": fb_dis[:40], "confirmed": fb_conf[:40], "guide": _load_guide(fb_dis, fb_conf, refresh=whole)}
     # 매뉴얼: MDB는 영문명 조회 후 국적 대한민국으로 최종 확인 → 한국 국적 제재 기업 목록을 따로 기록
     korea = [{"name": e["name"], "dataset": e["dataset"], "sanctions": (e.get("sanctions") or "")[:200],
               "url": f"https://www.opensanctions.org/entities/{e['entity_id']}/"}
@@ -611,12 +614,11 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
     totals = {"companies": total, "fetched": 0, "candidates": 0, "new_findings": 0, "official": 0, "cleaned": 0, "auto_same": 0,
               "sweep_articles": len(sweep_articles), "sweep_matched_companies": len(hits)}
     lock, done = threading.Lock(), 0
-    # 빠른 스캔은 업체마다 하는 일이 가벼워(검색 없음) 동시에 더 많이 처리
-    with ThreadPoolExecutor(max_workers=config.SCAN_WORKERS * 2 if quick else config.SCAN_WORKERS) as ex:
+    with ThreadPoolExecutor(max_workers=config.SCAN_WORKERS) as ex:
         futs = {ex.submit(scan_company, c, projects, keywords, entries, lists_ok,
                           hits.get(c["id"], []), sweep_engines, len(sweep_articles), edcf,
                           rel_by.get(c["id"], []) if c["id"] in seen_docs and seen_docs[c["id"]] is not None else None,
-                          seen_docs.get(c["id"]), force, quick): c for c in companies}
+                          seen_docs.get(c["id"])): c for c in companies}
         for fut in as_completed(futs):
             c = futs[fut]
             try:
@@ -656,8 +658,7 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
     totals["sanction_lists"] = list_status
     if only_names:
         totals["only"] = only_names
-    if quick:
-        totals["quick"] = True
+    totals["scope"] = "names" if wanted and scope not in ("all", "linked+") else "all" if scope == "all" else "linked"
 
     store.update("meta", "status", {
         "last_scan_at": store.now_str(),
