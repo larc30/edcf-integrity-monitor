@@ -279,8 +279,9 @@ def _identify(company: dict, errors: list) -> dict:
 def scan_company(company: dict, projects: dict, keywords: list[dict], entries: list[dict], lists_ok: int,
                  sweep_hits: list[dict] | None = None, sweep_engines: list[str] | None = None, sweep_total: int = 0,
                  edcf: list[dict] | None = None, existing: list[dict] | None = None, seen_doc: dict | None = None,
-                 ) -> dict:
-    """스캔 로직은 한 가지 (2026-11-23 사용자 결정): 아침 자동·지금 스캔·업체 스캔·전체 업체 스캔이 모두 같은 일을 하고 대상만 다름.
+                 light: bool = False) -> dict:
+    """아침 자동·업체 스캔·전체 업체 스캔은 같은 일(업체명 검색 포함)을 하고 대상만 다름.
+    light([지금 스캔]): 업체명 검색을 건너뜀(제재 키워드 기사 대조 + 공식 명단만). 한 번도 스캔 안 한 업체는 light 여도 업체명 검색.
     existing: 이 업체의 관련 이슈(relevant) 목록, seen_doc: 이미 본 기사 키 요약(seen/{업체 id}),
     """
     t0 = time.time()
@@ -298,8 +299,10 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         cutoff, days = (date.today() - timedelta(days=config.NEWS_LOOKBACK_DAYS)).isoformat(), None
     else:
         start = datetime.strptime(last_news[:10], "%Y-%m-%d").date() - timedelta(days=7)
-        cutoff, days = start.isoformat(), max(2, (date.today() - start).days + 1)
-    queries = _queries(company, days, [k["word"] for k in keywords if k.get("user") and k.get("lang") == "ko"])
+        # 업체명 검색 기간은 마지막 업체명 검색 기준 (가벼운 스캔은 last_news_at 만 새로 적음)
+        deep = datetime.strptime((company.get("last_deep_at") or last_news)[:10], "%Y-%m-%d").date() - timedelta(days=7)
+        cutoff, days = start.isoformat(), max(2, (date.today() - min(start, deep)).days + 1)
+    queries = [] if light and last_news else _queries(company, days, [k["word"] for k in keywords if k.get("user") and k.get("lang") == "ko"])
     seen, articles, engines_ok = {}, [], set(sweep_engines or [])
     for a in sweep_hits or []:
         if a["dedup_key"] not in seen:
@@ -550,7 +553,7 @@ def _load_guide(dis: list[str], conf: list[str], refresh: bool) -> str:
     return auto.strip()  # 직접 적는 칸은 없앰 (2026-11-12): AI가 정리한 기준만
 
 
-def run_scan(only_names: list[str] | None = None, progress=None, should_stop=None, scope: str = "linked") -> dict:
+def run_scan(only_names: list[str] | None = None, progress=None, should_stop=None, scope: str = "linked", light: bool = False) -> dict:
     """progress(done, total, current_name) 콜백으로 진행 상황을 알리고, should_stop()이 True면 남은 업체를 건너뛴다.
     대상만 다르고 하는 일은 같음: only_names = 그 업체만 / scope "linked" = 진행 중 사업에 연결된 업체(아침 자동·지금 스캔)
     / scope "all" = 등록된 모든 업체(설정 > 고급 [전체 업체 스캔])"""
@@ -619,7 +622,7 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
         futs = {ex.submit(scan_company, c, projects, keywords, entries, lists_ok,
                           hits.get(c["id"], []), sweep_engines, len(sweep_articles), edcf,
                           rel_by.get(c["id"], []) if c["id"] in seen_docs and seen_docs[c["id"]] is not None else None,
-                          seen_docs.get(c["id"])): c for c in companies}
+                          seen_docs.get(c["id"]), light and c["name"] not in wanted): c for c in companies}
         for fut in as_completed(futs):
             c = futs[fut]
             try:
@@ -659,6 +662,7 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
     totals["sanction_lists"] = list_status
     if only_names:
         totals["only"] = only_names
+    totals["light"] = bool(light)
     totals["scope"] = "names" if wanted and scope not in ("all", "linked+") else "all" if scope == "all" else "linked"
 
     store.update("meta", "status", {

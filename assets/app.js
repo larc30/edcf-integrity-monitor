@@ -1551,7 +1551,7 @@ function renderJob0() {
   el.innerHTML = `<span class="jline"><span class="spinner"></span>${what}</span>${pct != null ? `<span class="jbar"><i style="width:${pct}%"></i></span>` : ""}`;
 }
 setInterval(() => { if (state.job && !state.job.done) renderJob(); }, 1000);
-// [지금 스캔] = 진행 중 사업에 연결된 업체를 스캔 (아침 자동 스캔과 같은 일). 등록된 모든 업체 스캔은 설정 > 고급
+// [지금 스캔] = 진행 중 사업에 연결된 업체의 가벼운 스캔 (제재 키워드 기사 대조 + 공식 명단, 업체명 검색은 아침 자동 스캔에서)
 $("#btnScan").onclick = () => runWorkflow({ task: "quick" }, "지금 스캔");
 $("#btnGuide").onclick = openGuide;
 // 처음 한 번 열어 볼 때까지 NEW 표시
@@ -1761,7 +1761,7 @@ function renderProjects() {
   const q = ($("#sideSearch").value || "").trim().toLowerCase();
   const side = state.companies.filter((c) => !q || c.name.toLowerCase().includes(q) || (c.aliases || "").toLowerCase().includes(q) || (c.name_en || "").toLowerCase().includes(q))
     .sort((a, b) => a.name.localeCompare(b.name));
-  $("#sideN").textContent = q ? `${side.length} / ${state.companies.length}개` : `${state.companies.length}개`;
+  $("#sideN").textContent = q ? `${side.length} / ${state.companies.length}` : `${state.companies.length}`;
   $("#sideList").innerHTML = side.map((c) => `<div class="side-co" draggable="true" data-cid="${c.id}" data-side-open="${c.id}" role="button" tabindex="0" title="누르면 업체 정보 · 끌면 사업의 역할 칸에 연결"><span class="dot ${sc ? c.risk : ""}"></span><span class="nm">${esc(c.name)}</span></div>`).join("")
     || `<div class="empty small">${state.companies.length ? "검색 결과가 없습니다" : "업체 관리에서 업체를 먼저 등록하세요"}</div>`;
   $$("#sideList [data-side-open]").forEach((el) => { const go = () => openCompany(el.dataset.sideOpen); el.onclick = go; el.onkeydown = (e) => { if (e.key === "Enter") go(); }; });

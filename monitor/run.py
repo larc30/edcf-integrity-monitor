@@ -78,12 +78,14 @@ def process_queue() -> int:
 
     # 스캔 요청은 한 번에 묶어서. 하는 일은 모두 같고 대상만 다름:
     # quick([지금 스캔])·daily = 진행 중 사업에 연결된 업체 / scan + 업체 이름 = 그 업체만 / scan(이름 없음) = 등록된 모든 업체
+    # quick 만 있으면 가벼운 스캔(업체명 검색 없음): 업체명 검색은 아침 자동·업체 스캔·전체 업체 스캔에서
     scans = [r for r in reqs if r.get("task") in ("scan", "daily", "quick")]
     if scans:
         names = sorted({n.strip() for r in scans for n in (r.get("companies") or "").split(",") if n.strip()}) or None
         everyone = any(r.get("task") == "scan" and not (r.get("companies") or "").strip() for r in scans)
         linked = any(r.get("task") in ("quick", "daily") for r in scans)
         scope = "all" if everyone else ("linked+" if names else "linked") if linked else "linked"
+        light = linked and not everyone and not any(r.get("task") == "daily" for r in scans)
         full = everyone or linked  # 업체 몇 곳만이 아니면 수원국 수집도 함께
         last = {"p": 0.0, "s": 0.0, "stop": False}
 
@@ -120,7 +122,7 @@ def process_queue() -> int:
                         geo_err.append(e)
                 geo_th = threading.Thread(target=_geo, daemon=True)
                 geo_th.start()
-            res = scanner.run_scan(names, progress=progress, should_stop=should_stop, scope=scope)
+            res = scanner.run_scan(names, progress=progress, should_stop=should_stop, scope=scope, light=light)
             report.save_preview()
             if geo_th:
                 geo_th.join(timeout=300)
