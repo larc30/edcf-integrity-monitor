@@ -76,12 +76,15 @@ def process_queue() -> int:
     def finish(r, ok, result):
         store.update("requests", r["id"], {"status": "done" if ok else "error", "finished_at": store.now_str(), "result": result})
 
-    # 스캔 요청은 한 번에 묶어서: 전체 스캔이 하나라도 있으면 전체, 아니면 요청된 업체만
+    # 스캔 요청은 한 번에 묶어서. 하는 일은 모두 같고 대상만 다름:
+    # quick([지금 스캔])·daily = 진행 중 사업에 연결된 업체 / scan + 업체 이름 = 그 업체만 / scan(이름 없음) = 등록된 모든 업체
     scans = [r for r in reqs if r.get("task") in ("scan", "daily", "quick")]
     if scans:
-        full = any(not (r.get("companies") or "").strip() for r in scans)
-        quick = all(r.get("task") == "quick" for r in scans)  # 빠른 스캔만 있을 때만 빠르게 (전체 요청이 섞이면 전체)
-        names = None if full else sorted({n.strip() for r in scans for n in r["companies"].split(",") if n.strip()})
+        names = sorted({n.strip() for r in scans for n in (r.get("companies") or "").split(",") if n.strip()}) or None
+        everyone = any(r.get("task") == "scan" and not (r.get("companies") or "").strip() for r in scans)
+        linked = any(r.get("task") in ("quick", "daily") for r in scans)
+        scope = "all" if everyone else ("linked+" if names else "linked") if linked else "linked"
+        full = everyone or linked  # 업체 몇 곳만이 아니면 수원국 수집도 함께
         last = {"p": 0.0, "s": 0.0, "stop": False}
 
         def progress(done, total, current):
@@ -117,7 +120,7 @@ def process_queue() -> int:
                         geo_err.append(e)
                 geo_th = threading.Thread(target=_geo, daemon=True)
                 geo_th.start()
-            res = scanner.run_scan(names, progress=progress, should_stop=should_stop, quick=quick)
+            res = scanner.run_scan(names, progress=progress, should_stop=should_stop, scope=scope)
             report.save_preview()
             if geo_th:
                 geo_th.join(timeout=300)
@@ -222,7 +225,8 @@ def main() -> int:
                 raise
             log.warning("재판정 실패: %s", type(e).__name__)
         only = [x for x in a.companies.split(",") if x.strip()] or None
-        res = scanner.run_scan(only, progress=lambda d, t, c: store.update("meta", "progress", {"done": d, "total": t, "current": c, "running": d < t, "at": store.now_str()}))
+        # daily = 진행 중 사업에 연결된 업체 / scan = 적은 업체만, 안 적으면 등록된 모든 업체
+        res = scanner.run_scan(only, scope="linked" if a.task == "daily" or only else "all", progress=lambda d, t, c: store.update("meta", "progress", {"done": d, "total": t, "current": c, "running": d < t, "at": store.now_str()}))
         # 공개 로그: 건수만 (오류 내용·업체 이름은 Firestore 실행 기록에만 — 대시보드 설정 > 고급에서 확인)
         log.info("스캔 결과: %s", json.dumps({k: res.get(k) for k in ("companies", "fetched", "candidates", "new_findings", "auto_same", "official", "cleaned", "sweep_articles", "seconds", "analyzer")} | {"errors": len(res.get("errors") or [])}, ensure_ascii=False))
         if a.task == "daily":  # 예약(매일) 실행이 실제로 돌았는지 대시보드에서 확인하기 위함

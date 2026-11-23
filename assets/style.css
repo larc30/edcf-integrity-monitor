@@ -2211,3 +2211,7 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 :root:not([data-theme="light"]) .tag.super { color: #AEB3FF; }
 .acc-empty { padding: 8px 0; color: var(--muted); font-size: var(--fs-sm); }
 @media (max-width: 640px) { .set-grid .acc-form { flex-wrap: wrap; } .set-grid .acc-form input { flex-basis: 100%; } .set-grid .acc-form select { flex: 1 1 0; } .acc-tools { flex-direction: column; align-items: stretch; } }
+/* 사업 관리: 대표사 지정 버튼 (줄에 마우스를 올리면) */
+.corow .leadbtn { font-size: var(--fs-xs); font-weight: 700; padding: .1em .55em; border-radius: 6px; border: 1px dashed var(--line-2); background: transparent; color: var(--muted); cursor: pointer; }
+.corow .leadbtn:hover { border-style: solid; border-color: color-mix(in srgb, var(--accent-2) 60%, transparent); color: var(--accent-2); }
+.corow .leadbtn { width: auto; height: auto; }

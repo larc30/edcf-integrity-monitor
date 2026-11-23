@@ -73,7 +73,9 @@ function searchMaster(m, name, limit = 8) {
   const out = exact.slice(0, limit).map((r) => [r, true]);
   if (out.length < limit) {
     const part = m.list.filter(([k, r, k2]) => !exact.includes(r) && (k.includes(target) || (k2 || k).includes(t2)));
-    part.sort((x, y) => (!!y[1][3] - !!x[1][3]) || (x[0].length - y[0].length) || (y[0].startsWith(target) - x[0].startsWith(target)));
+    // 그 글자로 시작하는 곳 → 상장사 → 짧은 이름 (app.js dartSearchLocal · monitor/sources/dart.search_by_name 과 같게)
+    const st = (x) => x[0].startsWith(target) || (x[2] || x[0]).startsWith(t2);
+    part.sort((x, y) => (st(y) - st(x)) || (!!y[1][3] - !!x[1][3]) || (x[0].length - y[0].length));
     for (const [, r] of part.slice(0, limit - out.length)) out.push([r, false]);
   }
   return out;
@@ -136,10 +138,16 @@ async function detail(r, exact, key, get = fetch) {
     listed: !!r[3], induty_code: d.induty_code || "", category: fromKsic(d.induty_code), exact };
 }
 async function dartLookup(name, biz, key, get = fetch, db = null) {
-  const t0 = Date.now(), warm = !!master, rows = searchMaster(await loadMaster(key, get, db), name), t1 = Date.now();
-  let out = await Promise.all(rows.map(([r, exact]) => detail(r, exact, key, get)));
-  const b = String(biz || "").replace(/\D/g, ""), same = b ? out.filter((o) => o.biz_no === b) : []; // 사업자번호를 함께 적었으면 그 번호와 맞는 곳만
-  if (same.length) out = same;
+  // 사업자번호를 함께 적었으면 후보를 30곳까지 넓혀(이름을 일부만 적어도) 번호가 같은 곳을 찾음. 10곳씩 물어보다가 찾으면 멈춤
+  const b = String(biz || "").replace(/\D/g, "");
+  const t0 = Date.now(), warm = !!master, rows = searchMaster(await loadMaster(key, get, db), name, b.length === 10 ? 30 : 8), t1 = Date.now();
+  let out = [], same = [];
+  for (let i = 0; i < rows.length; i += 10) {
+    out = out.concat(await Promise.all(rows.slice(i, i + 10).map(([r, exact]) => detail(r, exact, key, get))));
+    same = b ? out.filter((o) => o.biz_no === b) : [];
+    if (same.length || b.length !== 10) break;
+  }
+  if (same.length) out = same; else out = out.slice(0, 8);
   return { cands: out, count: out.length, ms: Date.now() - t0, ms_list: t1 - t0, warm };
 }
 const nowKst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 19).replace("T", " ");

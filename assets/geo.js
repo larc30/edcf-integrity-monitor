@@ -3,7 +3,7 @@
 // - 사업 위치: 사업명 속 도시 이름 → 도시 좌표, 없으면 수원국 중심 (projects.lat/lng 가 있으면 그 값)
 // - 이벤트: Firestore meta/geo (매일 아침 monitor/geo.py 가 외교부 여행경보·USGS 지진·GDACS 재난경보·WHO 감염병·Google/네이버 뉴스로 저장)
 //           + 브라우저에서 USGS 지진 실시간 (키 없음, 회사망에서 막히면 저장본만)
-// - 수원국 등급: 사업지 기준 여행경보(3·4단계 위험, 2단계 경고, 일부 지역만 높은 단계는 사업지가 그 지역일 때만) + 사업지 둘레 사건(GEO_RULES)
+// - 수원국 등급: 사업지 기준 여행경보(3·4단계 경고, 2단계 주의, 일부 지역만 높은 단계는 사업지가 그 지역일 때만) + 사업지 둘레 사건(GEO_RULES)
 // 국가·도시 좌표와 이벤트 분류 단어는 monitor/geo.py 와 같게 유지
 
 // 국가: [이름, 영문명(USGS 지명 대조), 위도, 경도]
@@ -78,7 +78,7 @@ const icon = (t) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" 
 const ibadge = (t, cls = "") => `<span class="ico ${cls}" style="--ec:${GEO_TYPES[t][1]}" title="${GEO_TYPES[t][0]}">${icon(t)}</span>`;
 // 외교부 여행경보 단계 (색은 외교부 지도와 같은 계열)
 const ALERT = { 1: ["1단계", "여행유의", "a1"], 2: ["2단계", "여행자제", "a2"], 3: ["3단계", "출국권고", "a3"], 4: ["4단계", "여행금지", "a4"] };
-const LEVEL = { red: "위험", orange: "경고", none: "정상" };
+const LEVEL = { red: "경고", orange: "주의", none: "정상" };
 const LV = { red: 2, orange: 1, none: 0 };
 const DAY = 86400e3;
 export const QUAKE_MIN = 5.5; // 이보다 작은 지진은 보여 주지 않음 (정말 위험한 것만)
@@ -213,8 +213,8 @@ export function siteAlert(a, { ll = null, exact = false, text = "", manual = nul
   const z = up || down, lv = z ? z.lv : base;
   return { lv, how: exact || z ? "auto" : "base", zone: z?.text || "", refs: hi.filter((x) => x.lv > lv).map((x) => x.text) };
 }
-// 여행경보로 보는 등급 (사업지 단계 기준): 4·3단계 위험, 2단계 경고
-// 특별여행주의보: 전 지역이면 위험, 일부 지역이면 경고 (사업지가 그 지역인지는 직접 확인)
+// 여행경보로 보는 등급 (사업지 단계 기준): 4·3단계 경고, 2단계 주의
+// 특별여행주의보: 전 지역이면 경고, 일부 지역이면 주의 (사업지가 그 지역인지는 직접 확인)
 function alertRisk(a, sa) {
   if (!a) return { lv: "none", why: [] };
   const zoneTxt = sa.zone ? ` (${short(sa.zone, 30)})` : sa.how === "base" && sa.refs.length ? " (나머지 지역 기준)" : "";
@@ -308,8 +308,8 @@ export async function renderGeo() {
   codes.forEach((c) => byLv[risk[c].lv].push(c));
   byLv.red.sort(); byLv.orange.sort(); byLv.none.sort();
   const tip = `<div class="tip-p">사업지마다 정하고, 나라는 그 가운데 가장 높은 등급입니다.</div>
-    <div class="tip-grid lv"><span class="badge red">위험</span><span>여행경보 3·4단계 · 진도 6 이상 지진 · 50km 안 테러·분쟁</span>
-    <span class="badge orange">경고</span><span>여행경보 2단계 · 진도 5 지진 · 200km 안 테러·분쟁 · 100km 안 재난 · 50km 안 시위·감염병</span>
+    <div class="tip-grid lv"><span class="badge red">경고</span><span>여행경보 3·4단계 · 진도 6 이상 지진 · 50km 안 테러·분쟁</span>
+    <span class="badge orange">주의</span><span>여행경보 2단계 · 진도 5 지진 · 200km 안 테러·분쟁 · 100km 안 재난 · 50km 안 시위·감염병</span>
     <span class="badge none">정상</span><span>그 밖</span></div>`;
   $("#gboard").innerHTML = `<div class="card-head"><h2>수원국 등급 ${info(tip)}</h2></div>`
     + ["red", "orange", "none"].map((lv) => {
@@ -602,7 +602,7 @@ function drawFocus(f, near) {
   map._fitFocus = true;
 }
 function setFocus(pid) { ui.focus = pid; renderGeo(); }
-// 이름표가 겹치면 자리를 바꿔 봄: 원래 쪽 → 반대쪽 → 핀 아래 → 핀 위. 모두 막히면 숨김 (위험한 사업부터 자리를 차지) · 확대하면 다시 보임
+// 이름표가 겹치면 자리를 바꿔 봄: 원래 쪽 → 반대쪽 → 핀 아래 → 핀 위. 모두 막히면 숨김 (등급 높은 사업부터 자리를 차지) · 확대하면 다시 보임
 const SIDES = ["r", "l", "b", "t"];
 function declutter() {
   const map0 = $("#geoMap"); if (!map0) return;

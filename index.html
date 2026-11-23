@@ -20,7 +20,7 @@
 </script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=107">
+<link rel="stylesheet" href="assets/style.css?v=108">
 </head>
 <body>
 <div id="bgfx" aria-hidden="true"><div class="grid"></div></div>
@@ -86,7 +86,7 @@
           </div>
           <div id="guide" class="notice hidden"></div>
         </div>
-        <!-- 업체 등급(위험·경고·정상) + 공식 제재 명단 -->
+        <!-- 업체 등급(경고·주의·정상) + 공식 제재 명단 -->
         <div class="d-risk">
           <div class="card risk-card" id="kboard"></div>
           <div class="note-card off-card" id="noteCard" role="button" tabindex="0"></div>
@@ -105,7 +105,7 @@
         </div>
         <!-- 확인이 필요한 이슈 -->
         <div class="card d-issues" id="issuesCard">
-          <div class="card-head"><h2>확인이 필요한 이슈 <span class="count" id="issueCount">0</span> <span class="h2-sub">위험·경고</span> <span id="actHelp"></span><button type="button" class="guide-btn" id="btnGuide" title="확인 완료·관련 없음을 누를 때의 공통 기준 (4개 팀 공통)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h7M9 11h5"/></svg><span><b class="gb-long">판단 </b>가이드</span><i class="guide-new" id="guideNew">NEW</i></button></h2><div class="seg" id="periodSeg"></div></div>
+          <div class="card-head"><h2>확인이 필요한 이슈 <span class="count" id="issueCount">0</span> <span class="h2-sub">경고·주의</span> <span id="actHelp"></span><button type="button" class="guide-btn" id="btnGuide" title="확인 완료·관련 없음을 누를 때의 공통 기준 (4개 팀 공통)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h7M9 11h5"/></svg><span><b class="gb-long">판단 </b>가이드</span><i class="guide-new" id="guideNew">NEW</i></button></h2><div class="seg" id="periodSeg"></div></div>
           <div class="issue-scroll">
           <div id="feed" class="feed"></div>
           </div>
@@ -165,6 +165,7 @@
       <div class="page-head">
         <h1>업체 관리 <span class="h-count" id="coTotal">0</span></h1>
         <div class="head-actions">
+          <button class="btn" id="btnDartFill" title="사업자번호·영문명이 빈 업체를 DART에서 한꺼번에 채웁니다">DART 일괄 조회</button>
           <button class="btn" id="btnBulk">일괄 등록</button>
           <button class="btn primary" id="btnAddCompany">+ 업체 추가</button>
         </div>
@@ -183,7 +184,7 @@
           <button type="button" class="btn sm ghost" id="fMoreBtn" aria-expanded="false" title="등급 · 역할 · 단계 · 국내·해외로 더 좁히기">상세 필터</button>
           <button class="btn sm ghost hidden" id="fReset">초기화</button>
           <div class="co-more hidden" id="fMore">
-            <select id="fRisk"><option value="">등급 전체</option><option value="red">위험</option><option value="orange">경고</option><option value="none">정상</option></select>
+            <select id="fRisk"><option value="">등급 전체</option><option value="red">경고</option><option value="orange">주의</option><option value="none">정상</option></select>
             <select id="fRole"><option value="">역할 전체</option><option>F/S</option><option>컨설턴트</option><option>본구매</option></select>
             <select id="fStage"><option value="">단계 전체</option><option value="계약">계약체결</option><option>우선협상</option><option>입찰중</option></select>
             <select id="fNat"><option value="">국내·해외 전체</option><option value="KR">국내</option><option value="foreign">해외</option></select>
@@ -254,7 +255,7 @@
         <div class="adv-run">
           <b>수동 실행</b><span class="muted small">평소에는 매일 아침 자동으로 돕니다</span>
           <div class="adv-run-btns">
-            <button class="btn sm primary" id="btnFullScan" title="업체명으로 하나씩 뉴스를 찾는 전체 스캔">전체 스캔</button><span class="muted small">업체명 검색까지</span>
+            <button class="btn sm primary" id="btnFullScan" title="사업에 연결되지 않은 업체까지 모두 스캔">전체 업체 스캔</button>
             <button class="btn sm" id="btnConnCheck" title="각 API를 실제로 한 번씩 불러 키가 살아 있는지 확인합니다"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3-8 4 16 3-8h6"/></svg><span>연결 확인</span></button><span class="muted small">각 API 실제 응답 · 1~2분</span>
           </div>
         </div>
@@ -285,6 +286,6 @@
 <aside class="drawer" id="drawer"><div class="drawer-head"><div id="drawerTitle"></div><button type="button" class="x-close" id="drawerClose" title="닫기" aria-label="닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div id="drawerBody" class="drawer-body"></div></aside>
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
 <div id="toast" class="toast"></div>
-<script type="module" src="assets/app.js?v=122"></script>
+<script type="module" src="assets/app.js?v=123"></script>
 </body>
 </html>

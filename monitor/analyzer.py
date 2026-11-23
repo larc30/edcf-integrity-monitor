@@ -34,6 +34,7 @@ class ArticleJudgement(BaseModel):
     rationale: str
     event_date: str
     same_event_as: str
+    valid_until: str = ""
 
 
 class BatchJudgement(BaseModel):
@@ -50,18 +51,20 @@ EDCF 사업에 참여 중인 업체(컨설턴트, 본구매 계약자, 입찰참
    처분·수사의 대상이 이 업체가 아니라 모회사·자회사·계열사(다른 법인)이면, 이 업체 기준으로는
    risk_level 을 yellow(참고) 이하로 하세요. 제재는 법인(사업자번호) 단위입니다.
    (예: 'A건설 자회사 B엔지니어링 영업정지' → B엔지니어링은 red, A건설은 yellow)
-2. risk_level (담당자 기준: '위험'은 실제로 지금 제재를 받고 있는 경우만):
-   - red(위험): 지금 유효한 제재 처분 — 입찰참가자격 제한(부정당업자 제재) 기간 중, MDB 제재(debarment) 중,
+2. risk_level (담당자 기준: red 는 실제로 지금 제재를 받고 있는 경우만):
+   - red(경고): 지금 유효한 제재 처분 — 입찰참가자격 제한(부정당업자 제재) 기간 중, MDB 제재(debarment) 중,
           영업정지·등록말소 처분 중. 처분이 확정·집행 중인 사실이 기사에 있을 때만 (예고·청문·소송 중이면 red 아님,
           법원 집행정지·효력정지 결정으로 처분이 멈춘 상태면 red 아님 → orange).
           처분이 확정(처분 통보·공시)됐으면 시작일이 아직 오지 않았어도 red. 업체가 '가처분·소송으로 대응할 계획'이라고만
           밝힌 단계도 red (법원이 실제로 집행정지를 결정한 뒤에만 orange)
-   - orange(경고): 제재로 이어질 수 있는 진행 중 사안 — 최근 1년 내 입찰담합·뇌물·사기·횡령 등의
+          기간이 있는 처분(영업정지·입찰참가자격 제한 등)은 기사에 처분 기간(종료일)이 명확히 적혀 있고 오늘이 그 종료일 이전일 때만 red.
+          기간이 기사에 없으면 orange, 기간이 이미 끝났으면 orange (끝난 지 1년이 넘었으면 yellow). 등록말소처럼 기간이 없는 처분은 red
+   - orange(주의): 제재로 이어질 수 있는 진행 중 사안 — 최근 1년 내 입찰담합·뇌물·사기·횡령 등의
              수사·압수수색·기소·유죄판결, 공정위 제재·과징금, 제재 처분 예고·청문, 부도·회생절차·법정관리
              (수사·처분 전 단계의 '논란·의혹', 배임 논란, 계열사 지원·대위변제, 소송 제기·피소, 실적 악화는 orange 아님 → yellow)
              (공정위 처분이라도 입찰·계약·청렴과 무관한 지배구조·공시 규제 위반 — 지주회사 행위제한, 기업결합 신고, 공시 누락 등 —
               에 대한 시정명령·경고·과태료는 orange 아님 → yellow. 입찰 자격이나 계약 이행에 영향이 없기 때문)
-   - yellow(주의): 참고할 이력 — 1년 이상 지난 과거 제재·처분, 의혹 제기·고발 단계, 소송·분쟁,
+   - yellow(참고): 참고할 이력 — 1년 이상 지난 과거 제재·처분, 의혹 제기·고발 단계, 소송·분쟁,
              중대재해·부실시공, 재무악화 등 간접 리스크
    - none: 무관하거나, 수주·실적·MOU 등 중립/긍정 기사
 3. category: 기사의 '핵심 처분·사건'을 기준으로 하나. 기사에 명시된 사실만 보고 고르세요.
@@ -77,6 +80,7 @@ EDCF 사업에 참여 중인 업체(컨설턴트, 본구매 계약자, 입찰참
 7. same_event_as: 이 기사가 [이미 수집된 이 업체 이슈]의 하나(E번호) 또는 이번 기사 목록의 다른 기사(idx 숫자)와
    '같은 사건'(같은 처분·수사·사고·소송 건을 다른 매체가 보도했거나 그 후속 보도)이면 그 번호(예: "E3" 또는 "5"),
    아니면 빈 문자열. 업체만 같고 다른 사건이면 빈 문자열. 확실할 때만 적으세요.
+8. valid_until: red 로 판정한 처분의 종료일(기간의 마지막 날)이 기사에 적혀 있으면 YYYY-MM-DD, 없거나 red 가 아니면 빈 문자열.
 
 주의: 뉴스는 '제재 확정'이 아니라 '검토 필요 신호'입니다. 기사에 없는 사실을 추정하지 마세요."""
 
@@ -232,6 +236,7 @@ def _claude(company: dict, engagements: list[dict], articles: list[dict], keywor
                 "rationale": j.rationale + (f" (사건일: {j.event_date})" if j.event_date else ""),
                 "analyzer": "claude+review" if j.idx in reviewed else "claude",
                 "same_as": same_as,
+                "valid_until": (j.valid_until or "")[:10] if j.risk_level == "red" and j.is_about_company else "",
             }
         )
     return out
@@ -239,16 +244,17 @@ def _claude(company: dict, engagements: list[dict], articles: list[dict], keywor
 
 REVIEW_NOTE = """
 
-[2차 검토] 아래 기사들은 1차 판정에서 위험(red) 또는 경고(orange)로 분류된 것입니다. 담당자에게 알림이 가므로 더 엄격하게 다시 판정하세요.
+[2차 검토] 아래 기사들은 1차 판정에서 경고(red) 또는 주의(orange)로 분류된 것입니다. 담당자에게 알림이 가므로 더 엄격하게 다시 판정하세요.
 - 기사에 적힌 사실만으로 위 기준을 다시 적용하고, 기준에 못 미치면 yellow 또는 none 으로 낮추세요.
 - '논란·의혹', 배임 논란, 계열사 지원·대위변제, 소송 제기, 실적 악화, 다른 법인(모회사·자회사·계열사)의 처분은 이 업체 기준 orange 이상이 아닙니다.
 - 공정위 처분이라도 지배구조·공시 규제 위반(지주회사 행위제한, 기업결합 신고, 공시 누락 등)에 대한 시정명령·경고·과태료는 orange 이상이 아닙니다 (입찰·계약·청렴과 무관). 담합·하도급·부당지원 과징금은 그대로 orange.
+- 기간이 있는 처분(영업정지·입찰참가자격 제한 등)은 기사에 종료일이 명확하고 오늘이 그 이전일 때만 red 이고 valid_until 에 그 날짜를 적으세요. 기간이 없거나 이미 끝났으면 orange 이하.
 - category 는 기사의 핵심 사건 하나로 정확히 고르세요 (예: 입찰 담합 적발은 '입찰담합', 사고 자체는 '중대재해·부실시공').
 - same_event_as 는 [이미 수집된 이 업체 이슈]의 E번호만 쓰세요 (이번 목록 번호는 쓰지 마세요)."""
 
 
 def _review(client, user_head: str, payload: list[dict], first: dict) -> dict:
-    """1차에서 위험·경고(이 업체 관련)로 본 기사만 REVIEW_MODEL 로 다시 판정 → {idx: 판정}. 실패하면 {} (1차 결과 유지)"""
+    """1차에서 경고·주의(red·orange, 이 업체 관련)로 본 기사만 REVIEW_MODEL 로 다시 판정 → {idx: 판정}. 실패하면 {} (1차 결과 유지)"""
     model = config.REVIEW_MODEL
     if not model or model == config.CLAUDE_MODEL:
         return {}
