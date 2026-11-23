@@ -2419,3 +2419,25 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .gd-l.red, .gd-l.orange, .gd-l.none, .gd-b.ok, .gd-b.no { border-top: 1px solid var(--line); }
 .gd .gd-lead { border-left: 0; }
 .gd-qa .badge { vertical-align: baseline; }
+
+/* =====================================================================
+   업체 관리 도구 메뉴, 업체 정보 창 정리 (2026-11-23)
+   ===================================================================== */
+.tool-menu { position: relative; }
+.tool-menu > summary { list-style: none; cursor: pointer; gap: 6px; height: var(--h-l); padding-top: 0; padding-bottom: 0; border-radius: var(--r-l); box-sizing: border-box; }
+.tool-menu > summary::-webkit-details-marker { display: none; }
+.tool-menu > summary svg { width: 15px; height: 15px; color: var(--muted); }
+.tool-menu[open] > summary svg { transform: rotate(180deg); }
+.tool-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 11.5em; padding: 6px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--panel-solid); box-shadow: 0 14px 40px rgba(0, 0, 0, .45); display: flex; flex-direction: column; gap: 2px; }
+.tool-pop button { text-align: left; padding: 0 12px; height: var(--h-m); border: 0; border-radius: var(--r-s); background: transparent; color: var(--text); font: inherit; font-size: var(--fs-sm); font-weight: 600; cursor: pointer; white-space: nowrap; }
+.tool-pop button:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+/* 업체 정보 창: 칸 제목 옆 작은 체크, 후보 목록 */
+.form .fld { display: flex; flex-direction: column; gap: 5px; min-width: 0; font-size: var(--fs-sm); color: var(--text-2); font-weight: 650; }
+.fld-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.form label.mini-check { flex-direction: row; align-items: center; gap: 5px; font-weight: 500; font-size: var(--fs-xs); color: var(--muted); cursor: pointer; }
+.form label.mini-check input { width: auto; height: auto; margin: 0; }
+.dl-res .dl-list { display: flex; flex-direction: column; gap: 4px; max-height: 15em; overflow: auto; margin-top: .5em; padding-right: 2px; }
+.dl-res .dp-cand { font-weight: 400; flex-direction: row; }
+.dp-cand.dl2 { grid-template-columns: 12em minmax(0, 1fr) 3em; }
+.dp-cand.dl2 .c-ceo, .dp-cand.dl4 .c-ceo { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dp-cand.dl4 { grid-template-columns: minmax(7em, 11em) 7em 8.5em minmax(0, 1fr); }

@@ -1721,6 +1721,7 @@ async function deleteCompanies(ids) {
   toast(`${names.length}개을 삭제했습니다`); rerender();
 }
 $("#poolSearch").addEventListener("input", () => renderCompanies());
+document.addEventListener("click", (e) => { const m = $("#coToolMenu"); if (m?.open && (!m.contains(e.target) || e.target.closest(".tool-pop button"))) m.open = false; });
 $("#pjSearch").addEventListener("input", (e) => { pjState.q = e.target.value; renderProjects(); });
 CO_FILTERS.slice(1).forEach((s) => $(s).addEventListener("change", () => renderCompanies()));
 $("#fMoreBtn").onclick = () => { const b = $("#fMoreBtn"); b.setAttribute("aria-expanded", b.getAttribute("aria-expanded") === "true" ? "false" : "true"); if (b.getAttribute("aria-expanded") === "false") CO_MORE.forEach((id) => ($(id).value = "")); renderCompanies(); };
@@ -1825,7 +1826,7 @@ function projectCard(p, sc) {
       return `<div class="dropzone ${rr.length ? "" : "is-empty"}" data-pid="${p.id}" data-role="${esc(role)}">
         <div class="dz-head" ${rr.length > 1 ? `title="맨 위가 대표사"` : ""}>${roleTag(role)}${rr.length ? `<span class="count">${rr.length}</span>` : ""}</div>
         ${rr.map(({ c, e, i }, k) => `<div class="corow" draggable="true" data-cid="${c.id}" data-from="${p.id}|${i}">
-          <span class="dot ${sc ? c.risk : ""}"></span>${rr.length > 1 && k === 0 ? `<span class="lead" title="대표사">대표</span>` : ""}<button class="cn" data-open="${c.id}">${esc(c.name)}</button>
+          <span class="dot ${sc ? c.risk : ""}"></span>${k === 0 ? `<span class="lead" title="대표사">대표</span>` : ""}<button class="cn" data-open="${c.id}">${esc(c.name)}</button>
           <span class="right">
             ${k > 0 ? `<button class="upbtn leadbtn" data-up="${p.id}|${esc(role)}|${c.id}|${rr[0].c.id}" title="대표사로 지정">대표</button>` : ""}
             <select class="stage-sel ${e.stage && e.stage !== "계약" ? "on" : ""}" data-stage-sel="${c.id}|${i}" title="단계${e.stage === "우선협상" && e.rank ? ` · ${e.rank}순위` : ""}" aria-label="단계">${STAGE_OPTS.map(([v, l]) => `<option value="${v}" ${v === stageVal(e) ? "selected" : ""}>${l}</option>`).join("")}</select>
@@ -2151,6 +2152,7 @@ function newCompany(id, name, country) {
 const companyData = (c) => { const { id, risk, open, total, focus, mine, cat, catGuess, ...data } = c; return { ...data, teams: teamsOf(c) }; }; // 계산값은 저장하지 않음 (참여 팀은 권한 확인용으로 저장)
 
 // 업체 추가·업체 정보 수정 (같은 팝업): 업체명·사업자등록번호·대표자·영문명 + DART에서 가져오기. cid 가 없으면 추가
+const LANG_OPTS = [["ko", "한국어"], ["ko,en", "한국어 + 영어"], ["en", "영어"], ["en,id", "영어 + 인도네시아어"]];
 function openCompanyForm(cid = null) {
   const c0 = cid ? state.companies.find((x) => x.id === cid) : null, isNew = !c0;
   if (cid && !c0) return;
@@ -2158,27 +2160,25 @@ function openCompanyForm(cid = null) {
   const catNow = c0 ? (c0.catGuess ? "" : c0.cat || "") : "";
   const engs = c0?.engagements || [];
   const linked = !!c0?.corp_code; // DART에서 이미 가져온 업체: 표시만 하고, 다시 가져오기는 작은 새로고침 버튼으로
-  const DART_BTN = linked ? `<button type="button" class="btn sm dart-re" id="dlBtn" title="DART에서 다시 가져오기" aria-label="DART에서 다시 가져오기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>`
-    : `<button type="button" class="btn sm dart-btn" id="dlBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>DART 검색</button>`;
+  const DART_BTN = `<button type="button" class="btn sm dart-btn" id="dlBtn">${linked ? "DART 다시 조회" : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>DART 검색`}</button>`;
   modal(`<h2>${isNew ? "업체 추가" : "업체 정보"}${linked ? `<span class="dart-tag" title="DART 고유번호 ${esc(c0.corp_code)}">DART 확인</span>` : ""}</h2>
     <form id="coForm" class="form" autocomplete="off" novalidate>
       <label class="city-box">업체명 *<span class="dl-row"><input name="name" maxlength="60" placeholder="예: 서마루엔지니어링" value="${esc(c0?.name_official || c0?.name || "")}">${DART_BTN}</span><div class="city-sug co-sug hidden" id="coSug"></div></label>
       <div id="nameNote" class="muted small hidden"></div>
       <div id="dlRes" class="dl-res hidden"></div>
       <div class="row">
-        <label>사업자등록번호 ${isNew ? "*" : ""}<input name="biz_no" inputmode="numeric" maxlength="12" placeholder="000-00-00000" value="${esc(fmtBiz(c0?.biz_no))}"></label>
-        <label>대표자<input name="ceo" maxlength="40" placeholder="예: 홍길동" value="${v("ceo")}"></label>
+        <div class="fld"><div class="fld-h"><span>사업자등록번호${isNew ? " *" : ""}</span><label class="mini-check" title="사업자등록번호 없음 · 조달청 조회 제외 · 영문 뉴스 검색"><input type="checkbox" name="foreign" ${isForeign ? "checked" : ""}>해외 업체</label></div><input name="biz_no" inputmode="numeric" maxlength="12" placeholder="000-00-00000" value="${esc(fmtBiz(c0?.biz_no))}"></div>
+        <label>대표자<input name="ceo" maxlength="40" value="${v("ceo")}"></label>
       </div>
       <div class="row">
-        <label>영문명<input name="name_en" maxlength="100" placeholder="예: GANADA ENGINEERING CO., LTD." value="${v("name_en")}"></label>
-        <label>업종<select name="category">${["", ...CATS].map((k) => `<option value="${k}" ${k === catNow ? "selected" : ""}>${k || `자동 분류${c0?.catGuess ? ` (추정: ${c0.cat})` : " (DART·업체명)"}`}</option>`).join("")}</select></label>
+        <label>영문명<input name="name_en" maxlength="100" value="${v("name_en")}"></label>
+        <label>업종<select name="category">${["", ...CATS].map((k) => `<option value="${k}" ${k === catNow ? "selected" : ""}>${k || `자동 분류${c0?.catGuess ? ` (추정: ${c0.cat})` : ""}`}</option>`).join("")}</select></label>
       </div>
       <div class="row">
-        <label>별칭 (쉼표 구분)<input name="aliases" maxlength="200" placeholder="예: 서마루ENG" value="${v("aliases")}"></label>
-        ${isNew ? `<label class="check co-foreign" title="사업자등록번호 없음 · 조달청 조회 제외 · 영문 뉴스 검색"><input type="checkbox" name="foreign" ${isForeign ? "checked" : ""}> 해외 업체</label>` : `<label>보조 키워드 (동명 업체 구분)<input name="context_keywords" maxlength="100" placeholder="예: 감리, 대표자명" value="${v("context_keywords")}"></label>`}
+        <label>별칭<input name="aliases" maxlength="200" placeholder="쉼표로 구분" value="${v("aliases")}"></label>
+        ${isNew ? `<label>메모<input name="note" maxlength="200"></label>` : `<label title="같은 이름의 다른 회사와 구분할 때 쓰는 말 (업종, 대표자 이름 등)">보조 키워드<input name="context_keywords" maxlength="100" placeholder="동명 업체 구분용" value="${v("context_keywords")}"></label>`}
       </div>
-      ${isNew ? "" : `<div class="row"><label>검색 언어<input name="search_langs" maxlength="20" placeholder="ko,en,id" value="${esc(c0.search_langs || "ko")}"></label><label>메모<input name="note" maxlength="200" value="${v("note")}"></label></div>`}
-      ${isNew ? "" : `<label class="check" title="사업자등록번호 없음 · 조달청 조회 제외 · 영문 뉴스 검색"><input type="checkbox" name="foreign" ${isForeign ? "checked" : ""}> 해외 업체</label>`}
+      ${isNew ? "" : `<div class="row"><label>뉴스 검색 언어<select name="search_langs">${LANG_OPTS.concat(LANG_OPTS.some(([k]) => k === (c0.search_langs || "ko")) ? [] : [[c0.search_langs, c0.search_langs]]).map(([k, l]) => `<option value="${esc(k)}" ${k === (c0.search_langs || "ko") ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label><label>메모<input name="note" maxlength="200" value="${v("note")}"></label></div>`}
       ${isNew && state.projects.length ? `<div class="row r21"><label>사업 연결<select name="pid"><option value="">연결 안 함</option>${projOptions()}</select></label>
         <label>역할<select name="role">${roleOptions()}</select></label></div>` : ""}
       ${engs.length ? `<div class="co-engs"><span class="muted small">참여 사업</span>${byRole(engs).map((e) => `<span class="d-eng">${roleTag(e.role)}<span>${esc(projName(e.project_id))}</span>${stageTag(e)}</span>`).join("")}</div>` : ""}
@@ -2246,14 +2246,27 @@ function openCompanyForm(cid = null) {
     const slow = setTimeout(() => { const w = box.querySelector(".dl-wait"); if (w) w.insertAdjacentHTML("beforeend", ` <span class="muted">조금 더 걸리고 있습니다 (늦으면 1~2분). 다른 칸을 먼저 적어도 됩니다</span>`); }, 12e3);
     try {
       hideSug(); sugSeq++;
-      // 함수에 닿으면: 이름 목록(30곳)을 바로 받고, 고른 한 곳만 상세 조회. 사업자번호를 적었으면 번호 대조가 필요해 아래 방식으로
-      const noBiz = biz.length !== 10 || (picked && picked.biz_no === biz); // 직접 적은 사업자번호가 있을 때만 번호 대조 방식
-      const quick = !noBiz ? null : dartIdx ? { items: dartSearchLocal(name) } : dartOk ? await dartCall({ q: name, limit: 50 }, 10000) : null;
+      // 이미 DART 와 연결된 업체: 그 기업(고유번호)을 바로 다시 조회 → 달라진 칸만 채우고 알려 줌. 같으면 '변경 없음'
+      if (linked && normName(name) === normName(c0.name)) {
+        const t0 = performance.now(), o = await dartCall({ code: c0.corp_code, name: c0.name, name_en: c0.name_en || "", exact: true }, 15000);
+        if (o && o.corp_code) {
+          const took = ` <span class="muted small">(${((performance.now() - t0) / 1000).toFixed(1)}초)</span>`;
+          const diff = [["사업자등록번호", o.biz_no, biz], ["대표자", o.ceo, f1.ceo.value.trim()], ["영문명", o.name_en, f1.name_en.value.trim()]].filter(([, x, y]) => x && String(x).trim() !== y).map(([k]) => k);
+          if (!diff.length) { box.innerHTML = `DART 정보와 같습니다 · 변경 없음${took}`; return; }
+          fillFrom({ ...o, name: "" });
+          box.innerHTML = `DART에서 바뀐 정보를 채웠습니다: <b>${diff.join(" · ")}</b>${took}<div class="muted small">[저장]을 눌러야 반영됩니다</div>`;
+          return;
+        }
+      }
+      // 이름 목록(50곳)을 받고, 고른 한 곳만 상세 조회. 사업자번호를 직접 적었으면 번호 대조가 필요해 아래 방식으로
+      const noBiz = biz.length !== 10 || (picked && picked.biz_no === biz);
+      if (noBiz && !dartIdx) await Promise.race([loadDartIdx(), new Promise((r) => setTimeout(r, 3000))]);
+      const quick = !noBiz ? null : dartIdx ? { items: dartSearchLocal(name) } : await dartCall({ q: name, limit: 50 }, 10000);
       if (quick?.items) {
         const items = quick.items, exact = items.filter((o) => o.exact);
         if (!items.length) { box.innerHTML = `DART에 '${esc(name)}'이(가) 들어간 기업이 없습니다 (비상장·소규모·건축사사무소 등). 사업자등록번호와 대표자를 직접 넣어 주세요.`; return; }
         box.innerHTML = `<div id="dlMsg" class="muted small">${exact.length === 1 ? "" : exact.length ? `DART에 같은 이름이 ${exact.length}곳 있습니다. 맞는 곳을 고르세요` : `이름이 정확히 같은 곳은 없고, '${esc(name)}'이(가) 들어간 기업이 ${items.length}곳${items.length >= 50 ? " 넘게" : ""} 있습니다. 맞는 곳을 고르세요 (이름을 더 적으면 줄어듭니다)`}</div>
-          <div class="dl-list">${items.map((o, i) => `<label class="dp-opt"><input type="radio" name="dl-pick" value="${i}"><span><b>${esc(o.name)}</b>${o.listed ? ` <span class="tag">상장</span>` : ""} <span class="muted">${esc(o.name_en || "")}</span></span></label>`).join("")}</div>`;
+          <div class="dl-list">${items.map((o, i) => `<label class="dp-cand dl2"><input type="radio" name="dl-pick" value="${i}"><span class="c-ceo">${esc(o.name)}</span><span class="c-en">${esc(o.name_en || "")}</span>${o.listed ? `<span class="tag">상장</span>` : "<span></span>"}</label>`).join("")}</div>`;
         $$("input[name=dl-pick]", box).forEach((x) => x.onchange = () => pickDart(items[+x.value]));
         if (exact.length === 1) { const x = box.querySelector(`input[value="${items.indexOf(exact[0])}"]`); x.checked = true; await pickDart(exact[0]); }
         return;
@@ -2269,7 +2282,7 @@ function openCompanyForm(cid = null) {
         if (auto) fillFrom(auto);
         const head = auto ? `DART에서 찾아 채웠습니다: <b>${esc(auto.name)}</b>${same ? ` <span class="muted">(사업자번호가 같은 곳)</span>` : ""}${took}${cands.length > 1 ? `<div class="muted small">다른 곳이면 아래에서 고르세요</div>` : ` <span class="muted">${candLine(auto)}</span>`}`
           : `<div class="muted small">${exact.length ? `DART에 같은 이름이 ${exact.length}곳 있습니다` : `이름이 정확히 같은 곳은 없고, 비슷한 이름이 ${cands.length}곳 있습니다`}. 대표자·사업자번호를 보고 맞는 곳을 고르세요${took}</div>`;
-        box.innerHTML = head + (cands.length > 1 || !auto ? cands.map((o, i) => `<label class="dp-opt"><input type="radio" name="dl-pick" value="${i}" ${o === auto ? "checked" : ""}><span><b>${esc(o.name)}</b>${o.listed ? ` <span class="tag">상장</span>` : ""}${o.exact === false ? ` <span class="tag">비슷한 이름</span>` : ""} <span class="muted">${candLine(o)}</span></span></label>`).join("") : "");
+        box.innerHTML = head + (cands.length > 1 || !auto ? `<div class="dl-list">${cands.map((o, i) => `<label class="dp-cand dl4"><input type="radio" name="dl-pick" value="${i}" ${o === auto ? "checked" : ""}><span class="c-ceo">${esc(o.name)}</span><span class="c-biz">${esc(o.ceo || "-")}</span><span class="c-biz">${esc(o.biz_no ? fmtBiz(o.biz_no) : "-")}</span><span class="c-en">${esc(o.name_en || "")}</span></label>`).join("")}</div>` : "");
         $$("input[name=dl-pick]", box).forEach((x) => x.onchange = () => fillFrom(cands[+x.value]));
       }
     } catch (e) { if (box.isConnected) box.innerHTML = `DART에서 찾지 못했습니다: ${esc(e.message || e)}. 직접 적어서 ${isNew ? "추가" : "저장"}해도 됩니다.`; }
@@ -2308,6 +2321,7 @@ function openCompanyForm(cid = null) {
       c.ceo = fd.ceo || null;
       applyCat(c, fd.category, "직접 입력");
       if (fd.aliases) c.aliases = fd.aliases;
+      if (fd.note) c.note = fd.note;
       if (fd.pid) c.engagements.push({ project_id: fd.pid, role: fd.role || "컨설턴트", stage: "계약", rank: null });
       if (fromDart) {
         c.corp_code = picked.corp_code || null;
