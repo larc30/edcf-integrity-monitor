@@ -2344,3 +2344,17 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .conn1 .d { flex: none; font-size: var(--fs-sm); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .conn1.warn .d, .conn1.off .d { color: var(--orange); white-space: normal; }
 .conn-grp + .conn-grp { margin-top: 16px; }
+
+/* 고급 배치: API 연결은 카드 전체 폭에 두 칸(한 줄에 두 개 + 상태 설명), 그 아래에 실행 기록 | 요금 */
+@media (min-width: 1001px) {
+  .adv-grid > div:first-child { grid-column: 1 / -1; }
+  .adv-grid > div:nth-child(2) { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto 1fr; gap: 0 24px; margin-top: 18px; align-items: start; }
+  .adv-grid > div:nth-child(2) > .conn-head { grid-column: 1; grid-row: 1; }
+  .adv-grid > div:nth-child(2) > #runList { grid-column: 1; grid-row: 2; }
+  .adv-grid > div:nth-child(2) > .usage-box { grid-column: 2; grid-row: 1 / span 2; margin-top: 0; }
+  .conn-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .conn1 { margin-top: -1px; border-top: 1px solid var(--line); }
+  .conn1 + .conn1 { border-top: 1px solid var(--line); }
+  .conn1:nth-child(odd) { border-right: 1px solid var(--line); }
+  .conn1:nth-child(odd):last-child { grid-column: 1; }
+}
