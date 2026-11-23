@@ -202,6 +202,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
   - 전체 화면 공통 크기 규칙(2026-11-23 밤, '화면마다 다 다름' · style.css 맨 아래 블록, 새 화면·버튼을 만들 때 이 규칙을 따를 것): 높이 세 가지를 변수로(--h-l 2.5rem=40px / --h-m 2.125rem=34px / --h-s 1.75rem=28px, 글자 크기 조절에 따라 커지게 rem), 모서리 --r-l 10 · --r-m 9 · --r-s 8px. 큰 것 = 화면 제목 줄 버튼, 팝업의 입력칸·아래 버튼, 상단 검색, 업체 관리 보기 탭 / 보통 = 작은 버튼(.btn.sm), 필터 줄, 오른쪽 창의 고르기 칸 / 작은 것 = 목록 줄 안의 버튼(이슈 ✓·✕, 사업 카드 수정·삭제, 핀 지우기). 필터 묶음(.seg)은 38px. 팝업 입력칸 글자 굵기 500. 작은 주 버튼(.btn.sm.primary: 다시 스캔 등)은 그라데이션 대신 강조색 면, 그라데이션은 화면·팝업의 큰 주 버튼만. 대시보드 맨 위 줄(지금 스캔·보고서 44px, 범위 고르기)은 예전 크기 그대로.
 
+  - 영업정지 기준 보완(2026-11-23 밤, 사용자: '영업정지 = 제재가 아님'): 기사로 확인되는 영업정지는 기간이 적혀 있고 오늘이 그 안일 때만 경고(red), 기간이 끝나면 주의(orange), 끝난 지 1년이 넘으면 참고(yellow) = 화면(app.js loadAll)·보고서(report.load_overview)가 valid_until 로 내려 보여 줌. AI 를 못 쓸 때의 예비 규칙(RULE_KEYWORDS)에서도 '영업정지'는 orange. 판단 가이드·등급 설명(LEVEL_DEF·levelTip) 문구도 '기간 중인 영업정지'로 고치고, 자주 헷갈리는 경우에 '영업정지 (기사로만 확인될 때)' 칸 추가. 판단 가이드 카드의 위쪽·왼쪽 색 띠는 뺌(배지와 글자로 구분).
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 

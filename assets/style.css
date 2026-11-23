@@ -2414,3 +2414,8 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .btn.sm.primary:hover { background: color-mix(in srgb, var(--accent) 26%, transparent); border-color: transparent; box-shadow: none; filter: none; }
 /* 배지·태그 높이 */
 .badge { line-height: 1.5; }
+
+/* 판단 가이드: 카드 위쪽·왼쪽 색 띠를 뺌 (배지와 글자로 구분) */
+.gd-l.red, .gd-l.orange, .gd-l.none, .gd-b.ok, .gd-b.no { border-top: 1px solid var(--line); }
+.gd .gd-lead { border-left: 0; }
+.gd-qa .badge { vertical-align: baseline; }
