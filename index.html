@@ -86,7 +86,7 @@
           </div>
           <div id="guide" class="notice hidden"></div>
         </div>
-        <!-- 업체 등급(위험·경고·정상) + 공식 제재 명단 -->
+        <!-- 업체 등급(경고·주의·정상) + 공식 제재 명단 -->
         <div class="d-risk">
           <div class="card risk-card" id="kboard"></div>
           <div class="note-card off-card" id="noteCard" role="button" tabindex="0"></div>
@@ -105,7 +105,7 @@
         </div>
         <!-- 확인이 필요한 이슈 -->
         <div class="card d-issues" id="issuesCard">
-          <div class="card-head"><h2>확인이 필요한 이슈 <span class="count" id="issueCount">0</span> <span class="h2-sub">위험·경고</span> <span id="actHelp"></span><button type="button" class="guide-btn" id="btnGuide" title="확인 완료·관련 없음을 누를 때의 공통 기준 (4개 팀 공통)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h7M9 11h5"/></svg><span><b class="gb-long">판단 </b>가이드</span><i class="guide-new" id="guideNew">NEW</i></button></h2><div class="seg" id="periodSeg"></div></div>
+          <div class="card-head"><h2>확인이 필요한 이슈 <span class="count" id="issueCount">0</span> <span class="h2-sub">경고·주의</span> <span id="actHelp"></span><button type="button" class="guide-btn" id="btnGuide" title="확인 완료·관련 없음을 누를 때의 공통 기준 (4개 팀 공통)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h7M9 11h5"/></svg><span><b class="gb-long">판단 </b>가이드</span><i class="guide-new" id="guideNew">NEW</i></button></h2><div class="seg" id="periodSeg"></div></div>
           <div class="issue-scroll">
           <div id="feed" class="feed"></div>
           </div>
@@ -183,7 +183,7 @@
           <button type="button" class="btn sm ghost" id="fMoreBtn" aria-expanded="false" title="등급 · 역할 · 단계 · 국내·해외로 더 좁히기">상세 필터</button>
           <button class="btn sm ghost hidden" id="fReset">초기화</button>
           <div class="co-more hidden" id="fMore">
-            <select id="fRisk"><option value="">등급 전체</option><option value="red">위험</option><option value="orange">경고</option><option value="none">정상</option></select>
+            <select id="fRisk"><option value="">등급 전체</option><option value="red">경고</option><option value="orange">주의</option><option value="none">정상</option></select>
             <select id="fRole"><option value="">역할 전체</option><option>F/S</option><option>컨설턴트</option><option>본구매</option></select>
             <select id="fStage"><option value="">단계 전체</option><option value="계약">계약체결</option><option>우선협상</option><option>입찰중</option></select>
             <select id="fNat"><option value="">국내·해외 전체</option><option value="KR">국내</option><option value="foreign">해외</option></select>

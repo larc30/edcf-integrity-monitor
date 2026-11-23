@@ -16,9 +16,9 @@ log = logging.getLogger("report")
 # 대시보드(밝은 화면)와 같은 색·글꼴
 FONT = "Pretendard,'Pretendard Variable',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic','Segoe UI',sans-serif"
 COLORS = {  # (글자색, 옅은 배경, 이름)
-    "red": ("#D92D20", "#FDE8E6", "위험"),
-    "orange": ("#E2660A", "#FEEFE0", "경고"),
-    "yellow": ("#64748B", "#EEF1F5", "참고"),  # 등급 3단계(위험·경고·정상) — yellow 는 참고 이력
+    "red": ("#D92D20", "#FDE8E6", "경고"),
+    "orange": ("#E2660A", "#FEEFE0", "주의"),
+    "yellow": ("#64748B", "#EEF1F5", "참고"),  # 등급 3단계(경고·주의·정상) — yellow 는 참고 이력
     "none": ("#0D9488", "#E2F4F2", "정상"),
 }
 TEXT, TEXT2, MUTED, LINE, SOFT, BG, PANEL = "#0B1220", "#3D4A63", "#6B7690", "#E3E7EF", "#EEF1F6", "#F3F5FA", "#FFFFFF"
@@ -38,6 +38,10 @@ def load_overview() -> tuple[list[dict], list[dict], dict]:
     projects = {p["id"]: p for p in store.all_docs("projects")}
     companies = store.all_docs("companies")
     finds = [f for f in store.where("findings", "relevant", "==", True) if f.get("status") != "dismissed"]
+    today = store.now_kst().strftime("%Y-%m-%d")
+    for f in finds:  # 기사에 적힌 처분 기간이 끝났으면 경고(red) → 주의(orange) (app.js loadAll 과 같은 기준)
+        if f.get("level") == "red" and f.get("valid_until") and str(f["valid_until"])[:10] < today:
+            f["level"] = "orange"
     engs = {}
     for c in companies:
         c["engagements"] = [
@@ -140,7 +144,7 @@ def build() -> tuple[str, str, list[str]]:
     sendable = official + news_g
     new_red = sum(1 for g in sendable if g[0]["level"] == "red")
     new_org = len(sendable) - new_red
-    head = " · ".join(t for t in (f"위험 {new_red}" if new_red else "", f"경고 {new_org}" if new_org else "") if t) or "새 위험·경고 없음"
+    head = " · ".join(t for t in (f"경고 {new_red}" if new_red else "", f"주의 {new_org}" if new_org else "") if t) or "새 경고·주의 없음"
     subject = f"[EDCF RADAR] {now:%m/%d} {head}"
 
     meta = _meta("history", "geo", "status")
@@ -208,7 +212,7 @@ def build() -> tuple[str, str, list[str]]:
     shown_news = news_g[:max(0, MAX - len(shown_off))]
     rest = len(sendable) - len(shown_off) - len(shown_news)
     dash_url = E(config.DASHBOARD_URL)
-    # 오늘 핵심: 새 위험·경고 가운데 위쪽 3건 (공식 명단 → 뉴스, 등급 높은 순)
+    # 오늘 핵심: 새 경고·주의 가운데 위쪽 3건 (공식 명단 → 뉴스, 등급 높은 순)
     top3 = sorted(shown_off + shown_news, key=lambda g: -LEVEL_ORDER.get(g[0].get("level"), 0))[:3]
     top_html = ""
     if top3:
@@ -229,8 +233,8 @@ def build() -> tuple[str, str, list[str]]:
         secs.append(section(circ[no], "공식 제재 명단", f"{len(official)}건", shown_off)); no += 1
     if shown_news:
         secs.append(section(circ[no], "뉴스 · 검토 신호", f"{len(news_g)}건", shown_news, len(shown_off) + 1)); no += 1
-    issues = "".join(secs) if sendable else (f'<tr><td style="padding:22px 28px 0;font-size:14px;color:{TEXT2};">오늘 새로 나온 위험·경고 이슈는 없습니다.</td></tr>')
-    skipped = [t for t in (f"위험·경고 {rest}건" if rest > 0 else "", f"7일 안에 알린 업체·분류 {repeat}건" if repeat else "") if t]
+    issues = "".join(secs) if sendable else (f'<tr><td style="padding:22px 28px 0;font-size:14px;color:{TEXT2};">오늘 새로 나온 경고·주의 이슈는 없습니다.</td></tr>')
+    skipped = [t for t in (f"경고·주의 {rest}건" if rest > 0 else "", f"7일 안에 알린 업체·분류 {repeat}건" if repeat else "") if t]
     geo_html = ""
     if geo_new:
         items = "".join(
@@ -242,8 +246,8 @@ def build() -> tuple[str, str, list[str]]:
                     f'<table width="100%" cellpadding="0" cellspacing="0">{items}</table></td></tr>')
     weekday = "월화수목금토일"[now.weekday()]
     scan_at = str(meta["status"].get("last_scan_at") or "")[:16]
-    summary = (f"새 이슈 위험 {new_red} · 경고 {new_org}건 · 모니터링 업체 {len(overview)} 가운데 위험 {n_red} · 경고 {n_org}"
-               if sendable else f"새 위험·경고 이슈 없음 · 모니터링 업체 {len(overview)} 가운데 위험 {n_red} · 경고 {n_org}")
+    summary = (f"새 이슈 경고 {new_red} · 주의 {new_org}건 · 모니터링 업체 {len(overview)} 가운데 경고 {n_red} · 주의 {n_org}"
+               if sendable else f"새 경고·주의 이슈 없음 · 모니터링 업체 {len(overview)} 가운데 경고 {n_red} · 주의 {n_org}")
     def who(lv):
         l = [c["name"] for c in overview if c["risk"] == lv]
         return (E(", ".join(l[:2])) + (f" 외 {len(l) - 2}" if len(l) > 2 else "")) if l else "해당 없음"
@@ -252,7 +256,7 @@ def build() -> tuple[str, str, list[str]]:
         f'<div style="border:1px solid {LINE};border-top:4px solid {COLORS[lv][0]};border-radius:10px;padding:10px 14px;background:#FFFFFF;">'
         f'<div style="font-size:13px;font-weight:800;color:{COLORS[lv][0]};">{COLORS[lv][2]}</div>'
         f'<div style="font-size:28px;font-weight:800;color:{COLORS[lv][0]};line-height:1.2;">{n}{delta(lv, n)}</div>'
-        f'<div style="font-size:11.5px;color:{MUTED};line-height:1.45;">{who(lv) if lv != "none" else "위험·경고 없음"}</div></div></td>'
+        f'<div style="font-size:11.5px;color:{MUTED};line-height:1.45;">{who(lv) if lv != "none" else "경고·주의 없음"}</div></div></td>'
         for i, (lv, n) in enumerate((("red", n_red), ("orange", n_org), ("none", n_ok))))
     grade_sec = grade_sec.replace("<tr></tr>", f"<tr>{grade_boxes}</tr>")
 

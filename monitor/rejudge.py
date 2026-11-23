@@ -1,7 +1,9 @@
 """등급 기준을 바꾼 뒤 예전 판정 다시 하기 (한 번만 — meta/settings.rejudge_version 으로 기록)
 
-v1 (2026-11-05): '위험 = 지금 제재 중' 기준(v27) 이전에 판정된 뉴스 이슈 중 위험·경고, 그리고 AI 대신 키워드 규칙으로
+v1 (2026-11-05): 'red = 지금 제재 중' 기준(v27) 이전에 판정된 뉴스 이슈 중 red·orange, 그리고 AI 대신 키워드 규칙으로
 판정된 뉴스 이슈를 지금 기준으로 Claude에게 다시 판정. 담당자가 이미 처리한 것(확인했음·관련 없음)은 건드리지 않음.
+v2 (2026-11-23): 기간이 있는 처분(영업정지 등)은 기사에 종료일이 있고 오늘이 그 이전일 때만 red, 종료일은 valid_until 에 저장.
+뉴스 이슈 중 red 인 것(관련 없음 처리 제외)을 한 번 다시 판정. 담당자가 '관련 있음'으로 처리한 것도 등급·종료일만 고침.
 예전 값은 prev_level / prev_relevant 로 남겨 되돌릴 수 있게 함. 공개 로그에는 건수만.
 """
 import logging
@@ -10,13 +12,13 @@ from collections import Counter, defaultdict
 from . import analyzer, config, store
 
 log = logging.getLogger("monitor")
-REJUDGE_VERSION = 1
+REJUDGE_VERSION = 2
 
 
 def _targets(rel: list[dict]) -> list[dict]:
     return [f for f in rel
-            if (f.get("source_type") or "news") == "news" and (f.get("status") or "new") == "new"
-            and not f.get("rejudged_at") and (f.get("level") in ("red", "orange") or f.get("analyzer") == "rule")]
+            if (f.get("source_type") or "news") == "news" and f.get("status") != "dismissed"
+            and f.get("level") == "red" and not f.get("valid_until") and f.get("rejudge_v") != REJUDGE_VERSION]
 
 
 def run_once() -> dict | None:
@@ -70,7 +72,7 @@ def run_once() -> dict | None:
                 continue
             new_lv = j["level"] if j.get("relevant") else "none"
             moves[f"{f.get('level')}→{new_lv}"] += 1
-            p = {"prev_level": f.get("level"), "prev_relevant": True, "rejudged_at": store.now_str(), "analyzer": "claude",
+            p = {"prev_level": f.get("level"), "prev_relevant": True, "rejudged_at": store.now_str(), "rejudge_v": REJUDGE_VERSION, "valid_until": j.get("valid_until") or None, "analyzer": "claude",
                  "category": j.get("category"), "summary": j.get("summary"), "rationale": j.get("rationale")}
             if j.get("relevant"):
                 p["level"] = j["level"]

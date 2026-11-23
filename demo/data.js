@@ -108,7 +108,7 @@ export function seed() {
     f16: F("c14", "yellow", 75, { title: `${n("c14")} 대표 배임 의혹 고발장 접수`, cat: "횡령·배임", sum: "대표 배임 의혹 고발 (수사 착수 전)." }),
     f17: F("c22", "yellow", 150, { title: `${n("c22")}, 국토부 벌점 부과`, cat: "과징금·행정처분", sum: "건설기술진흥법 위반으로 벌점 부과." }),
   };
-  // 기본 감시 업체 이슈 — 전체 등급 분포가 실제 운영과 비슷하도록 (업체 기준 위험 7 · 경고 16 · 주의 58)
+  // 기본 감시 업체 이슈 — 전체 등급 분포가 실제 운영과 비슷하도록 (업체 기준 경고 7 · 주의 16 · 주의 58)
   const T = {
     red: [["{n}, 공공기관 입찰참가자격 제한 6개월 처분 확정", "입찰참가자격 제한", "허위 실적 제출로 입찰참가자격 제한 6개월, 현재 제재 기간 중."],
           ["국토부, {n} 영업정지 3개월 처분", "영업정지", "부실시공 책임으로 영업정지 3개월, 현재 처분 기간 중."]],
@@ -156,7 +156,7 @@ export function seed() {
     ].map(([name, status, period, reason], i) => ["e" + (i + 1), { name, status, period, reason, biz_no: "" }])),
     meta: {
       history: { days: Object.fromEntries(Array.from({ length: 30 }, (_, i) => { const d = kst(now - (30 - i) * 86400e3).slice(0, 10), w = Math.round(3 * Math.sin(i / 4)); return [d, { red: 5 + (i > 20 ? 1 : 0) + (i > 26 ? 1 : 0), orange: 13 + w + (i > 24 ? 1 : 0), none: 198 - w }]; })) },
-      ai_guide: { manual: "- 자회사가 받은 처분은 모회사 등급에 넣지 않는다", auto: "- 이름만 같은 다른 회사(동명 기업) 기사는 관련 없음\n- 수주, 실적, 인사 기사에 과거 처분이 한 줄 언급된 것은 참고\n- 처분 확정 공시가 있으면 시작일 전이어도 위험", auto_at: kst(now - 3 * 86400e3), auto_n: 14 },
+      ai_guide: { manual: "- 자회사가 받은 처분은 모회사 등급에 넣지 않는다", auto: "- 이름만 같은 다른 회사(동명 기업) 기사는 관련 없음\n- 수주, 실적, 인사 기사에 과거 처분이 한 줄 언급된 것은 참고\n- 처분 확정 공시가 있으면 시작일 전이어도 경고", auto_at: kst(now - 3 * 86400e3), auto_n: 14 },
       status: {
         last_scan_at: kst(now - 2 * 3600e3), last_scan_seconds: 61.8, last_tick_at: kst(now - 4 * 60e3), last_daily_at: kst(now - 2 * 3600e3), analyzer: "claude", claude_model: "claude-haiku-5-5", claude_error: null,
         connections: { naver: true, google_news: true, claude: true, dart: true, pps: true, smtp: true },

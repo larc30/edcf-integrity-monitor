@@ -139,7 +139,7 @@ def match_edcf(edcf: list[dict], company: dict) -> list[dict]:
                         else f"EDCF 부정당업자 제재기간이 끝났습니다 (명단에는 아직 '등록', 제재기간 {e.get('period') or '-'}). 최신 EXIMIIS 명단으로 확인하세요." if expired
                         else f"과거 EDCF 부정당업자 제재 이력이 있습니다 (해지, 제재기간 {e.get('period') or '-'})."),
             "rationale": "EXIMIIS 부정당업자 명단 (경협평가부 관리)", "analyzer": "list-match",
-            # 기간이 끝나면 키가 달라져서, 예전 '등록(위험)' 기록은 지워지고 '기간 만료(참고)' 기록이 새로 생김
+            # 기간이 끝나면 키가 달라져서, 예전 '등록(경고)' 기록은 지워지고 '기간 만료(참고)' 기록이 새로 생김
             "dedup_key": "edcf-" + hashlib.sha1(f"{e.get('biz_no')}|{e.get('name')}|{e.get('period')}{'|만료' if expired else ''}".encode()).hexdigest()[:16],
         })
     return out
@@ -398,6 +398,7 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
             "analyzer": j.get("analyzer", used),
             "dedup_key": a["dedup_key"],
             "same_as": same or None,
+            "valid_until": j.get("valid_until") or None,  # 기사에 적힌 처분 종료일: 지나면 화면·보고서가 주의(orange)로 내려 보여 줌
         })
         if j.get("relevant"):
             stats["new_findings"] += 1
@@ -527,7 +528,7 @@ def _shared_feedback(rel_by: dict) -> tuple[list[str], list[str]]:
     return dis, conf
 
 
-LEVEL_KO = {"red": "위험", "orange": "경고", "yellow": "참고"}
+LEVEL_KO = {"red": "경고", "orange": "주의", "yellow": "참고"}
 
 
 def _load_guide(dis: list[str], conf: list[str], refresh: bool) -> str:
