@@ -2351,3 +2351,9 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
   .adv-grid > div:nth-child(2) > #runList { flex: 1 1 0; min-height: 260px; max-height: none; }
   .adv-grid > div:nth-child(2) > .usage-box { flex: 0 0 auto; }
 }
+
+/* 고급 오른쪽: 요금(크기가 고정)을 위에, 실행 기록(길이가 늘어남)을 아래에 */
+.adv-grid > div:nth-child(2) { display: flex; flex-direction: column; }
+.adv-grid > div:nth-child(2) > .usage-box { order: 1; margin: 0 0 22px; }
+.adv-grid > div:nth-child(2) > .conn-head { order: 2; }
+.adv-grid > div:nth-child(2) > #runList { order: 3; }
