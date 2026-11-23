@@ -2344,3 +2344,10 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .conn1 .d { flex: none; font-size: var(--fs-sm); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .conn1.warn .d, .conn1.off .d { color: var(--orange); white-space: normal; }
 .conn-grp + .conn-grp { margin-top: 16px; }
+
+/* 고급: 오른쪽 실행 기록 목록이 남는 높이를 채워 왼쪽 API 연결과 아래 끝을 맞춤 */
+@media (min-width: 1001px) {
+  .adv-grid > div:nth-child(2) { display: flex; flex-direction: column; }
+  .adv-grid > div:nth-child(2) > #runList { flex: 1 1 0; min-height: 260px; max-height: none; }
+  .adv-grid > div:nth-child(2) > .usage-box { flex: 0 0 auto; }
+}
