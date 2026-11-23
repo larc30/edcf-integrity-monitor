@@ -2370,17 +2370,47 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
    - 카드의 주 버튼([미리보기 · 보내기], [연결 확인])은 강조색 면, 나머지는 보통 버튼
    ===================================================================== */
 #view-settings .btn, #view-settings .add-row input, #view-settings .add-row select, #view-settings .kw-form input,
-#view-settings .acc-find input, #view-settings .acc-find select { height: 34px; padding-top: 0; padding-bottom: 0; border-radius: 9px; font-size: var(--fs-sm); box-sizing: border-box; }
-#view-settings .btn { padding-left: 14px; padding-right: 14px; font-weight: 600; }
-#view-settings .acc-chip { height: 34px; padding: 0 12px; border-radius: 9px; box-sizing: border-box; }
-#view-settings .acc-ctl select, #view-settings .acc-ctl .tag { height: 28px; border-radius: 8px; box-sizing: border-box; font-size: var(--fs-sm); }
+#view-settings .acc-find input, #view-settings .acc-find select { height: var(--h-m); padding-top: 0; padding-bottom: 0; border-radius: var(--r-m); font-size: var(--fs-sm); box-sizing: border-box; }
+#view-settings .btn { padding-left: .9rem; padding-right: .9rem; font-weight: 600; }
+#view-settings .acc-chip { height: var(--h-m); padding: 0 .75rem; border-radius: var(--r-m); box-sizing: border-box; }
+#view-settings .acc-ctl select, #view-settings .acc-ctl .tag { height: var(--h-s); border-radius: var(--r-s); box-sizing: border-box; font-size: var(--fs-sm); }
 #view-settings .acc-ctl .tag { display: inline-flex; align-items: center; justify-content: center; font-size: var(--fs-xs); }
-#btnPreview { border-color: transparent; background: var(--accent-soft); color: var(--accent); font-weight: 650; box-shadow: none; }
-:root:not([data-theme="light"]) #btnPreview { color: #AEB3FF; }
-#btnPreview:hover { background: color-mix(in srgb, var(--accent) 26%, transparent); border-color: transparent; filter: none; box-shadow: none; }
 /* 제목 단계 */
 #view-settings .card-head h2, #view-settings .adv-card > summary h2 { font-size: var(--fs-md); font-weight: 750; }
 .adv-grid .conn-head h3 { font-size: var(--fs-base); font-weight: 700; color: var(--text); letter-spacing: 0; }
 .conn-gh b, #view-settings .kw-fixed-head b, #view-settings .acc-team-h b { font-size: var(--fs-sm); font-weight: 700; color: var(--text-2); }
 .conn-gh { padding-left: 2px; margin-bottom: 7px; }
-#view-settings .badge { font-size: var(--fs-xs); }
+
+/* =====================================================================
+   전체 화면 공통 크기 규칙 (2026-11-23, '화면마다 다 다름')
+   높이 세 가지 (글자 크기 조절에 따라 같이 커지게 rem):
+     큰 것 2.5rem(40px)  = 화면 제목 줄 버튼, 팝업의 입력칸·아래 버튼, 상단 검색, 보기 탭
+     보통 2.125rem(34px) = 작은 버튼(.btn.sm), 필터 줄, 카드 안 도구
+     작은 것 1.75rem(28px) = 목록 줄 안의 버튼·고르기 칸
+   모서리 10 · 9 · 8px. 작은 주 버튼은 그라데이션 대신 강조색 면 (그라데이션은 화면·팝업의 큰 주 버튼만)
+   대시보드 맨 위 줄(지금 스캔·보고서·범위 고르기)은 예전 크기 그대로.
+   ===================================================================== */
+:root { --h-l: 2.5rem; --h-m: 2.125rem; --h-s: 1.75rem; --r-l: 10px; --r-m: 9px; --r-s: 8px; }
+/* 큰 것 */
+.page-head .head-actions .btn, .modal .actions .btn, .modal .dl-row .btn { height: var(--h-l); padding-top: 0; padding-bottom: 0; border-radius: var(--r-l); font-size: var(--fs-base); box-sizing: border-box; }
+.modal .form input:not([type=checkbox]):not([type=radio]):not([type=file]), .modal .form select { height: var(--h-l); padding-top: 0; padding-bottom: 0; border-radius: var(--r-l); font-size: var(--fs-base); font-weight: 500; line-height: 1.2; box-sizing: border-box; }
+.top-search input, .pj-side #sideSearch, .cv-btn { height: var(--h-l); box-sizing: border-box; border-radius: var(--r-l); }
+.top-search input, .pj-side #sideSearch { padding-top: 0; padding-bottom: 0; }
+/* 보통 */
+.btn.sm { height: var(--h-m); padding: 0 .8rem; border-radius: var(--r-m); font-size: var(--fs-sm); box-sizing: border-box; }
+.co-filters .co-search, .co-filters select, .co-filters > .btn, .d-link select, .d-link .btn { height: var(--h-m); border-radius: var(--r-m); font-size: var(--fs-sm); padding-top: 0; padding-bottom: 0; box-sizing: border-box; }
+.seg { height: 2.375rem; box-sizing: border-box; align-items: stretch; }
+.seg button { padding-top: 0; padding-bottom: 0; border-radius: var(--r-s); }
+.pj-toolbar .seg { height: 2.375rem; }
+.pj-tools input { height: 2.375rem; border-radius: var(--r-l); }
+.guide-btn { height: var(--h-m); box-sizing: border-box; border-radius: var(--r-m); }
+/* 작은 것 */
+.item-actions .btn.sm, .pbox-foot .btn.sm, .site-f .btn.sm { height: var(--h-s); padding: 0 .65rem; border-radius: var(--r-s); }
+.btn.sm.dart-re { padding: 0; width: var(--h-l); }
+.modal .dl-row .btn.sm { height: var(--h-l); border-radius: var(--r-l); }
+/* 작은 주 버튼: 강조색 면 */
+.btn.sm.primary { background: var(--accent-soft); color: var(--accent); border-color: transparent; box-shadow: none; font-weight: 650; }
+:root:not([data-theme="light"]) .btn.sm.primary { color: #AEB3FF; }
+.btn.sm.primary:hover { background: color-mix(in srgb, var(--accent) 26%, transparent); border-color: transparent; box-shadow: none; filter: none; }
+/* 배지·태그 높이 */
+.badge { line-height: 1.5; }
