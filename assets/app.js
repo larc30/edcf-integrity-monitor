@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch, increment,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO, SUPER_ADMIN, SUPER_ADMINS, TEAMS } from "./firebase-config.js?v=33";
-import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=73";
+import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=74";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -1687,7 +1687,7 @@ function renderCompanies() {
   $("#pool").innerHTML = !list.length ? `<tr><td colspan="9" class="empty">${state.companies.length ? "조건에 맞는 업체가 없습니다." : "업체가 없습니다. [일괄 등록] 또는 [+ 업체 추가]를 이용하세요."}</td></tr>`
     : list.map((c) => `<tr data-cid="${c.id}" class="${coState.sel.has(c.id) ? "sel" : ""}">
       <td class="t-chk"><input type="checkbox" data-sel="${c.id}" ${coState.sel.has(c.id) ? "checked" : ""} aria-label="${esc(c.name)} 선택"></td>
-      <td class="t-name"><button class="co-name" data-open="${c.id}">${esc(c.name)}</button>${c.name_en ? `<div class="sub">${esc(c.name_en)}</div>` : ""}</td>
+      <td class="t-name"><button class="co-name" data-open="${c.id}">${esc(c.name_official || c.name)}</button>${c.name_en ? `<div class="sub">${esc(c.name_en)}</div>` : ""}</td>
       <td class="t-cat">${esc(c.cat || "-")}${c.catGuess || c.category_source === "이름 추정" ? `<span class="src guess" title="업체명으로 추정: 스캔 때 DART 업종이 있으면 바뀜">추정</span>` : ""}</td>
       <td class="t-proj">${c.engagements.length ? byRole(c.engagements).map(engChip).join("") : `<span class="muted">-</span>`}</td>
       <td class="t-risk">${sc ? (c.risk !== "none" ? badge(c.risk) : `<span class="ok-t">정상</span>`) : `<span class="muted">-</span>`}</td>
@@ -2184,7 +2184,7 @@ function openCompanyForm(cid = null) {
       ${isNew ? "" : `<div class="row"><label>뉴스 검색 언어<select name="search_langs">${LANG_OPTS.concat(LANG_OPTS.some(([k]) => k === (c0.search_langs || "ko")) ? [] : [[c0.search_langs, c0.search_langs]]).map(([k, l]) => `<option value="${esc(k)}" ${k === (c0.search_langs || "ko") ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label><label>메모<input name="note" maxlength="200" value="${v("note")}"></label></div>`}
       ${isNew && state.projects.length ? `<div class="row r21"><label>사업 연결<select name="pid"><option value="">연결 안 함</option>${projOptions()}</select></label>
         <label>역할<select name="role">${roleOptions()}</select></label></div>` : ""}
-      ${engs.length ? `<div class="co-engs"><span class="muted small">참여 사업</span>${byRole(engs).map((e) => `<span class="d-eng">${roleTag(e.role)}<span>${esc(projName(e.project_id))}</span>${stageTag(e)}</span>`).join("")}</div>` : ""}
+      ${engs.length ? `<div class="co-engs"><div class="co-engs-h">참여 사업<span class="set-n">${engs.length}</span></div><div class="co-engs-l">${byRole(engs).map((e) => `<div class="co-eng">${roleTag(e.role)}<span title="${esc(projName(e.project_id))}">${esc(projName(e.project_id))}</span>${stageTag(e)}</div>`).join("")}</div></div>` : ""}
       <div class="actions">${isNew ? "" : `<button type="button" class="btn ghost danger" id="coDel" style="margin-right:auto">업체 삭제</button><button type="button" class="btn" id="coIssues">이슈 · 검사 결과 보기</button>`}<button class="btn primary">${isNew ? "추가" : "저장"}</button></div>
     </form>`);
   const f1 = $("#coForm"); let picked = null, dlBusy = false;
@@ -2192,7 +2192,7 @@ function openCompanyForm(cid = null) {
   const showNameNote = () => {
     const { name, official } = cleanCompanyName(f1.name.value), el = $("#nameNote");
     const bad = CORP_GLYPH.test(f1.name.value) ? CORP_GLYPH_MSG : f1.name.value.trim() ? nameProblem(name) : "";
-    el.innerHTML = bad ? `<span class="miss">${esc(bad)}</span>` : official ? `화면과 뉴스 검색에는 <b>${esc(name)}</b>(으)로 쓰고, 적은 그대로(<b>${esc(official)}</b>)는 공식 명칭으로 함께 저장합니다` : "";
+    el.innerHTML = bad ? `<span class="miss">${esc(bad)}</span>` : official ? `뉴스 검색에는 <b>${esc(name)}</b>(으)로 찾습니다` : "";
     el.classList.toggle("hidden", !el.innerHTML);
   };
   showNameNote();
@@ -3258,13 +3258,13 @@ document.addEventListener("click", (e) => { const a = $("#acct"); if (a?.open &&
   const find = () => {
     const q = norm(box.value), qd = q.replace(/\D/g, "");
     if (!q) return [];
-    return state.companies.filter((c) => norm(c.name).includes(q) || norm(c.aliases).includes(q) || norm(c.name_en).includes(q) || (qd.length >= 4 && String(c.biz_no || "").includes(qd)))
+    return state.companies.filter((c) => norm(c.name).includes(q) || norm(c.name_official).includes(q) || norm(c.aliases).includes(q) || norm(c.name_en).includes(q) || (qd.length >= 4 && String(c.biz_no || "").includes(qd)))
       .sort((a, b) => (norm(b.name).startsWith(q) - norm(a.name).startsWith(q)) || (LV[b.risk] - LV[a.risk]) || a.name.localeCompare(b.name)).slice(0, 8);
   };
   const pick = (c) => { box.value = ""; sug.classList.add("hidden"); box.blur(); openCompany(c.id); };
   const show = () => {
     const hits = find(), sc = scanned();
-    sug.innerHTML = hits.map((c, i) => `<button type="button" data-fi="${i}"><b>${esc(c.name)}</b><span class="cf-r">${c.open ? `<i>미확인 ${c.open}</i>` : ""}${sc ? badge(c.risk) : ""}</span></button>`).join("") || (box.value.trim() ? `<div class="muted small">명단에 없는 업체입니다</div>` : "");
+    sug.innerHTML = hits.map((c, i) => `<button type="button" data-fi="${i}"><b>${esc(c.name_official || c.name)}</b><span class="cf-r">${c.open ? `<i>미확인 ${c.open}</i>` : ""}${sc ? badge(c.risk) : ""}</span></button>`).join("") || (box.value.trim() ? `<div class="muted small">명단에 없는 업체입니다</div>` : "");
     sug.classList.toggle("hidden", !sug.innerHTML);
     $$("[data-fi]", sug).forEach((b) => b.onmousedown = (e) => { e.preventDefault(); pick(hits[+b.dataset.fi]); });
   };
