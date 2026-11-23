@@ -215,6 +215,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
   - DART 이름 찾기 7차(2026-11-23 밤, '삼성으로 찾으면 8곳만·느림·삼성중공업이 안 나옴'): 원인 = firestore.rules 에 dart_master 읽기 규칙이 없어 브라우저가 이름 목록을 못 읽고 예전 길(함수 상세 8곳)로 빠졌음. 이름 목록은 저장소 파일 data/corp_master.json(DART 공개 기업목록 약 12만 곳, 7MB · 전송 2.8MB, Pages 에서 바로 읽음: 로그인·규칙·함수 무관)을 먼저 읽고, 없으면 dart_master → 함수. 파일 갱신은 Actions 에서 작업 dart 실행(monitor.yml 이 커밋). 후보 100곳(스팩은 맨 뒤), 버튼을 눌러도 후보가 한 곳뿐일 때만 바로 채움(예전: 정확히 같은 이름 1곳이면 바로 채워 '삼성'이 엉뚱한 회사로 채워짐). 고른 기업의 사업자번호·대표자는 여전히 함수 한 번.
 
+  - DART 상세 가져오기 보완(2026-11-23 밤, 후보를 골랐는데 '정보를 가져오지 못했습니다'): 화면이 함수(dartFind)를 직접 부르는 길이 실패하는 환경으로 보임(회사망 차단 또는 함수 호출 권한 · 확인 못 함). 직접 호출이 실패하면 5분 동안 건너뛰고(app.js dartDeadAt), 고른 기업의 상세는 요청 문서(requests task dartlookup + code)로 받아 옴 → kickQueue 가 code 가 있으면 그 한 곳만 DART 조회(재배포 전 함수는 이름으로 찾아 주고 화면이 고유번호로 고름).
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 
