@@ -2217,7 +2217,7 @@ function openCompanyForm(cid = null) {
   };
   showNameNote();
   // 적는 동안 DART 기업 이름을 바로 보여 줌 (이름 목록만 받아서 빠름) → 고르면 그 한 곳만 상세 조회해 채움. 함수에 닿지 않으면(회사망 차단 등) 버튼 방식만
-  let dartOk = false, sugTimer = null, sugSeq = 0, sugItems = [];
+  let dartOk = false, sugTimer = null, sugSeq = 0, sugItems = [], chosen = null;
   // 창을 열 때 함수를 가볍게 깨워 둠. 예전의 { warm: true } 는 함수가 기업목록 12만 곳을 통째로 읽게 해서(수 초~20초, 그동안 다른 요청이 밀림)
   // 바로 뒤에 고른 기업의 상세 조회가 시간 초과로 실패했음 → 목록은 화면이 직접 읽으니 함수는 상세 한 곳 조회만 하면 됨
   dartCall({ code: "00000000", name: "warm" }, 12000).then((r) => { dartOk = !!r; });
@@ -2244,15 +2244,16 @@ function openCompanyForm(cid = null) {
   };
   const showCoSug = async () => {
     const el = $("#coSug"), q = cleanCompanyName(f1.name.value).name;
-    if (!el || !(dartOk || dartIdx) || coreLen(q) < 2 || (picked && picked.name === f1.name.value)) return hideSug();
+    if (!el || !(dartOk || dartIdx) || coreLen(q) < 2 || (picked && picked.name === f1.name.value) || (chosen && chosen.val === f1.name.value)) return hideSug();
     const seq = ++sugSeq, r = dartIdx ? { items: dartSearchLocal(q) } : await dartCall({ q, limit: 100 }, 8000);
     if (seq !== sugSeq || !el.isConnected || document.activeElement !== f1.name) return;
     sugItems = r?.items || [];
     el.innerHTML = sugItems.map((o, i) => `<button type="button" data-di="${i}">${itemRow(o)}</button>`).join("") || `<div class="muted small">DART에 '${esc(q)}'이(가) 들어간 기업이 없습니다. 직접 적어 주세요</div>`;
     el.classList.remove("hidden");
-    $$("[data-di]", el).forEach((b) => b.onmousedown = (e) => { e.preventDefault(); pickDart(sugItems[+b.dataset.di]); });
+    // 후보를 누르면 이름만 들어감 → [DART 검색]을 눌러야 그 기업의 정보를 가져옴
+    $$("[data-di]", el).forEach((b) => b.onmousedown = (e) => { e.preventDefault(); const it = sugItems[+b.dataset.di]; f1.name.value = plainCorp(it.name); chosen = { it, val: f1.name.value }; hideSug(); sugSeq++; showNameNote(); $("#dlBtn").focus(); });
   };
-  const typed = () => { showNameNote(); clearTimeout(sugTimer); sugTimer = setTimeout(showCoSug, 200); };
+  const typed = () => { if (chosen && chosen.val !== f1.name.value) chosen = null; showNameNote(); clearTimeout(sugTimer); sugTimer = setTimeout(showCoSug, 200); };
   f1.name.oninput = typed; f1.name.addEventListener("compositionupdate", typed);
   f1.name.onblur = () => setTimeout(hideSug, 150);
   f1.name.onkeydown = (e) => { if (e.key === "Escape") { e.stopPropagation(); hideSug(); } };
@@ -2290,6 +2291,7 @@ function openCompanyForm(cid = null) {
           return;
         }
       }
+      if (chosen && chosen.val === f1.name.value) { box.innerHTML = ""; await pickDart(chosen.it); return; } // 후보에서 고른 기업: 그 한 곳만 조회
       // 이름 목록(50곳)을 받고, 고른 한 곳만 상세 조회. 사업자번호를 직접 적었으면 번호 대조가 필요해 아래 방식으로
       const noBiz = biz.length !== 10 || (picked && String(picked.biz_no || "").replace(/\D/g, "") === biz);
       if (noBiz && !dartIdx) await Promise.race([loadDartIdx(), new Promise((r) => setTimeout(r, 8000))]);
