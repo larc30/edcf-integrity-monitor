@@ -45,6 +45,8 @@ const COUNTRY = { TZ: "탄자니아", PK: "파키스탄", KE: "케냐", MN: "몽
 const COUNTRY_BY_NAME = { ...Object.fromEntries(Object.entries(COUNTRY).map(([k, v]) => [v, k])), 카라치: "PK", 이슬라마바드: "PK", 나이로비: "KE", 다르에스살람: "TZ", 울란바토르: "MN", 비엔티안: "LA", 자카르타: "ID", 하노이: "VN", 프놈펜: "KH", 다카: "BD", 마닐라: "PH", 타슈켄트: "UZ" };
 const byRole = (es) => [...es].sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role));
 const badge = (lv) => `<span class="badge ${lv || "none"}">${LEVEL[lv || "none"]}</span>`;
+// 업체 등급 표시: 진행 중 사업에 참여하지 않는 업체는 등급 대신 '미참여' (등급은 진행 중 사업 참여 업체에만 매김)
+const coBadge = (c) => c.idle ? `<span class="badge gray" title="진행 중인 사업에 참여하지 않는 업체">미참여</span>` : badge(c.risk);
 // 역할 이름 통일: 일괄 등록 등에서 '본공사'·'시공'·'감리'처럼 다르게 적힌 것을 세 가지로 (그 밖의 말은 적은 그대로)
 const normRole = (r) => { const t = String(r || "").replace(/\s/g, ""); return /^(f\/?s|타당성)/i.test(t) ? "F/S" : /컨설|감리|자문|설계|pmc?$/i.test(t) ? "컨설턴트" : /본구매|본공사|본사업|시공|공사|구매|공급|건설/.test(t) ? "본구매" : String(r || "").trim(); };
 const roleTag = (r) => `<span class="role ${ROLE_CLS[r] || "fs"}">${esc(r)}</span>`;
@@ -223,6 +225,10 @@ function compute() {
     c.open = groupFindings(fs.filter((f) => f.status === "new" && (f.level === "red" || f.level === "orange"))).length; // 확인할 일 = 경고·주의 (같은 이슈는 1건)
     c.total = fs.length;
   }
+  // 등급은 진행 중 사업에 참여 중인 업체에만 (2026-11-24 사용자: 대시보드·업체 정보 어디서나 같게). 사업이 모두 완료됐거나 연결 안 된 업체는
+  // 등급·미확인 수 없이 '미참여'로 두고 이슈 기록은 그대로 보여 줌. 진행 중 사업에 연결된 업체가 하나도 없으면(처음 쓰는 경우) 예전처럼 모두 매김
+  const anyLive = state.companies.some((c) => c.live);
+  for (const c of state.companies) { c.idle = anyLive && !c.live; if (c.idle) { c.risk = "none"; c.open = 0; } }
 }
 const byLevelDate = (a, b) => (LV[b.level] - LV[a.level]) || String(b.published_at || "").localeCompare(String(a.published_at || ""));
 const worstOf = (cs) => cs.reduce((m, c) => LV[c.risk] > LV[m] ? c.risk : m, "none");
@@ -1207,7 +1213,7 @@ function openProject(pid) {
     <section class="d-sec"><div class="d-sec-head"><h3>참여 업체</h3><span class="count">${cs.length}</span></div>
       ${rows.length ? [...new Set(rows.map((r) => r.e.role))].map((role) => {
         const RK = { red: 0, orange: 1 }, l = rows.filter((r) => r.e.role === role).map((r, i) => ({ ...r, i })).sort((x, y) => (sc ? (RK[x.c.risk] ?? 2) - (RK[y.c.risk] ?? 2) : 0) || x.i - y.i);
-        return `<div class="pd-grp"><div class="pd-grp-h">${roleTag(role || "기타")}<span class="count">${l.length}</span></div><div class="rl">${l.map(({ c, e }) => `<div class="pd-row" data-pc="${c.id}" role="button" tabindex="0"><b>${esc(c.name)}</b>${e.stage && e.stage !== "계약" ? `<span class="muted small">${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""}</span>` : ""}<span class="pd-r">${c.open ? `<span class="muted small">미확인 ${c.open}</span>` : ""}${sc ? badge(c.risk) : ""}</span></div>`).join("")}</div></div>`;
+        return `<div class="pd-grp"><div class="pd-grp-h">${roleTag(role || "기타")}<span class="count">${l.length}</span></div><div class="rl">${l.map(({ c, e }) => `<div class="pd-row" data-pc="${c.id}" role="button" tabindex="0"><b>${esc(c.name)}</b>${e.stage && e.stage !== "계약" ? `<span class="muted small">${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""}</span>` : ""}<span class="pd-r">${c.open ? `<span class="muted small">미확인 ${c.open}</span>` : ""}${sc ? coBadge(c) : ""}</span></div>`).join("")}</div></div>`;
       }).join("") : `<div class="empty small">연결된 업체가 없습니다</div>`}
     </section>
     <section class="d-sec"><div class="d-sec-head"><h3>확인이 필요한 이슈</h3><span class="count">${hot.length}</span>${refN ? `<span class="d-sec-meta">참고 이력 ${refN}</span>` : ""}</div>
@@ -1252,7 +1258,7 @@ function openCompany(cid, back = null) {
   const dismissed = state.findings.filter((f) => f.company_id === cid && f.status === "dismissed");
   const groups = groupFindings(fs), sc = scanned();
   const hint = (t) => t ? `<em>${esc(t)}</em>` : "";
-  $("#drawerTitle").innerHTML = `${back ? `<button type="button" class="d-back" id="dBack">← ${String(back).startsWith("p:") ? "사업으로" : back === "official" ? "공식 제재 명단" : LEVEL[back] + " 업체 목록"}</button>` : ""}<div class="d-name"><span class="nm">${esc(c.name)}</span>${sc ? badge(c.risk) : ""}</div>
+  $("#drawerTitle").innerHTML = `${back ? `<button type="button" class="d-back" id="dBack">← ${String(back).startsWith("p:") ? "사업으로" : back === "official" ? "공식 제재 명단" : LEVEL[back] + " 업체 목록"}</button>` : ""}<div class="d-name"><span class="nm">${esc(c.name)}</span>${sc ? coBadge(c) : ""}</div>
     <div class="d-sub">${c.engagements.length ? `참여 사업 ${c.engagements.length} · ${ROLE_ORDER.filter((r) => c.engagements.some((e) => e.role === r)).map((r) => `${esc(r)} ${c.engagements.filter((e) => e.role === r).length}`).join(" · ")}` : "사업 미연결"}${c.cat ? ` · ${esc(c.cat)}` : ""}</div>`;
   // 순서: 이슈 → 업체 정보 → 참여 사업 → 검사 결과 (찾아온 사람이 먼저 보는 순서대로, 같은 내용은 한 번만)
   const engRow = (e, i) => `<div class="d-row"><span>${roleTag(e.role)} ${esc(projName(e.project_id))} ${stageTag(e)}</span></div>`; // 오른쪽 창은 보기만: 연결·빼기·삭제는 업체 정보 팝업([정보 수정])에서만
@@ -1350,7 +1356,7 @@ function hwpxData(c) {
   engs.forEach(({ p }) => { const r = geo.get(p.id); if (!p.country) return; const x = byC.get(p.country) || { lv: "none", why: [] }; if (r) { if (LV[r.lv] > LV[x.lv]) x.lv = r.lv; [r.alert, ...r.why].filter(Boolean).forEach((w) => { if (!x.why.includes(w)) x.why.push(w); }); } byC.set(p.country, x); });
   const cl = [...byC.entries()], nR = cl.filter(([, x]) => x.lv === "red").length, nO = cl.filter(([, x]) => x.lv === "orange").length;
   return {
-    NAME: c.name_official || c.name, NAME_EN: c.name_en || "", BIZ: (c.country ?? "KR") !== "KR" ? "해외 업체" : fmtBiz(c.biz_no), CEO: c.ceo || "", CAT: c.cat || "", LEVEL: LEVEL[c.risk] || "정상",
+    NAME: c.name_official || c.name, NAME_EN: c.name_en || "", BIZ: (c.country ?? "KR") !== "KR" ? "해외 업체" : fmtBiz(c.biz_no), CEO: c.ceo || "", CAT: c.cat || "", LEVEL: c.idle ? "미참여" : LEVEL[c.risk] || "정상",
     DATE: `${ymd[0]}. ${ymd[1]}. ${ymd[2]}.`, DATE_S: `'${String(ymd[0]).slice(2)}. ${ymd[1]}. ${ymd[2]}.`,
     N_PROJ: rows.length, ENG_FIRST: rows.length > 1 ? rows.slice(0, 1) : [], ENG_MID: rows.slice(1, -1), ENG_LAST: rows.slice(-1), ENG_N: rows.length,
     OFFICIAL: off.length ? `부정당제재 ${off.length}건 확인` : "EDCF, 국가계약법, MDB 부정당제재 해당없음", OFF: off.map((g) => ({ T: short(sumText(g.rep)) })),
@@ -1750,7 +1756,7 @@ function poolMatches(c) {
   if (pj && pj !== "__none" && !c.engagements.some((e) => e.project_id === pj)) return false;
   if (f("#fRole") && !c.engagements.some((e) => e.role === f("#fRole"))) return false;
   if (f("#fStage") && !c.engagements.some((e) => (e.stage || "계약") === f("#fStage"))) return false;
-  if (f("#fRisk") && (scanned() ? c.risk : "none") !== f("#fRisk")) return false;
+  if (f("#fRisk") && ((scanned() ? c.risk : "none") !== f("#fRisk") || c.idle)) return false;
   if (f("#fCat") && (c.cat || "기타") !== f("#fCat")) return false;
   if (f("#fNat") === "KR" && c.country !== "KR") return false;
   if (f("#fNat") === "foreign" && c.country === "KR") return false;
@@ -1791,7 +1797,7 @@ function renderCompanies() {
       <td class="t-name"><button class="co-name" data-open="${c.id}">${esc(c.name_official || c.name)}</button>${c.name_en ? `<div class="sub">${esc(c.name_en)}</div>` : ""}</td>
       <td class="t-cat">${esc(c.cat || "-")}${c.catGuess || c.category_source === "이름 추정" ? `<span class="src guess" title="업체명으로 추정: 스캔 때 DART 업종이 있으면 바뀜">추정</span>` : ""}</td>
       <td class="t-proj">${c.engagements.length ? byRole(c.engagements).map(engChip).join("") : `<span class="muted">-</span>`}</td>
-      <td class="t-risk">${sc ? (c.risk !== "none" ? badge(c.risk) : `<span class="ok-t">정상</span>`) : `<span class="muted">-</span>`}</td>
+      <td class="t-risk">${sc ? (c.idle ? `<span class="muted">미참여</span>` : c.risk !== "none" ? badge(c.risk) : `<span class="ok-t">정상</span>`) : `<span class="muted">-</span>`}</td>
       <td class="t-open">${c.open ? `<b>${c.open}</b>` : `<span class="muted">0</span>`}</td>
       <td class="t-id">${c.country !== "KR" ? `<span class="muted">해외</span>` : c.biz_no ? esc(fmtBiz(c.biz_no)) : `<span class="miss">없음</span>`}</td>
       <td class="t-id t-ceo">${c.ceo ? esc(c.ceo) : `<span class="muted">-</span>`}</td>
@@ -3510,7 +3516,7 @@ document.addEventListener("click", (e) => { const a = $("#acct"); if (a?.open &&
   const pick = (c) => { box.value = ""; sug.classList.add("hidden"); box.blur(); openCompany(c.id); };
   const show = () => {
     const hits = find(), sc = scanned();
-    sug.innerHTML = hits.map((c, i) => `<button type="button" data-fi="${i}"><b>${esc(c.name_official || c.name)}</b><span class="cf-r">${c.open ? `<i>미확인 ${c.open}</i>` : ""}${sc ? badge(c.risk) : ""}</span></button>`).join("") || (box.value.trim() ? `<div class="muted small">명단에 없는 업체입니다</div>` : "");
+    sug.innerHTML = hits.map((c, i) => `<button type="button" data-fi="${i}"><b>${esc(c.name_official || c.name)}</b><span class="cf-r">${c.open ? `<i>미확인 ${c.open}</i>` : ""}${sc ? coBadge(c) : ""}</span></button>`).join("") || (box.value.trim() ? `<div class="muted small">명단에 없는 업체입니다</div>` : "");
     sug.classList.toggle("hidden", !sug.innerHTML);
     $$("[data-fi]", sug).forEach((b) => b.onmousedown = (e) => { e.preventDefault(); pick(hits[+b.dataset.fi]); });
   };
