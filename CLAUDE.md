@@ -286,6 +286,9 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
   - HWPX 붙임의 캡처 자리(2026-11-24 사용자: 화면 캡처 대신 조회 결과를 글로): MDB 다섯 칸(ADB·World Bank·AfDB·EBRD·IDB)과 나라장터 칸에 '조회 방법 · 조회 대상 · 조회 일시(마지막 스캔) · 조회 결과' 네 줄(+ 걸린 기록 요약). 조회하지 못한 경우(사업자번호·영문명 없음, 미연결, 오류, EXIMIIS 명단 없음)는 '해당 없음'이 아니라 '확인 필요 (조회하지 못함)'·이유를 적음. 그림에 맞춰 키워 둔 칸 높이는 줄임(tools/build_hwpx.py cap_cells). 나라장터 화면을 서버에서 자동으로 찍는 방법(해외 서버 접속 차단 가능성·그림 저장 공간 필요)과 반자동(조회 화면을 바로 열 수 없음)은 하지 않음. 한글에서 여는 것은 사용자 확인 필요.
 
+  - 대시보드 범위(2026-11-24 사용자: '연관 사업이 완료됐으면 경고로 안 떠야'): 업체 리스크의 'EDCF 전체' = 진행 중 사업에 참여 중인 업체만(app.js dashCompanies · c.live, 스캔 대상과 같은 범위). 사업이 모두 완료됐거나 사업에 연결 안 된 업체는 등급 숫자·레이더·이슈 목록·PDF 보고서·아침 메일(report.load_overview)에서 빠지고, 업체 관리·상단 검색·업체 상세에서는 그대로 보임(업체 등급 자체는 사실이라 안 바꿈: 제재 중이면 상세에서는 경고). 진행 중 사업에 연결된 업체가 하나도 없으면 예전처럼 전체.
+  - 수원국 목록은 고정 46개국(app.js COUNTRY, 등록된 사업과 무관하게 EDCF 주요 수원국을 넣어 둔 것). 도시 목록(cities.json)도 그 나라들만. 사업 등록 창 규격 점검(2026-11-24): 칸 높이 40px · 글자 15px/500 · 모서리 10px · 제목 13px/650 모두 맞음.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 

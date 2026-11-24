@@ -216,6 +216,7 @@ function compute() {
     c.catGuess = !c.cat; if (!c.cat) c.cat = guessCat(c.name) || guessCat(c.name_en) || "기타";
     // 내 담당 = 내가 담당인 사업에 참여한 업체만
     c.mine = c.engagements.some((e) => { const p = state.projects.find((x) => x.id === e.project_id); return p && isMine(p); });
+    c.live = c.engagements.some((e) => { const p = state.projects.find((x) => x.id === e.project_id); return p && live(p); }); // 진행 중 사업에 참여 중
     const fs = state.findings.filter((f) => f.company_id === c.id && f.status !== "dismissed");
     c.risk = fs.reduce((m, f) => (f.level === "red" || f.level === "orange") && LV[f.level] > (LV[m] || 0) ? f.level : m, "none"); // 3단계: 참고(yellow)는 정상
     c.ref = fs.filter((f) => f.level === "yellow").length;
@@ -417,10 +418,12 @@ try { period = localStorage.getItem("edcf_period"); } catch {}
 // 보기 범위: 진행중 사업 업체(내가 담당하는 사업에 연결된 업체) / EDCF 주요 업체(전체 명단)
 let scope = null;
 try { scope = localStorage.getItem("edcf_scope2"); } catch {}
+// 대시보드의 'EDCF 전체' = 진행 중 사업에 참여 중인 업체 (스캔 대상과 같음). 사업이 모두 완료됐거나 사업에 연결 안 된 업체는 업체 관리·검색에서만 보임
+const dashCompanies = () => { const l = state.companies.filter((c) => c.live); return l.length ? l : state.companies; };
 function scopeCompanies() {
   const mine = state.companies.filter((c) => c.mine);
   if (!scope) scope = mine.length ? "mine" : "all";
-  return scope === "mine" ? mine : state.companies;
+  return scope === "mine" ? mine : dashCompanies();
 }
 const scopeProjects = () => scope === "mine" ? state.projects.filter(isMine) : state.projects.filter(live);
 
@@ -552,7 +555,7 @@ function renderHome() {
   $("#heroDate").textContent = `RISK BRIEFING · ${now.toISOString().slice(0, 10).replace(/-/g, ".")} (${weekday[now.getUTCDay()]})`;
   // 마지막 스캔 시각 (하루 넘게 안 돌았으면 알림)
   $("#sumSub").textContent = sc ? `마지막 스캔 ${s.last_scan_at.slice(5, 16).replace("-", "/")}${hoursSince(s.last_scan_at) > 26 ? " · 자동 스캔이 하루 넘게 안 돌았습니다" : ""}` : "아직 스캔하지 않았습니다";
-  $("#scopeSeg").innerHTML = !state.companies.length ? "" : [["mine", mineLabel(), mineN, myP, ICON_USER], ["all", "EDCF 전체", state.companies.length, state.projects.length, ICON_ORG]]
+  $("#scopeSeg").innerHTML = !state.companies.length ? "" : [["mine", mineLabel(), mineN, myP, ICON_USER], ["all", "EDCF 전체", dashCompanies().length, state.projects.filter(live).length, ICON_ORG]]
     .map(([k, l, cnt, pn, ic]) => `<button data-s="${k}" class="sc-btn ${k} ${k === scope ? "active" : ""}" title="${l}: 사업 ${pn}개 · 업체 ${cnt}"><span class="sc-ic">${ic}</span>${l}<span class="sc-n">업체 ${cnt}</span></button>`).join("");
   $$("#scopeSeg button").forEach((b) => b.onclick = () => { scope = b.dataset.s; try { localStorage.setItem("edcf_scope2", scope); } catch {} renderHome(); });
   $("#scopeInfo").innerHTML = ""; // 범위 설명 i 는 뺌 (버튼에 이름과 업체 수가 이미 보임)
