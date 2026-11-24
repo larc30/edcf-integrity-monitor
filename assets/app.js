@@ -2218,7 +2218,9 @@ function openCompanyForm(cid = null) {
   showNameNote();
   // 적는 동안 DART 기업 이름을 바로 보여 줌 (이름 목록만 받아서 빠름) → 고르면 그 한 곳만 상세 조회해 채움. 함수에 닿지 않으면(회사망 차단 등) 버튼 방식만
   let dartOk = false, sugTimer = null, sugSeq = 0, sugItems = [];
-  dartCall({ warm: true }, 20000).then((r) => { dartOk = !!r; }); // 창을 열 때 함수를 미리 깨워 둠 (목록 저장본도 이때 새로 고쳐짐)
+  // 창을 열 때 함수를 가볍게 깨워 둠. 예전의 { warm: true } 는 함수가 기업목록 12만 곳을 통째로 읽게 해서(수 초~20초, 그동안 다른 요청이 밀림)
+  // 바로 뒤에 고른 기업의 상세 조회가 시간 초과로 실패했음 → 목록은 화면이 직접 읽으니 함수는 상세 한 곳 조회만 하면 됨
+  dartCall({ code: "00000000", name: "warm" }, 12000).then((r) => { dartOk = !!r; });
   loadDartIdx(); // 이름 목록은 브라우저가 직접 받아 둠 → 적는 동안 바로 후보
   const hideSug = () => $("#coSug")?.classList.add("hidden");
   const itemRow = (o) => `<b>${esc(o.name)}</b><span>${o.listed ? "상장 · " : ""}${esc(o.name_en || "")}</span>`;

@@ -229,6 +229,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
   - DART 기업목록 매일 갱신(2026-11-24 사용자: '아침 스캔 때 한 번 받아와야'): 아침 스캔(run.py daily)이 DART 기업목록을 새로 받아 Firestore dart_master 에 압축 조각으로 저장(run.refresh_dart_master, functions writeCache 와 같은 형식 · 실패해도 스캔은 계속). 화면의 이름 후보는 dart_master 를 먼저 읽고(문서 몇 개) 못 읽으면 저장소 파일 data/corp_master.json. 함수도 같은 저장본을 읽어 DART 에서 다시 받지 않음. 배경: 워크플로의 주간 캐시는 restore-keys 때문에 옛 파일을 계속 되살려 사실상 갱신이 안 됐음(업체명 변경 알림도 옛 목록 기준이었음) → 이제 매일 새로 받음. 저장소 파일은 예비용(작업 dart 로만 갱신).
 
+  - DART 상세 20초대의 원인 추정(2026-11-24, 5G·회사 와이파이 모두 25초 → 회사망 차단 아님): 업체 추가 창을 열 때 보내던 { warm: true } 가 함수에서 기업목록 12만 곳을 통째로 읽게 했고(동기 작업이라 그동안 같은 함수의 다른 요청이 밀림), 바로 뒤의 상세 조회가 8초 시간 초과 → 요청 문서 길(다른 함수가 다시 목록을 읽고 8곳 상세 조회)로 가서 20초대. 고친 것: warm 호출을 없애고 가짜 고유번호 한 곳 조회로 가볍게 깨우기만(app.js). 실제 배포 환경에서 확인 못 함 → 화면에 표시되는 초로 확인할 것. 위쪽의 '회사망 차단으로 보임'은 근거가 약해짐.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 
