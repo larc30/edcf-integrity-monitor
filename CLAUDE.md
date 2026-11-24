@@ -223,6 +223,10 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
   - 스캔 대상(2026-11-24 사용자 확정): 아침 스캔·[지금 스캔] = 진행 중 사업(완료 제외)에 연결된 업체만 / [전체 업체 스캔] = DB 의 모든 업체. 지금 구현 그대로(scope linked / all).
   - 새 이슈 점검용 로그: 스캔 결과 줄에 등급별 새 이슈 수(levels{red,orange,yellow,auto_…})·candidates·google_skipped 를 건수로 남김. 이 환경에는 Firestore 접근 키가 없어 이슈 내용은 못 봄 → 건수 분포로 이상 여부를 보고, 내용 확인은 사용자 화면 캡처로.
 
+  - 수원국 이벤트 판단·학습(2026-11-24, '중복·지난 기사·관련 없는 이슈가 계속 보임 · ✓/✕가 없어 룰이 안 바뀜'): ① 이벤트 카드에 [✓ 관련 있음] [✕ 관련 없음](관리자만, 업체 이슈와 같은 모양 · ✕는 이유 고르기 GEO_DISMISS: 다른 나라 이야기·지난 일·칼럼·해설·전망·사업과 무관·기타) → meta/geo_reviews.r{이벤트 id: {s ok|no|"", reason, note, title, country, type, by, at}}(문서 1개 = 읽기 1회, app.js reviewGeoEvent · 같은 사건으로 묶인 기사도 함께). 관련 없음은 목록·지도·등급에서 바로 빠지고(geo.js allEvents) 목록 아래 접힌 '관련 없음 N'에서 [되돌리기], 다음 수집 때 저장본에서도 빠짐. 관련 있음은 다시 판정하지 않음. 최근 사례(없음 30·있음 20)를 AI 판정에 함께 줌(analyzer._event_examples). ② AI 가 같은 사건 묶기: 판정 때 최근 10일 이벤트 목록(known)을 같이 주고 same_as(K번호·N번호)를 받음 → events[].same = 대표 이벤트 id → 화면 groupEvents 가 하나로(제목 유사도 묶기는 그대로 보조). ③ 이벤트 목록 기본 기간 최근 7일(예전 30일, 저장 키 edcf_geo_period3). ④ 2차 판정: 1차가 통과시킨 것만 REVIEW_MODEL 이 keep 여부를 다시 봄(analyzer._review_events, 실패하면 1차 결과 유지). EVENT_AI_V 4 → 예전 이벤트도 60건씩 다시 판정. 규칙: firestore.rules 에 meta/geo_reviews(슈퍼·팀 관리자 쓰기) 추가 → 팀 관리자가 쓰려면 콘솔 재게시 필요(슈퍼는 기본 규칙으로 바로 됨). 로그: reviews·ai_dropped_review·ai_same 건수.
+  - 바로잡음: 위 'DART 이름 찾기 7차'의 원인(규칙에 dart_master 읽기 없음)은 틀림. 기본 규칙이 등록 계정의 읽기를 모두 허용함. 브라우저가 dart_master 를 못 읽은 진짜 이유는 확인 못 함(저장소 파일 방식이라 지금은 무관).
+  - DART 상세 속도(2026-11-24, 고른 뒤 27초): 함수 직접 호출을 8초 기다린 뒤에야 요청 문서 길로 갔음 → 두 길을 같이 달려 먼저 온 답을 씀(직접 호출 1.2초 안에 답이 없으면 요청 문서도 시작, app.js pickDart). 남은 시간은 함수가 깨어나는 시간 + 재배포 전 함수의 이름 검색(재배포하면 한 곳만 조회).
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 

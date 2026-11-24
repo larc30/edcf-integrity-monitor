@@ -58,6 +58,11 @@ service cloud.firestore {
       allow update: if allowed() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['web', 'web_days']);
     }
 
+    // 수원국 이벤트의 관련 있음 / 관련 없음 처리: 슈퍼관리자·팀 관리자
+    match /meta/geo_reviews {
+      allow create, update: if allowed() && canManage();
+    }
+
     // 스캔·DART 요청: 슈퍼관리자·팀 관리자
     match /requests/{id} {
       allow create, update: if allowed() && canManage();

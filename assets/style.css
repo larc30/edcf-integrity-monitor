@@ -2477,3 +2477,15 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .dl-res .dp-cand.dl2 { display: grid; grid-template-columns: minmax(8em, 13em) minmax(0, 1fr) 3em; gap: 12px; }
 .dl-res .dp-cand.dl4 { display: grid; }
 .dl-res .dp-cand.dl2 .tag { justify-self: end; }
+
+/* 수원국 이벤트: ✓ 관련 있음 / ✕ 관련 없음 */
+.ev-acts { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; }
+.ev-acts .btn { height: var(--h-s); }
+.ev-no { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--line); font-size: var(--fs-sm); color: var(--muted); }
+.ev-no > summary { cursor: pointer; }
+.ev-no-l { margin-top: 8px; max-height: 16em; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+.ev-no-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 3px 0; }
+.ev-no-row .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
+.ev-no-row .r { white-space: nowrap; font-size: var(--fs-xs); }
+.ev-no-row .btn { height: var(--h-s); }
+@media (max-width: 640px) { .ev-acts { margin-left: 0; flex-basis: 100%; } .ev-no-row { grid-template-columns: 1fr auto; } .ev-no-row .r { display: none; } }
