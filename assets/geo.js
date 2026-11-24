@@ -319,12 +319,12 @@ export async function renderGeo() {
     + ["red", "orange", "none"].map((lv) => {
       const l = byLv[lv];
       const names = l.length ? l.map(cname).slice(0, 3).join(" · ") + (l.length > 3 ? ` 외 ${l.length - 3}` : "") : "해당 국가 없음";
-      return `<button class="rk ${lv} ${l.length ? "on" : ""} ${ui.lv === lv ? "sel" : ""}" data-glv="${lv}" ${l.length ? `title="누르면 지도에서 ${LEVEL[lv]} 국가만 강조"` : "disabled"}>
+      return `<button class="rk ${lv} ${l.length ? "on" : ""} ${ui.lv === lv ? "sel" : ""}" data-glv="${lv}" ${l.length ? "" : "disabled"}>
         <div class="rk-num"><span>${l.length}</span><small>개국</small></div>
         <div class="rk-lv">${LEVEL[lv]}</div>
         <div class="rk-names ${l.length ? "" : "zero"}">${esc(names)}</div></button>`;
     }).join("");
-  $$("#gboard [data-glv]:not(:disabled)").forEach((b) => b.onclick = () => { ui.lv = ui.lv === b.dataset.glv ? null : b.dataset.glv; renderGeo(); });
+  $$("#gboard [data-glv]:not(:disabled)").forEach((b) => b.onclick = () => openGeoList(b.dataset.glv)); // 업체 리스크의 등급별 업체 목록과 같은 방식: 오른쪽 창에 나라별 내용
 
   // 왼쪽 아래: 이벤트 종류별 건수 (누르면 지도·목록 거르기)
   const tc = {}; evs.forEach((e) => (tc[e.type] = (tc[e.type] || 0) + 1));
@@ -395,6 +395,24 @@ export async function renderGeo() {
   $$("#evFeed [data-evmore]").forEach((bt) => bt.onclick = () => { const d = bt.closest(".ev-body").querySelector(".ev-dup"); d.classList.toggle("hidden"); bt.classList.toggle("open", !d.classList.contains("hidden")); });
 
   if (!live.at && !live.loading) loadLiveQuakes().then(() => { if ($("#view-geo").classList.contains("active")) renderGeo(); });
+}
+
+// 등급별 수원국 목록 (오른쪽 창): 나라마다 사업별 등급·근거와 최근 이벤트. 사업을 누르면 창을 닫고 지도에서 그 사업을 보여 줌
+function openGeoList(lv) {
+  const { esc } = ctx, { pins, evs, risk } = last;
+  const codes = Object.keys(risk).filter((c) => risk[c].lv === lv).sort((a, b) => cname(a).localeCompare(cname(b), "ko"));
+  const title = `<div class="d-name"><span class="nm">${LEVEL[lv]} 수원국</span><span class="cnt">${codes.length}개국</span><span class="tag">${esc(ctx.getScope() === "mine" ? ctx.mineLabel() : "EDCF 전체")}</span></div>`;
+  const body = codes.map((c) => {
+    const ps = pins.filter((x) => x.p.country === c).sort((a, b) => LV[b.r.lv] - LV[a.r.lv] || a.p.name.localeCompare(b.p.name, "ko"));
+    const ev = evs.filter((e) => e.country === c).sort((a, b) => b.ms - a.ms).slice(0, 4);
+    return `<div class="gl-c">
+      <div class="gl-top"><b class="gl-name">${esc(cname(c))}</b><span class="gl-en">${esc(cen(c))}</span><span class="gl-n">사업 ${ps.length}</span></div>
+      <div class="gl-ps">${ps.map(({ p, r }) => `<div class="gl-p" data-glp="${p.id}" role="button" tabindex="0"><span class="badge ${r.lv}">${LEVEL[r.lv]}</span><div class="gl-pb"><div class="gl-pn">${esc(p.name)}</div>${r.why.length ? `<div class="gl-why">${r.why.slice(0, 3).map(esc).join(" · ")}</div>` : ""}</div><span class="rl-arr">›</span></div>`).join("")}</div>
+      ${ev.length ? `<div class="gl-evs">${ev.map((e) => `<div class="gl-ev" title="${esc(e.title)}">${ibadge(e.type, "xs")}<span class="t">${esc(e.title)}</span><span class="d">${rel(e.ms)}</span></div>`).join("")}</div>` : ""}
+    </div>`;
+  }).join("") || `<div class="empty small">해당 국가가 없습니다</div>`;
+  const el = ctx.openDrawer(title, `<div class="rl">${body}</div>`);
+  el.querySelectorAll("[data-glp]").forEach((x) => { const go = () => { ctx.closeDrawer(); setFocus(x.dataset.glp); }; x.onclick = go; x.onkeydown = (e) => { if (e.key === "Enter") go(); }; });
 }
 
 // 사업지에서 가까운 이벤트 (거리 순). 위치를 모르면 같은 나라 이벤트

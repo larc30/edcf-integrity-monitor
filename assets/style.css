@@ -2537,3 +2537,44 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .radar svg.grid circle.band.yellow { fill: color-mix(in srgb, var(--gray) 10%, transparent); }
 .radar svg.grid circle.ring.yellow { stroke: color-mix(in srgb, var(--gray) 45%, transparent); }
 .radar svg.grid text.bl.yellow { fill: var(--gray); }
+
+/* 예전 노란 등급 색 변수는 어디에 남아 있어도 회색으로 (등급은 경고 빨강 · 주의 주황 · 정상 초록, 참고는 회색) */
+:root, :root[data-theme="dark"], :root[data-theme="light"] { --yellow: var(--gray); --yellow-fill: var(--gray); --yellow-bg: color-mix(in srgb, var(--gray) 14%, transparent); }
+
+/* 상단 조작 줄 정렬(2026-11-24): 제목 줄 좌우 여백을 없애 아래 카드 끝과 맞춤 · 범위 스위치도 다른 버튼과 같은 44px · 넓은 화면에서는 조작 줄 폭 = 오른쪽 칸 폭 */
+.d-title { padding-left: 0; padding-right: 0; }
+.d-ctrl .scope-switch { padding: 2px; }
+.ctrl-row #scopeInfo:empty { display: none; }
+@media (min-width: 1400px) {
+  .geo-dash { grid-template-columns: minmax(17.5em, 2.6fr) minmax(0, 5.2fr) minmax(0, 4.2fr); }
+  .dash:not(.geo-dash) .d-ctrl { min-width: calc((100% - 32px) * 5.7 / 12); }
+  .geo-dash .d-ctrl { min-width: calc((100% - 32px) * 4.2 / 12); }
+  .d-ctrl .ctrl-row { align-self: stretch; flex-wrap: nowrap; }
+  .d-ctrl .scope-switch { flex: 1 1 auto; }
+  .d-ctrl .sc-btn { flex: 1 1 auto; justify-content: center; }
+}
+/* 수원국 정보만 새로 받기 (마지막 갱신 옆 작은 버튼) */
+.hero-sub { display: flex; align-items: center; gap: 6px; }
+.sub-btn { display: inline-grid; place-items: center; width: var(--h-s); height: var(--h-s); border: 0; border-radius: var(--r-s); background: transparent; color: var(--muted); cursor: pointer; }
+.sub-btn svg { width: 14px; height: 14px; }
+.sub-btn:hover { background: var(--panel-2); color: var(--text); }
+.sub-btn:disabled { opacity: .45; cursor: default; }
+body.viewer #geoOnly { display: none; }
+/* 등급별 수원국 목록 (오른쪽 창) */
+.gl-c { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+.gl-top { display: flex; align-items: baseline; gap: 8px; }
+.gl-name { font-size: var(--fs-md); font-weight: 800; }
+.gl-en, .gl-n { font-size: var(--fs-xs); color: var(--muted); }
+.gl-n { margin-left: auto; white-space: nowrap; }
+.gl-ps { display: grid; gap: 6px; margin-top: 10px; }
+.gl-p { display: flex; align-items: flex-start; gap: 10px; padding: 9px 10px; border: 1px solid transparent; border-radius: var(--r-l); background: var(--panel-2); cursor: pointer; }
+.gl-p:hover, .gl-p:focus-visible { border-color: color-mix(in srgb, var(--accent) 50%, transparent); outline: none; }
+.gl-p:hover .rl-arr { color: var(--accent); }
+.gl-p .badge { flex: none; margin-top: 1px; }
+.gl-pb { flex: 1; min-width: 0; }
+.gl-pn { font-size: var(--fs-base); font-weight: 650; line-height: 1.4; word-break: keep-all; }
+.gl-why { margin-top: 2px; font-size: var(--fs-sm); color: var(--text-2); line-height: 1.5; word-break: keep-all; }
+.gl-evs { display: grid; gap: 7px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.gl-ev { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--fs-sm); }
+.gl-ev .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gl-ev .d { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
