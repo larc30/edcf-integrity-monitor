@@ -14,6 +14,7 @@
 import hashlib
 import logging
 import math
+import json
 import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
@@ -182,6 +183,30 @@ def _finish_alert(a: dict) -> None:
     a["regions"] = " / ".join(f"{z['lv']}단계 {z['text']}" for z in sorted(zones, key=lambda z: -z["lv"]) if z["text"])[:300]
 
 
+_YES = ("Y", "YES", "TRUE", "1", "발령", "O")
+_NO = ("", "N", "NO", "FALSE", "0", "-", "해당없음", "없음", "NONE", "NULL")
+
+
+def _special_row(row: dict) -> tuple[str, str, bool]:
+    """특별여행주의보 한 줄 → (나라 코드, 발령 내용, 일부 지역 여부). 발령 중이 아니면 코드가 빈 값.
+    칸 이름이 문서와 다를 수 있어 넓게 읽음: 내용 칸(…note · remark · txt…)에 글이 있거나, 발령 여부 칸(splimit · splban …)이 Y 일 때만 발령으로 봄"""
+    code = (row.get("country_iso_alp2") or "").upper()
+    if not code:
+        return "", "", False
+    val = lambda k: str(row.get(k) or "").strip()
+    text = next((val(k) for k in ("splimit_note", "splban_note", "remark", "txt_origin_cn", "evacuate_rcmnd_remark") if val(k).upper() not in _NO), "")
+    flags = {k: val(k).upper() for k in row if re.search(r"splimit|splban|sp_?alarm", k) and not k.endswith("note")}
+    whole = any(v in _YES for k, v in flags.items() if "partial" not in k)
+    part = any(v in _YES for k, v in flags.items() if "partial" in k)
+    if flags and not (whole or part) and all(v in _NO or v in ("N",) for v in flags.values()):
+        return "", "", False  # 발령 여부 칸이 있는데 모두 아니오
+    if not (text or whole or part):
+        return "", "", False
+    region = val("region_ty")
+    partial = (part and not whole) or region == "일부" or (bool(text) and not re.search(r"전\s*지역|전역|전체", text) and region != "전체" and not whole)
+    return code, text, partial
+
+
 def fetch_alerts(get=httpx.get) -> dict:
     key = config.MOFA_TRAVEL_KEY
     if not key:
@@ -208,12 +233,23 @@ def fetch_alerts(get=httpx.get) -> dict:
     try:  # 특별여행주의보 (같은 키, 별도 활용신청). 실패해도 여행경보는 저장
         r2 = get(SPECIAL_URL, params={"serviceKey": key, "returnType": "JSON", "numOfRows": 300, "pageNo": 1}, timeout=30)
         r2.raise_for_status()
-        for row in _rows(r2.json()):
-            code = (row.get("country_iso_alp2") or "").upper()
-            if code:
-                a = out.setdefault(code, {"level": 0, "base": 0, "partial": False, "regions": "", "zones": []})
-                a["special"] = True
-                a["special_text"] = str(row.get("splimit_note") or row.get("remark") or row.get("txt_origin_cn") or "")[:200]
+        rows2 = _rows(r2.json())
+        on = [(code, text, part) for code, text, part in (_special_row(row) for row in rows2) if code]
+        # 응답 모양을 건수로 남김 (나라 이름·내용 없이 칸 이름과 개수만): 판단이 맞는지 실행 기록으로 확인
+        keys: dict[str, int] = {}
+        for row in rows2:
+            for k, v in row.items():
+                if str(v or "").strip():
+                    keys[k] = keys.get(k, 0) + 1
+        log.info("특별여행주의보 응답: %d줄 · 발령으로 본 줄 %d · 칸별 값 있는 줄 수 %s", len(rows2), len(on), json.dumps(keys, ensure_ascii=False))
+        # 응답에 든 나라를 모두 '발령 중'으로 보면 안 됨 (2026-11-24: 전 사업이 경고로 바뀐 원인). 발령 내용이 적힌 줄만 인정하고,
+        # 절반 가까운 나라가 발령으로 나오면 읽는 방식이 틀린 것으로 보고 하나도 표시하지 않음
+        if rows2 and len(on) > max(40, len(rows2) * 0.4):
+            log.warning("특별여행주의보: 발령으로 본 줄이 너무 많아 반영하지 않음 (%d/%d)", len(on), len(rows2))
+            on = []
+        for code, text, part in on:
+            a = out.setdefault(code, {"level": 0, "base": 0, "partial": False, "regions": "", "zones": []})
+            a["special"], a["special_text"], a["special_partial"] = True, text[:200], part
     except Exception as e:
         log.warning("특별여행주의보 실패: %s", type(e).__name__)
     return out
@@ -511,4 +547,9 @@ def update(projects: list[dict] | None = None, get=httpx.get, gnews=news.google_
     doc["events"] = sorted(merged.values(), key=lambda e: -(e.get("at_ms") or 0))[:300]
     res["events"] = len(doc["events"])
     store.update("meta", "geo", doc)
+    if doc.get("alerts"):
+        try:  # 위 저장은 '합쳐 쓰기'라 나라별 칸에 예전 값(잘못 적힌 special 등)이 남음 → 여행경보 칸은 통째로 바꿔 씀
+            store.db().collection("meta").document("geo").update({"alerts": doc["alerts"]})
+        except Exception as e:
+            log.warning("여행경보 칸 바꿔 쓰기 실패: %s", type(e).__name__)
     return res

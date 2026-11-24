@@ -131,6 +131,8 @@ export const siteOpt = (p, pt) => ({ exact: !!pt && pt.how !== "국가 중심", 
 
 // ---------- 데이터 ----------
 function geoDoc() { return ctx.state.geo || {}; }
+// 특별여행주의보: 새 방식으로 읽은 것(special_partial 이 적힌 것)만 인정. 예전 저장본은 응답에 든 모든 나라를 발령 중으로 적어 둬서 믿지 않음
+const isSpecial = (a) => !!(a && a.special && a.special_partial !== undefined);
 function allEvents() {
   const stored = (geoDoc().events || []).filter((e) => e.type !== "quake" || !e.mag || e.mag >= QUAKE_MIN).map((e) => ({ ...e, ms: evMs(e) }));
   const out = [...stored];
@@ -221,8 +223,8 @@ function alertRisk(a, sa) {
   if (!a) return { lv: "none", why: [] };
   const zoneTxt = sa.zone ? ` (${short(sa.zone, 30)})` : sa.how === "base" && sa.refs.length ? " (나머지 지역 기준)" : "";
   const name = sa.lv ? `여행경보 ${ALERT[sa.lv][0]} ${ALERT[sa.lv][1]}${zoneTxt}` : "";
-  if (a.special) {
-    const all = !a.special_text || /전\s*지역|전역|전체/.test(a.special_text);
+  if (isSpecial(a)) {
+    const all = a.special_partial === undefined ? (!a.special_text || /전\s*지역|전역|전체/.test(a.special_text)) : !a.special_partial; // 수집 때 정한 일부 지역 여부를 먼저 씀
     return { lv: all ? "red" : "orange", why: [`특별여행주의보${a.special_text ? ` (${short(a.special_text, 30)})` : ""}${all ? "" : " 일부 지역"}`] };
   }
   if (sa.lv >= 3) return { lv: "red", why: [name] };
@@ -341,7 +343,7 @@ export async function renderGeo() {
     const sa = r.site || { lv: 0, refs: [] };
     const whyEv = r.why.filter((w) => !/^(여행경보|특별여행주의보)/.test(w)); // 여행경보는 위 칩과 같은 말이라 근거에서는 뺌
     const HOW = { manual: "직접 지정", auto: "사업지 위치로 판단", base: "사업지 위치 미상: 나머지 지역 기준" };
-    const alertHtml = a?.level || a?.special ? `${sa.lv ? `<span class="alert-chip ${ALERT[sa.lv][2]}">${ALERT[sa.lv][0]} ${ALERT[sa.lv][1]}</span>` : ""}${a.special ? `<span class="alert-chip sp">특별여행주의보</span>` : ""}${sa.refs.length ? `<span class="muted small" title="${esc(sa.refs.join(" / "))}">일부 지역은 더 높음</span>` : ""}`
+    const alertHtml = a?.level || isSpecial(a) ? `${sa.lv ? `<span class="alert-chip ${ALERT[sa.lv][2]}">${ALERT[sa.lv][0]} ${ALERT[sa.lv][1]}</span>` : ""}${isSpecial(a) ? `<span class="alert-chip sp">특별여행주의보</span>` : ""}${sa.refs.length ? `<span class="muted small" title="${esc(sa.refs.join(" / "))}">일부 지역은 더 높음</span>` : ""}`
       : aOk ? `<span class="alert-chip a0">여행경보 없음</span>` : `<span class="muted small">여행경보 연결 전</span>`;
     return `<div class="gp ${r.lv} ${ui.focus === p.id ? "sel" : ""}" data-gpid="${p.id}" role="button" tabindex="0" title="누르면 자세한 내용과 지도의 거리 원을 보여줍니다">
       <div class="pj-top"><span class="gp-no ${r.lv}">${idx + 1}</span><span class="pj-name" title="${esc(p.name)}">${esc(p.name)}</span><span class="badge ${r.lv}">${LEVEL[r.lv]}</span><span class="gp-caret" title="${sel ? "접기" : "자세히 보기"}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span></div>
