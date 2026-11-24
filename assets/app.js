@@ -2216,16 +2216,16 @@ function openCompanyForm(cid = null) {
         return `<div class="ce-row"><span class="ce-name" title="${esc(projName(e.project_id))}">${esc(projName(e.project_id))}</span>${can ? `<select data-er="${i}" aria-label="역할">${ROLES.map((r) => `<option ${r === e.role ? "selected" : ""}>${r}</option>`).join("")}</select>` : `<span class="ce-ro">${esc(e.role)}</span>`}${can
           ? `<select data-es="${i}" aria-label="단계">${STAGE_OPTS.map(([k, l]) => `<option value="${k}" ${k === stageVal(e) ? "selected" : ""}>${l}</option>`).join("")}</select><button type="button" class="ce-ic del" data-ex="${i}" title="이 사업에서 빼기" aria-label="이 사업에서 빼기">${CE_DEL}</button>`
           : `<span class="ce-ro">${esc(STAGE_OPTS.find(([k]) => k === stageVal(e))?.[1] || "")}</span><span></span>`}</div>`; }).join("")}</div>
-      ${opts ? `<div class="ce-row ce-add"><select id="ceP" aria-label="사업"><option value="">사업 선택</option>${opts}</select><select id="ceR" aria-label="역할">${roleOptions()}</select><select id="ceS" aria-label="단계">${STAGE_OPTS.map(([k, l]) => `<option value="${k}" ${k === "계약" ? "selected" : ""}>${l}</option>`).join("")}</select><button type="button" class="ce-ic add" id="ceAdd" title="사업 연결" aria-label="사업 연결">${CE_ADD}</button></div>` : ""}</div>`;
+      ${opts ? `<div class="ce-row ce-add"><select id="ceP" aria-label="사업"><option value="">사업 선택</option>${opts}</select><select id="ceR" aria-label="역할">${roleOptions()}</select><select id="ceS" aria-label="단계"><option value="">단계 선택</option>${STAGE_OPTS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select><button type="button" class="ce-ic add" id="ceAdd" title="사업 연결" aria-label="사업 연결">${CE_ADD}</button></div>` : ""}</div>`;
     $$("[data-er]", el).forEach((x) => x.onchange = () => { const e = engsW[+x.dataset.er];
       if (engsW.some((o) => o !== e && o.project_id === e.project_id && o.role === x.value)) { toast(`이미 이 사업의 ${x.value}(으)로 연결돼 있습니다`); return renderEngs(); }
       e.role = x.value; engsDirty = true; renderEngs(); });
     $$("[data-es]", el).forEach((x) => x.onchange = () => { engsW[+x.dataset.es].stage = x.value; engsDirty = true; });
     $$("[data-ex]", el).forEach((x) => x.onclick = () => { engsW.splice(+x.dataset.ex, 1); engsDirty = true; renderEngs(); });
     if ($("#ceAdd")) $("#ceAdd").onclick = () => { const pid = $("#ceP").value, role = $("#ceR").value;
-      if (!pid || !role) return toast("사업과 역할을 골라 주세요");
+      if (!pid || !role || !$("#ceS").value) return toast("사업 · 역할 · 단계를 골라 주세요");
       if (engsW.some((o) => o.project_id === pid && o.role === role)) return toast(`이미 이 사업의 ${role}(으)로 연결돼 있습니다`);
-      engsW.push({ project_id: pid, role, stage: $("#ceS").value || "계약", rank: null }); engsDirty = true; renderEngs(); };
+      engsW.push({ project_id: pid, role, stage: $("#ceS").value, rank: null }); engsDirty = true; renderEngs(); };
   };
   renderEngs();
   // 법인 표기는 화면·검색용 이름에서 빠진다는 것을 바로 알려줌 (적은 그대로는 공식 명칭으로 남김)
@@ -2402,7 +2402,8 @@ function openCompanyForm(cid = null) {
     if (fd.ceo && /[ㄱ-ㅎㅏ-ㅣ0-9]/.test(fd.ceo)) { f1.ceo.focus(); return toast("대표자 이름을 다시 확인해 주세요"); }
     const pendP = $("#ceP")?.value, pendR = $("#ceR")?.value;
     if (pendP && !pendR) { $("#ceR").focus(); return toast("사업에 연결하려면 역할(F/S · 컨설턴트 · 본구매)을 골라 주세요", 5000); }
-    if (pendP && !engsW.some((o) => o.project_id === pendP && o.role === pendR)) { engsW.push({ project_id: pendP, role: pendR, stage: $("#ceS")?.value || "계약", rank: null }); engsDirty = true; }
+    if (pendP && !$("#ceS").value) { $("#ceS").focus(); return toast("사업에 연결하려면 단계를 골라 주세요", 5000); }
+    if (pendP && !engsW.some((o) => o.project_id === pendP && o.role === pendR)) { engsW.push({ project_id: pendP, role: pendR, stage: $("#ceS").value, rank: null }); engsDirty = true; }
     const fromDart = picked && !fd.foreign;
     if (isNew) {
       const ref = doc(collection(db, "companies"));
