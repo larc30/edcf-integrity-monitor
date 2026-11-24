@@ -238,6 +238,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
   - DART 직접 호출 500 의 원인 확정(2026-11-24, 함수가 돌려준 문구 'The default Firebase app does not exist'): functions adminDb 가 '앱이 하나도 없을 때만' initializeApp 을 불렀는데, onCall 함수에서는 Firebase 가 로그인 확인용 앱을 먼저 만들어 둬서 기본 앱이 안 만들어짐 → getFirestore() 실패. dartFind 는 처음 만든 날부터 직접 호출이 한 번도 성공한 적이 없었고(늘 요청 문서 길로 답이 옴), kickQueue 는 로그인 확인이 없어 정상이었음. 고침: 파일이 읽힐 때 initializeApp() 한 번. 함께: 상세 조회(detail)는 DART 응답을 못 받으면 한 번 더 시도하고 이유(why)를 돌려줌(재배포 직후 요청 문서 길에서 사업자번호·대표자가 빈 채로 온 사례 확인용). 함수 재배포 필요. 원인이 다 정리되면 화면의 진단 표시는 초만 남기고 뺄 것.
 
+  - DART 직접 호출 성공 뒤 남은 문제(2026-11-24, 재배포 뒤 '직접 · 200 0.2s · DART 100 잘못된 인증키(40자리)'): 직접 호출은 0.2초로 정상. 사업자번호·대표자가 비는 것은 함수의 Secret DART_API_KEY 값을 DART 가 거절해서(재배포 때 Secret 의 최신 판을 다시 읽음: 그 판에 줄바꿈·공백이 섞였거나 값이 다른 것으로 보임, 재배포 전에는 예전 판으로 동작했음). 조치: 함수가 키에서 영문·숫자가 아닌 글자를 떼고 씀(cleanKey), 거절되면 진단에 '등록된 키 N자' 표시(40자가 아니면 Secret 을 다시 넣어야 함: firebase functions:secrets:set DART_API_KEY → 재배포). 함수 재배포 필요.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 
