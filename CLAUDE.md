@@ -234,6 +234,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
   - DART 검색 버튼 흐름(2026-11-24 사용자 결정): 업체명 후보를 누르면 이름만 입력칸에 들어가고(조회 안 함), [DART 검색]을 눌러야 그 기업 한 곳의 사업자번호·대표자·영문명을 가져옴(app.js chosen). 후보에서 고르지 않고 직접 적은 채 버튼을 누르면 예전처럼 결과 목록을 보여 주고 거기서 고르면 바로 조회.
   - 다음에 할 일(사용자: '로직이 계속 바뀌어 헷갈림, 나중에 정리'): 스캔·DART·수원국 판정의 지금 로직을 한 장으로 정리한 문서(요청 시). CLAUDE.md 위쪽의 예전 설명(집중 감시·심층·빠른 스캔 등)도 그때 걷어낼 것.
 
+  - DART 상세 지연의 실제 단서(2026-11-24 진단 표시): 화면의 함수 직접 호출(dartFind)이 0.6초 만에 HTTP 500 으로 실패 → 요청 문서 길(16~25초)로만 답이 옴. 회사망·시간 초과가 아니라 함수 안에서 오류가 나는 것. 저장소 코드에서는 원인을 못 찾음(배포본과 다를 수 있음). 조치: 함수가 오류 이유를 돌려주게 함(functions dartFind 를 try 로 감싸 HttpsError internal + 이유, 로그에도) + 화면 진단에 그 이유 표시, 미리 깨우기 호출은 실패해도 직접 호출을 막지 않게(quiet). 함수 재배포 뒤 화면의 진단 줄 또는 Firebase 콘솔 > Functions > dartFind 로그로 원인 확인할 것. 원인이 잡히면 진단 표시는 초만 남기고 뺄 것.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 
