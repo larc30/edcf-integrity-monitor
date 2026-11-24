@@ -406,12 +406,17 @@ function openGeoList(lv) {
   const { esc } = ctx, { pins, evs, risk } = last;
   const codes = Object.keys(risk).filter((c) => risk[c].lv === lv).sort((a, b) => cname(a).localeCompare(cname(b), "ko"));
   const title = `<div class="d-name"><span class="nm">${LEVEL[lv]} 수원국</span><span class="cnt">${codes.length}개국</span><span class="tag">${esc(ctx.getScope() === "mine" ? ctx.mineLabel() : "EDCF 전체")}</span></div>`;
+  // 나라 카드: 머리에 나라 공통 여행경보(사업지 단계가 모두 같을 때) · 사업 줄에는 그 사업만의 근거 · 아래에 나라 이벤트 (같은 문장을 되풀이하지 않음)
+  const chip = (sa) => sa?.lv ? `<span class="alert-chip ${ALERT[sa.lv][2]}"${sa.zone ? ` title="${esc(sa.zone)}"` : ""}>${ALERT[sa.lv][0]} ${ALERT[sa.lv][1]}</span>` : "";
   const body = codes.map((c) => {
     const ps = pins.filter((x) => x.p.country === c).sort((a, b) => LV[b.r.lv] - LV[a.r.lv] || a.p.name.localeCompare(b.p.name, "ko"));
-    const ev = evs.filter((e) => e.country === c).sort((a, b) => b.ms - a.ms).slice(0, 4);
+    const evAll = evs.filter((e) => e.country === c).sort((a, b) => b.ms - a.ms), ev = evAll.slice(0, 4);
+    const same = new Set(ps.map((x) => x.r.site?.lv || 0)).size === 1, wide = evAll.filter((e) => e.country_level).map((e) => e.title);
+    const own = (r) => r.why.filter((w) => !/^(여행경보|특별여행주의보)/.test(w) && !wide.some((t) => w.includes(t))); // 여행경보는 칩으로, 나라 단위 사건은 아래 목록으로
     return `<div class="gl-c">
-      <div class="gl-top"><b class="gl-name">${esc(cname(c))}</b><span class="gl-en">${esc(cen(c))}</span><span class="gl-n">사업 ${ps.length}</span></div>
-      <div class="gl-ps">${ps.map(({ p, r }) => `<div class="gl-p" data-glp="${p.id}" role="button" tabindex="0"><span class="badge ${r.lv}">${LEVEL[r.lv]}</span><div class="gl-pb"><div class="gl-pn">${esc(p.name)}</div>${r.why.length ? `<div class="gl-why">${r.why.slice(0, 3).map(esc).join(" · ")}</div>` : ""}</div><span class="rl-arr">›</span></div>`).join("")}</div>
+      <div class="gl-top"><b class="gl-name">${esc(cname(c))}</b><span class="gl-en">${esc(cen(c))}</span>${same ? chip(ps[0].r.site) : ""}${isSpecial(risk[c].alert) ? `<span class="alert-chip sp">특별여행주의보</span>` : ""}<span class="gl-n">사업 ${ps.length}</span></div>
+      <div class="gl-ps">${ps.map(({ p, r }) => { const w = own(r), sub = (same ? "" : chip(r.site)) + w.slice(0, 3).map((x) => `<span>${esc(x)}</span>`).join("");
+        return `<div class="gl-p" data-glp="${p.id}" role="button" tabindex="0"><span class="badge ${r.lv}">${LEVEL[r.lv]}</span><div class="gl-pb"><div class="gl-pn">${esc(p.name)}</div>${sub ? `<div class="gl-why">${sub}</div>` : ""}</div><span class="rl-arr">›</span></div>`; }).join("")}</div>
       ${ev.length ? `<div class="gl-evs">${ev.map((e) => `<div class="gl-ev" title="${esc(e.title)}">${ibadge(e.type, "xs")}<span class="t">${esc(e.title)}</span><span class="d">${rel(e.ms)}</span></div>`).join("")}</div>` : ""}
     </div>`;
   }).join("") || `<div class="empty small">해당 국가가 없습니다</div>`;
