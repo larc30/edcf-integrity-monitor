@@ -2204,22 +2204,23 @@ function openCompanyForm(cid = null) {
   const f1 = $("#coForm"); let picked = null, dlBusy = false, sticky = null;
   // 참여 사업 (수정 창): 역할·단계 바꾸기, 빼기, 새로 연결. [저장]을 눌러야 반영. 내가 고칠 수 없는 사업(다른 팀·완료)은 보기만
   const engsW = engs.map((e) => ({ ...e })); let engsDirty = false;
+  const CE_DEL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>`;
+  const CE_ADD = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>`;
   const renderEngs = () => {
     const el = $("#coEngs"); if (!el) return;
     const rows = engsW.map((e, i) => [e, i]).sort((x, y) => ROLE_ORDER.indexOf(x[0].role) - ROLE_ORDER.indexOf(y[0].role) || projName(x[0].project_id).localeCompare(projName(y[0].project_id), "ko"));
     const opts = projOptions();
     el.innerHTML = `<div class="co-engs-h">참여 사업<span class="set-n">${engsW.length}</span></div>
+      <div class="ce-box"><div class="ce-row ce-head"><span>사업</span><span>역할</span><span>단계</span><span></span></div>
       <div class="ce-list">${rows.map(([e, i]) => { const can = canEditProject(state.projects.find((x) => x.id === e.project_id));
-        return `<div class="ce-row">${can ? `<select data-er="${i}">${ROLES.map((r) => `<option ${r === e.role ? "selected" : ""}>${r}</option>`).join("")}</select>` : `<span>${roleTag(e.role)}</span>`}<span class="ce-name" title="${esc(projName(e.project_id))}">${esc(projName(e.project_id))}</span>${can
-          ? `<select class="ce-st ${stageVal(e) !== "계약" ? "on" : ""}" data-es="${i}" aria-label="단계">${STAGE_OPTS.map(([k, l]) => `<option value="${k}" ${k === stageVal(e) ? "selected" : ""}>${l}</option>`).join("")}</select><button type="button" class="btn ce-x" data-ex="${i}">빼기</button>`
-          : `<span>${stageTag(e)}</span><span></span>`}</div>`; }).join("")}
-</div>
-      ${opts ? `<div class="ce-row ce-add"><select id="ceR">${roleOptions()}</select><select id="ceP"><option value="">사업 선택</option>${opts}</select><select id="ceS" class="ce-st" aria-label="단계">${STAGE_OPTS.map(([k, l]) => `<option value="${k}" ${k === "계약" ? "selected" : ""}>${l}</option>`).join("")}</select><button type="button" class="btn" id="ceAdd">연결</button></div>` : ""}`;
+        return `<div class="ce-row"><span class="ce-name" title="${esc(projName(e.project_id))}">${esc(projName(e.project_id))}</span>${can ? `<select data-er="${i}" aria-label="역할">${ROLES.map((r) => `<option ${r === e.role ? "selected" : ""}>${r}</option>`).join("")}</select>` : `<span class="ce-ro">${esc(e.role)}</span>`}${can
+          ? `<select data-es="${i}" aria-label="단계">${STAGE_OPTS.map(([k, l]) => `<option value="${k}" ${k === stageVal(e) ? "selected" : ""}>${l}</option>`).join("")}</select><button type="button" class="ce-ic del" data-ex="${i}" title="이 사업에서 빼기" aria-label="이 사업에서 빼기">${CE_DEL}</button>`
+          : `<span class="ce-ro">${esc(STAGE_OPTS.find(([k]) => k === stageVal(e))?.[1] || "")}</span><span></span>`}</div>`; }).join("")}</div>
+      ${opts ? `<div class="ce-row ce-add"><select id="ceP" aria-label="사업"><option value="">사업 선택</option>${opts}</select><select id="ceR" aria-label="역할">${roleOptions()}</select><select id="ceS" aria-label="단계">${STAGE_OPTS.map(([k, l]) => `<option value="${k}" ${k === "계약" ? "selected" : ""}>${l}</option>`).join("")}</select><button type="button" class="ce-ic add" id="ceAdd" title="사업 연결" aria-label="사업 연결">${CE_ADD}</button></div>` : ""}</div>`;
     $$("[data-er]", el).forEach((x) => x.onchange = () => { const e = engsW[+x.dataset.er];
       if (engsW.some((o) => o !== e && o.project_id === e.project_id && o.role === x.value)) { toast(`이미 이 사업의 ${x.value}(으)로 연결돼 있습니다`); return renderEngs(); }
       e.role = x.value; engsDirty = true; renderEngs(); });
-    $$("[data-es]", el).forEach((x) => x.onchange = () => { engsW[+x.dataset.es].stage = x.value; engsDirty = true; x.classList.toggle("on", x.value !== "계약"); });
-    if ($("#ceS")) $("#ceS").onchange = (ev) => ev.target.classList.toggle("on", ev.target.value !== "계약");
+    $$("[data-es]", el).forEach((x) => x.onchange = () => { engsW[+x.dataset.es].stage = x.value; engsDirty = true; });
     $$("[data-ex]", el).forEach((x) => x.onclick = () => { engsW.splice(+x.dataset.ex, 1); engsDirty = true; renderEngs(); });
     if ($("#ceAdd")) $("#ceAdd").onclick = () => { const pid = $("#ceP").value, role = $("#ceR").value;
       if (!pid || !role) return toast("사업과 역할을 골라 주세요");
