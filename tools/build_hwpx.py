@@ -143,6 +143,24 @@ P[61] = rep(chk(61, "MDB"), "해당 없음", "{{R_MDB}}")
 P[65] = rep(chk(65, "나라장터"), "해당 없음", "{{R_PPS}}")
 P[66] = rep(chk(66, "현대"), ">현대<", ">{{NAME}}<")
 
+
+# 캡처 그림 자리에는 조회 결과를 글로 (조회 방법·대상·일시·결과). 그림에 맞춰 키워 둔 칸 높이는 줄임
+def cap_cells(p: str, slots: dict[int, str]) -> str:
+    cells = re.findall(r"<hp:tc .*?</hp:tc>", p, re.S)
+    for i, cell in enumerate(cells):
+        new = re.sub(r'(<hp:cellSz width="\d+" height=")\d+"', r'\g<1>282"', cell)
+        if i in slots:
+            para = re.search(r"<hp:p .*?</hp:p>", new, re.S).group(0)
+            sub = re.search(r"(<hp:subList [^>]*>)(.*)(</hp:subList>)", new, re.S)
+            new = new[:sub.start(2)] + each(slots[i], setruns(para, [("36", "{{T}}")])) + new[sub.end(2):]
+        p = p.replace(cell, new, 1)
+    rows = len(re.findall(r"<hp:tr>", p))
+    return re.sub(r'(<hp:sz width="\d+" widthRelTo="ABSOLUTE" height=")\d+"', lambda m: m.group(1) + str(rows * 1500) + '"', p, count=1)
+
+
+P[62] = cap_cells(chk(62, "ADB"), {0: "CAP_ADB", 1: "CAP_WB", 4: "CAP_AFDB", 5: "CAP_EBRD", 8: "CAP_IDB"})
+P[66] = cap_cells(P[66], {0: "CAP_PPS"})
+
 sec = pre + "".join(P) + post
 left = [w for w in ("현대", "Hyundia", "HYUNDAI", "101-81", "111-11") if w in sec]
 assert not left, left
