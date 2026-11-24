@@ -75,6 +75,11 @@ def naver_enabled() -> bool:
     return naver_endpoint() is not None
 
 
+_N_GAP = 0.12  # 초
+_n_lock = threading.Lock()
+_n_last = [0.0]
+
+
 def naver_news(query: str, display: int | None = None, sort: str = "date") -> list[dict]:
     """sort: date(최신순) / sim(관련도순 — 오래된 사건도 잡힘)"""
     ep = naver_endpoint()
@@ -82,7 +87,17 @@ def naver_news(query: str, display: int | None = None, sort: str = "date") -> li
         return []
     url, headers = ep
     try:
-        r = httpx.get(url, params={"query": query, "display": display or config.NEWS_PER_QUERY, "sort": sort}, headers=headers, timeout=_TIMEOUT)
+        for wait in (0, 2):  # 초당 호출 제한(약 10회)에 걸리지 않게 호출 사이를 0.12초 띄우고, 429 면 한 번 더
+            if wait:
+                time.sleep(wait)
+            with _n_lock:
+                gap = _N_GAP - (time.monotonic() - _n_last[0])
+                if gap > 0:
+                    time.sleep(gap)
+                _n_last[0] = time.monotonic()
+            r = httpx.get(url, params={"query": query, "display": display or config.NEWS_PER_QUERY, "sort": sort}, headers=headers, timeout=_TIMEOUT)
+            if r.status_code != 429:
+                break
         r.raise_for_status()
     except httpx.HTTPError as e:
         # 공개 로그라 검색어(업체 이름)·주소는 남기지 않음 — 자세한 내용은 실행 기록(Firestore)에
