@@ -227,6 +227,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
   - 바로잡음: 위 'DART 이름 찾기 7차'의 원인(규칙에 dart_master 읽기 없음)은 틀림. 기본 규칙이 등록 계정의 읽기를 모두 허용함. 브라우저가 dart_master 를 못 읽은 진짜 이유는 확인 못 함(저장소 파일 방식이라 지금은 무관).
   - DART 상세 속도(2026-11-24, 고른 뒤 27초): 함수 직접 호출을 8초 기다린 뒤에야 요청 문서 길로 갔음 → 두 길을 같이 달려 먼저 온 답을 씀(직접 호출 1.2초 안에 답이 없으면 요청 문서도 시작, app.js pickDart). 남은 시간은 함수가 깨어나는 시간 + 재배포 전 함수의 이름 검색(재배포하면 한 곳만 조회).
 
+  - DART 기업목록 매일 갱신(2026-11-24 사용자: '아침 스캔 때 한 번 받아와야'): 아침 스캔(run.py daily)이 DART 기업목록을 새로 받아 Firestore dart_master 에 압축 조각으로 저장(run.refresh_dart_master, functions writeCache 와 같은 형식 · 실패해도 스캔은 계속). 화면의 이름 후보는 dart_master 를 먼저 읽고(문서 몇 개) 못 읽으면 저장소 파일 data/corp_master.json. 함수도 같은 저장본을 읽어 DART 에서 다시 받지 않음. 배경: 워크플로의 주간 캐시는 restore-keys 때문에 옛 파일을 계속 되살려 사실상 갱신이 안 됐음(업체명 변경 알림도 옛 목록 기준이었음) → 이제 매일 새로 받음. 저장소 파일은 예비용(작업 dart 로만 갱신).
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 

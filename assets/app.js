@@ -1429,19 +1429,20 @@ const dKo = (k) => k.replace(/[a-z]/g, (ch) => D_KO[ch]);
 function loadDartIdx() {
   if (window.__dartRows) { dartIdx = window.__dartRows.map((r) => { const k = dNorm(r[1]); return [k, r, dKo(k)]; }); return Promise.resolve(); } // 화면 점검용
   return dartIdxP || (dartIdxP = (async () => {
-    try { // 저장소에 올려 둔 공개 기업목록 (로그인·규칙·함수와 무관하게 읽힘)
+    if (!new URLSearchParams(location.search).has("demo")) {
+      try { // 매일 아침 스캔이 새로 받아 Firestore 에 넣어 둔 목록 (문서 몇 개)
+          const docs = (await getDocs(collection(db, "dart_master"))).docs.map((d) => d.data()).sort((a, b) => a.i - b.i);
+          if (!docs.length || docs.length !== docs[0].n) throw new Error("no list");
+          const parts = docs.map((d) => d.data.toUint8Array());
+          const text = await new Response(new Blob(parts).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+          const list = [];
+          for (const line of text.split("\n")) { const r = line.split("\t"); if (r.length < 4 || !r[0]) continue; const k = dNorm(r[1]); list.push([k, r, dKo(k)]); }
+          if (list.length) { dartIdx = list; return; }
+      } catch {}
+    }
+    try { // 못 읽으면 저장소에 올려 둔 파일 (갱신은 가끔)
       const r = await fetch("./data/corp_master.json");
       if (r.ok) { const list = (await r.json()).filter((x) => x && x[0] && x[1]).map((x) => { const row = [x[0], x[1], x[2] || "", x[3] || ""], k = dNorm(row[1]); return [k, row, dKo(k)]; }); if (list.length) { dartIdx = list; return; } }
-    } catch {}
-    if (new URLSearchParams(location.search).has("demo")) return;
-    try {
-      const docs = (await getDocs(collection(db, "dart_master"))).docs.map((d) => d.data()).sort((a, b) => a.i - b.i);
-      if (!docs.length || docs.length !== docs[0].n) return;
-      const parts = docs.map((d) => d.data.toUint8Array());
-      const text = await new Response(new Blob(parts).stream().pipeThrough(new DecompressionStream("gzip"))).text();
-      const list = [];
-      for (const line of text.split("\n")) { const r = line.split("\t"); if (r.length < 4 || !r[0]) continue; const k = dNorm(r[1]); list.push([k, r, dKo(k)]); }
-      if (list.length) dartIdx = list;
     } catch { dartIdxP = null; }
   })());
 }
