@@ -2526,3 +2526,14 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .dl-res { border-radius: var(--r-l); padding: 9px 12px; }
 #dlMsg .small { margin-left: 8px; }
 @media (max-width: 640px) { #coEngs .ce-row { grid-template-columns: 6.5em minmax(0, 1fr) 4.6em; } #coEngs .ce-row .ce-st { grid-column: 1 / 3; } }
+
+/* 등급은 경고(빨강) · 주의(주황) · 정상(초록) 세 가지. 예전 노란 등급 색은 쓰지 않음: yellow 단계(참고 이력)는 어디서든 회색으로 */
+.item.lv-yellow, .prow.yellow, .rk.yellow, .rl-row.yellow, .rlabel.yellow { --c: var(--gray); }
+.dot.yellow, .rdot.yellow, .pj-bar .yellow, .rk.yellow::before { background: var(--gray); }
+.rdot.yellow { color: var(--gray); }
+.pj-sum .yellow, .rrow.yellow .issues { color: var(--gray); }
+.cchip.yellow { background: var(--gray-bg); }
+.rl-row.yellow .rl-why { border-left-color: var(--gray); }
+.radar svg.grid circle.band.yellow { fill: color-mix(in srgb, var(--gray) 10%, transparent); }
+.radar svg.grid circle.ring.yellow { stroke: color-mix(in srgb, var(--gray) 45%, transparent); }
+.radar svg.grid text.bl.yellow { fill: var(--gray); }
