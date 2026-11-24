@@ -288,7 +288,7 @@ def _review(client, user_head: str, payload: list[dict], first: dict) -> dict:
 
 
 # ---------- 수원국 이벤트 뉴스 판정 ----------
-EVENT_AI_V = 3  # 판정 지침을 고치면 올림: 예전 지침으로 판정한 뉴스 이벤트를 한 번 다시 판정 (geo.update)
+EVENT_AI_V = 4  # 판정 지침을 고치면 올림: 예전 지침으로 판정한 뉴스 이벤트를 한 번 다시 판정 (geo.update)
 EVENT_TYPES = ("quake", "war", "terror", "unrest", "flood", "storm", "fire", "volcano", "politics", "disease")
 
 
@@ -297,6 +297,16 @@ class EventJudgement(BaseModel):
     affects_project: bool
     type: Literal["quake", "war", "terror", "unrest", "flood", "storm", "fire", "volcano", "politics", "disease", "none"]
     summary_ko: str
+    same_as: str = ""  # 같은 사건을 다룬 것: 이미 있는 이벤트면 "K번호", 이번 목록의 다른 기사면 "N번호", 없으면 빈칸
+
+
+class EventKeep(BaseModel):
+    idx: int
+    keep: bool
+
+
+class EventKeepBatch(BaseModel):
+    results: list[EventKeep]
 
 
 class EventBatch(BaseModel):
@@ -321,17 +331,80 @@ EVENT_PROMPT = """당신은 한국수출입은행 EDCF(대외경제협력기금)
    종류는 '지금 벌어지는 일'로 고릅니다(배경·원인이 아님). 예: 홍수 대응에 항의하는 시위 → unrest(홍수가 아님),
    지진 뒤 약탈·폭동 → unrest, 선거 결과에 불복한 유혈 충돌 → unrest, 감염병 방역에 반발한 시위 → unrest.
    재난 자체(침수·피해·대피)가 기사의 중심일 때만 그 재난 종류로 고릅니다.
-3. summary_ko: 무슨 일이 어디서 일어났는지 한국어 한 문장 (40자 안팎). 제목에 없는 사실은 쓰지 마세요."""
+3. summary_ko: 무슨 일이 어디서 일어났는지 한국어 한 문장 (40자 안팎). 제목에 없는 사실은 쓰지 마세요.
+4. same_as: 같은 나라의 '같은 사건'(같은 지진·같은 홍수·같은 시위·같은 테러)을 다룬 기사가 이미 있으면 그것을 가리킵니다.
+   [이미 있는 이벤트] 목록의 것이면 "K번호"(예: "K3"), 이번 [기사 목록]의 앞선 기사면 "N번호"(예: "N0"), 없으면 빈칸.
+   제목 표현·수치(사망자 수·피해액)가 달라도 같은 사건이면 같은 것으로 봅니다. 나라가 다르거나, 같은 종류라도 별개의 사건
+   (다른 지역의 다른 홍수, 날짜가 떨어진 다른 시위)이면 빈칸. affects_project 가 false 면 빈칸.
+
+[담당자가 판단한 사례]가 함께 오면 그 판단을 따릅니다: '관련 없음' 사례와 같은 유형(같은 이유)은 false,
+'관련 있음' 사례와 같은 유형은 true 쪽으로 봅니다."""
+
+EVENT_REVIEW_PROMPT = """당신은 한국수출입은행 EDCF 사업의 수원국 리스크 점검자입니다. 1차 판정이 '사업에 영향을 줄 수 있는 사건'으로
+통과시킨 수원국 뉴스 제목을 한 번 더 엄격하게 봅니다. 담당자 화면에 올릴 만한 것만 keep=true 로 남깁니다.
+
+keep=false (걸러 냄):
+- 그 나라에서 일어난 일이 아님(한국·제3국 사건에 나라 이름만 나옴, 그 나라 사람·기업이 다른 나라에서 겪은 일)
+- 과거 사건의 회고·기념·몇 주년, 이미 끝난 일의 후속 통계, 훈련·대비·예보·가능성 수준
+- 칼럼·사설·기고·해설·전망·인터뷰·르포·기획처럼 사건이 아니라 정세를 풀어 쓴 글, 증시·환율·원자재 시황, 책·영화 소개
+- 지원·기부·구호·협력·방문·회담 소식, 개인 범죄·단순 사고, 스포츠·연예, 비유적 표현
+- 제목만으로 '무슨 일이 일어났는지'가 드러나지 않는 것
+keep=true: 그 나라에서 최근 실제로 일어났거나 진행 중인 재난·감염병 유행·무력 충돌·테러·대규모 시위·정변·선거 같은 사건.
+확신이 없으면 keep=false. [담당자가 판단한 사례]가 함께 오면 그 판단을 따릅니다."""
 
 
-def judge_events(items: list[dict]) -> dict[int, dict] | None:
-    """items: [{title, country(나라 이름), date}] → {idx: {affects, type, note}}. 키가 없거나 실패하면 None (단어 분류 결과를 그대로 씀)"""
+def _event_examples(examples: dict | None) -> str:
+    """담당자의 ✓ 관련 있음 / ✕ 관련 없음 사례 (수원국 화면의 버튼)"""
+    no, ok = (examples or {}).get("no") or [], (examples or {}).get("ok") or []
+    if not no and not ok:
+        return ""
+    lines = ["[담당자가 판단한 사례]"]
+    lines += [f"- 관련 없음 ({x.get('reason') or '이유 없음'}): [{x.get('country') or ''}] {x.get('title') or ''}" for x in no[:30]]
+    lines += [f"- 관련 있음: [{x.get('country') or ''}] {x.get('title') or ''}" for x in ok[:20]]
+    return "\n".join(lines) + "\n\n"
+
+
+def _review_events(client, items: list[dict], idxs: list[int], ex: str) -> set[int]:
+    """2차 판정: 1차가 통과시킨 것만 REVIEW_MODEL 이 한 번 더 봄 → 걸러 낼 idx. 실패하면 빈 집합(1차 결과 유지)"""
+    model, drop = config.REVIEW_MODEL, set()
+    if not model or not idxs:
+        return drop
+    try:
+        for start in range(0, len(idxs), 40):
+            part = idxs[start : start + 40]
+            payload = [{"idx": n, "country": items[i].get("country"), "date": items[i].get("date"), "title": items[i].get("title")} for n, i in enumerate(part)]
+            resp = client.messages.parse(
+                model=model,
+                max_tokens=4000,
+                system=EVENT_REVIEW_PROMPT,
+                output_config={"effort": config.CLAUDE_EFFORT},
+                messages=[{"role": "user", "content": f"오늘 날짜: {date.today().isoformat()}\n\n{ex}[기사 목록]\n{json.dumps(payload, ensure_ascii=False, indent=1)}\n\n모든 기사(idx)에 대해 keep 을 반환하세요."}],
+                output_format=EventKeepBatch,
+            )
+            usage.track(resp, model)
+            if resp.stop_reason == "refusal" or resp.parsed_output is None:
+                raise RuntimeError(f"Claude 응답 없음 (stop_reason={resp.stop_reason})")
+            for j in resp.parsed_output.results:
+                if 0 <= j.idx < len(part) and not j.keep:
+                    drop.add(part[j.idx])
+    except Exception as e:
+        log.warning("수원국 이벤트 2차 판정 실패: %s", type(e).__name__)
+    return drop
+
+
+def judge_events(items: list[dict], known: list[dict] | None = None, examples: dict | None = None) -> dict[int, dict] | None:
+    """items: [{title, country(나라 이름), date}] → {idx: {affects, type, note, same}}. 키가 없거나 실패하면 None (단어 분류 결과를 그대로 씀)
+    known: 이미 화면에 있는 최근 이벤트 [{title, country, date}] (같은 사건 묶기용) → same = ("K", known 번호) | ("N", items 번호) | None
+    examples: {"no": [{title, country, reason}], "ok": [{title, country}]} 담당자 판단 사례"""
     if not items or not config.ANTHROPIC_API_KEY:
         return None
     import anthropic
 
     client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
     out: dict[int, dict] = {}
+    ex = _event_examples(examples)
+    known = (known or [])[:60]
+    known_txt = ("[이미 있는 이벤트]\n" + json.dumps([{"k": f"K{i}", "country": k.get("country"), "date": k.get("date"), "title": k.get("title")} for i, k in enumerate(known)], ensure_ascii=False, indent=1) + "\n\n") if known else ""
     try:
         for start in range(0, len(items), 30):
             chunk = items[start : start + 30]
@@ -341,7 +414,7 @@ def judge_events(items: list[dict]) -> dict[int, dict] | None:
                 max_tokens=8000,
                 system=EVENT_PROMPT,
                 output_config={"effort": config.CLAUDE_EFFORT},
-                messages=[{"role": "user", "content": f"오늘 날짜: {date.today().isoformat()}\n\n[기사 목록]\n{json.dumps(payload, ensure_ascii=False, indent=1)}\n\n모든 기사(idx)에 대해 판정 결과를 반환하세요."}],
+                messages=[{"role": "user", "content": f"오늘 날짜: {date.today().isoformat()}\n\n{ex}{known_txt}[기사 목록]\n{json.dumps(payload, ensure_ascii=False, indent=1)}\n\n모든 기사(idx)에 대해 판정 결과를 반환하세요."}],
                 output_format=EventBatch,
             )
             usage.track(resp, config.CLAUDE_MODEL)
@@ -349,10 +422,20 @@ def judge_events(items: list[dict]) -> dict[int, dict] | None:
                 raise RuntimeError(f"Claude 응답 없음 (stop_reason={resp.stop_reason})")
             for j in resp.parsed_output.results:
                 if 0 <= j.idx < len(chunk):
-                    out[start + j.idx] = {"affects": bool(j.affects_project) and j.type != "none", "type": j.type, "note": (j.summary_ko or "")[:120]}
+                    ref, same = str(j.same_as or "").strip().upper(), None
+                    if ref[:1] in ("K", "N") and ref[1:].isdigit():
+                        n = int(ref[1:])
+                        if ref[0] == "K" and n < len(known):
+                            same = ("K", n)
+                        elif ref[0] == "N" and n < len(chunk) and n != j.idx:
+                            same = ("N", start + n)
+                    out[start + j.idx] = {"affects": bool(j.affects_project) and j.type != "none", "type": j.type, "note": (j.summary_ko or "")[:120], "same": same}
     except Exception as e:
         log.warning("수원국 이벤트 AI 판정 실패: %s", type(e).__name__)
-        return out or None
+        if not out:
+            return None
+    for i in _review_events(client, items, [i for i, v in out.items() if v["affects"]], ex):
+        out[i].update(affects=False, reviewed_out=True)
     return out
 
 

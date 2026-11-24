@@ -449,18 +449,37 @@ def update(projects: list[dict] | None = None, get=httpx.get, gnews=news.google_
     merged = {e["id"]: e for e in prev.get("events") or [] if (e.get("at_ms") or 0) >= since}
     rejected = list(prev.get("rejected") or [])  # AI가 '사업에 영향 없음'으로 본 기사 id (다시 판정하지 않음)
     rej = set(rejected)
+    # 담당자 판단 (수원국 화면의 ✓ 관련 있음 / ✕ 관련 없음 → meta/geo_reviews.r{이벤트 id: {s ok|no, reason, title, country, at}})
+    rv_snap = store.db().collection("meta").document("geo_reviews").get()
+    reviews = ((rv_snap.to_dict() or {}) if rv_snap.exists else {}).get("r") or {}
+    rv_no = {i for i, v in reviews.items() if (v or {}).get("s") == "no"}
+    rv_ok = {i for i, v in reviews.items() if (v or {}).get("s") == "ok"}
+    by_at = sorted(((v.get("at") or "", v) for v in reviews.values() if isinstance(v, dict) and v.get("title")), key=lambda x: x[0], reverse=True)
+    examples = {"no": [{"title": v["title"], "country": (COUNTRY.get(v.get("country")) or [v.get("country") or ""])[0], "reason": v.get("note") or v.get("reason") or ""} for _, v in by_at if v.get("s") == "no"][:30],
+                "ok": [{"title": v["title"], "country": (COUNTRY.get(v.get("country")) or [v.get("country") or ""])[0]} for _, v in by_at if v.get("s") == "ok"][:20]}
+    res["reviews"] = {"ok": len(rv_ok), "no": len(rv_no)}
     merged.update({e["id"]: e for e in quakes + gd + who})
     for e in evs:
-        if e["id"] not in rej and not (merged.get(e["id"]) or {}).get("ai"):
+        if e["id"] not in rej and e["id"] not in rv_no and not (merged.get(e["id"]) or {}).get("ai"):
             merged[e["id"]] = e
+    for i in rv_no:  # 관련 없음으로 처리한 것은 뺌 (공식 자료 포함)
+        merged.pop(i, None)
     # 최종 판정은 AI: 단어로 잡은 뉴스 가운데 아직 판정하지 않은 것 (한 번에 최근 60건까지, 나머지는 다음 실행에)
     from . import analyzer
     # 예전 지침으로 판정한 것(ai_v 가 낮음)도 한 번 다시 판정
-    todo = sorted((e for e in merged.values() if str(e.get("id", "")).startswith("news-") and (not e.get("ai") or (e.get("ai_v") or 1) < analyzer.EVENT_AI_V)), key=lambda e: -(e.get("at_ms") or 0))[:60]
+    # 담당자가 '관련 있음'으로 확인한 것은 다시 판정하지 않음
+    todo = sorted((e for e in merged.values() if str(e.get("id", "")).startswith("news-") and e["id"] not in rv_ok
+                   and (not e.get("ai") or (e.get("ai_v") or 1) < analyzer.EVENT_AI_V)), key=lambda e: -(e.get("at_ms") or 0))[:60]
     if todo:
-        verdict = analyzer.judge_events([{"title": e.get("title"), "country": (COUNTRY.get(e.get("country")) or [e.get("country")])[0],
-                                          "date": datetime.fromtimestamp((e.get("at_ms") or 0) / 1000, KST).strftime("%Y-%m-%d")} for e in todo])
-        kept = dropped = 0
+        ymd = lambda e: datetime.fromtimestamp((e.get("at_ms") or 0) / 1000, KST).strftime("%Y-%m-%d")
+        cn = lambda e: (COUNTRY.get(e.get("country")) or [e.get("country")])[0]
+        # 같은 사건 묶기용: 이미 판정이 끝난 최근 10일 이벤트 (이번에 판정할 것은 뺌)
+        todo_ids, recent = {e["id"] for e in todo}, int((datetime.now(KST) - timedelta(days=10)).timestamp() * 1000)
+        known = sorted((e for e in merged.values() if e["id"] not in todo_ids and (e.get("at_ms") or 0) >= recent and (e.get("ai") or not str(e["id"]).startswith("news-"))),
+                       key=lambda e: -(e.get("at_ms") or 0))[:60]
+        verdict = analyzer.judge_events([{"title": e.get("title"), "country": cn(e), "date": ymd(e)} for e in todo],
+                                        known=[{"title": e.get("title"), "country": cn(e), "date": ymd(e)} for e in known], examples=examples)
+        kept = dropped = dropped2 = same_n = 0
         for i, e in enumerate(todo):
             v = (verdict or {}).get(i)
             if not v:
@@ -469,10 +488,24 @@ def update(projects: list[dict] | None = None, get=httpx.get, gnews=news.google_
                 merged.pop(e["id"], None)
                 rejected.append(e["id"])
                 dropped += 1
+                dropped2 += 1 if v.get("reviewed_out") else 0
             else:
                 e.update(ai=True, ai_v=analyzer.EVENT_AI_V, note=v["note"], **({"type": v["type"]} if v["type"] in analyzer.EVENT_TYPES else {}))
                 kept += 1
-        res["ai_kept"], res["ai_dropped"] = kept, dropped
+        # 같은 사건: 대표(root) 이벤트 id 를 same 에 적음 → 화면이 하나로 묶어 보여 줌 (나라가 같을 때만)
+        for i, e in enumerate(todo):
+            v = (verdict or {}).get(i)
+            if not v or not v["affects"] or not v.get("same"):
+                continue
+            kind, n = v["same"]
+            tgt = known[n] if kind == "K" else todo[n]
+            if tgt["id"] not in merged or tgt["id"] == e["id"] or tgt.get("country") != e.get("country"):
+                continue
+            root = tgt.get("same") or tgt["id"]
+            if root != e["id"]:
+                e["same"] = root
+                same_n += 1
+        res["ai_kept"], res["ai_dropped"], res["ai_dropped_review"], res["ai_same"] = kept, dropped, dropped2, same_n
         res["ai"] = "ok" if verdict is not None else "판정 못 함(단어 분류 유지)"
     doc["rejected"] = rejected[-800:]
     doc["events"] = sorted(merged.values(), key=lambda e: -(e.get("at_ms") or 0))[:300]

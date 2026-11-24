@@ -100,7 +100,8 @@ let ctx = null, map = null, layers = null, live = { quakes: null, at: null, err:
 const ui = { type: null, period: "14", lv: null, focus: null };
 const RINGS = [100, 200, 300, 400, 500]; // 사업을 누르면 사업지 둘레에 그리는 거리 원 (km)
 const NEAR_KM = 600;
-try { ui.period = localStorage.getItem("edcf_geo_period2") || "30d"; } catch {}
+ui.period = "7d";
+try { ui.period = localStorage.getItem("edcf_geo_period3") || "7d"; } catch {}
 const PERIODS = [["all", "전체"], ["1d", "24시간"], ["7d", "최근 7일"], ["30d", "최근 30일"], ["old", "30일 이전"]];
 const inP = (e, p) => { const age = Date.now() - e.ms; return p === "all" ? true : p === "old" ? age > 30 * DAY : age <= (p === "1d" ? 1 : p === "7d" ? 7 : 30) * DAY; };
 const P_LABEL = { all: "전체 기간", "1d": "24시간", "7d": "최근 7일", "30d": "최근 30일", old: "30일 이전" };
@@ -135,7 +136,8 @@ function allEvents() {
   const out = [...stored];
   const have = new Set(stored.map((e) => e.id));
   for (const q of live.quakes || []) if (!have.has(q.id)) out.push(q);
-  return out.filter((e) => e.ms && GEO_TYPES[e.type]).sort((a, b) => b.ms - a.ms);
+  const rv = ctx.geoReviews ? ctx.geoReviews() : {};
+  return out.filter((e) => e.ms && GEO_TYPES[e.type] && rv[e.id]?.s !== "no").map((e) => (rv[e.id]?.s === "ok" ? { ...e, rv: rv[e.id] } : e)).sort((a, b) => b.ms - a.ms);
 }
 // USGS 실시간 지진 (규모 4.5 이상, 최근 7일): 사업 위치·수원국에서 600km 안만
 async function loadLiveQuakes(force) {
@@ -290,7 +292,7 @@ export async function renderGeo() {
   });
   const inScope = groupEvents(evsAll.filter((e) => codes.includes(e.country))); // 화면(목록·건수·지도)에서는 같은 사건을 다룬 기사를 하나로. 등급 계산은 위에서 원래 목록(evsAll)으로 이미 끝남
   const pCounts = Object.fromEntries(PERIODS.map(([k]) => [k, inScope.filter((e) => inP(e, k)).length]));
-  if (!pCounts.hasOwnProperty(ui.period)) ui.period = "30d";
+  if (!pCounts.hasOwnProperty(ui.period)) ui.period = "7d";
   const evs = inScope.filter((e) => inP(e, ui.period)), pl = P_LABEL[ui.period];
 
   // 제목
@@ -354,18 +356,28 @@ export async function renderGeo() {
 
   // 아래: 최근 이벤트 목록
   const shown = evs.filter((e) => inGroup(e, ui.type)).filter((e) => !ui.lv || risk[e.country]?.lv === ui.lv);
+  const canRv = !!(ctx.canReview && ctx.canReview());
   $("#evSeg").innerHTML = PERIODS.map(([k, l]) => `<button data-p="${k}" class="${k === ui.period ? "active" : ""}">${l} <span class="n">${pCounts[k]}</span></button>`).join("");
-  $$("#evSeg button").forEach((b) => b.onclick = () => { ui.period = b.dataset.p; try { localStorage.setItem("edcf_geo_period2", ui.period); } catch {} renderGeo(); });
+  $$("#evSeg button").forEach((b) => b.onclick = () => { ui.period = b.dataset.p; try { localStorage.setItem("edcf_geo_period3", ui.period); } catch {} renderGeo(); });
   $("#evCount").textContent = shown.length;
   $("#evFeed").innerHTML = shown.slice(0, 40).map((e) => `<div class="ev-item t-${e.type}" data-eid="${esc(e.id)}">
       ${ibadge(e.type, "lg")}
-      <div class="ev-body"><div class="ev-top"><span class="ev-type" style="color:${GEO_TYPES[e.type][1]}">${GEO_TYPES[e.type][0]}</span><span class="ev-ctry">${esc(cname(e.country))} · ${esc(cen(e.country))}</span>${e.mag ? `<span class="ev-mag ${e.mag >= 6 ? "big" : ""}">M${(+e.mag).toFixed(1)}</span>` : ""}<span class="ev-time" title="${ymd(e.ms)}">${rel(e.ms)}</span></div>
+      <div class="ev-body"><div class="ev-top"><span class="ev-type" style="color:${GEO_TYPES[e.type][1]}">${GEO_TYPES[e.type][0]}</span><span class="ev-ctry">${esc(cname(e.country))} · ${esc(cen(e.country))}</span>${e.mag ? `<span class="ev-mag ${e.mag >= 6 ? "big" : ""}">M${(+e.mag).toFixed(1)}</span>` : ""}<span class="ev-time" title="${ymd(e.ms)}">${rel(e.ms)}</span>${canRv ? `<span class="ev-acts">${e.rv
+        ? `<span class="act-done reviewed" title="${esc([e.rv.by && "처리: " + String(e.rv.by).split("@")[0], e.rv.at && String(e.rv.at).slice(0, 16)].filter(Boolean).join(" · "))}">✓ 관련 있음</span><button type="button" class="btn sm ghost" data-evrv="">되돌리기</button>`
+        : `<button type="button" class="btn sm act-ok" data-evrv="ok">✓ 관련 있음</button><button type="button" class="btn sm act-no" data-evrv="no">✕ 관련 없음</button>`}</span>` : ""}</div>
       <div class="ev-title">${esc(e.title)}</div>
       ${e.note && !sameText(e.note, e.title) ? `<div class="ev-note">${esc(e.note)}</div>` : ""}
       <div class="ev-src">${String(e.id || "").startsWith("news-") ? (e.ai ? `<span class="ev-ai" title="AI가 기사 내용을 보고 사업에 영향을 줄 수 있는 사건으로 판정">AI 판정</span> · ` : `<span class="ev-ai wait" title="단어로만 분류된 상태입니다. 다음 스캔 때 AI가 판정합니다">판정 전</span> · `) : ""}${esc(e.source || "-")} · ${ymd(e.ms)}${e.url ? ` · <a href="${esc(e.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}${e.more?.length ? ` · <button type="button" class="ev-more" data-evmore>같은 내용 ${e.more.length}건 더</button>` : ""}</div>
       ${e.more?.length ? `<div class="ev-dup hidden">${e.more.map((m) => `<div class="ev-dup-row">${m.url ? `<a href="${esc(m.url)}" target="_blank" rel="noopener">${esc(m.title)}</a>` : esc(m.title)} <span>${esc(String(m.source || "").split(" · ").pop())} · ${ymd(m.ms)}</span></div>`).join("")}</div>` : ""}</div></div>`).join("")
     || `<div class="ok-box">${ui.type || ui.lv ? "이 조건에 맞는 이벤트가 없습니다" : `${pl} 수원국 이벤트가 없습니다`}</div>`;
   if (shown.length > 40) $("#evFeed").insertAdjacentHTML("beforeend", `<div class="muted small">최근 40건만 보여줍니다 (전체 ${shown.length}건)</div>`);
+  // 관련 없음으로 처리한 이벤트 (접힌 칸, 되돌리기)
+  const rvAll = ctx.geoReviews ? ctx.geoReviews() : {};
+  const gone = Object.entries(rvAll).filter(([, v]) => v?.s === "no" && codes.includes(v.country)).sort((a, b) => String(b[1].at || "").localeCompare(String(a[1].at || ""))).slice(0, 40);
+  $("#evNo")?.remove();
+  if (gone.length) $("#evFeed").insertAdjacentHTML("afterend", `<details class="more ev-no" id="evNo"><summary>관련 없음 ${gone.length}</summary><div class="ev-no-l">${gone.map(([id, v]) => `<div class="ev-no-row"><span class="t">${esc(v.title || id)}</span><span class="r">${esc(cname(v.country))}${v.note ? ` · ${esc(v.note)}` : ""}</span>${canRv ? `<button type="button" class="btn sm ghost" data-evback="${esc(id)}">되돌리기</button>` : ""}</div>`).join("")}</div></details>`);
+  $$("#evNo [data-evback]").forEach((b) => b.onclick = () => ctx.reviewGeoEvent([{ id: b.dataset.evback }], ""));
+  $$("#evFeed [data-evrv]").forEach((b) => b.onclick = (ev) => { ev.stopPropagation(); const e = shown.find((x) => x.id === b.closest("[data-eid]").dataset.eid); if (e) ctx.reviewGeoEvent([e, ...(e.more || [])], b.dataset.evrv); });
 
   last = { pins, evs, risk };
   drawMap(pins, evs, risk);
@@ -377,7 +389,7 @@ export async function renderGeo() {
     el.onmouseenter = () => hiPin(pid, true); el.onmouseleave = () => hiPin(pid, false);
     el.onclick = () => setFocus(ui.focus === pid ? null : pid); el.onkeydown = (e) => { if (e.key === "Enter") setFocus(ui.focus === pid ? null : pid); };
   });
-  $$("#evFeed [data-eid]").forEach((el) => el.onclick = (e) => { if (!e.target.closest("a, [data-evmore], .ev-dup")) flyEvent(el.dataset.eid); });
+  $$("#evFeed [data-eid]").forEach((el) => el.onclick = (e) => { if (!e.target.closest("a, button, .ev-dup")) flyEvent(el.dataset.eid); });
   $$("#evFeed [data-evmore]").forEach((bt) => bt.onclick = () => { const d = bt.closest(".ev-body").querySelector(".ev-dup"); d.classList.toggle("hidden"); bt.classList.toggle("open", !d.classList.contains("hidden")); });
 
   if (!live.at && !live.loading) loadLiveQuakes().then(() => { if ($("#view-geo").classList.contains("active")) renderGeo(); });
@@ -414,7 +426,9 @@ function groupEvents(list) {
   const out = [];
   [...list].sort((a, b) => b.ms - a.ms).forEach((e) => {
     const isNews = String(e.id || "").startsWith("news-");
-    const g = isNews ? out.find((x) => x.news && (sameStory(x, e) || x.more.some((m) => sameStory(m, e)))) : null;
+    const root = (x) => x.same || x.id;
+    const g = (e.same ? out.find((x) => root(x) === e.same || x.more.some((m) => root(m) === e.same)) : null)
+      || (isNews ? out.find((x) => x.news && (root(x) === root(e) || sameStory(x, e) || x.more.some((m) => sameStory(m, e)))) : null);
     if (g) g.more.push(e); else out.push({ ...e, news: isNews, more: [] });
   });
   return out;

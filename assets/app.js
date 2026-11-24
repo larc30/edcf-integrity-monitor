@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch, increment,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO, SUPER_ADMIN, SUPER_ADMINS, TEAMS } from "./firebase-config.js?v=33";
-import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=74";
+import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=75";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -154,7 +154,7 @@ onAuthStateChanged(auth, async (user) => {
 // ---------- 데이터 ----------
 const docs = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 async function loadAll() {
-  const [p, c, f, k, r, st, runs, cfg, ed, mk, acc, geo, guide, hist, us] = await Promise.all([
+  const [p, c, f, k, r, st, runs, cfg, ed, mk, acc, geo, geoRv, guide, hist, us] = await Promise.all([
     getDocs(collection(db, "projects")),
     getDocs(collection(db, "companies")),
     getDocs(query(collection(db, "findings"), where("relevant", "==", true))),
@@ -167,6 +167,7 @@ async function loadAll() {
     getDoc(doc(db, "meta", "mdb_korea")),
     getDoc(doc(db, "meta", "access")),
     getDoc(doc(db, "meta", "geo")), // 수원국 리스크 (여행경보·지진·뉴스 이벤트): 문서 1개라 읽기 1회
+    getDoc(doc(db, "meta", "geo_reviews")).catch(() => null), // 수원국 이벤트 ✓/✕ (문서 1개)
     getDoc(doc(db, "meta", "ai_guide")), // AI 판정 지침 (직접 쓴 것 + 담당자 판단을 AI가 요약한 것)
     getDoc(doc(db, "meta", "history")), // 날짜별 등급 업체 수 (어제와 비교 · 30일 추이)
     getDocs(collection(db, "users")).catch(() => ({ docs: [] })), // 계정·권한 (팀·역할)
@@ -195,6 +196,7 @@ async function loadAll() {
   state.mdbKorea = mk.exists() ? mk.data() : null;
   state.access = acc.exists() ? (acc.data().emails || []) : [];
   state.geo = geo.exists() ? geo.data() : null;
+  state.geoReviews = geoRv && geoRv.exists() ? (geoRv.data().r || {}) : {};
   state.loadedAt = Date.now();
   if (isSuper() && (state.settings?.keywords_version || 0) < KEYWORDS_VERSION) await loadDefaultKeywords(); // 키워드를 모두 지워도 되살리지 않음
   compute();
@@ -869,18 +871,27 @@ const DISMISS_REASONS = [
   ["past", "이미 끝난 과거 일", "오래전 처분·사건을 다시 언급한 기사로, 지금 영향이 없음"],
   ["other", "기타", "위에 없는 이유 (아래에 짧게 적기)"],
 ];
-function pickDismissReason(n) {
+// 수원국 이벤트의 ✕ 관련 없음 이유 (AI 판정 사례로 함께 전달)
+const GEO_DISMISS = [
+  ["country", "다른 나라 이야기", "이 나라에서 일어난 일이 아님"],
+  ["past", "지난 일", "과거 사건의 회고·기념, 이미 끝난 일"],
+  ["opinion", "칼럼·해설·전망", "사건이 아니라 정세를 풀어 쓴 글"],
+  ["minor", "사업과 무관", "사업 추진에 영향을 줄 일이 아님"],
+  ["other", "기타", "위에 없는 이유 (아래에 짧게 적기)"],
+];
+function pickDismissReason(n, REASONS = DISMISS_REASONS) {
+  const geo = REASONS !== DISMISS_REASONS;
   return new Promise((resolve) => {
     let done = false; const finish = (v) => { if (done) return; done = true; resolve(v); };
     modal(`<h2>관련 없음: 이유를 골라 주세요</h2>
-      <p class="muted small">고른 이유는 팀이 같은 기준으로 판단하도록 기록되고, AI가 비슷한 기사를 걸러낼 때도 씁니다.${n > 1 ? ` 같은 내용 ${n}건에 함께 적용됩니다.` : ""} <a href="#" id="drGuide">판단 가이드 보기</a></p>
-      <form id="drForm" class="form dr-form">${DISMISS_REASONS.map(([k, l, d], i) => `<label class="dp-opt"><input type="radio" name="r" value="${k}" ${i ? "" : "checked"}><span><b>${l}</b> <span class="muted">${d}</span></span></label>`).join("")}
+      ${geo ? "" : `<p class="muted small">고른 이유는 팀이 같은 기준으로 판단하도록 기록되고, AI가 비슷한 기사를 걸러낼 때도 씁니다.${n > 1 ? ` 같은 내용 ${n}건에 함께 적용됩니다.` : ""} <a href="#" id="drGuide">판단 가이드 보기</a></p>`}
+      <form id="drForm" class="form dr-form">${REASONS.map(([k, l, d], i) => `<label class="dp-opt"><input type="radio" name="r" value="${k}" ${i ? "" : "checked"}><span><b>${l}</b> <span class="muted">${d}</span></span></label>`).join("")}
         <input name="memo" placeholder="메모 (선택, 기타면 꼭 적기)" maxlength="80">
         <div class="actions"><button class="btn primary">관련 없음으로 처리</button></div></form>`);
-    $("#drGuide").onclick = (e) => { e.preventDefault(); finish(null); closeModal(); openGuide(); };
+    if ($("#drGuide")) $("#drGuide").onclick = (e) => { e.preventDefault(); finish(null); closeModal(); openGuide(); };
     $("#drForm").onsubmit = (ev) => {
       ev.preventDefault();
-      const k = ev.target.r.value, memo = ev.target.memo.value.trim(), r = DISMISS_REASONS.find((x) => x[0] === k);
+      const k = ev.target.r.value, memo = ev.target.memo.value.trim(), r = REASONS.find((x) => x[0] === k);
       if (k === "other" && !memo) return toast("기타는 메모에 이유를 적어 주세요");
       finish({ key: k, label: r[1], note: memo ? `${r[1]}: ${memo}` : r[1] }); closeModal();
     };
@@ -2216,9 +2227,14 @@ function openCompanyForm(cid = null) {
     let msg = $("#dlMsg"); if (!msg) { box.innerHTML = `<div id="dlMsg"></div>`; msg = $("#dlMsg"); }
     msg.innerHTML = `<span class="dl-wait"><i class="spin"></i>'${esc(it.name)}' 정보를 가져오는 중입니다</span>`;
     const t0 = performance.now();
-    let o = await dartCall({ code: it.corp_code, exact: it.exact, name: it.name, name_en: it.name_en || "", listed: !!it.listed }, 8000);
-    // 함수에 직접 못 닿으면 요청 문서로 (Firestore 를 거쳐 같은 함수가 처리)
-    if (!(o && o.corp_code)) { try { const r = await dartLookup(it.name, "", it.corp_code); o = (r?.cands || []).find((c) => c.corp_code === it.corp_code) || null; if (o && !o.name_en) o.name_en = it.name_en || ""; } catch { o = null; } }
+    // 함수 직접 호출과 요청 문서 길(Firestore 를 거쳐 같은 함수가 처리)을 같이 달려 먼저 온 답을 씀: 직접 호출이 막힌 환경에서 기다리는 시간을 없앰
+    const ok = (x) => (x && x.corp_code ? x : null);
+    const direct = dartCall({ code: it.corp_code, exact: it.exact, name: it.name, name_en: it.name_en || "", listed: !!it.listed }, 12000).then(ok);
+    let o = await Promise.race([direct, new Promise((r) => setTimeout(() => r(null), 1200))]);
+    if (!o) {
+      const viaDoc = dartLookup(it.name, "", it.corp_code).then((r) => { const c = ok((r?.cands || []).find((c) => c.corp_code === it.corp_code)); if (c && !c.name_en) c.name_en = it.name_en || ""; return c; }).catch(() => null);
+      o = await new Promise((res) => { let left = 2; [direct, viaDoc].forEach((p) => p.then((v) => { left--; if (v || !left) res(v); })); });
+    }
     if (!msg.isConnected) return;
     if (o && o.corp_code) { fillFrom(o); msg.innerHTML = `DART에서 채웠습니다: <b>${esc(o.name)}</b> <span class="muted">${candLine(o)}</span> <span class="muted small">(${((performance.now() - t0) / 1000).toFixed(1)}초)</span>`; }
     else msg.innerHTML = `'${esc(it.name)}' 정보를 가져오지 못했습니다. 잠시 뒤 다시 고르거나 직접 적어 주세요.`;
@@ -3248,8 +3264,20 @@ async function loadReportPreview() {
 }
 
 // ---------- 수원국 리스크 (assets/geo.js) ----------
+// 수원국 이벤트 ✓ 관련 있음 / ✕ 관련 없음 / 되돌리기(s = ""): meta/geo_reviews.r{이벤트 id}. 같은 사건으로 묶인 기사도 함께
+async function reviewGeoEvent(evs, s) {
+  let reason = null;
+  if (s === "no") { reason = await pickDismissReason(evs.length, GEO_DISMISS); if (!reason) return; }
+  const by = auth.currentUser?.email || "", at = nowStr(), patch = {};
+  evs.forEach((e) => { const old = state.geoReviews[e.id] || {}; patch[e.id] = s ? { s, title: String(e.title || old.title || "").slice(0, 140), country: e.country || old.country || "", type: e.type || old.type || "", by, at, ...(reason ? { reason: reason.key, note: reason.note } : {}) } : { ...old, s: "", by, at }; });
+  try { await setDoc(doc(db, "meta", "geo_reviews"), { r: patch }, { merge: true }); }
+  catch (e) { return toast("저장하지 못했습니다: " + (e.code === "permission-denied" ? "권한이 없습니다" : e.message || e), 5000); }
+  Object.assign(state.geoReviews, patch);
+  renderGeo();
+}
 initGeo({
   state, esc, info, isMine, mineLabel, ICON_USER, ICON_ORG,
+  geoReviews: () => state.geoReviews || {}, canReview: () => canManage(), reviewGeoEvent,
   getScope: () => { scopeCompanies(); return scope; },
   setScope: (v) => { scope = v; try { localStorage.setItem("edcf_scope2", scope); } catch {} },
   companyTally: (pid) => { const t = { red: 0, orange: 0, none: 0, total: 0 }; state.companies.forEach((c) => { if (c.engagements.some((e) => e.project_id === pid)) { t[scanned() ? c.risk : "none"]++; t.total++; } }); return t; },
