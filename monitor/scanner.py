@@ -166,7 +166,11 @@ def _queries(company: dict, days: int | None = None, extra: list[str] | None = N
     """(engine, lang, query, sort) 목록. 모든 업체 같은 방식: 업체명 + '업체명 (제재 단어)' + '업체명 (설정의 추가 키워드)'.
     extra: 설정 > 리스크 키워드의 추가 키워드 (기본 제재 단어에 이미 있는 것은 뺌).
     days: 매일 스캔이면 그 기간 안 기사만(Google when:Nd). 첫 스캔·다시 스캔(None)은 기간 없이 과거 이력까지"""
-    langs = [l.strip() for l in (company.get("search_langs") or "ko").split(",") if l.strip()]
+    # 검색 언어는 고르지 않고 정해짐 (2026-11-24 사용자 결정): 국내 업체 = 한국어 + 영어, 해외 업체 = 영어
+    # (해외 업체인데 영문명이 없으면 적힌 이름으로 한국어 검색). country 가 "" 이면 해외(나라 미상)
+    en_name = company.get("name_en") or (company["name"] if company["name"].isascii() else "")
+    foreign = company.get("country") not in (None, "KR")
+    langs = (["en"] if en_name else ["ko"]) if foreign else ["ko", "en"]
     names = search_names(company)
     when = f" when:{days}d" if days else ""
     qs = []
@@ -179,13 +183,10 @@ def _queries(company: dict, days: int | None = None, extra: list[str] | None = N
             more = [w for w in dict.fromkeys(extra or []) if w and w not in KO_RISK_QUERY][:12]
             if more:
                 qs.append(("google", "ko", f'"{names[0]}" ({" OR ".join(f'"{w}"' if " " in w else w for w in more)}){when}', "date"))
-    en_name = company.get("name_en") or (company["name"] if company["name"].isascii() else "")
-    if en_name and ("en" in langs or company.get("country") not in (None, "", "KR")):
+    if en_name and "en" in langs:
         qs.append(("google", "en", f'"{en_name}" {EN_RISK_QUERY}', "date"))
-        if company.get("country") not in (None, "", "KR"):
+        if foreign:
             qs.append(("google", "en", f'"{en_name}"', "date"))
-    if "id" in langs:
-        qs.append(("google", "id", f'"{en_name or company["name"]}" {ID_RISK_QUERY}', "date"))
     if not news.naver_enabled():
         qs = [q for q in qs if q[0] != "naver"]
     return qs
