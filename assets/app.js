@@ -2991,6 +2991,7 @@ const TOPIC_QUERIES = [
   "벌점 건설사", "제재 건설사", "제재 엔지니어링", "하도급 과징금", "공공입찰 제한", "국토교통부 처분",
   "중대재해 건설", "중대재해처벌법 기소", "건설현장 사망사고", "산업재해 건설사", "부실시공 건설사",
   "입찰제한 집행정지", "부정당 집행정지",
+  "회생절차 건설사", "기업회생 신청", "부도 건설사", "워크아웃 건설사", "면허취소 건설", "등록취소 엔지니어링",
 ];
 // 리스크 키워드: 기본(고정) + 추가(직접 입력). 둘 다 매일 검색, AI 판정 참고. 등급은 AI가 기사 내용으로 정함
 function renderKeywords() {
@@ -3226,12 +3227,55 @@ $("#btnNameChg").onclick = () => {
     hideRow(b); renderDartBar();
   });
 };
+// 같은 사업자번호 업체 합치기: 남길 업체로 참여 사업·이슈를 옮기고(같은 기사는 한 번만), 빈 칸은 채우고, 다른 이름은 별칭으로. 나머지는 삭제
+async function mergeCompanies(keepId, otherIds) {
+  const keep = state.companies.find((c) => c.id === keepId), others = otherIds.map((id) => state.companies.find((c) => c.id === id)).filter(Boolean);
+  if (!keep || !others.length) return false;
+  const engs = [...(keep.engagements || [])];
+  others.forEach((o) => (o.engagements || []).forEach((e) => { if (!engs.some((x) => x.project_id === e.project_id && x.role === e.role)) engs.push({ ...e }); }));
+  const al = new Set(String(keep.aliases || "").split(",").map((x) => x.trim()).filter(Boolean));
+  others.forEach((o) => { [o.name, ...String(o.aliases || "").split(",")].map((x) => String(x || "").trim()).filter((x) => x && x !== keep.name).forEach((x) => al.add(x)); });
+  const patch = { engagements: engs, aliases: [...al].join(", ").slice(0, 200) || null };
+  ["name_official", "name_en", "ceo", "corp_code", "category", "note", "context_keywords"].forEach((k) => { if (!keep[k]) { const v = others.map((o) => o[k]).find(Boolean); if (v) patch[k] = v; } });
+  const have = new Set(state.findings.filter((f) => f.company_id === keepId).map((f) => f.dedup_key).filter(Boolean));
+  let batch = writeBatch(db), n = 0;
+  const flush = async (force) => { if (n && (force || n % 400 === 0)) { await batch.commit(); batch = writeBatch(db); n = force ? 0 : n; } };
+  for (const o of others) {
+    const snap = await getDocs(query(collection(db, "findings"), where("company_id", "==", o.id)));
+    for (const d of snap.docs) {
+      const k = d.data().dedup_key;
+      if (k && have.has(k)) batch.delete(d.ref); else { batch.update(d.ref, { company_id: keepId }); if (k) have.add(k); }
+      n++; await flush(false);
+    }
+    batch.delete(doc(db, "companies", o.id)); n++;
+  }
+  Object.assign(keep, patch); patch.teams = keep.teams = teamsOf(keep);
+  batch.update(doc(db, "companies", keepId), patch); n++;
+  await flush(true);
+  const gone = new Set(others.map((o) => o.id));
+  state.findings = state.findings.filter((f) => !(gone.has(f.company_id) && f.dedup_key && state.findings.some((x) => x.company_id === keepId && x.dedup_key === f.dedup_key)));
+  state.findings.forEach((f) => { if (gone.has(f.company_id)) f.company_id = keepId; });
+  state.companies = state.companies.filter((c) => !gone.has(c.id));
+  gone.forEach((id) => coState.sel.delete(id));
+  return true;
+}
 $("#btnBizDup").onclick = () => {
   const groups = bizDupes();
   if (!groups.length) return toast("중복된 사업자번호가 없습니다");
   modal(`<h2>사업자번호 중복 <span class="count">${groups.length}</span></h2>
-    <div class="bd-list">${groups.map((g) => `<div class="bd-row"><span class="bd-no">${esc(fmtBiz(g[0].biz_no))}</span><span class="bd-names">${g.map((c) => `<button type="button" class="bd-co" data-dup-open="${c.id}">${esc(c.name)}${c.engagements?.length ? `<i>사업 ${c.engagements.length}</i>` : ""}</button>`).join("")}</span></div>`).join("")}</div>`);
-  $$("[data-dup-open]").forEach((a) => a.onclick = (e) => { e.preventDefault(); closeModal(); openCompany(a.dataset.dupOpen); });
+    <div class="bd-list">${groups.map((g) => `<div class="bd-row"><span class="bd-no">${esc(fmtBiz(g[0].biz_no))}</span><span class="bd-names">${g.map((c) => `<button type="button" class="bd-co" data-dup-pick="${c.id}" aria-pressed="false" title="${esc(c.name_official || c.name)}${c.ceo ? " · " + esc(c.ceo) : ""}">${esc(c.name)}${c.engagements?.length ? `<i>사업 ${c.engagements.length}</i>` : ""}</button>`).join("")}</span><button type="button" class="btn sm bd-merge" disabled>합치기</button></div>`).join("")}</div>`);
+  $$("#modal .bd-row").forEach((row, gi) => {
+    const bt = row.querySelector(".bd-merge");
+    row.querySelectorAll("[data-dup-pick]").forEach((a) => a.onclick = () => { const on = a.classList.contains("on"); row.querySelectorAll(".bd-co").forEach((x) => { x.classList.remove("on"); x.setAttribute("aria-pressed", "false"); }); if (!on) { a.classList.add("on"); a.setAttribute("aria-pressed", "true"); } bt.disabled = on; });
+    bt.onclick = async () => {
+      const keepId = row.querySelector(".bd-co.on")?.dataset.dupPick, keep = state.companies.find((c) => c.id === keepId); if (!keep) return;
+      const rest = groups[gi].filter((c) => c.id !== keepId);
+      if (!confirm(`'${keep.name}'(으)로 합칠까요?\n${rest.slice(0, 5).map((c) => `'${c.name}'`).join(", ")}${rest.length > 5 ? ` 외 ${rest.length - 5}곳` : ""}의 참여 사업과 이슈를 옮기고 그 업체는 삭제합니다.\n되돌릴 수 없습니다.`)) return;
+      bt.disabled = true; bt.textContent = "합치는 중…";
+      try { await mergeCompanies(keepId, rest.map((c) => c.id)); toast(`'${keep.name}'(으)로 합쳤습니다`); closeModal(); rerender(); if (bizDupes().length) $("#btnBizDup").click(); }
+      catch (e) { console.error(e); bt.disabled = false; bt.textContent = "합치기"; toast("합치지 못했습니다: " + (e.code || e.message || ""), 6000); }
+    };
+  });
 };
 $("#btnDartFill").onclick = () => dartFillAll();
 function dartFillAll() {

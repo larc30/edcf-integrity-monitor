@@ -108,7 +108,7 @@ _FALSE_COMPOUNDS = re.compile("정부도|부도덕|부도체|부도심|재해석
 RULE_KEYWORDS = [
     ("부정당", "red"), ("입찰참가자격", "red"), ("참가자격제한", "red"), ("입찰참가제한", "red"), ("입찰제한", "red"),
     ("입찰 참가 제한", "red"), ("영업정지", "orange"), ("debar", "red"),
-    ("회생절차", "orange"), ("법정관리", "orange"), ("부도", "orange"), ("담합", "orange"), ("과징금", "orange"),
+    ("회생절차", "orange"), ("기업회생", "orange"), ("법정관리", "orange"), ("부도", "orange"), ("워크아웃", "orange"), ("면허취소", "orange"), ("담합", "orange"), ("과징금", "orange"),
     ("압수수색", "orange"), ("기소", "orange"), ("구속", "orange"), ("뇌물", "orange"), ("횡령", "orange"),
     ("배임", "orange"), ("허위", "orange"), ("공정위", "orange"), ("제재", "orange"), ("등록말소", "orange"),
     ("sanction", "orange"), ("bribery", "orange"), ("corruption", "orange"), ("fraud", "orange"), ("collusion", "orange"),
