@@ -2537,3 +2537,6 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .radar svg.grid circle.band.yellow { fill: color-mix(in srgb, var(--gray) 10%, transparent); }
 .radar svg.grid circle.ring.yellow { stroke: color-mix(in srgb, var(--gray) 45%, transparent); }
 .radar svg.grid text.bl.yellow { fill: var(--gray); }
+
+/* 예전 노란 등급 색 변수는 어디에 남아 있어도 회색으로 (등급은 경고 빨강 · 주의 주황 · 정상 초록, 참고는 회색) */
+:root, :root[data-theme="dark"], :root[data-theme="light"] { --yellow: var(--gray); --yellow-fill: var(--gray); --yellow-bg: color-mix(in srgb, var(--gray) 14%, transparent); }

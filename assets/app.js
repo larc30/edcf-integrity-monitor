@@ -1252,7 +1252,7 @@ function openCompany(cid, back = null) {
   $("#drawerTitle").innerHTML = `${back ? `<button type="button" class="d-back" id="dBack">← ${String(back).startsWith("p:") ? "사업으로" : back === "official" ? "공식 제재 명단" : LEVEL[back] + " 업체 목록"}</button>` : ""}<div class="d-name"><span class="nm">${esc(c.name)}</span>${sc ? badge(c.risk) : ""}</div>
     <div class="d-sub">${c.engagements.length ? `참여 사업 ${c.engagements.length} · ${ROLE_ORDER.filter((r) => c.engagements.some((e) => e.role === r)).map((r) => `${esc(r)} ${c.engagements.filter((e) => e.role === r).length}`).join(" · ")}` : "사업 미연결"}${c.cat ? ` · ${esc(c.cat)}` : ""}</div>`;
   // 순서: 이슈 → 업체 정보 → 참여 사업 → 검사 결과 (찾아온 사람이 먼저 보는 순서대로, 같은 내용은 한 번만)
-  const engRow = (e, i) => `<div class="d-row"><span>${roleTag(e.role)} ${esc(projName(e.project_id))} ${stageTag(e)}</span><button class="xbtn" data-dunlink="${i}" title="이 사업에서 빼기">✕</button></div>`;
+  const engRow = (e, i) => `<div class="d-row"><span>${roleTag(e.role)} ${esc(projName(e.project_id))} ${stageTag(e)}</span></div>`; // 오른쪽 창은 보기만: 연결·빼기·삭제는 업체 정보 팝업([정보 수정])에서만
   const engRows = c.engagements.map((e, i) => [e, i]).sort((x, y) => ROLE_ORDER.indexOf(x[0].role) - ROLE_ORDER.indexOf(y[0].role) || projName(x[0].project_id).localeCompare(projName(y[0].project_id), "ko")).map(([e, i]) => engRow(e, i));
   $("#drawerBody").innerHTML = `
     <div class="d-actions">
@@ -1274,29 +1274,17 @@ function openCompany(cid, back = null) {
 
     <section class="d-sec">
       <div class="d-sec-head"><h3>참여 사업</h3><span class="count">${c.engagements.length}</span></div>
-      ${engRows.length ? `<div class="d-list">${engRows.slice(0, 5).join("")}${engRows.length > 5 ? `<details class="d-more"><summary>나머지 ${engRows.length - 5}개 사업 보기</summary><div class="d-list">${engRows.slice(5).join("")}</div></details>` : ""}</div>` : ""}
-      ${state.projects.length ? `<form id="linkForm" class="d-link"><select name="pid" required><option value="">사업 선택</option>${projOptions()}</select><select name="role" required>${roleOptions()}</select><button class="btn sm">연결</button></form>` : `<div class="muted small">사업 관리에서 사업을 먼저 만드세요</div>`}
+      ${engRows.length ? `<div class="d-list">${engRows.slice(0, 5).join("")}${engRows.length > 5 ? `<details class="d-more"><summary>나머지 ${engRows.length - 5}개 사업 보기</summary><div class="d-list">${engRows.slice(5).join("")}</div></details>` : ""}</div>` : `<div class="empty small">연결된 사업이 없습니다</div>`}
     </section>
 
     <section class="d-sec">
       <div class="d-sec-head"><h3>검사 결과</h3>${c.last_check?.at ? `<span class="d-sec-meta">${esc(String(c.last_check.at).slice(5, 16))}</span>` : ""}</div>
       ${checkGrid(c)}
-    </section>
-
-    <div class="d-danger"><button class="btn sm ghost danger" id="dDelete">업체 삭제</button></div>`;
+    </section>`;
   if (fs.length) renderGroups(groups, $("#dFeed"), false);
   if (dismissed.length) renderFeed(dismissed, $("#dDismissed"), false);
   $$("#drawerBody [data-open]").forEach((x) => x.onclick = () => openCompany(x.dataset.open));
   $("#dScan").onclick = () => runWorkflow({ task: "scan", companies: c.name }, `'${c.name}' 재스캔`);
-  $("#linkForm")?.addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    const fd = new FormData(ev.target);
-    await placeCompany(cid, null, fd.get("pid"), fd.get("role"));
-  });
-  $$("[data-dunlink]").forEach((b) => b.onclick = async () => {
-    c.engagements.splice(+b.dataset.dunlink, 1); await saveEngagements(c); toast("사업 연결을 뺐습니다"); rerender();
-  });
-  $("#dDelete").onclick = () => deleteCompanies([cid]);
   $("#dBack")?.addEventListener("click", () => { if (back === "official") { closeDrawer(); return openOfficial(); } String(back).startsWith("p:") ? openProject(String(back).slice(2)) : openRiskList(back, "back"); });
   if (switching) $("#drawerBody").scrollTop = 0;
   $("#dEdit")?.addEventListener("click", () => openCompanyForm(cid));
