@@ -68,6 +68,12 @@ def load_overview() -> tuple[list[dict], list[dict], dict]:
         c["unreviewed"] = len(grouping.group([f for f in fs if f.get("status") == "new"]))  # 같은 이슈는 1건으로
         top = max((f.get("level") for f in fs), key=lambda l: LEVEL_ORDER.get(l, 0), default="none")
         c["risk"] = top if top in ("red", "orange") else "none"  # 3단계: 참고(yellow)는 정상
+    # 메일·기록도 대시보드와 같은 범위: 진행 중 사업에 참여 중인 업체만 (사업이 모두 완료됐거나 연결 안 된 업체는 뺌 · app.js dashCompanies)
+    live_ids = {c["id"] for c in companies
+                if any(e.get("project_id") in projects and projects[e["project_id"]].get("status") != "done" for e in c["engagements"])}
+    if live_ids:
+        companies = [c for c in companies if c["id"] in live_ids]
+        finds = [f for f in finds if f.get("company_id") in live_ids]
     companies.sort(key=lambda c: (-LEVEL_ORDER.get(c["risk"], 0), -c["unreviewed"], c["name"]))
     return companies, finds, engs
 
