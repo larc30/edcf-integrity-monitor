@@ -129,13 +129,22 @@ async function loadMaster(key, get = fetch, db = null) {
   })().finally(() => { masterJob = null; });
   return masterJob;
 }
-const adminDb = () => { if (!getApps().length) initializeApp(); return getFirestore(); };
+// 기본 앱은 파일이 읽힐 때 한 번 만들어 둠. 예전에는 '앱이 하나도 없을 때만' 만들었는데, 화면이 직접 부르는 함수(onCall)에서는
+// Firebase 가 로그인 확인용 앱을 먼저 만들어 둬서 기본 앱이 안 만들어졌고 → getFirestore() 가 'default Firebase app does not exist' 로 실패(500)
+try { initializeApp(); } catch (e) { /* 이미 있으면 그대로 */ }
+const adminDb = () => getFirestore();
 // 기업 1곳의 상세 (사업자번호·대표자·영문명·업종): DART company.json 한 번
 async function detail(r, exact, key, get = fetch) {
-  let d = {};
-  try { const j = await (await get(`https://opendart.fss.or.kr/api/company.json?crtfc_key=${key}&corp_code=${r[0]}`)).json(); if (j.status === "000") d = j; } catch (e) { /* 상세를 못 받아도 후보는 보여 줌 */ }
+  let d = {}, why = "";
+  // DART 가 가끔 응답을 못 주므로 한 번 더 시도. 끝내 못 받으면 이유(why)를 같이 돌려줌 (화면 진단용)
+  for (let i = 0; i < 2 && !d.status; i++) {
+    try {
+      const j = await (await get(`https://opendart.fss.or.kr/api/company.json?crtfc_key=${key}&corp_code=${r[0]}`)).json();
+      if (j.status === "000") d = j; else { why = `DART ${j.status} ${String(j.message || "").slice(0, 60)}`; break; }
+    } catch (e) { why = `DART 연결 ${String((e && e.message) || e).replace(/crtfc_key=[^&\s]+/g, "crtfc_key=***").slice(0, 80)}`; }
+  }
   return { corp_code: r[0], name: r[1], name_en: d.corp_name_eng || r[2] || "", ceo: d.ceo_nm || "", biz_no: String(d.bizr_no || "").replace(/\D/g, ""),
-    listed: !!r[3], induty_code: d.induty_code || "", category: fromKsic(d.induty_code), exact };
+    listed: !!r[3], induty_code: d.induty_code || "", category: fromKsic(d.induty_code), exact, ...(d.status ? {} : { why }) };
 }
 async function dartLookup(name, biz, key, get = fetch, db = null) {
   // 사업자번호를 함께 적었으면 후보를 30곳까지 넓혀(이름을 일부만 적어도) 번호가 같은 곳을 찾음. 10곳씩 물어보다가 찾으면 멈춤

@@ -2248,7 +2248,7 @@ function openCompanyForm(cid = null) {
       o = await new Promise((res) => { let left = 2; [direct, viaDoc].forEach((p, i) => p.then((v) => { left--; if (v || !left) { if (v && i) via = "문서"; res(v); } })); });
     }
     if (!msg.isConnected) return;
-    if (o && o.corp_code) { fillFrom(o); msg.innerHTML = `DART에서 채웠습니다: <b>${esc(o.name)}</b> <span class="muted">${candLine(o)}</span> <span class="muted small">(${((performance.now() - t0) / 1000).toFixed(1)}초 · ${via}${dartDiag ? ` · ${esc(dartDiag)}` : ""})</span>`; }
+    if (o && o.corp_code) { fillFrom(o); msg.innerHTML = `DART에서 채웠습니다: <b>${esc(o.name)}</b> <span class="muted">${candLine(o)}</span> <span class="muted small">(${((performance.now() - t0) / 1000).toFixed(1)}초 · ${via}${dartDiag ? ` · ${esc(dartDiag)}` : ""}${o.why ? ` · ${esc(o.why)}` : ""})</span>`; }
     else msg.innerHTML = `'${esc(it.name)}' 정보를 가져오지 못했습니다. 잠시 뒤 다시 고르거나 직접 적어 주세요.`;
   };
   const showCoSug = async () => {
