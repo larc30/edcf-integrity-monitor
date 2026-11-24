@@ -89,7 +89,7 @@ function modal(html) {
   $("#modalBg").classList.add("open"); close.onclick = closeModal;
 }
 function closeModal() { $("#modalBg").classList.remove("open"); $("#modal").classList.remove("report"); }
-$("#modalBg").addEventListener("click", (e) => { if (e.target.id === "modalBg") closeModal(); });
+$("#modalBg").addEventListener("click", (e) => { if (e.target.id === "modalBg" && !$("#modal").querySelector("form, input, textarea, select")) closeModal(); });
 const projName = (pid) => state.projects.find((p) => p.id === pid)?.name || "(삭제된 사업)";
 const engText = (e) => `${esc(projName(e.project_id))} · ${esc(e.role)}${e.stage && e.stage !== "계약" ? ` · ${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""}` : ""}`;
 const nowStr = () => new Date(Date.now() + 9 * 3600e3).toISOString().replace("T", " ").slice(0, 19); // KST
@@ -2248,8 +2248,11 @@ function openCompanyForm(cid = null) {
       o = await new Promise((res) => { let left = 2; [direct, viaDoc].forEach((p, i) => p.then((v) => { left--; if (v || !left) { if (v && i) via = "문서"; res(v); } })); });
     }
     if (!msg.isConnected) return;
-    if (o && o.corp_code) { fillFrom(o); msg.innerHTML = `DART에서 채웠습니다: <b>${esc(o.name)}</b> <span class="muted">${candLine(o)}</span> <span class="muted small">(${((performance.now() - t0) / 1000).toFixed(1)}초 · ${via}${dartDiag ? ` · ${esc(dartDiag)}` : ""}${o.why ? ` · ${esc(o.why)}` : ""})</span>`; }
-    else msg.innerHTML = `'${esc(it.name)}' 정보를 가져오지 못했습니다. 잠시 뒤 다시 고르거나 직접 적어 주세요.`;
+    // 채운 값은 아래 칸에 보이므로 결과 줄은 짧게. 원인 표시(어느 길·상태 코드·DART 응답)는 받지 못했을 때만
+    const sec = ((performance.now() - t0) / 1000).toFixed(1), diag = [via, dartDiag, o && o.why].filter(Boolean).map(esc).join(" · ");
+    if (o && o.corp_code && (o.biz_no || o.ceo)) { fillFrom(o); msg.innerHTML = `DART에서 채웠습니다 <span class="muted small">${sec}초</span>`; }
+    else if (o && o.corp_code) { fillFrom(o); msg.innerHTML = `DART에서 사업자번호·대표자를 받지 못했습니다 <span class="muted small">${diag}</span>`; }
+    else msg.innerHTML = `DART 정보를 가져오지 못했습니다 <span class="muted small">${diag}</span>`;
   };
   const showCoSug = async () => {
     const el = $("#coSug"), q = cleanCompanyName(f1.name.value).name;
