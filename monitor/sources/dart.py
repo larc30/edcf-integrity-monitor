@@ -69,6 +69,12 @@ def load_master() -> dict:
         if _master is None:
             if not config.CORP_MASTER_PATH.exists():
                 sync_corp_master()
+            elif time.time() - config.CORP_MASTER_PATH.stat().st_mtime > 7 * 86400:
+                # 워크플로의 주간 캐시가 옛 파일을 되살려 놓는 일이 있음 → 7일 넘은 파일이면 새로 받음 (못 받으면 있던 목록 그대로)
+                try:
+                    sync_corp_master()
+                except Exception as e:  # noqa: BLE001
+                    log.warning("DART 기업목록 새로 받기 실패, 있던 목록 사용: %s", type(e).__name__)
             idx: dict = {}
             for r in json.loads(config.CORP_MASTER_PATH.read_text(encoding="utf-8")):
                 idx.setdefault(norm(r[1]), []).append(r)

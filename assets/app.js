@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch, increment,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO, SUPER_ADMIN, SUPER_ADMINS, TEAMS } from "./firebase-config.js?v=33";
-import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=76";
+import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=77";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -1345,7 +1345,7 @@ function tokenSetup(after) {
 }
 // 실행 요청: ① 토큰이 있고 api.github.com에 닿으면 바로 실행(빠름)
 //           ② 아니면 Firebase에 '실행 요청'을 남기고, GitHub가 10분마다 확인해 처리(회사망에서도 동작)
-const QUEUE_ONLY = ["quick", "dartfill"];
+const QUEUE_ONLY = ["quick", "dartfill", "geo"];
 async function runWorkflow(inputs, label) {
   if (state.job && !state.job.done) return toast("이미 진행 중인 작업이 있습니다. 끝난 뒤 다시 눌러주세요");
   const full = { task: "scan", companies: "", test_to: "", ...inputs };
@@ -1536,6 +1536,7 @@ function renderJob() {
   const g = $("#geoJobState"); if (g) g.innerHTML = $("#jobState").innerHTML; // 수원국 화면에도 같은 진행 표시
   const busy = !!(state.job && !state.job.done);
   $("#geoScan").disabled = busy; $("#geoScan").classList.toggle("busy", busy);
+  $("#geoOnly").disabled = busy;
 }
 function renderJob0() {
   const j = state.job, el = $("#jobState");
@@ -3341,12 +3342,14 @@ async function reviewGeoEvent(evs, s) {
 }
 initGeo({
   state, esc, info, isMine, mineLabel, ICON_USER, ICON_ORG,
-  geoReviews: () => state.geoReviews || {}, canReview: () => canManage(), reviewGeoEvent,
+  geoReviews: () => state.geoReviews || {}, canReview: () => canManage(), reviewGeoEvent, closeDrawer,
+  openDrawer: (title, body) => { state.openCid = null; state.drawerBack = null; state.riskList = null; state.openPid = null; $("#drawerTitle").innerHTML = title; const el = $("#drawerBody"); el.innerHTML = body; el.scrollTop = 0; $("#drawer").classList.add("open"); $("#drawerBg").classList.add("open"); return el; },
   getScope: () => { scopeCompanies(); return scope; },
   setScope: (v) => { scope = v; try { localStorage.setItem("edcf_scope2", scope); } catch {} },
   companyTally: (pid) => { const t = { red: 0, orange: 0, none: 0, total: 0 }; state.companies.forEach((c) => { if (c.engagements.some((e) => e.project_id === pid)) { t[scanned() ? c.risk : "none"]++; t.total++; } }); return t; },
 });
 $("#geoScan").onclick = () => $("#btnScan").click(); // 같은 스캔 (업체·수원국 정보를 함께 새로 받음)
+$("#geoOnly").onclick = () => runWorkflow({ task: "geo" }, "수원국 갱신"); // 수원국 정보만 새로 받음 (업체 스캔 없음)
 
 // 계정 메뉴: 바깥을 누르면 닫힘
 document.addEventListener("click", (e) => { const a = $("#acct"); if (a?.open && !a.contains(e.target)) a.open = false; });
