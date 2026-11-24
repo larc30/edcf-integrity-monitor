@@ -2602,3 +2602,12 @@ body.viewer #geoOnly { display: none; }
 .bd-row { grid-template-columns: 8.5em minmax(0, 1fr) auto; }
 .bd-co.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--text); }
 .bd-merge:disabled { opacity: .4; cursor: default; }
+
+/* 큰 주 버튼(지금 스캔·저장 등): 마우스를 올려도 그라데이션 유지 (.btn:hover 의 배경이 덮어써 검게 보이던 문제) */
+.btn.primary:not(.sm):hover { background: var(--grad); }
+/* 사업 관리 도구 줄: 상태·수원국 고르기 (검색칸과 같은 높이) */
+.pj-tools select { height: 2.375rem; border-radius: var(--r-l); font-size: var(--fs-sm); font-weight: 500; padding: 0 28px 0 12px; width: auto; max-width: 11em; box-sizing: border-box; }
+/* 설정: 왼쪽·오른쪽 칸의 아래 끝을 맞춤 (마지막 카드가 남는 높이를 채움) */
+.set-grid { align-items: stretch; }
+.set-grid .set-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.set-grid .set-side > .card:last-child { flex: 1 1 auto; }
