@@ -1408,18 +1408,22 @@ async function queueQuiet(data) {
 const DART_FN = `https://asia-northeast3-${firebaseConfig.projectId}.cloudfunctions.net/dartFind`;
 // 함수에 직접 닿지 않으면(회사망 차단·권한 등) 5분 동안은 바로 포기하고 요청 문서 길로 (매번 기다리지 않게)
 let dartDeadAt = 0;
-async function dartCall(data, ms = 25000) {
+async function dartCall(data, ms = 25000, quiet = false) { // quiet: 미리 깨우기용 (실패해도 직접 호출을 막지 않고 진단에도 안 남김)
   if (window.__dartMock) return window.__dartMock(data); // 화면 점검용 가짜 응답 (평소에는 없음)
   if (new URLSearchParams(location.search).has("demo") || !auth.currentUser) return null;
-  if (Date.now() - dartDeadAt < 5 * 60e3) return null;
+  if (!quiet && Date.now() - dartDeadAt < 5 * 60e3) return null;
   const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), ms), t0 = performance.now();
-  const note = (st) => { dartDiag = `${st} ${((performance.now() - t0) / 1000).toFixed(1)}s`; };
+  const note = (st) => { if (!quiet) dartDiag = `${st} ${((performance.now() - t0) / 1000).toFixed(1)}s`; };
   try {
     const r = await fetch(DART_FN, { method: "POST", signal: ctl.signal, headers: { "Content-Type": "application/json", Authorization: `Bearer ${await auth.currentUser.getIdToken()}` }, body: JSON.stringify({ data }) });
     note(r.status);
-    if (!r.ok) { dartDeadAt = Date.now(); return null; }
+    if (!r.ok) {
+      // 함수가 돌려준 오류 이유를 진단에 같이 (원인 확인용)
+      if (!quiet) { try { const m = (await r.json())?.error?.message; if (m && m !== "INTERNAL") dartDiag += " " + String(m).slice(0, 160); } catch {} dartDeadAt = Date.now(); }
+      return null;
+    }
     return (await r.json()).result || null;
-  } catch (e) { note(e?.name === "AbortError" ? "시간초과" : "연결실패"); dartDeadAt = Date.now(); return null; } finally { clearTimeout(timer); }
+  } catch (e) { note(e?.name === "AbortError" ? "시간초과" : "연결실패"); if (!quiet) dartDeadAt = Date.now(); return null; } finally { clearTimeout(timer); }
 }
 let dartDiag = ""; // 마지막 직접 호출 결과 (원인 확인용: 상태 코드·걸린 시간)
 // DART 기업 이름 목록을 브라우저가 직접 들고 찾음 (함수가 Firestore dart_master 에 압축해 둔 것: 문서 몇 개만 읽음)
@@ -2223,7 +2227,7 @@ function openCompanyForm(cid = null) {
   let dartOk = false, sugTimer = null, sugSeq = 0, sugItems = [], chosen = null;
   // 창을 열 때 함수를 가볍게 깨워 둠. 예전의 { warm: true } 는 함수가 기업목록 12만 곳을 통째로 읽게 해서(수 초~20초, 그동안 다른 요청이 밀림)
   // 바로 뒤에 고른 기업의 상세 조회가 시간 초과로 실패했음 → 목록은 화면이 직접 읽으니 함수는 상세 한 곳 조회만 하면 됨
-  dartCall({ code: "00000000", name: "warm" }, 12000).then((r) => { dartOk = !!r; });
+  dartCall({ code: "00000000", name: "warm" }, 12000, true).then((r) => { dartOk = !!r; });
   loadDartIdx(); // 이름 목록은 브라우저가 직접 받아 둠 → 적는 동안 바로 후보
   const hideSug = () => $("#coSug")?.classList.add("hidden");
   const itemRow = (o) => `<b>${esc(o.name)}</b><span>${o.listed ? "상장 · " : ""}${esc(o.name_en || "")}</span>`;
@@ -2236,6 +2240,7 @@ function openCompanyForm(cid = null) {
     // 함수 직접 호출과 요청 문서 길(Firestore 를 거쳐 같은 함수가 처리)을 같이 달려 먼저 온 답을 씀: 직접 호출이 막힌 환경에서 기다리는 시간을 없앰
     const ok = (x) => (x && x.corp_code ? x : null);
     let via = "직접";
+    dartDeadAt = 0;
     const direct = dartCall({ code: it.corp_code, exact: it.exact, name: it.name, name_en: it.name_en || "", listed: !!it.listed }, 12000).then(ok);
     let o = await Promise.race([direct, new Promise((r) => setTimeout(() => r(null), 1200))]);
     if (!o) {

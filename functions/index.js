@@ -181,7 +181,16 @@ exports.kickQueue = onDocumentCreated({ document: "requests/{id}", region: REGIO
 // { warm: true } 로 부르면 기업목록만 미리 받아 둠 (업체 추가 창을 열 때 불러서, 버튼을 누를 때는 바로 답하게)
 const SUPERS = ["larc30730@gmail.com", "lical0331@gmail.com", "ahra.bella@gmail.com", "juliana0513m@gmail.com"]; // firestore.rules superAdmins() 와 같게
 let fsdb = null;
+// 안에서 난 오류는 이유를 화면에 돌려줌 (그냥 두면 '500 INTERNAL' 만 보여 원인을 알 수 없음). 키가 든 주소는 지움
 exports.dartFind = onCall({ region: REGION, secrets: [DART_API_KEY], memory: "512MiB", timeoutSeconds: 30 }, async (request) => {
+  try { return await dartFindBody(request); } catch (e) {
+    if (e instanceof HttpsError) throw e;
+    const msg = String((e && (e.stack || e.message)) || e).replace(/crtfc_key=[^&\s]+/g, "crtfc_key=***").split("\n").slice(0, 3).join(" | ").slice(0, 300);
+    logger.error("dartFind failed", { error: msg });
+    throw new HttpsError("internal", msg);
+  }
+});
+async function dartFindBody(request) {
   const tk = request.auth && request.auth.token, email = tk && tk.email_verified ? String(tk.email || "").toLowerCase() : "";
   if (!email) throw new HttpsError("unauthenticated", "로그인이 필요합니다");
   if (!SUPERS.includes(email)) {
@@ -208,5 +217,5 @@ exports.dartFind = onCall({ region: REGION, secrets: [DART_API_KEY], memory: "51
   const res = await dartLookup(String(d.name || "").slice(0, 80), String(d.biz || "").slice(0, 20), key, fetch, db);
   logger.info("dart find", { count: res.count, ms: res.ms, warm: res.warm }); // 공개 로그에는 건수·걸린 시간만
   return res;
-});
+}
 exports._test = { norm, fromKsic, unzipFirst, parseMaster, searchMaster, dartLookup, loadMaster, packRows, unpackRows, readCache, writeCache, reset: () => { master = null; masterAt = 0; } }; // 점검용 (가짜 응답으로 확인) // 점검용 (tools 에서 가짜 응답으로 확인)
