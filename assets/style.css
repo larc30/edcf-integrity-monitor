@@ -2611,3 +2611,8 @@ body.viewer #geoOnly { display: none; }
 .set-grid { align-items: stretch; }
 .set-grid .set-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .set-grid .set-side > .card:last-child { flex: 1 1 auto; }
+
+/* 등급별 수원국 창 2차: 여행경보는 나라 머리의 칩 한 번 · 사업 줄에는 그 사업만의 근거 */
+.gl-top { align-items: center; flex-wrap: wrap; }
+.gl-top .alert-chip { margin-left: 2px; }
+.gl-why { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 4px; }
