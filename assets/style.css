@@ -42,7 +42,8 @@ h3 { font-size: var(--fs-base); margin: 18px 0 8px; }
 code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: var(--fs-sm); padding: 1px 6px; border-radius: 6px; background: var(--panel-2); border: 1px solid var(--line); }
 .muted { color: var(--muted); } .small { font-size: var(--fs-sm); } .hidden { display: none !important; }
 .view { display: none; } .view.active { display: block; }
-::selection { background: var(--accent-soft); }
+::selection { background: color-mix(in srgb, var(--accent) 62%, transparent); color: #fff; }
+:root[data-theme="light"] ::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); color: inherit; }
 ::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 8px; } ::-webkit-scrollbar-track { background: transparent; }
 
 /* 배경: 천천히 움직이는 빛 + 격자 */
@@ -2497,15 +2498,16 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 
 #nameNote .btn { height: var(--h-s); margin-left: 6px; vertical-align: middle; }
 
-/* 업체 정보 창: 참여 사업을 바로 고침 (역할 · 사업 · 단계 · 빼기 / 새 연결) */
-#coEngs .ce-list { display: flex; flex-direction: column; gap: 6px; max-height: 12.5em; overflow: auto; padding-right: 2px; }
-#coEngs .ce-row { display: grid; grid-template-columns: 7em minmax(0, 1fr) 7em var(--h-m); gap: 8px; align-items: center; font-size: var(--fs-sm); }
-#coEngs .ce-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#coEngs select { height: var(--h-m); border-radius: var(--r-m); font-size: var(--fs-sm); padding: 0 8px; width: 100%; min-width: 0; }
-#coEngs .ce-x { width: var(--h-m); height: var(--h-m); display: grid; place-items: center; border: 1px solid var(--line-2); border-radius: var(--r-m); background: transparent; color: var(--muted); cursor: pointer; padding: 0; }
+/* 업체 추가·정보 창: 참여 사업 (역할 · 사업 · 단계 · 빼기 / 새 연결). 팝업 입력칸과 같은 규격: 높이 40px · 글자 15px/500 · 모서리 10px · 간격 10px */
+.modal .co-engs { margin-top: 0; }
+#coEngs .co-engs-h { margin-bottom: 5px; }
+#coEngs .ce-list { display: flex; flex-direction: column; gap: 10px; max-height: 15.5em; overflow: auto; }
+#coEngs .ce-row { display: grid; grid-template-columns: 8.5em minmax(0, 1fr) 8.5em var(--h-l); gap: 10px; align-items: center; font-size: var(--fs-base); font-weight: 500; }
+#coEngs .ce-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 2px; }
+#coEngs select { height: var(--h-l); border-radius: var(--r-l); font-size: var(--fs-base); font-weight: 500; width: 100%; min-width: 0; }
+#coEngs .ce-x { width: var(--h-l); height: var(--h-l); display: grid; place-items: center; border: 1px solid var(--line-2); border-radius: var(--r-l); background: transparent; color: var(--muted); cursor: pointer; padding: 0; }
 #coEngs .ce-x:hover { color: var(--red, #FF5A5F); border-color: currentColor; }
-#coEngs .ce-x svg { width: 14px; height: 14px; }
-#coEngs .ce-add { display: grid; grid-template-columns: minmax(0, 1fr) 8.5em auto; gap: 8px; margin-top: 8px; }
-#coEngs .ce-add .btn { height: var(--h-m); }
+#coEngs .ce-x svg { width: 15px; height: 15px; }
+#coEngs .ce-add .btn { grid-column: 3 / 5; height: var(--h-l); border-radius: var(--r-l); font-size: var(--fs-base); justify-content: center; }
+@media (max-width: 640px) { #coEngs .ce-row { grid-template-columns: 6.5em minmax(0, 1fr) var(--h-l); } #coEngs .ce-row select[data-es] { grid-column: 1 / 3; } #coEngs .ce-add .btn { grid-column: 1 / -1; } }
 #nameNote .btn { border: 1px solid var(--line-2); }
-@media (max-width: 640px) { #coEngs .ce-row { grid-template-columns: 6em minmax(0, 1fr) var(--h-m); } #coEngs .ce-row select[data-es] { grid-column: 1 / 3; } #coEngs .ce-add { grid-template-columns: 1fr; } }

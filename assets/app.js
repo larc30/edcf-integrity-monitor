@@ -2209,9 +2209,7 @@ function openCompanyForm(cid = null) {
         ${isNew ? `<label>메모<input name="note" maxlength="200"></label>` : `<label title="같은 이름의 다른 회사와 구분할 때 쓰는 말 (업종, 대표자 이름 등)">보조 키워드<input name="context_keywords" maxlength="100" placeholder="동명 업체 구분용" value="${v("context_keywords")}"></label>`}
       </div>
       ${isNew ? "" : `<label>메모<input name="note" maxlength="200" value="${v("note")}"></label>`}
-      ${isNew && state.projects.length ? `<div class="row r21"><label>사업 연결<select name="pid"><option value="">연결 안 함</option>${projOptions()}</select></label>
-        <label>역할<select name="role">${roleOptions()}</select></label></div>` : ""}
-      ${isNew ? "" : `<div class="co-engs" id="coEngs"></div>`}
+      ${state.projects.length ? `<div class="co-engs" id="coEngs"></div>` : ""}
       <div class="actions">${isNew ? "" : `<button type="button" class="btn ghost danger" id="coDel" style="margin-right:auto">업체 삭제</button><button type="button" class="btn" id="coIssues">이슈 · 검사 결과 보기</button>`}<button class="btn primary">${isNew ? "추가" : "저장"}</button></div>
     </form>`);
   const f1 = $("#coForm"); let picked = null, dlBusy = false, sticky = null;
@@ -2222,11 +2220,11 @@ function openCompanyForm(cid = null) {
     const rows = engsW.map((e, i) => [e, i]).sort((x, y) => ROLE_ORDER.indexOf(x[0].role) - ROLE_ORDER.indexOf(y[0].role) || projName(x[0].project_id).localeCompare(projName(y[0].project_id), "ko"));
     const opts = projOptions();
     el.innerHTML = `<div class="co-engs-h">참여 사업<span class="set-n">${engsW.length}</span></div>
-      ${rows.length ? `<div class="ce-list">${rows.map(([e, i]) => { const can = canEditProject(state.projects.find((x) => x.id === e.project_id));
+      <div class="ce-list">${rows.map(([e, i]) => { const can = canEditProject(state.projects.find((x) => x.id === e.project_id));
         return `<div class="ce-row">${can ? `<select data-er="${i}">${ROLES.map((r) => `<option ${r === e.role ? "selected" : ""}>${r}</option>`).join("")}</select>` : `<span>${roleTag(e.role)}</span>`}<span class="ce-name" title="${esc(projName(e.project_id))}">${esc(projName(e.project_id))}</span>${can
           ? `<select data-es="${i}">${STAGE_OPTS.map(([k, l]) => `<option value="${k}" ${k === stageVal(e) ? "selected" : ""}>${l}</option>`).join("")}</select><button type="button" class="ce-x" data-ex="${i}" title="이 사업에서 빼기">${X_SVG}</button>`
-          : `<span>${stageTag(e)}</span><span></span>`}</div>`; }).join("")}</div>` : ""}
-      ${opts ? `<div class="ce-add"><select id="ceP"><option value="">사업 선택</option>${opts}</select><select id="ceR">${roleOptions()}</select><button type="button" class="btn sm" id="ceAdd">연결</button></div>` : ""}`;
+          : `<span>${stageTag(e)}</span><span></span>`}</div>`; }).join("")}
+      ${opts ? `<div class="ce-row ce-add"><select id="ceR">${roleOptions()}</select><select id="ceP"><option value="">사업 선택</option>${opts}</select><button type="button" class="btn" id="ceAdd">연결</button></div>` : ""}</div>`;
     $$("[data-er]", el).forEach((x) => x.onchange = () => { const e = engsW[+x.dataset.er];
       if (engsW.some((o) => o !== e && o.project_id === e.project_id && o.role === x.value)) { toast(`이미 이 사업의 ${x.value}(으)로 연결돼 있습니다`); return renderEngs(); }
       e.role = x.value; engsDirty = true; renderEngs(); });
@@ -2250,6 +2248,7 @@ function openCompanyForm(cid = null) {
       : official ? `뉴스 검색에는 <b>${esc(name)}</b>(으)로 찾습니다` : "";
     el.classList.toggle("hidden", !el.innerHTML);
     const tgt = dup || (sticky && !f1.name.value.trim() ? sticky : null);
+    if (isNew) f1.querySelector(".actions .btn.primary").disabled = !!dup;
     if (tgt && $("#dupOpen")) $("#dupOpen").onclick = () => { closeModal(); openCompanyForm(tgt.id); };
   };
   showNameNote();
@@ -2296,7 +2295,8 @@ function openCompanyForm(cid = null) {
     const seq = ++sugSeq, r = dartIdx ? { items: dartSearchLocal(q) } : await dartCall({ q, limit: 100 }, 8000);
     if (seq !== sugSeq || !el.isConnected || document.activeElement !== f1.name) return;
     sugItems = r?.items || [];
-    el.innerHTML = sugItems.map((o, i) => `<button type="button" data-di="${i}">${itemRow(o)}</button>`).join("") || `<div class="muted small">DART에 '${esc(q)}'이(가) 들어간 기업이 없습니다. 직접 적어 주세요</div>`;
+    if (!sugItems.length) return hideSug(); // 후보가 없으면 상자를 띄우지 않음 (안내 상자가 아래 칸을 가려 첫 클릭이 안 먹었음)
+    el.innerHTML = sugItems.map((o, i) => `<button type="button" data-di="${i}">${itemRow(o)}</button>`).join("");
     el.classList.remove("hidden");
     // 후보를 누르면 이름만 들어감 → [DART 검색]을 눌러야 그 기업의 정보를 가져옴
     $$("[data-di]", el).forEach((b) => b.onmousedown = (e) => { e.preventDefault(); const it = sugItems[+b.dataset.di]; f1.name.value = plainCorp(it.name); chosen = { it, val: f1.name.value }; hideSug(); sugSeq++; showNameNote(); $("#dlBtn").focus(); });
@@ -2408,7 +2408,9 @@ function openCompanyForm(cid = null) {
     if (dup) return toast(`사업자등록번호 ${fmtBiz(biz)}는 이미 '${dup.name}'(으)로 등록돼 있습니다. 회사 이름이 바뀐 경우면 그 업체에 별칭으로 넣어 주세요`, 6000);
     if (fd.name_en && /[가-힣ㄱ-ㅎ]/.test(fd.name_en)) { f1.name_en.focus(); return toast("영문명에는 한글을 넣을 수 없습니다"); }
     if (fd.ceo && /[ㄱ-ㅎㅏ-ㅣ0-9]/.test(fd.ceo)) { f1.ceo.focus(); return toast("대표자 이름을 다시 확인해 주세요"); }
-    if (isNew && fd.pid && !fd.role) { f1.role.focus(); return toast("사업에 연결하려면 역할(F/S · 컨설턴트 · 본구매)을 골라 주세요", 5000); }
+    const pendP = $("#ceP")?.value, pendR = $("#ceR")?.value;
+    if (pendP && !pendR) { $("#ceR").focus(); return toast("사업에 연결하려면 역할(F/S · 컨설턴트 · 본구매)을 골라 주세요", 5000); }
+    if (pendP && !engsW.some((o) => o.project_id === pendP && o.role === pendR)) { engsW.push({ project_id: pendP, role: pendR, stage: "계약", rank: null }); engsDirty = true; }
     const fromDart = picked && !fd.foreign;
     if (isNew) {
       const ref = doc(collection(db, "companies"));
@@ -2422,7 +2424,7 @@ function openCompanyForm(cid = null) {
       applyCat(c, fd.category, "직접 입력");
       if (fd.aliases) c.aliases = fd.aliases;
       if (fd.note) c.note = fd.note;
-      if (fd.pid) c.engagements.push({ project_id: fd.pid, role: fd.role || "컨설턴트", stage: "계약", rank: null });
+      c.engagements = engsW; c.teams = teamsOf(c);
       if (fromDart) {
         c.corp_code = picked.corp_code || null;
         if (picked.induty_code) c.induty_code = picked.induty_code;
@@ -2434,7 +2436,7 @@ function openCompanyForm(cid = null) {
       // DART에서 고르지 않았고 영문명이 비었으면 그 업체만 DART에서 한 번 찾아 둠 (1곳이면 채우고, 여러 곳이면 'DART 동명 기업 고르기')
       const autoDart = !fd.foreign && !picked && !(c.biz_no && c.name_en);
       if (autoDart) queueQuiet({ task: "dartfill", ids: [ref.id], label: "DART 채움 (새 업체)" });
-      toast(`'${name}'을(를) 추가했습니다${autoDart ? ". DART에서 빈 정보를 찾아 채웁니다" : ""}${fd.pid ? "" : ". 사업 관리에서 사업에 연결할 수 있습니다"}`, 4500);
+      toast(`'${name}'을(를) 추가했습니다${autoDart ? ". DART에서 빈 정보를 찾아 채웁니다" : ""}${engsW.length ? "" : ". 사업 관리에서 사업에 연결할 수 있습니다"}`, 4500);
       return rerender();
     }
     const c = c0, patch = { name, name_official: official || (name === c.name ? c.name_official || null : null), biz_no: biz || null, ceo: fd.ceo || null, name_en: fd.name_en || null,
