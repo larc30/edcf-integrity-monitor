@@ -209,7 +209,11 @@ export function siteAlert(a, { ll = null, exact = false, text = "", manual = nul
   const table = GEO_ZONES[country] || {}, tx = String(text || "");
   const inZone = (z) => {
     const keys = Object.keys(table).filter((k) => String(z.text).includes(k)).map((k) => [k, table[k]]);
-    Object.entries(GEO_CITY).forEach(([k, v]) => { if (String(z.text).includes(k) || String(z.text).includes(v[2])) keys.push([k, [[v[0], v[1], 30]]]); });
+    // 도시 이름이 문구에 있어도 '나이로비 이스트레이 지역'처럼 도시 안의 한 구역만 가리키면 도시 전체로 보지 않음
+    //  (2026-11-24: 나이로비 사업이 모두 3단계로 잡힌 문제 · 그 구역은 표의 작은 원으로만 판단)
+    const partOf = (k, v) => keys.some(([, cs]) => cs.some(([la, ln, r]) => r < 30 && km([v[0], v[1]], [la, ln]) <= 30))
+      || new RegExp(k + "\\s+(?!시(?![가-힣])|시내|전역|전체|일대|일원|지역|주변|인근|및|등(?![가-힣]))[가-힣A-Za-z]{2,}").test(String(z.text));
+    Object.entries(GEO_CITY).forEach(([k, v]) => { if ((String(z.text).includes(k) || String(z.text).includes(v[2])) && !partOf(k, v)) keys.push([k, [[v[0], v[1], 30]]]); });
     return keys.some(([k, cs]) => tx.includes(k) || (exact && ll && cs.some(([la, ln, r]) => km(ll, [la, ln]) <= r)));
   };
   const hit = zones.filter((z) => !z.rest && z.lv !== base && inZone(z));
