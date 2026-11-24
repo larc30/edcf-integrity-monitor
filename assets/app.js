@@ -2206,9 +2206,9 @@ function openCompanyForm(cid = null) {
       </div>
       <div class="row">
         <label>별칭<input name="aliases" maxlength="200" placeholder="쉼표로 구분" value="${v("aliases")}"></label>
-        ${isNew ? `<label>메모<input name="note" maxlength="200"></label>` : `<label title="같은 이름의 다른 회사와 구분할 때 쓰는 말 (업종, 대표자 이름 등)">보조 키워드<input name="context_keywords" maxlength="100" placeholder="동명 업체 구분용" value="${v("context_keywords")}"></label>`}
+        <label title="같은 이름의 다른 회사와 구분할 때 쓰는 말 (업종, 대표자 이름 등)">보조 키워드<input name="context_keywords" maxlength="100" placeholder="동명 업체 구분용" value="${v("context_keywords")}"></label>
       </div>
-      ${isNew ? "" : `<label>메모<input name="note" maxlength="200" value="${v("note")}"></label>`}
+      <label>메모<input name="note" maxlength="200" value="${v("note")}"></label>
       ${state.projects.length ? `<div class="co-engs" id="coEngs"></div>` : ""}
       <div class="actions">${isNew ? "" : `<button type="button" class="btn ghost danger" id="coDel" style="margin-right:auto">업체 삭제</button><button type="button" class="btn" id="coIssues">이슈 · 검사 결과 보기</button>`}<button class="btn primary">${isNew ? "추가" : "저장"}</button></div>
     </form>`);
@@ -2426,6 +2426,7 @@ function openCompanyForm(cid = null) {
       applyCat(c, fd.category, "직접 입력");
       if (fd.aliases) c.aliases = fd.aliases;
       if (fd.note) c.note = fd.note;
+      if (fd.context_keywords) c.context_keywords = fd.context_keywords;
       c.engagements = engsW; c.teams = teamsOf(c);
       if (fromDart) {
         c.corp_code = picked.corp_code || null;
