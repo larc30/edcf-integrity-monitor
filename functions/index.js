@@ -107,7 +107,10 @@ async function writeCache(db, m) {
   for (let i = 0; i < n; i++) batch.set(db.doc(`${CACHE_COL}/c${i}`), { i, n, at, data: buf.subarray(i * CHUNK, (i + 1) * CHUNK) });
   await batch.commit();
 }
+// Secret 에 키를 넣을 때 줄바꿈·공백·따옴표가 같이 들어가는 일이 잦아서 떼고 씀 (DART 키는 영문·숫자 40자)
+const cleanKey = (k) => String(k || "").replace(/[^0-9A-Za-z]/g, "");
 async function fromDart(key, get) {
+  key = cleanKey(key);
   const r = await get(`https://opendart.fss.or.kr/api/corpCode.xml?crtfc_key=${key}`);
   if (!r.ok) throw new Error(`DART 기업목록 HTTP ${r.status}`);
   return parseMaster(unzipFirst(Buffer.from(await r.arrayBuffer())).toString("utf8"));
@@ -136,11 +139,12 @@ const adminDb = () => getFirestore();
 // 기업 1곳의 상세 (사업자번호·대표자·영문명·업종): DART company.json 한 번
 async function detail(r, exact, key, get = fetch) {
   let d = {}, why = "";
+  key = cleanKey(key);
   // DART 가 가끔 응답을 못 주므로 한 번 더 시도. 끝내 못 받으면 이유(why)를 같이 돌려줌 (화면 진단용)
   for (let i = 0; i < 2 && !d.status; i++) {
     try {
       const j = await (await get(`https://opendart.fss.or.kr/api/company.json?crtfc_key=${key}&corp_code=${r[0]}`)).json();
-      if (j.status === "000") d = j; else { why = `DART ${j.status} ${String(j.message || "").slice(0, 60)}`; break; }
+      if (j.status === "000") d = j; else { why = `DART ${j.status} ${String(j.message || "").slice(0, 60)}${j.status === "100" ? ` · 등록된 키 ${key.length}자` : ""}`; break; }
     } catch (e) { why = `DART 연결 ${String((e && e.message) || e).replace(/crtfc_key=[^&\s]+/g, "crtfc_key=***").slice(0, 80)}`; }
   }
   return { corp_code: r[0], name: r[1], name_en: d.corp_name_eng || r[2] || "", ceo: d.ceo_nm || "", biz_no: String(d.bizr_no || "").replace(/\D/g, ""),
