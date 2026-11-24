@@ -503,6 +503,11 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         stats["official"] += 1
     if to_save:
         store.add_findings(company, to_save)
+    # 새 이슈 등급별 수 (공개 로그에는 건수만: 평소와 다르게 몰리면 판정 기준을 점검)
+    stats["levels"] = {}
+    for f in to_save:
+        k = ("auto_" if f.get("auto_same") else "") + str(f.get("level") or "none")
+        stats["levels"][k] = stats["levels"].get(k, 0) + 1
 
     # 6) 검사 내역 기록
     patch = {"last_check": {
@@ -652,6 +657,8 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
                     for k in ("fetched", "candidates", "new_findings", "official", "cleaned", "auto_same"):
                         totals[k] += s.get(k, 0)
                     totals["google_skipped"] = totals.get("google_skipped", 0) + s.get("google_skipped", 0)
+                    for lv, n in (s.get("levels") or {}).items():
+                        totals.setdefault("levels", {})[lv] = totals["levels"].get(lv, 0) + n
                     errors += s["errors"]
             except Exception as e:
                 log.warning("업체 스캔 실패 (%d번째): %s", done + 1, type(e).__name__)  # 이름·내용은 실행 기록에만
