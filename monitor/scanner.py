@@ -20,6 +20,7 @@ log = logging.getLogger(__name__)
 
 EN_RISK_QUERY = '(corruption OR fraud OR sanction OR debarment OR bribery OR collusion OR "bid rigging")'
 # 업체명과 함께 찾는 제재 단어 (업체명만으로 찾으면 Google 이 관련도순 30건만 줘서 제재 기사가 빠지는 경우가 있음: 2026-11-23 예시 업체로 확인)
+NAVER_NAME_N = 100  # 업체명 네이버 검색 한 번에 받는 건수 (최신순)
 KO_RISK_QUERY = "(부정당 OR 입찰제한 OR 입찰참가자격 OR 담합 OR 영업정지 OR 과징금 OR 압수수색 OR 기소 OR 회생)"
 ID_RISK_QUERY = '(korupsi OR tersangka OR suap OR sanksi OR "daftar hitam")'
 
@@ -308,13 +309,32 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         if a["dedup_key"] not in seen:
             seen[a["dedup_key"]] = a
             articles.append(a)
+    # 네이버를 먼저(최신순 100건, 빠름) → 지난 업체명 검색 이후의 기사를 네이버가 빠짐없이 가져왔으면 구글 검색은 생략.
+    # 구글은 호출 간격(0.6초) 때문에 느리고 몰리면 503 으로 막혀서: 네이버가 다 못 덮는 업체(기사가 아주 많음·네이버 오류·해외 업체),
+    # 첫 스캔, 그리고 업체마다 주 1회(보완)만 부름. 제재 키워드 검색(구글·네이버)은 매번 그대로라 구글 쪽 제재 기사는 거기서도 잡힘
+    queries.sort(key=lambda q: q[0] != "naver")
+    domestic = company.get("country") in (None, "", "KR")
+    since = (company.get("last_deep_at") or "")[:10]
+    turn = int(hashlib.md5(str(company["id"]).encode()).hexdigest(), 16) % 7 == store.now_kst().weekday()
+    naver_n, naver_full, g_skip = 0, True, 0
     for engine, lang, q, sort in queries:
+        if engine == "google" and days and naver_n and naver_full and not turn and (lang == "ko" or domestic):
+            g_skip += 1
+            continue
         try:
-            items = news.naver_news(q, sort=sort) if engine == "naver" else news.google_news(q, lang)
+            items = news.naver_news(q, display=NAVER_NAME_N, sort=sort) if engine == "naver" else news.google_news(q, lang)
             engines_ok.add("네이버" if engine == "naver" else "Google")
         except Exception as e:
             errors.append(f"{company['name']} / {engine} '{q}': {e}")
+            if engine == "naver":
+                naver_full = False
             continue
+        if engine == "naver":
+            naver_n += 1
+            dates = [a["published_at"][:10] for a in items if a.get("published_at")]
+            # 100건을 꽉 채웠는데 가장 오래된 것이 지난 검색일보다 뒤면 그 사이 기사가 더 있을 수 있음
+            if len(items) >= NAVER_NAME_N and not (since and dates and min(dates) < since):
+                naver_full = False
         for a in items:
             stats["fetched"] += 1
             k = dedup_key(a["title"], a["url"])
@@ -491,7 +511,7 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
         "seconds": round(time.time() - t0, 1),
         "news": {"engines": sorted(engines_ok), "queries": len(queries), "fetched": stats["fetched"],
                  "mentioned": len(mentioned), "new_analyzed": len(cands),
-                 "sweep_total": sweep_total, "sweep_hits": len(sweep_hits or [])},
+                 "sweep_total": sweep_total, "sweep_hits": len(sweep_hits or []), "google_skipped": g_skip},
         "analyzer": used if cands else ("claude" if config.ANTHROPIC_API_KEY else "rule"),
         "mdb": mdb,
         "pps": pps_st,
@@ -510,6 +530,7 @@ def scan_company(company: dict, projects: dict, keywords: list[dict], entries: l
                                              "updated_at": store.now_str()})
     store.update("companies", company["id"], patch)
     stats["errors"] = errors
+    stats["google_skipped"] = g_skip
     return stats
 
 
@@ -630,6 +651,7 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
                 with lock:
                     for k in ("fetched", "candidates", "new_findings", "official", "cleaned", "auto_same"):
                         totals[k] += s.get(k, 0)
+                    totals["google_skipped"] = totals.get("google_skipped", 0) + s.get("google_skipped", 0)
                     errors += s["errors"]
             except Exception as e:
                 log.warning("업체 스캔 실패 (%d번째): %s", done + 1, type(e).__name__)  # 이름·내용은 실행 기록에만
