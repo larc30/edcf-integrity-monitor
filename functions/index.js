@@ -6,6 +6,7 @@
 const zlib = require("zlib");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { initializeApp, getApps } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const { defineSecret } = require("firebase-functions/params");
@@ -189,6 +190,17 @@ exports.kickQueue = onDocumentCreated({ document: "requests/{id}", region: REGIO
   });
   // 공개 저장소라 로그에는 작업 종류와 결과 코드만 남긴다 (업체명·메일 주소는 남기지 않음)
   logger.info("queue dispatch", { task: String(req.task || ""), status: r.status });
+});
+
+// 매주 월요일 새벽: 저장소의 예비 기업목록(data/corp_master.json)을 새로 받게 GitHub 작업 'dart' 를 깨움
+// (화면은 평소 Firestore dart_master 를 쓰고, 그것을 못 읽을 때만 이 파일을 씀)
+exports.weeklyDart = onSchedule({ schedule: "0 5 * * 1", timeZone: "Asia/Seoul", region: REGION, secrets: [GH_TOKEN], timeoutSeconds: 60 }, async () => {
+  const r = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/monitor.yml/dispatches`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${GH_TOKEN.value()}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "edcf-radar-functions" },
+    body: JSON.stringify({ ref: "main", inputs: { task: "dart", companies: "", test_to: "" } }),
+  });
+  logger.info("weekly dart dispatch", { status: r.status });
 });
 
 // 화면에서 직접 부르는 DART 찾기 (요청 문서를 거치지 않아 더 빠름). 로그인한 등록 계정만.

@@ -92,3 +92,24 @@ cd functions
 ```bash
 firebase deploy --only functions
 ```
+
+## 다시 배포하기 (함수 코드가 바뀔 때마다 · 2026-11-24)
+Cloud Shell 에서 한 줄씩:
+
+```bash
+cd ~/edcf-integrity-monitor
+```
+```bash
+git stash
+```
+```bash
+git pull origin main
+```
+```bash
+cd functions
+```
+```bash
+firebase deploy --only functions --project edcf-monitor
+```
+끝나면 kickQueue · dartFind · weeklyDart 세 개가 보입니다. weeklyDart 는 매주 월요일 05시에 저장소의 예비 기업목록을 새로 받게 합니다
+(처음 배포할 때 Cloud Scheduler 를 켤지 물으면 y).
