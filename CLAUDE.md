@@ -249,6 +249,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
   - 예비 기업목록 주 1회 갱신(2026-11-24 사용자 요청): 함수 weeklyDart(onSchedule, 매주 월 05:00 KST)가 GitHub 작업 dart 를 깨움 → monitor.yml 이 data/corp_master.json 을 새로 받아 커밋(봇 커밋이라 작업 브랜치는 main 을 다시 받아야 함). monitor.yml 은 안 고침. 함수 재배포 필요(Cloud Scheduler 사용, 무료 범위). 배포 방법은 docs/INSTANT.md 맨 아래 '다시 배포하기'로 정리. 실제 실행은 다음 월요일 실행 기록으로 확인할 것.
   - 참고(DART 창): 이름 목록은 페이지를 연 뒤 업체 추가 창을 처음 열 때 한 번만 받음(app.js dartIdxP, 새로 고침 전까지 재사용). 조회 안전장치 3단 = dartFind 직접 → 요청 문서 kickQueue → GitHub Actions.
 
+  - 업체 추가 창의 중복 알림(2026-11-24 사용자: '이미 있는 업체면 알려 줘야'): 이름을 적거나 DART 로 채운 순간, 같은 이름 또는 같은 사업자번호의 업체가 있으면 업체명 아래에 '이미 등록된 업체입니다 [OO 열기]'(app.js showNameNote, 누르면 그 업체 정보 창). 저장할 때 막는 것은 예전 그대로.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 

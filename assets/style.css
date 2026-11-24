@@ -2494,3 +2494,5 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .modal .dl-row { gap: 10px; }
 .modal form select:has(option[value=""]:checked) { color: var(--muted); }
 .modal form select option { color: var(--text); }
+
+#nameNote .btn { height: var(--h-s); margin-left: 6px; vertical-align: middle; }

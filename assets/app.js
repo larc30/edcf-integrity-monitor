@@ -2219,8 +2219,13 @@ function openCompanyForm(cid = null) {
   const showNameNote = () => {
     const { name, official } = cleanCompanyName(f1.name.value), el = $("#nameNote");
     const bad = CORP_GLYPH.test(f1.name.value) ? CORP_GLYPH_MSG : f1.name.value.trim() ? nameProblem(name) : "";
-    el.innerHTML = bad ? `<span class="miss">${esc(bad)}</span>` : official ? `뉴스 검색에는 <b>${esc(name)}</b>(으)로 찾습니다` : "";
+    // 이미 등록된 업체(같은 이름 또는 같은 사업자번호)면 적는 중에 바로 알려 줌 (저장할 때도 막지만, 다 적기 전에 알 수 있게)
+    const dup = bad || !name ? null : state.companies.find((x) => x.id !== cid && normName(x.name) === normName(name)) || bizOwner(f1.biz_no.value.replace(/\D/g, "").length === 10 ? f1.biz_no.value.replace(/\D/g, "") : "", cid);
+    el.innerHTML = bad ? `<span class="miss">${esc(bad)}</span>`
+      : dup ? `<span class="miss">이미 등록된 업체입니다</span> <button type="button" class="btn sm ghost" id="dupOpen">${esc(dup.name_official || dup.name)} 열기</button>`
+      : official ? `뉴스 검색에는 <b>${esc(name)}</b>(으)로 찾습니다` : "";
     el.classList.toggle("hidden", !el.innerHTML);
+    if (dup) $("#dupOpen").onclick = () => { closeModal(); openCompanyForm(dup.id); };
   };
   showNameNote();
   // 적는 동안 DART 기업 이름을 바로 보여 줌 (이름 목록만 받아서 빠름) → 고르면 그 한 곳만 상세 조회해 채움. 함수에 닿지 않으면(회사망 차단 등) 버튼 방식만
@@ -2256,7 +2261,7 @@ function openCompanyForm(cid = null) {
   };
   const showCoSug = async () => {
     const el = $("#coSug"), q = cleanCompanyName(f1.name.value).name;
-    if (!el || !(dartOk || dartIdx) || coreLen(q) < 2 || (picked && picked.name === f1.name.value) || (chosen && chosen.val === f1.name.value)) return hideSug();
+    if (!el || !(dartOk || dartIdx) || coreLen(q) < 2 || (picked && picked.name === f1.name.value) || (chosen && chosen.val === f1.name.value) || $("#dupOpen")) return hideSug(); // 이미 등록된 업체면 후보를 띄우지 않음 (알림·[열기]를 가리지 않게)
     const seq = ++sugSeq, r = dartIdx ? { items: dartSearchLocal(q) } : await dartCall({ q, limit: 100 }, 8000);
     if (seq !== sugSeq || !el.isConnected || document.activeElement !== f1.name) return;
     sugItems = r?.items || [];
@@ -2269,7 +2274,7 @@ function openCompanyForm(cid = null) {
   f1.name.oninput = typed; f1.name.addEventListener("compositionupdate", typed);
   f1.name.onblur = () => setTimeout(hideSug, 150);
   f1.name.onkeydown = (e) => { if (e.key === "Escape") { e.stopPropagation(); hideSug(); } };
-  f1.biz_no.oninput = () => { const d = f1.biz_no.value.replace(/\D/g, "").slice(0, 10); f1.biz_no.value = d.length > 5 ? `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}` : d.length > 3 ? `${d.slice(0, 3)}-${d.slice(3)}` : d; };
+  f1.biz_no.oninput = () => { const d = f1.biz_no.value.replace(/\D/g, "").slice(0, 10); f1.biz_no.value = d.length > 5 ? `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}` : d.length > 3 ? `${d.slice(0, 3)}-${d.slice(3)}` : d; showNameNote(); };
   // DART에서 가져오기: 키가 서버(GitHub)에만 있어서 '요청'으로 남기고 결과를 기다림
   const fillFrom = (o) => {
     picked = o;
