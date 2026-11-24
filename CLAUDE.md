@@ -242,6 +242,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
   - DART 함수가 한 번도 DART 를 못 불러왔던 이유(2026-11-24, 진단 '등록된 키 80자'): Firebase Secret DART_API_KEY 에 키가 80자로 들어가 있음(40자 키를 두 번 붙여 넣은 것으로 보임) → 함수의 DART 호출은 처음부터 모두 거절됐고, 그동안 화면에 채워진 사업자번호·대표자는 kickQueue 가 실패한 뒤 넘긴 GitHub Actions(파이썬, GitHub Secret 의 올바른 키)가 준 것 = 16~25초의 정체. 즉 느렸던 원인은 두 가지가 겹친 것: ① 직접 호출 500(기본 앱) ② 함수의 DART 키 오류. 조치: cleanKey 가 앞뒤 40자가 같으면 앞 40자만 씀(재배포 필요). 앞뒤가 다르면 Secret 을 다시 넣어야 함(firebase functions:secrets:set DART_API_KEY → 재배포).
 
+  - 팝업 닫기(2026-11-24 사용자: '팝업에서 바깥을 누르면 꺼지면 안 됨'): 입력 칸이 있는 팝업(form·input·select)은 바깥을 눌러도 닫히지 않음(X 로만), 보기만 하는 팝업은 예전처럼 바깥을 누르면 닫힘. 업체 추가 창 점검: 칸 높이 40px·글자 15px/500·모서리 10px 모두 같음. 고친 것 = 업체명 칸과 [DART 검색] 사이 간격을 칸 사이 간격(10px)과 같게, 아직 고르지 않은 고르기 칸(자동 분류·연결 안 함·역할 선택)은 안내 글자와 같은 흐린 색.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 

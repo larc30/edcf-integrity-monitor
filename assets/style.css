@@ -2489,3 +2489,8 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 .ev-no-row .r { white-space: nowrap; font-size: var(--fs-xs); }
 .ev-no-row .btn { height: var(--h-s); }
 @media (max-width: 640px) { .ev-acts { margin-left: 0; flex-basis: 100%; } .ev-no-row { grid-template-columns: 1fr auto; } .ev-no-row .r { display: none; } }
+
+/* 팝업 입력 창: 업체명 칸과 버튼 사이 간격을 두 칸 사이 간격과 같게, 아직 고르지 않은 고르기 칸은 입력칸 안내 글자와 같은 흐린 색 */
+.modal .dl-row { gap: 10px; }
+.modal form select:has(option[value=""]:checked) { color: var(--muted); }
+.modal form select option { color: var(--text); }

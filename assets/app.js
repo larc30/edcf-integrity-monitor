@@ -89,7 +89,7 @@ function modal(html) {
   $("#modalBg").classList.add("open"); close.onclick = closeModal;
 }
 function closeModal() { $("#modalBg").classList.remove("open"); $("#modal").classList.remove("report"); }
-$("#modalBg").addEventListener("click", (e) => { if (e.target.id === "modalBg") closeModal(); });
+$("#modalBg").addEventListener("click", (e) => { if (e.target.id === "modalBg" && !$("#modal").querySelector("form, input, textarea, select")) closeModal(); });
 const projName = (pid) => state.projects.find((p) => p.id === pid)?.name || "(삭제된 사업)";
 const engText = (e) => `${esc(projName(e.project_id))} · ${esc(e.role)}${e.stage && e.stage !== "계약" ? ` · ${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""}` : ""}`;
 const nowStr = () => new Date(Date.now() + 9 * 3600e3).toISOString().replace("T", " ").slice(0, 19); // KST
