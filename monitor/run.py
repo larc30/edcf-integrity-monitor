@@ -40,6 +40,27 @@ def sync_dart() -> int:
     return n
 
 
+def refresh_dart_master() -> int:
+    """아침 스캔 때 DART 기업목록을 새로 받아 Firestore dart_master 에 압축해 둠 (화면의 업체명 후보·함수가 읽음, functions writeCache 와 같은 형식).
+    실패해도 스캔은 계속 (있던 목록을 그대로 씀)"""
+    import gzip
+    from . import config
+    n = dart.sync_corp_master()
+    rows = json.loads(config.CORP_MASTER_PATH.read_text(encoding="utf-8"))
+    buf = gzip.compress("\n".join("\t".join(str(x or "").replace("\t", " ").replace("\n", " ") for x in (r + ["", "", "", ""])[:4]) for r in rows).encode("utf-8"))
+    size, col = 900 * 1024, store.db().collection("dart_master")
+    parts = [buf[i:i + size] for i in range(0, len(buf), size)]
+    at, batch = int(store.now_kst().timestamp() * 1000), store.db().batch()
+    for i, part in enumerate(parts):
+        batch.set(col.document(f"c{i}"), {"i": i, "n": len(parts), "at": at, "data": part})
+    for d in col.stream():  # 조각 수가 줄었으면 남은 것 삭제 (수가 안 맞으면 읽는 쪽이 못 씀)
+        if d.id not in {f"c{i}" for i in range(len(parts))}:
+            batch.delete(d.reference)
+    batch.commit()
+    store.update("meta", "status", {"dart_synced_at": store.now_str(), "corp_master": n})
+    return n
+
+
 def log_counts() -> None:
     """데이터 건수만 기록 (Actions 로그는 공개라 업체 이름은 남기지 않음)"""
     try:
@@ -215,6 +236,14 @@ def main() -> int:
         if auto and last[:10] == store.now_kst().strftime("%Y-%m-%d"):
             log.info("오늘 아침 자동 실행은 이미 끝났습니다 (%s) → 건너뜀", last)
             return 0
+
+    if a.task == "daily":
+        try:
+            log.info("DART 기업목록 갱신: %d개", refresh_dart_master())
+        except Exception as e:
+            if _quota_exceeded(e):
+                raise
+            log.warning("DART 기업목록 갱신 실패: %s", type(e).__name__)
 
     if a.task in ("daily", "scan"):
         try:  # 등급 기준을 바꾼 뒤 한 번만: 예전 판정 다시 (건수만 로그)
