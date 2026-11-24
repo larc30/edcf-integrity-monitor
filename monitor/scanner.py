@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 EN_RISK_QUERY = '(corruption OR fraud OR sanction OR debarment OR bribery OR collusion OR "bid rigging")'
 # 업체명과 함께 찾는 제재 단어 (업체명만으로 찾으면 Google 이 관련도순 30건만 줘서 제재 기사가 빠지는 경우가 있음: 2026-11-23 예시 업체로 확인)
 NAVER_NAME_N = 100  # 업체명 네이버 검색 한 번에 받는 건수 (최신순)
-KO_RISK_QUERY = "(부정당 OR 입찰제한 OR 입찰참가자격 OR 담합 OR 영업정지 OR 과징금 OR 압수수색 OR 기소 OR 회생)"
+KO_RISK_QUERY = "(부정당 OR 입찰제한 OR 입찰참가자격 OR 담합 OR 영업정지 OR 과징금 OR 압수수색 OR 기소 OR 회생 OR 부도 OR 워크아웃 OR 면허취소)"
 ID_RISK_QUERY = '(korupsi OR tersangka OR suap OR sanksi OR "daftar hitam")'
 
 
@@ -38,6 +38,8 @@ TOPIC_QUERIES = [  # assets/app.js TOPIC_QUERIES(설정 화면 '기본 검색어
     "중대재해 건설", "중대재해처벌법 기소", "건설현장 사망사고", "산업재해 건설사", "부실시공 건설사",
     # 집행정지: 조달청 API는 '현재 유효 제재'만 줘서 법원 집행정지로 멈춘 제재가 안 보임 → 뉴스로 보완
     "입찰제한 집행정지", "부정당 집행정지",
+    # 재무 위기·면허 (2026-11-24 사용자 요청: 회생·부도·워크아웃·면허취소)
+    "회생절차 건설사", "기업회생 신청", "부도 건설사", "워크아웃 건설사", "면허취소 건설", "등록취소 엔지니어링",
 ]
 
 

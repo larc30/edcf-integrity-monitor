@@ -2593,3 +2593,12 @@ body.viewer #geoOnly { display: none; }
 #coEngs .ce-ic.add { color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); }
 #coEngs .ce-ic.add:hover { background: color-mix(in srgb, var(--accent) 28%, transparent); }
 @media (max-width: 640px) { #coEngs .ce-row, #coEngs .ce-row.ce-add { grid-template-columns: minmax(0, 1fr) 5.6em 5.6em var(--h-m); gap: 4px; } #coEngs .ce-row .ce-st, #coEngs .ce-row select[data-es] { grid-column: auto; } }
+
+/* 참여 사업 표 머리: 칸 폭이 em 이라 머리줄만 글자가 작으면 칸이 어긋남 → 줄은 본문 크기, 글자만 작게 · 역할·단계 이름은 칸 가운데 */
+#coEngs .ce-head { font-size: var(--fs-base); }
+#coEngs .ce-head span { font-size: var(--fs-xs); }
+#coEngs .ce-head span:nth-child(2), #coEngs .ce-head span:nth-child(3) { padding-left: 0; text-align: center; }
+/* 사업자번호 중복: 남길 업체를 고르고 [합치기] */
+.bd-row { grid-template-columns: 8.5em minmax(0, 1fr) auto; }
+.bd-co.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--text); }
+.bd-merge:disabled { opacity: .4; cursor: default; }
