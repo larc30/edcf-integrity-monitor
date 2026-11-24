@@ -1257,6 +1257,7 @@ function openCompany(cid, back = null) {
   $("#drawerBody").innerHTML = `
     <div class="d-actions">
       <button class="btn sm primary" id="dScan">다시 스캔</button>
+      <button class="btn sm" id="dHwpx" title="리스크 모니터링 보고서 (HWPX)">보고서</button>
       <a class="btn sm" target="_blank" rel="noopener" href="https://search.naver.com/search.naver?where=news&query=${encodeURIComponent('"' + c.name + '"')}">네이버 뉴스 ↗</a>
     </div>
 
@@ -1285,11 +1286,80 @@ function openCompany(cid, back = null) {
   if (dismissed.length) renderFeed(dismissed, $("#dDismissed"), false);
   $$("#drawerBody [data-open]").forEach((x) => x.onclick = () => openCompany(x.dataset.open));
   $("#dScan").onclick = () => runWorkflow({ task: "scan", companies: c.name }, `'${c.name}' 재스캔`);
+  $("#dHwpx").onclick = async (ev) => { const b = ev.currentTarget; b.disabled = true; try { await companyHwpx(cid); } catch (e) { console.error(e); toast("보고서를 만들지 못했습니다: " + (e.message || ""), 6000); } b.disabled = false; };
   $("#dBack")?.addEventListener("click", () => { if (back === "official") { closeDrawer(); return openOfficial(); } String(back).startsWith("p:") ? openProject(String(back).slice(2)) : openRiskList(back, "back"); });
   if (switching) $("#drawerBody").scrollTop = 0;
   $("#dEdit")?.addEventListener("click", () => openCompanyForm(cid));
   $("#drawer").classList.add("open"); $("#drawerBg").classList.add("open");
 }
+// ---------- 업체별 리스크 모니터링 보고서 (HWPX) ----------
+// 양식 틀(assets/hwpx-company.json, tools/build_hwpx.py 가 만듦)의 {{표시}}를 채우고 <!--#each--> 줄을 되풀이한 뒤 압축 없이 묶어 내려받음
+const xesc = (v) => String(v ?? "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+function fillTpl(tpl, data) {
+  const out = tpl.replace(/<!--#each (\w+)-->([\s\S]*?)<!--\/each \1-->/g, (_, k, body) => (data[k] || []).map((it) => fillTpl(body, { ...data, ...it })).join(""));
+  return out.replace(/\{\{(\w+)\}\}/g, (_, k) => xesc(data[k]));
+}
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const crc32 = (u8) => { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+function zipStore(files) { // [{name, data: Uint8Array}] → 압축하지 않은 zip (HWPX 는 mimetype 이 맨 앞·무압축이어야 함)
+  const enc = new TextEncoder(), parts = [], cen = []; let off = 0;
+  const hdr = (sig, n) => { const b = new DataView(new ArrayBuffer(n)); b.setUint32(0, sig, true); return b; };
+  files.forEach(({ name, data }) => {
+    const nm = enc.encode(name), crc = crc32(data), l = hdr(0x04034b50, 30);
+    l.setUint16(4, 20, true); l.setUint16(6, 0x0800, true); l.setUint16(8, 0, true); l.setUint16(10, 0, true); l.setUint16(12, 0x21, true);
+    l.setUint32(14, crc, true); l.setUint32(18, data.length, true); l.setUint32(22, data.length, true); l.setUint16(26, nm.length, true);
+    const c = hdr(0x02014b50, 46);
+    c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(14, 0x21, true);
+    c.setUint32(16, crc, true); c.setUint32(20, data.length, true); c.setUint32(24, data.length, true); c.setUint16(28, nm.length, true); c.setUint32(42, off, true);
+    parts.push(new Uint8Array(l.buffer), nm, data); cen.push(new Uint8Array(c.buffer), nm); off += 30 + nm.length + data.length;
+  });
+  const cl = cen.reduce((x, p) => x + p.length, 0), e = hdr(0x06054b50, 22);
+  e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, cl, true); e.setUint32(16, off, true);
+  return new Blob([...parts, ...cen, new Uint8Array(e.buffer)], { type: "application/octet-stream" });
+}
+let hwpxTplP = null;
+function hwpxData(c) {
+  const now = new Date(Date.now() + 9 * 3600e3), ymd = now.toISOString().slice(0, 10).split("-").map(Number);
+  const short = (t) => { const s = String(t || "").replace(/\s+/g, " ").trim(), m = s.match(/^.{12,}?[.다음됨함]\s/); return (m ? m[0] : s).trim().replace(/[.\s]+$/, ""); };
+  const dstr = (f) => { const m = String(f.published_at || "").match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `'${m[1].slice(2)}.${+m[2]}.${+m[3]}자 ` : ""; };
+  const engs = (c.engagements || []).map((e) => ({ e, p: state.projects.find((x) => x.id === e.project_id) })).filter((x) => x.p && live(x.p))
+    .sort((x, y) => ROLE_ORDER.indexOf(x.e.role) - ROLE_ORDER.indexOf(y.e.role) || x.p.name.localeCompare(y.p.name, "ko"));
+  const geo = new Map(engs.map(({ p }) => [p.id, projectGeoRisk(p)]));
+  const rows = engs.map(({ e, p }, i) => ({ ROW: i + 1, TEAM: TEAMS[p.team] || "", STAGE: `${e.role} ${STAGE_OPTS.find(([k]) => k === stageVal(e))?.[1] || ""}`.trim(), CTRY: COUNTRY[p.country] || p.country || "", PROJ: p.name, GEO: LEVEL[geo.get(p.id)?.lv || "none"] }));
+  const fs = state.findings.filter((f) => f.company_id === c.id && f.status !== "dismissed" && (f.level === "red" || f.level === "orange"));
+  const off = groupFindings(fs.filter((f) => f.source_type === "official")), since = Date.now() - 30 * 86400e3;
+  const news = groupFindings(fs.filter((f) => f.source_type !== "official" && (f.first_seen_ms || pubMs(f)) >= since));
+  const cats = [...new Set(news.map((g) => g.rep.category).filter(Boolean))];
+  const has = (k) => fs.some((f) => f.source_type === "official" && f.level === "red" && officialSrc(f) === k) ? "해당" : "해당 없음";
+  // 수원국: 참여 사업의 나라별로 가장 높은 등급과 근거
+  const byC = new Map();
+  engs.forEach(({ p }) => { const r = geo.get(p.id); if (!p.country) return; const x = byC.get(p.country) || { lv: "none", why: [] }; if (r) { if (LV[r.lv] > LV[x.lv]) x.lv = r.lv; [r.alert, ...r.why].filter(Boolean).forEach((w) => { if (!x.why.includes(w)) x.why.push(w); }); } byC.set(p.country, x); });
+  const cl = [...byC.entries()], nR = cl.filter(([, x]) => x.lv === "red").length, nO = cl.filter(([, x]) => x.lv === "orange").length;
+  return {
+    NAME: c.name_official || c.name, NAME_EN: c.name_en || "", BIZ: (c.country ?? "KR") !== "KR" ? "해외 업체" : fmtBiz(c.biz_no), CEO: c.ceo || "", CAT: c.cat || "", LEVEL: LEVEL[c.risk] || "정상",
+    DATE: `${ymd[0]}. ${ymd[1]}. ${ymd[2]}.`, DATE_S: `'${String(ymd[0]).slice(2)}. ${ymd[1]}. ${ymd[2]}.`,
+    N_PROJ: rows.length, ENG_FIRST: rows.length > 1 ? rows.slice(0, 1) : [], ENG_MID: rows.slice(1, -1), ENG_LAST: rows.slice(-1), ENG_N: rows.length,
+    OFFICIAL: off.length ? `부정당제재 ${off.length}건 확인` : "EDCF, 국가계약법, MDB 부정당제재 해당없음", OFF: off.map((g) => ({ T: short(sumText(g.rep)) })),
+    NEWS_HEAD: news.length ? `${cats.slice(0, 2).join(", ")}${cats.length ? " 등 " : ""}${news.length}건의 기사 확인` : "최근 30일 경고·주의 기사 없음",
+    NEWS: news.slice(0, 8).map((g) => ({ T: `${g.rep.category ? `(${g.rep.category}) ` : ""}${dstr(g.rep)}${short(sumText(g.rep))}` })),
+    GEO_SUM: `${cl.length}개 국가에서 사업 진행 중(경고 ${nR}개, 주의 ${nO}개)`,
+    GEOC: cl.filter(([, x]) => x.lv !== "none").sort((x, y) => LV[y[1].lv] - LV[x[1].lv]).map(([code, x]) => ({ C: COUNTRY[code] || code, T: `${LEVEL[x.lv]}${x.why[0] ? ": " + x.why[0] : ""}`, GEOE: x.why.slice(1, 5).map((w) => ({ T: w })) })),
+    R_EDCF: has("edcf"), R_MDB: has("mdb"), R_PPS: has("pps"),
+  };
+}
+async function companyHwpx(cid) {
+  const c = state.companies.find((x) => x.id === cid); if (!c) return;
+  hwpxTplP = hwpxTplP || fetch("./assets/hwpx-company.json?v=1").then((r) => { if (!r.ok) throw new Error("양식을 받지 못했습니다"); return r.json(); }).catch((e) => { hwpxTplP = null; throw e; });
+  const tpl = await hwpxTplP, d = hwpxData(c);
+  d.ENG_ROWS = d.ENG_N + 1; d.ENG_H = Math.round(tpl.eng_h * d.ENG_ROWS / tpl.eng_rows);
+  const enc = new TextEncoder(), b64 = (t) => Uint8Array.from(atob(t), (ch) => ch.charCodeAt(0));
+  const blob = zipStore(tpl.files.map((f) => ({ name: f.name, data: f.section ? enc.encode(fillTpl(tpl.section, d)) : b64(f.b64) })));
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = `리스크 모니터링 보고서_${c.name}_${new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10).replace(/-/g, "")}.hwpx`;
+  document.body.appendChild(a); a.click(); setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 3000);
+  return blob;
+}
+window.__hwpx = (cid) => hwpxData(state.companies.find((x) => x.id === cid)); // 점검용
 function closeDrawer() { $("#drawer").classList.remove("open"); $("#drawerBg").classList.remove("open"); state.openCid = null; state.riskList = null; state.drawerBack = null; state.openPid = null; }
 $("#drawerClose").onclick = closeDrawer; $("#drawerBg").onclick = closeDrawer;
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeDrawer(); closeModal(); } });
@@ -1739,6 +1809,8 @@ async function deleteCompanies(ids) {
 $("#poolSearch").addEventListener("input", () => renderCompanies());
 document.addEventListener("click", (e) => { const m = $("#coToolMenu"); if (m?.open && (!m.contains(e.target) || e.target.closest(".tool-pop button"))) m.open = false; });
 $("#pjSearch").addEventListener("input", (e) => { pjState.q = e.target.value; renderProjects(); });
+$("#pjStatus").onchange = (e) => { pjState.status = e.target.value; renderProjects(); };
+$("#pjCountry").onchange = (e) => { pjState.country = e.target.value; renderProjects(); };
 CO_FILTERS.slice(1).forEach((s) => $(s).addEventListener("change", () => renderCompanies()));
 $("#fMoreBtn").onclick = () => { const b = $("#fMoreBtn"); b.setAttribute("aria-expanded", b.getAttribute("aria-expanded") === "true" ? "false" : "true"); if (b.getAttribute("aria-expanded") === "false") CO_MORE.forEach((id) => ($(id).value = "")); renderCompanies(); };
 $("#fReset").onclick = () => { CO_FILTERS.forEach((id) => ($(id).value = "")); renderCompanies(); };
@@ -1750,7 +1822,7 @@ $$("#coTable th[data-sort]").forEach((th) => th.addEventListener("click", () => 
 }));
 
 // ---------- 사업 탭: 왼쪽 업체 이름을 끌어서 사업의 역할 칸에 놓기 ----------
-const pjState = { scope: "all", view: null, q: "", open: null };
+const pjState = { scope: "all", view: null, q: "", open: null, status: "live", country: "" };
 try { pjState.view = localStorage.getItem("edcf_pj_view"); } catch {}
 const PJ_ICON = { list: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>`, card: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>` };
 // 목록 한 줄: 사업명 · 수원국 · 팀 · 역할별 업체 수 · 등급. 누르면 그 줄 아래에 역할 칸(업체 연결)이 펼쳐짐
@@ -1781,15 +1853,23 @@ function renderProjects() {
   $("#sideList").innerHTML = side.map((c) => `<div class="side-co" draggable="true" data-cid="${c.id}" data-side-open="${c.id}" role="button" tabindex="0" title="누르면 업체 정보 · 끌면 사업의 역할 칸에 연결"><span class="dot ${sc ? c.risk : ""}"></span><span class="nm">${esc(c.name)}</span></div>`).join("")
     || `<div class="empty small">${state.companies.length ? "검색 결과가 없습니다" : "업체 관리에서 업체를 먼저 등록하세요"}</div>`;
   $$("#sideList [data-side-open]").forEach((el) => { const go = () => openCompany(el.dataset.sideOpen); el.onclick = go; el.onkeydown = (e) => { if (e.key === "Enter") go(); }; });
-  const mineN = state.projects.filter(isMine).length;
+  // 상태(진행 중·완료·전체)와 수원국으로 거름: 팀 탭의 숫자도 고른 조건에 맞춰 셈
+  const stOk = (p) => pjState.status === "all" || (pjState.status === "done") === !live(p);
+  const ctrys = [...new Set(state.projects.filter(stOk).map((p) => p.country).filter(Boolean))].sort((a, b) => (COUNTRY[a] || a).localeCompare(COUNTRY[b] || b, "ko"));
+  if (pjState.country && !ctrys.includes(pjState.country)) pjState.country = "";
+  const base = state.projects.filter((p) => stOk(p) && (!pjState.country || p.country === pjState.country));
+  const doneN = state.projects.filter((p) => !live(p)).length;
+  $("#pjStatus").innerHTML = [["live", `진행 중 ${state.projects.length - doneN}`], ["done", `완료 ${doneN}`], ["all", `전체 ${state.projects.length}`]].map(([k, l]) => `<option value="${k}" ${pjState.status === k ? "selected" : ""}>${l}</option>`).join("");
+  $("#pjCountry").innerHTML = `<option value="">수원국 전체</option>` + ctrys.map((c) => `<option value="${c}" ${pjState.country === c ? "selected" : ""}>${esc(COUNTRY[c] || c)}</option>`).join("");
+  const mineN = base.filter(isMine).length;
   // 슈퍼관리자는 모든 팀을 따로 볼 수 있음 · 그 밖은 전체와 우리 팀
-  const scopeTabs = isSuper() ? [["all", "전체", state.projects.length], ...Object.entries(TEAMS).map(([k, l]) => ["t:" + k, l, state.projects.filter((p) => p.team === k).length])]
-    : [["all", "전체", state.projects.length], ["mine", myTeam() ? TEAMS[myTeam()] : "우리 팀", mineN]];
+  const scopeTabs = isSuper() ? [["all", "전체", base.length], ...Object.entries(TEAMS).map(([k, l]) => ["t:" + k, l, base.filter((p) => p.team === k).length])]
+    : [["all", "전체", base.length], ["mine", myTeam() ? TEAMS[myTeam()] : "우리 팀", mineN]];
   if (!scopeTabs.some(([k]) => k === pjState.scope)) pjState.scope = "all";
   $("#pjScope").innerHTML = scopeTabs.map(([k, l, n]) => `<button data-s="${k}" class="${pjState.scope === k ? "active" : ""}">${l} <span class="n">${n}</span></button>`).join("");
   $$("#pjScope button").forEach((b) => b.onclick = () => { pjState.scope = b.dataset.s; renderProjects(); });
   const pq = pjState.q.trim().toLowerCase();
-  const ps = state.projects.filter((p) => pjState.scope === "all" || (pjState.scope.startsWith("t:") ? p.team === pjState.scope.slice(2) : isMine(p)))
+  const ps = base.filter((p) => pjState.scope === "all" || (pjState.scope.startsWith("t:") ? p.team === pjState.scope.slice(2) : isMine(p)))
     .filter((p) => !pq || p.name.toLowerCase().includes(pq) || (COUNTRY[p.country] || "").toLowerCase().includes(pq))
     .sort((a, b) => live(b) - live(a) || (COUNTRY[a.country] || "").localeCompare(COUNTRY[b.country] || "", "ko") || a.name.localeCompare(b.name, "ko")); // 완료한 사업은 뒤로, 수원국·이름순
   const view = pjState.view || (state.projects.length > 24 ? "list" : "card"); // 사업이 많으면 목록이 기본
