@@ -2541,18 +2541,10 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 /* 예전 노란 등급 색 변수는 어디에 남아 있어도 회색으로 (등급은 경고 빨강 · 주의 주황 · 정상 초록, 참고는 회색) */
 :root, :root[data-theme="dark"], :root[data-theme="light"] { --yellow: var(--gray); --yellow-fill: var(--gray); --yellow-bg: color-mix(in srgb, var(--gray) 14%, transparent); }
 
-/* 상단 조작 줄 정렬(2026-11-24): 제목 줄 좌우 여백을 없애 아래 카드 끝과 맞춤 · 범위 스위치도 다른 버튼과 같은 44px · 넓은 화면에서는 조작 줄 폭 = 오른쪽 칸 폭 */
+/* 상단 조작 줄 정렬(2026-11-24): 제목 줄 좌우 여백을 없애 아래 카드 끝과 맞춤 · 범위 스위치도 다른 버튼과 같은 44px · 조작 줄은 내용 크기 그대로 오른쪽 정렬(아래 칸 폭에 맞춰 늘리지 않음) */
 .d-title { padding-left: 0; padding-right: 0; }
 .d-ctrl .scope-switch { padding: 2px; }
 .ctrl-row #scopeInfo:empty { display: none; }
-@media (min-width: 1400px) {
-  .geo-dash { grid-template-columns: minmax(17.5em, 2.6fr) minmax(0, 5.2fr) minmax(0, 4.2fr); }
-  .dash:not(.geo-dash) .d-ctrl { min-width: calc((100% - 32px) * 5.7 / 12); }
-  .geo-dash .d-ctrl { min-width: calc((100% - 32px) * 4.2 / 12); }
-  .d-ctrl .ctrl-row { align-self: stretch; flex-wrap: nowrap; }
-  .d-ctrl .scope-switch { flex: 1 1 auto; }
-  .d-ctrl .sc-btn { flex: 1 1 auto; justify-content: center; }
-}
 /* 수원국 정보만 새로 받기 (마지막 갱신 옆 작은 버튼) */
 .hero-sub { display: flex; align-items: center; gap: 6px; }
 .sub-btn { display: inline-grid; place-items: center; width: var(--h-s); height: var(--h-s); border: 0; border-radius: var(--r-s); background: transparent; color: var(--muted); cursor: pointer; }
@@ -2578,3 +2570,26 @@ body.viewer #geoOnly { display: none; }
 .gl-ev { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--fs-sm); }
 .gl-ev .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gl-ev .d { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
+
+/* 참여 사업 칸 3차(2026-11-24): 한 상자 안의 표 (사업 | 역할 | 단계 | 아이콘), 줄 안 고르기 칸은 보통 크기(34px), 빼기·연결은 아이콘 버튼, 단계 색 없음 */
+#coEngs .ce-box { border: 1px solid var(--line); border-radius: var(--r-l); overflow: hidden; }
+#coEngs .ce-row, #coEngs .ce-row.ce-add { display: grid; grid-template-columns: minmax(0, 1fr) 7.4em 7.4em var(--h-m); gap: 8px; align-items: center; margin: 0; padding: 6px 8px 6px 12px; font-size: var(--fs-base); font-weight: 500; }
+#coEngs .ce-head { padding-top: 7px; padding-bottom: 7px; font-size: var(--fs-xs); font-weight: 650; color: var(--muted); background: var(--panel-2); border-bottom: 1px solid var(--line); }
+#coEngs .ce-head span:nth-child(2), #coEngs .ce-head span:nth-child(3) { padding-left: 10px; }
+#coEngs .ce-list { display: block; gap: 0; max-height: calc((var(--h-m) + 13px) * 4); margin: 0; padding: 0; overflow: auto; }
+#coEngs .ce-list .ce-row + .ce-row { border-top: 1px solid var(--line); }
+#coEngs .ce-name { padding: 0; }
+#coEngs .ce-ro { padding-left: 10px; font-size: var(--fs-sm); color: var(--text-2); }
+#coEngs .ce-box select { height: var(--h-m); padding: 0 6px 0 10px; border-radius: var(--r-s); font-size: var(--fs-sm); font-weight: 500; background-position: right 7px center; }
+#coEngs .ce-list select { border-color: transparent; background-color: transparent; }
+#coEngs .ce-list select:hover, #coEngs .ce-list select:focus { border-color: var(--line-2); background-color: var(--panel-2); }
+#coEngs .ce-add { border-top: 1px solid var(--line); background: var(--panel-2); }
+#coEngs .ce-list:empty + .ce-add { border-top: 0; }
+#coEngs .ce-add select { background-color: var(--panel); }
+#coEngs .ce-add #ceP { margin-left: -4px; width: calc(100% + 4px); }
+#coEngs .ce-ic { width: var(--h-m); height: var(--h-m); display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--r-s); background: transparent; color: var(--muted); cursor: pointer; }
+#coEngs .ce-ic svg { width: 16px; height: 16px; }
+#coEngs .ce-ic.del:hover { color: var(--red); background: var(--red-bg); }
+#coEngs .ce-ic.add { color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+#coEngs .ce-ic.add:hover { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+@media (max-width: 640px) { #coEngs .ce-row, #coEngs .ce-row.ce-add { grid-template-columns: minmax(0, 1fr) 5.6em 5.6em var(--h-m); gap: 4px; } #coEngs .ce-row .ce-st, #coEngs .ce-row select[data-es] { grid-column: auto; } }
