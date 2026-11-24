@@ -246,6 +246,9 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
   - DART 조회 해결 확인(2026-11-24 사용자 화면: '직접 · 200 0.3s', 사업자번호·대표자 채워짐): 25초 → 0.3초. 결과 줄은 짧게 정리 = 성공 'DART에서 채웠습니다 0.3초'(채운 값은 아래 칸에 보이므로 반복 안 함), 사업자번호·대표자를 못 받았거나 실패했을 때만 원인(어느 길·상태 코드·DART 응답)을 흐린 글자로. 지금 흐름: 창을 열면 이름 목록(dart_master → 못 읽으면 저장소 파일)을 받아 둠 → 적는 동안 화면이 목록에서 후보 100곳 → 후보를 누르면 이름만 → [DART 검색] = 함수 dartFind 가 그 한 곳만 DART 조회(1.2초 안에 답이 없으면 요청 문서 길도 같이). 후보에서 안 고르고 버튼 = 결과 목록 → 고르면 조회. 사업자번호를 적고 버튼 = 함수가 이름 후보 30곳까지 번호 대조. 연결된 업체 = [DART 다시 조회].
 
+  - 예비 기업목록 주 1회 갱신(2026-11-24 사용자 요청): 함수 weeklyDart(onSchedule, 매주 월 05:00 KST)가 GitHub 작업 dart 를 깨움 → monitor.yml 이 data/corp_master.json 을 새로 받아 커밋(봇 커밋이라 작업 브랜치는 main 을 다시 받아야 함). monitor.yml 은 안 고침. 함수 재배포 필요(Cloud Scheduler 사용, 무료 범위). 배포 방법은 docs/INSTANT.md 맨 아래 '다시 배포하기'로 정리. 실제 실행은 다음 월요일 실행 기록으로 확인할 것.
+  - 참고(DART 창): 이름 목록은 페이지를 연 뒤 업체 추가 창을 처음 열 때 한 번만 받음(app.js dartIdxP, 새로 고침 전까지 재사용). 조회 안전장치 3단 = dartFind 직접 → 요청 문서 kickQueue → GitHub Actions.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 
