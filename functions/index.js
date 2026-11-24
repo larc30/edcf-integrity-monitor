@@ -108,7 +108,8 @@ async function writeCache(db, m) {
   await batch.commit();
 }
 // Secret 에 키를 넣을 때 줄바꿈·공백·따옴표가 같이 들어가는 일이 잦아서 떼고 씀 (DART 키는 영문·숫자 40자)
-const cleanKey = (k) => String(k || "").replace(/[^0-9A-Za-z]/g, "");
+// 키를 두 번 붙여 넣어 80자가 된 경우(앞 40자 = 뒤 40자)는 앞의 40자만 씀
+const cleanKey = (k) => { const s = String(k || "").replace(/[^0-9A-Za-z]/g, ""); return s.length === 80 && s.slice(0, 40) === s.slice(40) ? s.slice(0, 40) : s; };
 async function fromDart(key, get) {
   key = cleanKey(key);
   const r = await get(`https://opendart.fss.or.kr/api/corpCode.xml?crtfc_key=${key}`);
