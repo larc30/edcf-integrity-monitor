@@ -1330,7 +1330,18 @@ function hwpxData(c) {
   const off = groupFindings(fs.filter((f) => f.source_type === "official")), since = Date.now() - 30 * 86400e3;
   const news = groupFindings(fs.filter((f) => f.source_type !== "official" && (f.first_seen_ms || pubMs(f)) >= since));
   const cats = [...new Set(news.map((g) => g.rep.category).filter(Boolean))];
-  const has = (k) => fs.some((f) => f.source_type === "official" && f.level === "red" && officialSrc(f) === k) ? "해당" : "해당 없음";
+  // 붙임: 조회 결과 (캡처 대신 조회 방법·대상·일시·결과를 글로). 조회하지 못한 것은 '해당 없음'으로 적지 않음
+  const lc = c.last_check || {}, at = String(lc.at || "").slice(0, 16) || "스캔 전", offs = fs.filter((f) => f.source_type === "official");
+  const okSrc = { edcf: state.edcf.length > 0, mdb: lc.mdb?.status === "ok", pps: lc.pps?.status === "ok" };
+  const has = (k) => !okSrc[k] ? "확인 필요 (조회하지 못함)" : offs.some((f) => f.level === "red" && officialSrc(f) === k) ? "해당" : "해당 없음";
+  const lines = (l) => l.filter(Boolean).map((T) => ({ T }));
+  const ppsWhy = { no_bizno: "사업자등록번호 없음", not_connected: "조달청 API 미연결", foreign: "해외 업체", error: "조회 오류" }[lc.pps?.status] || "스캔 전";
+  const ppsHits = offs.filter((f) => officialSrc(f) === "pps");
+  const capPps = lines(["조회 방법: 조달청 나라장터 부정당제재 정보 (공공데이터포털 API)", `조회 대상: 사업자등록번호 ${fmtBiz(c.biz_no) || "-"}`, `조회 일시: ${at}`,
+    `조회 결과: ${okSrc.pps ? (ppsHits.length ? `제재 ${ppsHits.length}건` : "현재 유효한 제재 없음") : "조회하지 못함 (" + ppsWhy + ")"}`, ...ppsHits.slice(0, 3).map((f) => "· " + short(sumText(f)))]);
+  const capMdb = (label, re) => { const hit = offs.filter((f) => officialSrc(f) === "mdb" && re.test(f.source_name || ""));
+    return lines([`조회 방법: ${label} 제재 명단 대조 (OpenSanctions)`, `조회 대상: ${(lc.mdb?.names || [c.name_en]).filter(Boolean).join(", ") || "-"}`, `조회 일시: ${at}`,
+      `조회 결과: ${okSrc.mdb ? (hit.length ? `일치 ${hit.length}건` : "일치 없음") : "조회하지 못함 (" + (lc.mdb?.status === "no_en" ? "영문명 없음" : lc.mdb?.status === "no_lists" ? "명단 오류" : "스캔 전") + ")"}`, ...hit.slice(0, 2).map((f) => "· " + short(f.title))]); };
   // 수원국: 참여 사업의 나라별로 가장 높은 등급과 근거
   const byC = new Map();
   engs.forEach(({ p }) => { const r = geo.get(p.id); if (!p.country) return; const x = byC.get(p.country) || { lv: "none", why: [] }; if (r) { if (LV[r.lv] > LV[x.lv]) x.lv = r.lv; [r.alert, ...r.why].filter(Boolean).forEach((w) => { if (!x.why.includes(w)) x.why.push(w); }); } byC.set(p.country, x); });
@@ -1344,12 +1355,13 @@ function hwpxData(c) {
     NEWS: news.slice(0, 8).map((g) => ({ T: `${g.rep.category ? `(${g.rep.category}) ` : ""}${dstr(g.rep)}${short(sumText(g.rep))}` })),
     GEO_SUM: `${cl.length}개 국가에서 사업 진행 중(경고 ${nR}개, 주의 ${nO}개)`,
     GEOC: cl.filter(([, x]) => x.lv !== "none").sort((x, y) => LV[y[1].lv] - LV[x[1].lv]).map(([code, x]) => ({ C: COUNTRY[code] || code, T: `${LEVEL[x.lv]}${x.why[0] ? ": " + x.why[0] : ""}`, GEOE: x.why.slice(1, 5).map((w) => ({ T: w })) })),
-    R_EDCF: has("edcf"), R_MDB: has("mdb"), R_PPS: has("pps"),
+    R_EDCF: has("edcf"), R_MDB: has("mdb"), R_PPS: has("pps"), CAP_PPS: capPps,
+    CAP_ADB: capMdb("ADB", /^ADB/), CAP_WB: capMdb("World Bank", /^World Bank/), CAP_AFDB: capMdb("AfDB", /^AfDB/), CAP_EBRD: capMdb("EBRD", /^EBRD/), CAP_IDB: capMdb("IDB", /^IDB/),
   };
 }
 async function companyHwpx(cid) {
   const c = state.companies.find((x) => x.id === cid); if (!c) return;
-  hwpxTplP = hwpxTplP || fetch("./assets/hwpx-company.json?v=1").then((r) => { if (!r.ok) throw new Error("양식을 받지 못했습니다"); return r.json(); }).catch((e) => { hwpxTplP = null; throw e; });
+  hwpxTplP = hwpxTplP || fetch("./assets/hwpx-company.json?v=2").then((r) => { if (!r.ok) throw new Error("양식을 받지 못했습니다"); return r.json(); }).catch((e) => { hwpxTplP = null; throw e; });
   const tpl = await hwpxTplP, d = hwpxData(c);
   d.ENG_ROWS = d.ENG_N + 1; d.ENG_H = Math.round(tpl.eng_h * d.ENG_ROWS / tpl.eng_rows);
   const enc = new TextEncoder(), b64 = (t) => Uint8Array.from(atob(t), (ch) => ch.charCodeAt(0));
