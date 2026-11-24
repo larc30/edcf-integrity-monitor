@@ -1455,7 +1455,7 @@ async function dartLookup(name, biz = "", code = "") {
   if (ghToken() && !(await pingRelay())) { try { await gh("/actions/workflows/monitor.yml/dispatches", { method: "POST", body: JSON.stringify({ ref: "main", inputs: { task: "queue", companies: "", test_to: "" } }) }); } catch {} }
   const t0 = Date.now();
   while (Date.now() - t0 < 10 * 60e3) {
-    await new Promise((res) => setTimeout(res, Date.now() - t0 < 30e3 ? 1000 : 4000)); // 즉시 실행 함수가 있으면 몇 초 안에 답이 옴
+    await new Promise((res) => setTimeout(res, Date.now() - t0 < 10e3 ? 400 : Date.now() - t0 < 30e3 ? 1000 : 4000)); // 즉시 실행 함수가 있으면 몇 초 안에 답이 옴
     if (!document.getElementById("dlRes")) return null;
     const d = await getDoc(doc(db, "requests", id));
     const r = d.exists() ? d.data() : null;

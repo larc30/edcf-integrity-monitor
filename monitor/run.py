@@ -230,7 +230,7 @@ def main() -> int:
         # daily = 진행 중 사업에 연결된 업체 / scan = 적은 업체만, 안 적으면 등록된 모든 업체
         res = scanner.run_scan(only, scope="linked" if a.task == "daily" or only else "all", progress=lambda d, t, c: store.update("meta", "progress", {"done": d, "total": t, "current": c, "running": d < t, "at": store.now_str()}))
         # 공개 로그: 건수만 (오류 내용·업체 이름은 Firestore 실행 기록에만 — 대시보드 설정 > 고급에서 확인)
-        log.info("스캔 결과: %s", json.dumps({k: res.get(k) for k in ("companies", "fetched", "candidates", "new_findings", "auto_same", "official", "cleaned", "sweep_articles", "seconds", "analyzer")} | {"errors": len(res.get("errors") or [])}, ensure_ascii=False))
+        log.info("스캔 결과: %s", json.dumps({k: res.get(k) for k in ("companies", "fetched", "candidates", "new_findings", "auto_same", "official", "cleaned", "sweep_articles", "google_skipped", "seconds", "analyzer")} | {"errors": len(res.get("errors") or [])}, ensure_ascii=False))
         if a.task == "daily":  # 예약(매일) 실행이 실제로 돌았는지 대시보드에서 확인하기 위함
             store.update("meta", "status", {"last_daily_at": store.now_str()})
         # 전체 스캔이면 대시보드에서 기다리던 스캔 요청도 함께 완료 처리 (Actions에서 직접 실행한 경우 포함)

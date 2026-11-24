@@ -217,6 +217,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
   - DART 상세 가져오기 보완(2026-11-23 밤, 후보를 골랐는데 '정보를 가져오지 못했습니다'): 화면이 함수(dartFind)를 직접 부르는 길이 실패하는 환경으로 보임(회사망 차단 또는 함수 호출 권한 · 확인 못 함). 직접 호출이 실패하면 5분 동안 건너뛰고(app.js dartDeadAt), 고른 기업의 상세는 요청 문서(requests task dartlookup + code)로 받아 옴 → kickQueue 가 code 가 있으면 그 한 곳만 DART 조회(재배포 전 함수는 이름으로 찾아 주고 화면이 고유번호로 고름).
 
+  - 스캔 속도 2차(2026-11-24, 아침 전체 스캔 24분·구글 503 오류 50건·수원국 뉴스 25개국 실패): 원인 = 업체마다 구글 검색 4~6번 × 간격 0.6초(308곳 약 18분) + 몰려서 구글이 503 으로 막음. 고친 것(scanner.scan_company): 네이버 업체명 검색을 먼저(최신순 100건 NAVER_NAME_N) → 지난 업체명 검색일(last_deep_at) 이전 기사까지 닿았거나 100건 미만이면 '네이버가 다 가져옴'으로 보고 구글 검색 생략(last_check.news.google_skipped). 구글을 부르는 경우 = 네이버가 못 덮음(100건이 모두 최근·네이버 오류·키 없음), 첫 스캔, 해외 업체의 영문 검색, 업체마다 주 1회 보완(업체 id 해시 % 7 == 요일, 기간 8일이라 한 주를 덮음). 제재 키워드 검색(구글·네이버)은 그대로. 구글 503 도 429 처럼 쉬었다 재시도. 시험한 것: 여러 업체를 OR 로 묶어 한 번에 찾기 = 개별 결과 325건 중 69건만 나와 버림(구글이 묶음당 40건 안팎만 줌). 네이버 키가 이 환경에 없어 네이버 실제 응답은 못 봄 → 다음 아침 실행 기록(seconds·google_skipped·errors)으로 확인할 것. 바꾼 첫날은 네이버 100건 중 처음 보는 기사가 많아 AI 판정이 한 번 늘 수 있음.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 

@@ -42,7 +42,7 @@ def _google_get(url: str):
                 time.sleep(gap)
             _g_last[0] = time.monotonic()
         r = httpx.get(url, timeout=_TIMEOUT, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"})
-        if r.status_code != 429:
+        if r.status_code not in (429, 503):  # 503 도 요청이 몰렸을 때의 일시 차단
             break
         with _g_lock:  # 막혔으면 다른 스레드도 같이 조금 쉬게
             _g_last[0] = time.monotonic() + 3
