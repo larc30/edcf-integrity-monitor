@@ -1412,13 +1412,16 @@ async function dartCall(data, ms = 25000) {
   if (window.__dartMock) return window.__dartMock(data); // 화면 점검용 가짜 응답 (평소에는 없음)
   if (new URLSearchParams(location.search).has("demo") || !auth.currentUser) return null;
   if (Date.now() - dartDeadAt < 5 * 60e3) return null;
-  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), ms);
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), ms), t0 = performance.now();
+  const note = (st) => { dartDiag = `${st} ${((performance.now() - t0) / 1000).toFixed(1)}s`; };
   try {
     const r = await fetch(DART_FN, { method: "POST", signal: ctl.signal, headers: { "Content-Type": "application/json", Authorization: `Bearer ${await auth.currentUser.getIdToken()}` }, body: JSON.stringify({ data }) });
+    note(r.status);
     if (!r.ok) { dartDeadAt = Date.now(); return null; }
     return (await r.json()).result || null;
-  } catch { dartDeadAt = Date.now(); return null; } finally { clearTimeout(timer); }
+  } catch (e) { note(e?.name === "AbortError" ? "시간초과" : "연결실패"); dartDeadAt = Date.now(); return null; } finally { clearTimeout(timer); }
 }
+let dartDiag = ""; // 마지막 직접 호출 결과 (원인 확인용: 상태 코드·걸린 시간)
 // DART 기업 이름 목록을 브라우저가 직접 들고 찾음 (함수가 Firestore dart_master 에 압축해 둔 것: 문서 몇 개만 읽음)
 // → 이름 후보는 함수를 기다리지 않고 바로. 목록이 없거나 못 읽으면 예전처럼 함수에 물어봄
 let dartIdx = null, dartIdxP = null;
@@ -2232,14 +2235,15 @@ function openCompanyForm(cid = null) {
     const t0 = performance.now();
     // 함수 직접 호출과 요청 문서 길(Firestore 를 거쳐 같은 함수가 처리)을 같이 달려 먼저 온 답을 씀: 직접 호출이 막힌 환경에서 기다리는 시간을 없앰
     const ok = (x) => (x && x.corp_code ? x : null);
+    let via = "직접";
     const direct = dartCall({ code: it.corp_code, exact: it.exact, name: it.name, name_en: it.name_en || "", listed: !!it.listed }, 12000).then(ok);
     let o = await Promise.race([direct, new Promise((r) => setTimeout(() => r(null), 1200))]);
     if (!o) {
       const viaDoc = dartLookup(it.name, "", it.corp_code).then((r) => { const c = ok((r?.cands || []).find((c) => c.corp_code === it.corp_code)); if (c && !c.name_en) c.name_en = it.name_en || ""; return c; }).catch(() => null);
-      o = await new Promise((res) => { let left = 2; [direct, viaDoc].forEach((p) => p.then((v) => { left--; if (v || !left) res(v); })); });
+      o = await new Promise((res) => { let left = 2; [direct, viaDoc].forEach((p, i) => p.then((v) => { left--; if (v || !left) { if (v && i) via = "문서"; res(v); } })); });
     }
     if (!msg.isConnected) return;
-    if (o && o.corp_code) { fillFrom(o); msg.innerHTML = `DART에서 채웠습니다: <b>${esc(o.name)}</b> <span class="muted">${candLine(o)}</span> <span class="muted small">(${((performance.now() - t0) / 1000).toFixed(1)}초)</span>`; }
+    if (o && o.corp_code) { fillFrom(o); msg.innerHTML = `DART에서 채웠습니다: <b>${esc(o.name)}</b> <span class="muted">${candLine(o)}</span> <span class="muted small">(${((performance.now() - t0) / 1000).toFixed(1)}초 · ${via}${dartDiag ? ` · ${esc(dartDiag)}` : ""})</span>`; }
     else msg.innerHTML = `'${esc(it.name)}' 정보를 가져오지 못했습니다. 잠시 뒤 다시 고르거나 직접 적어 주세요.`;
   };
   const showCoSug = async () => {
