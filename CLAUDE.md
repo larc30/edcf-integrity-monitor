@@ -240,6 +240,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
   - DART 직접 호출 성공 뒤 남은 문제(2026-11-24, 재배포 뒤 '직접 · 200 0.2s · DART 100 잘못된 인증키(40자리)'): 직접 호출은 0.2초로 정상. 사업자번호·대표자가 비는 것은 함수의 Secret DART_API_KEY 값을 DART 가 거절해서(재배포 때 Secret 의 최신 판을 다시 읽음: 그 판에 줄바꿈·공백이 섞였거나 값이 다른 것으로 보임, 재배포 전에는 예전 판으로 동작했음). 조치: 함수가 키에서 영문·숫자가 아닌 글자를 떼고 씀(cleanKey), 거절되면 진단에 '등록된 키 N자' 표시(40자가 아니면 Secret 을 다시 넣어야 함: firebase functions:secrets:set DART_API_KEY → 재배포). 함수 재배포 필요.
 
+  - DART 함수가 한 번도 DART 를 못 불러왔던 이유(2026-11-24, 진단 '등록된 키 80자'): Firebase Secret DART_API_KEY 에 키가 80자로 들어가 있음(40자 키를 두 번 붙여 넣은 것으로 보임) → 함수의 DART 호출은 처음부터 모두 거절됐고, 그동안 화면에 채워진 사업자번호·대표자는 kickQueue 가 실패한 뒤 넘긴 GitHub Actions(파이썬, GitHub Secret 의 올바른 키)가 준 것 = 16~25초의 정체. 즉 느렸던 원인은 두 가지가 겹친 것: ① 직접 호출 500(기본 앱) ② 함수의 DART 키 오류. 조치: cleanKey 가 앞뒤 40자가 같으면 앞 40자만 씀(재배포 필요). 앞뒤가 다르면 Secret 을 다시 넣어야 함(firebase functions:secrets:set DART_API_KEY → 재배포).
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 
