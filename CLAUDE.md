@@ -236,6 +236,8 @@ projects{name,country,owner,created_at} · companies{name,name_en,aliases,catego
 
   - DART 상세 지연의 실제 단서(2026-11-24 진단 표시): 화면의 함수 직접 호출(dartFind)이 0.6초 만에 HTTP 500 으로 실패 → 요청 문서 길(16~25초)로만 답이 옴. 회사망·시간 초과가 아니라 함수 안에서 오류가 나는 것. 저장소 코드에서는 원인을 못 찾음(배포본과 다를 수 있음). 조치: 함수가 오류 이유를 돌려주게 함(functions dartFind 를 try 로 감싸 HttpsError internal + 이유, 로그에도) + 화면 진단에 그 이유 표시, 미리 깨우기 호출은 실패해도 직접 호출을 막지 않게(quiet). 함수 재배포 뒤 화면의 진단 줄 또는 Firebase 콘솔 > Functions > dartFind 로그로 원인 확인할 것. 원인이 잡히면 진단 표시는 초만 남기고 뺄 것.
 
+  - DART 직접 호출 500 의 원인 확정(2026-11-24, 함수가 돌려준 문구 'The default Firebase app does not exist'): functions adminDb 가 '앱이 하나도 없을 때만' initializeApp 을 불렀는데, onCall 함수에서는 Firebase 가 로그인 확인용 앱을 먼저 만들어 둬서 기본 앱이 안 만들어짐 → getFirestore() 실패. dartFind 는 처음 만든 날부터 직접 호출이 한 번도 성공한 적이 없었고(늘 요청 문서 길로 답이 옴), kickQueue 는 로그인 확인이 없어 정상이었음. 고침: 파일이 읽힐 때 initializeApp() 한 번. 함께: 상세 조회(detail)는 DART 응답을 못 받으면 한 번 더 시도하고 이유(why)를 돌려줌(재배포 직후 요청 문서 길에서 사업자번호·대표자가 빈 채로 온 사례 확인용). 함수 재배포 필요. 원인이 다 정리되면 화면의 진단 표시는 초만 남기고 뺄 것.
+
 ## API 연결 확인 (monitor/conncheck.py)
 - 설정 > 고급 > [연결 확인] → requests{task:'check'} → queue 에서 각 API를 가볍게 실제 호출(Claude는 models.list, 조달청은 없는 번호 조회) → meta/status.conn_check{at, results{키:{ok,msg}}}. 평소 '연결됨'은 키 등록 여부(마지막 스캔 기준)만.
 
