@@ -2647,9 +2647,13 @@ body.viewer #geoOnly { display: none; }
 @media (max-width: 1500px) { .gc:not(.still) .gc-cnt { display: none; } .gc:not(.still) .gc-h .badge { margin-left: auto; }
   .gc-h { flex-wrap: nowrap; gap: 6px; padding-left: 11px; padding-right: 11px; } .gc-h > * { flex: none; } .gc-h .gc-new { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; } }
 
-/* ===== 등급 칸(두 화면 같게): 이름 줄은 빼고 숫자·등급 이름을 크게. 누르면 오른쪽 창에 목록 (2026-11-25) ===== */
-#kboard .rk-names, #gboard .rk-names { display: none; }
-#kboard .rk, #gboard .rk { grid-template-columns: minmax(4.6rem, max-content) minmax(0, 1fr); padding-top: 15px; padding-bottom: 15px; }
-#kboard .rk-num, #gboard .rk-num { grid-row: auto; font-size: 2.6rem; }
-#kboard .rk.none .rk-num, #gboard .rk.none .rk-num { font-size: 2.6rem; }
-#kboard .rk-lv, #gboard .rk-lv { font-size: var(--fs-lg); }
+/* ===== 등급 칸(두 화면 같게): 경고·주의 줄은 등급 색을 옅게 깐 면(0이면 색 없음), 왼쪽 색 띠 없음, 이름은 '한 곳 외 N' 한 줄 · 정상은 숫자만 (2026-11-25) ===== */
+#kboard .rk, #gboard .rk { grid-template-columns: minmax(4.4rem, max-content) minmax(0, 1fr); margin: 6px 0 0; padding: 11px 14px; border: 1px solid transparent; border-radius: 12px; }
+#kboard .rk::before, #gboard .rk::before { display: none; }
+#kboard .rk.red.on, #gboard .rk.red.on, #kboard .rk.orange.on, #gboard .rk.orange.on { background: color-mix(in srgb, var(--c) 11%, transparent); border-color: color-mix(in srgb, var(--c) 32%, transparent); }
+#kboard .rk.red.on:hover, #gboard .rk.red.on:hover, #kboard .rk.orange.on:hover, #gboard .rk.orange.on:hover { background: color-mix(in srgb, var(--c) 17%, transparent); }
+#kboard .rk-num, #gboard .rk-num, #kboard .rk.none .rk-num, #gboard .rk.none .rk-num { font-size: 2.25rem; }
+#kboard .rk-lv, #gboard .rk-lv { font-size: var(--fs-md); }
+#kboard .rk-names, #gboard .rk-names { font-weight: 550; color: var(--text-2); }
+#kboard .rk.none .rk-names, #gboard .rk.none .rk-names, #kboard .rk-names.zero, #gboard .rk-names.zero { display: none; }
+#kboard .rk.none .rk-num, #gboard .rk.none .rk-num, #kboard .rk:not(.on) .rk-num, #gboard .rk:not(.on) .rk-num { grid-row: auto; }

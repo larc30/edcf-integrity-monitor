@@ -328,7 +328,7 @@ export async function renderGeo() {
   $("#gboard").innerHTML = `<div class="card-head"><h2>수원국 등급 ${info(tip)}</h2></div>`
     + ["red", "orange", "none"].map((lv) => {
       const l = byLv[lv];
-      const names = l.length ? l.map(cname).slice(0, 3).join(" · ") + (l.length > 3 ? ` 외 ${l.length - 3}` : "") : "해당 국가 없음";
+      const names = l.length ? cname(l[0]) + (l.length > 1 ? ` 외 ${l.length - 1}` : "") : "해당 국가 없음"; // 업체 화면과 같은 표기 (한 곳 + 외 N)
       return `<button class="rk ${lv} ${l.length ? "on" : ""} ${ui.lv === lv ? "sel" : ""}" data-glv="${lv}" ${l.length ? "" : "disabled"}>
         <div class="rk-num"><span>${l.length}</span><small>개국</small></div>
         <div class="rk-lv">${LEVEL[lv]}</div>
