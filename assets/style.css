@@ -1616,6 +1616,9 @@ html.lite .rk-trend .wk2 path.line { filter: none; }
 .zone-box { margin-top: .7em; }
 .zone-box label .muted { display: block; font-weight: 400; margin: .2em 0 .35em; word-break: keep-all; }
 /* 업체 추가: 업체명 옆 [DART에서 가져오기] */
+.dl-row { display: flex; gap: .5em; align-items: stretch; }
+.dl-row input { flex: 1; min-width: 0; }
+.dl-row .btn { white-space: nowrap; }
 .dl-res { font-size: var(--fs-sm); line-height: 1.5; padding: .6em .8em; border: 1px solid var(--line, rgba(148,163,184,.3)); border-radius: 8px; margin: -.2em 0 .4em; word-break: keep-all; }
 .dl-res .dp-opt { display: flex; gap: .5em; align-items: flex-start; margin-top: .35em; font-weight: 400; flex-direction: row; }
 .dl-res .dp-opt input { width: auto; margin-top: .25em; }
@@ -2390,7 +2393,8 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
    ===================================================================== */
 :root { --h-l: 2.5rem; --h-m: 2.125rem; --h-s: 1.75rem; --r-l: 10px; --r-m: 9px; --r-s: 8px; }
 /* 큰 것 */
-.page-head .head-actions .btn, .modal .actions .btn, .modal .modal .form input:not([type=checkbox]):not([type=radio]):not([type=file]), .modal .form select { height: var(--h-l); padding-top: 0; padding-bottom: 0; border-radius: var(--r-l); font-size: var(--fs-base); font-weight: 500; line-height: 1.2; box-sizing: border-box; }
+.page-head .head-actions .btn, .modal .actions .btn, .modal .dl-row .btn { height: var(--h-l); padding-top: 0; padding-bottom: 0; border-radius: var(--r-l); font-size: var(--fs-base); box-sizing: border-box; }
+.modal .form input:not([type=checkbox]):not([type=radio]):not([type=file]), .modal .form select { height: var(--h-l); padding-top: 0; padding-bottom: 0; border-radius: var(--r-l); font-size: var(--fs-base); font-weight: 500; line-height: 1.2; box-sizing: border-box; }
 .top-search input, .pj-side #sideSearch, .cv-btn { height: var(--h-l); box-sizing: border-box; border-radius: var(--r-l); }
 .top-search input, .pj-side #sideSearch { padding-top: 0; padding-bottom: 0; }
 /* 보통 */
@@ -2404,7 +2408,8 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 /* 작은 것 */
 .item-actions .btn.sm, .pbox-foot .btn.sm, .site-f .btn.sm { height: var(--h-s); padding: 0 .65rem; border-radius: var(--r-s); }
 .btn.sm.dart-re { padding: 0; width: var(--h-l); }
-.modal /* 작은 주 버튼: 강조색 면 */
+.modal .dl-row .btn.sm { height: var(--h-l); border-radius: var(--r-l); }
+/* 작은 주 버튼: 강조색 면 */
 .btn.sm.primary { background: var(--accent-soft); color: var(--accent); border-color: transparent; box-shadow: none; font-weight: 650; }
 :root:not([data-theme="light"]) .btn.sm.primary { color: #AEB3FF; }
 .btn.sm.primary:hover { background: color-mix(in srgb, var(--accent) 26%, transparent); border-color: transparent; box-shadow: none; filter: none; }
@@ -2487,7 +2492,8 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 @media (max-width: 640px) { .ev-acts { margin-left: 0; flex-basis: 100%; } .ev-no-row { grid-template-columns: 1fr auto; } .ev-no-row .r { display: none; } }
 
 /* 팝업 입력 창: 업체명 칸과 버튼 사이 간격을 두 칸 사이 간격과 같게, 아직 고르지 않은 고르기 칸은 입력칸 안내 글자와 같은 흐린 색 */
-.modal .modal form select:has(option[value=""]:checked) { color: var(--muted); }
+.modal .dl-row { gap: 10px; }
+.modal form select:has(option[value=""]:checked) { color: var(--muted); }
 .modal form select option { color: var(--text); }
 
 #nameNote .btn { height: var(--h-s); margin-left: 6px; vertical-align: middle; }
@@ -2721,3 +2727,20 @@ body.viewer #geoOnly { display: none; }
   .dash:not(.geo-dash) .radar { max-width: min(100%, 430px); }
 }
 .guide-new { font-size: var(--fs-xs); padding: 0 .4em; }
+/* 왼쪽 칸 (2026-11-25): 업체 등급 카드는 수원국 등급 카드와 같은 높이 · 최근 7일은 따로 카드(남는 높이를 채움) · 범례는 그래프 아래 */
+.dash:not(.geo-dash) .d-risk .risk-card { flex: 0 0 auto; }
+#kboard { padding-bottom: 16px; }
+.wk-card { flex: 1 1 auto; margin: 0; padding: 20px; display: flex; flex-direction: column; }
+.wk-card .card-head { margin-bottom: 6px; }
+.wk-card .wk-sub { font-size: var(--fs-xs); color: var(--muted); font-weight: 500; }
+.wk-card .rk-trend { flex: 1; display: flex; align-items: center; margin: 0; padding: 0; border: 0; }
+.wk-leg { display: flex; justify-content: center; gap: 1.2em; margin-top: 6px; font-size: var(--fs-xs); color: var(--muted); }
+.wk-leg span { display: inline-flex; align-items: center; gap: .4em; }
+.wk-leg .lg { width: 8px; height: 8px; border-radius: 50%; }
+.wk-leg .lg.red { background: var(--red); } .wk-leg .lg.orange { background: var(--orange); }
+/* 사업 카드: 경고·주의 업체만 이름 + 역할 */
+#projectMap .pj-hot { display: flex; flex-wrap: wrap; gap: 5px 6px; }
+#projectMap .pj-hot:empty { display: none; }
+#projectMap .pj-hot .cchip small { font-weight: 600; margin-left: 2px; }
+#kboard .rk, #gboard .rk { min-height: 4.3rem; box-sizing: border-box; } /* 두 화면의 등급 줄 높이를 똑같이 */
+@media (min-width: 1101px) { .dash:not(.geo-dash), .dash.geo-dash { grid-template-rows: auto minmax(40.5rem, auto) auto; } } /* 두 화면의 윗줄 높이를 똑같이 */

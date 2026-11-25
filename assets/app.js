@@ -606,25 +606,24 @@ function renderHome() {
   const spark = () => {
     if (!sc) return "";
     const wk = Array.from({ length: 7 }, (_, i) => newByDay(6 - i)), max = Math.max(...wk.map((x) => Math.max(x.r, x.o)), 1), WD = "일월화수목금토";
-    const LH = matchMedia("(min-width: 1101px)").matches ? 74 : 50; // 세 칸 배치에서는 줄 높이를 키움 (윗줄 높이를 수원국 화면과 맞춤)
-    const W = 300, H = LH * 2 + 18, L0 = 42, R0 = 14, X = (i) => L0 + (i / 6) * (W - L0 - R0);
+    const LH = 56, W = 300, H = LH * 2 + 18, L0 = 20, R0 = 20, X = (i) => L0 + (i / 6) * (W - L0 - R0); // 좌우 여백 같게 (범례는 그래프 아래로)
     const dayN = (i) => { const d = new Date(Date.now() - (6 - i) * DAY); return i === 6 ? "오늘" : WD[d.getDay()]; };
     const lane = (k, name, top) => {
       const base = top + LH - 6, Y = (v) => base - (v / max) * (LH - 28), P = wk.map((x, i) => [X(i), Y(x[k])]);
       const d = P.map(([x, y], i) => { if (!i) return `M${x.toFixed(1)},${y.toFixed(1)}`; const [px0, py0] = P[i - 1], mx = ((px0 + x) / 2).toFixed(1); return `C${mx},${py0.toFixed(1)} ${mx},${y.toFixed(1)} ${x.toFixed(1)},${y.toFixed(1)}`; }).join("");
       const area = `${d}L${X(6).toFixed(1)},${base}L${X(0).toFixed(1)},${base}Z`;
       const dots = P.map(([x, y], i) => `<g class="pt ${i === 6 ? "now" : ""}"><title>${dayN(i)} 새 ${name} ${wk[i][k]}건</title>${i === 6 ? `<circle class="halo ${k}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7"/>` : ""}<circle class="dot ${k}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${i === 6 ? 3.8 : 2.2}"/><text class="val ${i === 6 ? "now" : ""} ${wk[i][k] ? "" : "zero"}" x="${x.toFixed(1)}" y="${(y - 7).toFixed(1)}">${wk[i][k]}</text></g>`).join("");
-      return `<line class="base" x1="${L0 - 6}" x2="${W - R0 + 6}" y1="${base}" y2="${base}"/>
-        <text class="ln" x="0" y="${(base - 4).toFixed(1)}"><tspan class="sw ${k}">●</tspan> ${name}</text>
+      return `<line class="base" x1="${L0 - 14}" x2="${W - R0 + 14}" y1="${base}" y2="${base}"/>
         <path class="area ${k}" d="${area}" fill="url(#wkg-${k})"/><path class="line ${k}" d="${d}"/>${dots}`;
     };
     const days = wk.map((_, i) => `<text class="day ${i === 6 ? "now" : ""}" x="${X(i).toFixed(1)}" y="${H - 3}">${dayN(i)}</text>`).join("");
-    return `<div class="rk-trend"><div class="rk-trend-h"><span>최근 7일</span><span class="wk-sub">새로 잡힌 경고·주의 (건)</span></div>
-      <svg class="wk2" viewBox="0 0 ${W} ${H}" role="img" aria-label="최근 7일 새로 잡힌 경고 ${wk.map((x) => x.r).join(", ")}건, 주의 ${wk.map((x) => x.o).join(", ")}건">
+    return `<div class="card-head"><h2>최근 7일</h2><span class="wk-sub">새로 잡힌 이슈</span></div>
+      <div class="rk-trend"><svg class="wk2" viewBox="0 0 ${W} ${H}" role="img" aria-label="최근 7일 새로 잡힌 경고 ${wk.map((x) => x.r).join(", ")}건, 주의 ${wk.map((x) => x.o).join(", ")}건">
         <defs><linearGradient id="wkg-r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--red)" stop-opacity=".38"/><stop offset="1" stop-color="var(--red)" stop-opacity="0"/></linearGradient>
         <linearGradient id="wkg-o" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--orange)" stop-opacity=".38"/><stop offset="1" stop-color="var(--orange)" stop-opacity="0"/></linearGradient></defs>
         <rect class="today" x="${(X(6) - 15).toFixed(1)}" y="2" width="30" height="${H - 4}" rx="8"/>
-        ${lane("r", "경고", 0)}${lane("o", "주의", LH)}${days}</svg></div>`;
+        ${lane("r", "경고", 0)}${lane("o", "주의", LH)}${days}</svg></div>
+      <div class="wk-leg"><span><i class="lg red"></i>경고</span><span><i class="lg orange"></i>주의</span></div>`;
   };
   $("#kboard").innerHTML = `<div class="card-head"><h2>업체 등급 ${info(levelTip())}</h2>${sc ? "" : `<span class="muted small">스캔 전</span>`}</div>`
     + ["red", "orange", "none"].map((lv) => {
@@ -633,7 +632,8 @@ function renderHome() {
         <div class="rk-num">${sc ? `<span data-count="${l.length}">0</span>` : "-"}</div>
         <div class="rk-lv">${LEVEL[lv]}${delta(lv)}</div>
         <div class="rk-names ${sc && l.length && lv !== "none" ? "" : "zero"}">${!sc ? "스캔 전" : lv === "none" ? (l.length ? `이슈 없음${l.filter((c) => c.ref).length ? ` · 참고 ${l.filter((c) => c.ref).length}` : ""}` : "해당 업체 없음") : l.length ? esc(who(l)) : "해당 업체 없음"}</div></button>`;
-    }).join("") + spark();
+    }).join("");
+  { const wk = spark(); $("#wkCard").innerHTML = wk; $("#wkCard").classList.toggle("hidden", !wk); }
   // ② 공식 제재 명단 대조: 출처별(EXIMIIS·조달청·MDB) 현황만: 아래 이슈 목록과 겹치지 않게
   const off = state.findings.filter((f) => ids.has(f.company_id) && f.source_type !== "news" && f.status !== "dismissed");
   const oc = { edcf: [new Set(), new Set()], pps: [new Set(), new Set()], mdb: [new Set(), new Set()] }; // [지금 제재 중, 그 밖]
@@ -700,7 +700,7 @@ function renderHome() {
 
   renderJob(); checkSmooth();
 }
-// 사업 카드: 제목 줄 오른쪽에 등급별 업체 수, 그 아래 역할별 업체. line = 이상 없는 사업은 한 줄(사업명 · 업체 수)
+// 사업 카드: 제목 줄 오른쪽에 등급별 업체 수, 그 아래 경고·주의 업체(이름 + 역할). line = 이상 없는 사업은 한 줄(사업명 · 업체 수)
 function projectRow(p, line = false) {
   const rows = [];
   for (const c of state.companies) c.engagements.forEach((e) => { if (e.project_id === p.id) rows.push({ c, e }); });
@@ -709,13 +709,16 @@ function projectRow(p, line = false) {
   new Set(rows.map((r) => r.c)).forEach((c) => t[c.risk]++);
   const total = t.red + t.orange + t.none;
   const hot = sc ? ["red", "orange"].filter((lv) => t[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${t[lv]}</span>`).join("") : "";
-  const sum = hot ? hot + `<span class="tot">/ ${total}</span>` : `<span class="tot">업체 ${total}${sc || !total ? "" : " · 스캔 전"}</span>`;
+  const sum = hot + `<span class="tot">업체 ${total}${sc || !total ? "" : " · 스캔 전"}</span>`;
+  const seen = new Set(), flagged = !sc ? [] : rows.filter(({ c, e }) => (c.risk === "red" || c.risk === "orange") && !seen.has(c.id + e.role) && seen.add(c.id + e.role))
+    .sort((a, b) => (a.c.risk === "red" ? 0 : 1) - (b.c.risk === "red" ? 0 : 1));
+  const chips = flagged.map(({ c, e }) => `<span class="cchip ${c.risk}" data-cid="${c.id}" title="${esc(c.name)} · ${LEVEL[c.risk]}"><span class="dot ${c.risk}"></span>${esc(c.name)}<small>${esc([e.role, e.rank ? e.rank + "순위" : e.stage && e.stage !== "계약" ? e.stage : ""].filter(Boolean).join(" · "))}</small></span>`).join("");
   const cn = p.country ? COUNTRY[p.country] || p.country : "", ctry = cn && !p.name.includes(cn) ? `<span class="pj-ctry">${esc(cn)}</span>` : ""; // 나라는 사업명에 없을 때만
   const top = `<span class="pj-name" title="${esc(p.name)}">${esc(p.name)}</span>${ctry}<span class="pj-sum">${sum}</span>`;
   if (line) return `<div class="pj ln" data-pid="${p.id}">${top}</div>`;
   return `<div class="pj" data-pid="${p.id}">
     <div class="pj-top">${top}</div>
-    <div class="pj-roles">${pjRoles(rows, sc, true)}</div>
+    ${sc ? `<div class="pj-hot">${chips}</div>` : `<div class="pj-roles">${pjRoles(rows, sc, true)}</div>`}
   </div>`;
 }
 // 사업 카드 안 업체: 역할(F/S → 컨설턴트 → 본구매)별로 한 줄씩: 역할이 섞여 보이지 않게
