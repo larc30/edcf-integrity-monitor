@@ -690,7 +690,7 @@ function renderHome() {
     : (tl[b.id].red - tl[a.id].red) || (tl[b.id].orange - tl[a.id].orange) || a.name.localeCompare(b.name));
   // 경고·주의 업체가 있는 사업만 카드로, 나머지는 '이상 없음 N' 아래 한 줄씩 (수원국 목록의 '변동 없음'과 같은 틀)
   const hotP = !sc ? psSorted : psSorted.filter((p) => tl[p.id].red + tl[p.id].orange), calmP = !sc ? [] : psSorted.filter((p) => !(tl[p.id].red + tl[p.id].orange));
-  $("#projectMap").innerHTML = ((sc && hotP.length ? `<div class="pj-sec">경고·주의 사업 ${hotP.length}</div>` : "") + hotP.map((p) => projectRow(p)).join("") + (calmP.length ? `<div class="pj-sec">이상 없는 사업 ${calmP.length}</div>` + calmP.map((p) => projectRow(p, true)).join("") : ""))
+  $("#projectMap").innerHTML = ((sc && hotP.length ? `<div class="pj-sec">경고·주의 업체 있음 ${hotP.length}</div>` : "") + hotP.map((p) => projectRow(p)).join("") + (calmP.length ? `<div class="pj-sec">경고·주의 업체 없음 ${calmP.length}</div>` + calmP.map((p) => projectRow(p, true)).join("") : ""))
     || `<div class="empty small">${scope === "mine" ? "내가 담당하는 사업이 없습니다." : "등록된 사업이 없습니다."}</div>`;
   // 사업이 적어 칸이 많이 남으면 칸을 내용 높이까지만 (많으면 이슈 목록 끝까지 채우고 안에서 스크롤)
   { const pl = $("#projectMap"), card = pl.closest(".d-projects"); card.classList.remove("fit"); requestAnimationFrame(() => { const last = pl.lastElementChild; card.classList.toggle("fit", !!last && pl.clientHeight > 0 && last.getBoundingClientRect().bottom - pl.getBoundingClientRect().top < pl.clientHeight - 60); }); }
