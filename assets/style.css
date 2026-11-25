@@ -2685,3 +2685,6 @@ body.viewer #geoOnly { display: none; }
 .gl-sum .red { color: var(--red); } .gl-sum .orange { color: var(--orange); } .gl-sum .none { color: var(--green); }
 .cpin.loose { border-style: dashed; } .cpin.loose.red, .cpin.loose.orange { background: color-mix(in srgb, var(--c) 30%, var(--panel-solid)); border-color: var(--c); color: var(--text); }
 .cpin.dim { opacity: .4; }
+/* 지도 이름 정리: 나라 핀 아래에 나라 이름 · 멀리서는 도시 이름을 숨김 */
+.cpn { position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); white-space: nowrap; pointer-events: none; font-size: var(--fs-xs); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--map-name); }
+#geoMap.far .cn.city { display: none; }

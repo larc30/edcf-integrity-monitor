@@ -143,6 +143,62 @@ def classify(text: str) -> str | None:
     return None
 
 
+_CITIES: dict | None = None
+
+
+def _cities(code: str) -> list:
+    """그 나라의 도시 목록 [[영문, 위도, 경도, 한글], ...] (assets/cities.json · GeoNames, 화면의 도시 찾기와 같은 파일)"""
+    global _CITIES
+    if _CITIES is None:
+        try:
+            from pathlib import Path
+            _CITIES = json.loads((Path(__file__).resolve().parent.parent / "assets" / "cities.json").read_text(encoding="utf-8"))
+        except Exception:
+            _CITIES = {}
+    return _CITIES.get(code) or []
+
+
+def _norm_place(s: str) -> str:
+    return re.sub(r"[^a-z0-9가-힣]", "", str(s or "").lower())
+
+
+def locate(code: str, title: str = "", place: str = "") -> tuple[float, float, str] | None:
+    """사건이 일어난 곳 찾기. 제목 속 도시 이름(한글) → AI 가 적어 준 지명(영어) 순. 못 찾으면 None (나라 한가운데에 임의로 찍지 않음)"""
+    city = next((c for c in CITY if c in title), None)
+    if city:
+        return (CITY[city][0], CITY[city][1], city)
+    rows = _cities(code)
+    # 제목 속 한글 도시 이름 (세 글자 이상만: 짧은 이름은 다른 낱말과 겹침)
+    ko = sorted(((r[3], r) for r in rows if len(r) > 3 and len(str(r[3])) >= 3 and str(r[3]) in title), key=lambda x: -len(x[0]))
+    if ko:
+        r = ko[0][1]
+        return (r[1], r[2], r[3])
+    if place:
+        by = {_norm_place(r[0]): r for r in reversed(rows)}  # 같은 이름이면 앞쪽(큰 도시)
+        for part in [place] + [p for p in re.split(r"[,/·]| and ", place) if p.strip()]:
+            bare = _norm_place(re.sub(r"\b(city|province|regency|district|state|region|prefecture|county|island)\b", "", part, flags=re.I))
+            for key in (_norm_place(part), bare, bare + "city"):  # 'Cebu City' ↔ 'Cebu' 어느 쪽으로 적혀도
+                if key and key in by:
+                    r = by[key]
+                    return (r[1], r[2], r[0])
+    return None
+
+
+def _place_event(e: dict, place: str = "") -> None:
+    """뉴스 사건의 자리: 찾으면 그 도시, 못 찾으면 '나라 단위'(noloc · country_level = 거리 규칙에서 빠지고 지도에 찍지 않음)"""
+    code = e.get("country")
+    hit = locate(code, e.get("title") or "", place or e.get("place_ai") or "") if code in COUNTRY else None
+    if place:
+        e["place_ai"] = place
+    if hit:
+        e.update(lat=hit[0], lng=hit[1], place=hit[2], loc="city")
+        e.pop("noloc", None)
+        e.pop("country_level", None)
+    elif code in COUNTRY:
+        e.update(lat=COUNTRY[code][2], lng=COUNTRY[code][3], loc="none", noloc=True, country_level=True)
+        e.pop("place", None)
+
+
 def _jitter(key: str, base: tuple[float, float]) -> tuple[float, float]:
     """같은 나라 기사들이 한 점에 겹치지 않게 (주소로 정해지는 작은 이동)"""
     h = int(hashlib.md5(key.encode()).hexdigest()[:8], 16)
@@ -417,12 +473,12 @@ def news_events(codes: list[str], gnews=news.google_news, naver=news.naver_news)
             if not kind or ms < since or key in seen:
                 continue
             seen.add(key)
-            city = next((c for c in CITY if c in title), None)
-            base = CITY[city] if city else (COUNTRY[code][2], COUNTRY[code][3])
-            lat, lng = _jitter(it.get("url") or title, base) if not city else base
-            out.append({"id": "news-" + hashlib.md5((it.get("url") or title).encode()).hexdigest()[:12], "type": kind, "country": code,
-                        "lat": lat, "lng": lng, "title": title[:140], "url": it.get("url") or "", "at_ms": ms,
-                        "source": f"{it.get('via') or '뉴스'} · {it.get('source_name') or ''}".strip(" ·")})
+            # 자리는 제목 속 도시 이름으로. 없으면 나라 단위로 두고, AI 판정 때 지명을 받으면 그때 옮김 (예전: 나라 한가운데 둘레에 임의로 찍어 거리 근거가 엉뚱했음)
+            ev = {"id": "news-" + hashlib.md5((it.get("url") or title).encode()).hexdigest()[:12], "type": kind, "country": code,
+                  "title": title[:140], "url": it.get("url") or "", "at_ms": ms,
+                  "source": f"{it.get('via') or '뉴스'} · {it.get('source_name') or ''}".strip(" ·")}
+            _place_event(ev)
+            out.append(ev)
     return out, errors
 
 
@@ -524,6 +580,12 @@ def update(projects: list[dict] | None = None, get=httpx.get, gnews=news.google_
             merged[e["id"]] = e
     for i in rv_no:  # 관련 없음으로 처리한 것은 뺌 (공식 자료 포함)
         merged.pop(i, None)
+    # 예전 방식으로 저장된 뉴스 사건(자리 표시 loc 가 없음 = 나라 한가운데 둘레에 임의로 찍힌 것일 수 있음)은 자리를 다시 잡음
+    for e in merged.values():
+        if str(e.get("id", "")).startswith("news-") and not e.get("loc"):
+            _place_event(e)
+    res["located"] = sum(1 for e in merged.values() if e.get("loc") == "city")
+    res["noloc"] = sum(1 for e in merged.values() if e.get("noloc"))
     # 최종 판정은 AI: 단어로 잡은 뉴스 가운데 아직 판정하지 않은 것 (한 번에 최근 60건까지, 나머지는 다음 실행에)
     from . import analyzer
     # 예전 지침으로 판정한 것(ai_v 가 낮음)도 한 번 다시 판정
@@ -551,6 +613,7 @@ def update(projects: list[dict] | None = None, get=httpx.get, gnews=news.google_
                 dropped2 += 1 if v.get("reviewed_out") else 0
             else:
                 e.update(ai=True, ai_v=analyzer.EVENT_AI_V, note=v["note"], **({"type": v["type"]} if v["type"] in analyzer.EVENT_TYPES else {}))
+                _place_event(e, v.get("place") or "")  # AI 가 제목에서 읽은 지명으로 자리를 다시 잡음
                 kept += 1
         # 같은 사건: 대표(root) 이벤트 id 를 same 에 적음 → 화면이 하나로 묶어 보여 줌 (나라가 같을 때만)
         for i, e in enumerate(todo):
