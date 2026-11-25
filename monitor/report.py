@@ -137,18 +137,19 @@ def build() -> tuple[str, str, list[str]]:
     hot.sort(key=lambda g: str(g[0].get("published_at") or ""), reverse=True)
     hot.sort(key=lambda g: -LEVEL_ORDER.get(g[0].get("level"), 0))
     official = [g for g in hot if g[0].get("source_type") != "news"]
-    # 같은 업체·같은 분류 뉴스를 최근 7일 안에 이미 보냈으면 생략 (등급이 더 높아졌으면 보냄) · 대시보드에는 그대로 남음
+    # 같은 업체의 뉴스를 최근 7일 안에 이미 보냈으면 생략 (등급이 더 높아졌으면 보냄) · 대시보드에는 그대로 남음
+    # (2026-11-25: 분류까지 같아야 생략했더니, 같은 사건 기사가 날마다 다른 분류(담합 / 과징금·행정처분)로 잡혀 계속 나갔음 → 업체 기준으로)
     week = (now - datetime.timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
     sent = {}
     for f in finds:
         if f.get("source_type") == "news" and str(f.get("reported_at") or "") >= week:
-            k = (f["company_id"], f.get("category") or "")
+            k = f["company_id"]
             sent[k] = max(sent.get(k, 0), LEVEL_ORDER.get(f.get("level"), 0))
     repeat = 0
     news_g, seen_key = [], {}
     for g in (g for g in hot if g[0].get("source_type") == "news"):
         lv = LEVEL_ORDER.get(g[0].get("level"), 0)
-        if all(sent.get((cid, g[0].get("category") or ""), -1) >= lv for cid in dict.fromkeys(f["company_id"] for f in g)):
+        if all(sent.get(cid, -1) >= lv for cid in dict.fromkeys(f["company_id"] for f in g)):
             repeat += 1
             continue
         k = (tuple(sorted(grouping.companies_of(g))), g[0].get("category") or g[0].get("title"))
@@ -173,6 +174,9 @@ def build() -> tuple[str, str, list[str]]:
     prev = next((days[d] for d in sorted(days, reverse=True) if d < today), None)
     def delta(lv, n):
         if not prev or lv not in prev:
+            return ""
+        # 세는 범위가 바뀐 날(예: 전체 업체 → 진행 중 사업 참여 업체)은 전날과 비교하지 않음: '전일 −100' 같은 숫자가 나옴
+        if abs(sum(int(prev.get(k) or 0) for k in ("red", "orange", "none")) - len(overview)) > max(5, len(overview) * 0.1):
             return ""
         d = n - int(prev.get(lv) or 0)
         return "" if d == 0 else f' <span style="font-size:12px;font-weight:700;color:{MUTED};white-space:nowrap;">전일 {"+" if d > 0 else "−"}{abs(d)}</span>'
