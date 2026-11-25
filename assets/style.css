@@ -2651,5 +2651,5 @@ body.viewer #geoOnly { display: none; }
 #kboard .rk-names, #gboard .rk-names { display: none; }
 #kboard .rk, #gboard .rk { grid-template-columns: minmax(4.6rem, max-content) minmax(0, 1fr); padding-top: 15px; padding-bottom: 15px; }
 #kboard .rk-num, #gboard .rk-num { grid-row: auto; font-size: 2.6rem; }
-#kboard .rk.none .rk-num, #gboard .rk.none .rk-num { font-size: 2rem; }
+#kboard .rk.none .rk-num, #gboard .rk.none .rk-num { font-size: 2.6rem; }
 #kboard .rk-lv, #gboard .rk-lv { font-size: var(--fs-lg); }
