@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>EDCF RADAR 레이아웃 시안</title>
+<link rel="stylesheet" href="mock.css">
+</head>
+<body>
+<!-- 레이아웃 시안 (예시 데이터만, 실제 화면·Firestore 와 무관). 업체명·사건은 모두 지어낸 것 -->
+<header class="top">
+  <b class="logo">EDCF <i>RADAR</i></b>
+  <div class="sw" id="sw"><button data-v="co" class="on">업체 리스크</button><button data-v="geo">수원국 리스크</button></div>
+  <input class="find" placeholder="업체명 · 사업자번호 검색">
+  <span class="sp"></span>
+  <span class="demo">시안 · 예시 데이터</span>
+  <button class="adm">관리자 모드</button>
+</header>
+
+<main id="co"></main>
+<main id="geo" hidden></main>
+
+<div class="dw-bg" id="dwBg"><aside class="dw" id="dw"></aside></div>
+
+<script src="data.js"></script>
+<script src="mock.js"></script>
+</body>
+</html>
