@@ -107,7 +107,7 @@ def process_queue() -> int:
         linked = any(r.get("task") in ("quick", "daily") for r in scans)
         scope = "all" if everyone else ("linked+" if names else "linked") if linked else "linked"
         light = linked and not everyone and not any(r.get("task") == "daily" for r in scans)
-        full = everyone or linked  # 업체 몇 곳만이 아니면 수원국 수집도 함께
+        full = everyone or any(r.get("task") == "daily" for r in scans)  # 수원국 수집을 함께 하는 것은 아침 스캔 · 전체 업체 스캔만 (업체 화면의 [지금 스캔]은 업체만, 수원국은 수원국 화면의 [지금 스캔] = task geo)
         last = {"p": 0.0, "s": 0.0, "stop": False}
 
         def progress(done, total, current):
@@ -133,7 +133,7 @@ def process_queue() -> int:
             return False
 
         try:
-            # [지금 스캔]은 업체·수원국 리스크를 함께: 수원국 수집은 업체 스캔과 동시에 돌림
+            # 아침 스캔 · 전체 업체 스캔은 업체·수원국을 함께: 수원국 수집은 업체 스캔과 동시에 돌림
             geo_err, geo_th = [], None
             if full:
                 def _geo():
