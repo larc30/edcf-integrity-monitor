@@ -2637,3 +2637,12 @@ body.viewer #geoOnly { display: none; }
 .gl-sec:first-child { margin-top: 0; }
 .gc.still { background: none; } .gc.still .gc-h { padding: 7px 13px; } .gc.still .gc-n { font-weight: 600; color: var(--text-2); }
 .gl-top .gc-new { margin-left: 2px; }
+
+/* ===== 왼쪽 칸을 두 화면 똑같이 좁힘: 업체는 그만큼 레이더 칸·레이더를 키우고, 수원국은 지도에 (2026-11-25) ===== */
+@media (min-width: 1101px) {
+  .dash:not(.geo-dash) { grid-template-columns: minmax(17.5em, 2.2fr) minmax(0, 4.1fr) minmax(0, 5.7fr); }
+  .geo-dash { grid-template-columns: minmax(17.5em, 2.2fr) minmax(0, 5.8fr) minmax(0, 4fr); }
+  .dash:not(.geo-dash) .radar { max-width: min(100%, 360px); }
+}
+@media (max-width: 1500px) { .gc:not(.still) .gc-cnt { display: none; } .gc:not(.still) .gc-h .badge { margin-left: auto; }
+  .gc-h { flex-wrap: nowrap; gap: 6px; padding-left: 11px; padding-right: 11px; } .gc-h > * { flex: none; } .gc-h .gc-new { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; } }
