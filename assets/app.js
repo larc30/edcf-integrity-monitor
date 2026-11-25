@@ -1630,7 +1630,6 @@ function renderJob() {
   const g = $("#geoJobState"); if (g) g.innerHTML = $("#jobState").innerHTML; // 수원국 화면에도 같은 진행 표시
   const busy = !!(state.job && !state.job.done);
   $("#geoScan").disabled = busy; $("#geoScan").classList.toggle("busy", busy);
-  $("#geoOnly").disabled = busy;
 }
 function renderJob0() {
   const j = state.job, el = $("#jobState");
@@ -3498,8 +3497,7 @@ initGeo({
   setScope: (v) => { scope = v; try { localStorage.setItem("edcf_scope2", scope); } catch {} },
   companyTally: (pid) => { const t = { red: 0, orange: 0, none: 0, total: 0 }; state.companies.forEach((c) => { if (c.engagements.some((e) => e.project_id === pid)) { t[scanned() ? c.risk : "none"]++; t.total++; } }); return t; },
 });
-$("#geoScan").onclick = () => $("#btnScan").click(); // 같은 스캔 (업체·수원국 정보를 함께 새로 받음)
-$("#geoOnly").onclick = () => runWorkflow({ task: "geo" }, "수원국 갱신"); // 수원국 정보만 새로 받음 (업체 스캔 없음)
+$("#geoScan").onclick = () => runWorkflow({ task: "geo" }, "수원국 스캔"); // 수원국 화면의 [지금 스캔] = 수원국만 (업체 화면의 [지금 스캔] = 업체만)
 
 // 계정 메뉴: 바깥을 누르면 닫힘
 document.addEventListener("click", (e) => { const a = $("#acct"); if (a?.open && !a.contains(e.target)) a.open = false; });

@@ -2666,3 +2666,10 @@ body.viewer #geoOnly { display: none; }
 .cpin { --c: var(--green); width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--panel-solid); border: 2.5px solid var(--c); box-shadow: 0 2px 8px rgba(0, 0, 0, .4); color: var(--text); font-size: var(--fs-xs); font-weight: 800; font-variant-numeric: tabular-nums; cursor: pointer; }
 .cpin.red { --c: var(--red); } .cpin.orange { --c: var(--orange); }
 .cpin:hover { background: color-mix(in srgb, var(--c) 22%, var(--panel-solid)); }
+/* 나라 핀 2차: 정상은 작고 흐리게, 경고·주의는 등급 색을 채워 또렷하게 · 멀리서는 사건 아이콘 숨김 */
+.cpin { width: 100%; height: 100%; }
+.cpin.none { border-width: 2px; border-color: color-mix(in srgb, var(--green) 60%, transparent); color: var(--text-2); font-weight: 700; box-shadow: none; }
+.cpin.red, .cpin.orange { background: var(--c); border-color: color-mix(in srgb, #fff 85%, transparent); border-width: 2px; }
+.cpin.red { color: #fff; } .cpin.orange { color: #2B1400; }
+.cpin.red:hover, .cpin.orange:hover { background: color-mix(in srgb, var(--c) 85%, #fff); }
+#geoMap.far .gev { display: none; }
