@@ -2721,3 +2721,20 @@ body.viewer #geoOnly { display: none; }
   .dash:not(.geo-dash) .radar { max-width: min(100%, 430px); }
 }
 .guide-new { font-size: var(--fs-xs); padding: 0 .4em; }
+/* 왼쪽 칸 (2026-11-25): 업체 등급 카드는 수원국 등급 카드와 같은 높이 · 최근 7일은 따로 카드(남는 높이를 채움) · 범례는 그래프 아래 */
+.dash:not(.geo-dash) .d-risk .risk-card { flex: 0 0 auto; }
+#kboard { padding-bottom: 16px; }
+.wk-card { flex: 1 1 auto; margin: 0; padding: 20px; display: flex; flex-direction: column; }
+.wk-card .card-head { margin-bottom: 6px; }
+.wk-card .wk-sub { font-size: var(--fs-xs); color: var(--muted); font-weight: 500; }
+.wk-card .rk-trend { flex: 1; display: flex; align-items: center; margin: 0; padding: 0; border: 0; }
+.wk-leg { display: flex; justify-content: center; gap: 1.2em; margin-top: 6px; font-size: var(--fs-xs); color: var(--muted); }
+.wk-leg span { display: inline-flex; align-items: center; gap: .4em; }
+.wk-leg .lg { width: 8px; height: 8px; border-radius: 50%; }
+.wk-leg .lg.red { background: var(--red); } .wk-leg .lg.orange { background: var(--orange); }
+/* 사업 카드: 경고·주의 업체만 이름 + 역할 */
+#projectMap .pj-hot { display: flex; flex-wrap: wrap; gap: 5px 6px; }
+#projectMap .pj-hot:empty { display: none; }
+#projectMap .pj-hot .cchip small { font-weight: 600; margin-left: 2px; }
+#kboard .rk, #gboard .rk { min-height: 4.3rem; box-sizing: border-box; } /* 두 화면의 등급 줄 높이를 똑같이 */
+@media (min-width: 1101px) { .dash:not(.geo-dash), .dash.geo-dash { grid-template-rows: auto minmax(40.5rem, auto) auto; } } /* 두 화면의 윗줄 높이를 똑같이 */
