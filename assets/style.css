@@ -2757,3 +2757,7 @@ body.viewer #geoOnly { display: none; }
 /* 등급 설명 풍선: 배지를 설명 첫 줄에 맞춤 (두 줄 설명의 가운데에 걸리던 것) */
 .tip-grid.lv { align-items: start; }
 .tip-grid.lv > span:nth-child(odd) { display: flex; align-items: center; min-height: 1.5em; }
+/* '사업지 미지정' 핀 (2026-11-25): 나라 핀과 헷갈리지 않게 등급 색 없이 회색 점선 · 아래 글자는 나라 이름 대신 '미지정' */
+.cpin.loose { background: var(--panel-solid); border: 2px dashed color-mix(in srgb, var(--text) 45%, transparent); color: var(--text-2); font-weight: 700; box-shadow: none; }
+.cpin.loose:hover { background: color-mix(in srgb, var(--text) 10%, var(--panel-solid)); }
+.cpn.loose { letter-spacing: 0; font-weight: 700; color: var(--muted); text-transform: none; }
