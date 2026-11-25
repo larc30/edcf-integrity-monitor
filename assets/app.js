@@ -505,31 +505,34 @@ function renderRadar(cs) {
 function fixLabels() {
   const el = $("#radar");
   if (!el || !el.offsetWidth) return;
-  const box = el.closest(".d-radar").getBoundingClientRect(), placed = [];
+  // 화면에서는 한 번만 재고(이름표·점 위치) 자리는 계산으로 정한 뒤 한꺼번에 반영
+  // (예전에는 이름표마다 옮기고 다시 재서 그때마다 화면 배치를 다시 계산했음: 느린 PC 에서 화면을 열 때 한참 멈춤)
+  const labels = $$(".rlabel", el);
+  labels.forEach((lb) => { lb.style.marginTop = "0px"; lb.style.marginLeft = "0px"; });
+  const box = el.closest(".d-radar").getBoundingClientRect(), R = el.getBoundingClientRect();
+  const rects = labels.map((lb) => lb.getBoundingClientRect());
+  const dots = labels.map((lb) => el.querySelector(`.rdot[data-cid="${lb.dataset.cid}"]`)?.getBoundingClientRect() || null);
   const hit = (a, b) => !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
-  $$(".rlabel", el).forEach((lb) => {
-    lb.style.marginTop = "0px"; lb.style.marginLeft = "0px";
-    let r = lb.getBoundingClientRect();
+  const placed = [], move = [];
+  rects.forEach((r0) => {
     // 칸 밖으로 나가면 반대쪽(가운데 위)으로 뒤집지 않고 칸 안쪽까지만 당김
-    const dx = r.right > box.right - 6 ? box.right - 6 - r.right : r.left < box.left + 6 ? box.left + 6 - r.left : 0;
-    if (dx) { lb.style.marginLeft = dx + "px"; r = lb.getBoundingClientRect(); }
-    const h = r.height + 3;
+    const dx = r0.right > box.right - 6 ? box.right - 6 - r0.right : r0.left < box.left + 6 ? box.left + 6 - r0.left : 0;
+    const r = { left: r0.left + dx, right: r0.right + dx, top: r0.top, bottom: r0.bottom }, h = r0.height + 3;
     const dy = [0, h, -h, 2 * h, -2 * h, 3 * h].find((d) => {
       const m = { left: r.left, right: r.right, top: r.top + d, bottom: r.bottom + d };
       return m.top >= box.top && m.bottom <= box.bottom && !placed.some((p) => hit(m, p));
     }) ?? 0;
-    lb.style.marginTop = dy + "px";
-    placed.push({ left: r.left, right: r.right, top: r.top + dy, bottom: r.bottom + dy });
+    const fin = { left: r.left, right: r.right, top: r.top + dy, bottom: r.bottom + dy };
+    placed.push(fin); move.push([dx, dy]);
   });
+  labels.forEach((lb, i) => { lb.style.marginLeft = move[i][0] + "px"; lb.style.marginTop = move[i][1] + "px"; });
   // 이름표가 점에서 떨어져 있으면 가는 선으로 이음
-  const R = el.getBoundingClientRect();
   let svg = el.querySelector("svg.leads");
   if (!svg) { svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("class", "leads"); svg.setAttribute("aria-hidden", "true"); el.appendChild(svg); }
   svg.setAttribute("viewBox", `0 0 ${R.width} ${R.height}`);
-  svg.innerHTML = $$(".rlabel", el).map((lb) => {
-    const d = el.querySelector(`.rdot[data-cid="${lb.dataset.cid}"]`); if (!d) return "";
-    const a = d.getBoundingClientRect(), b = lb.getBoundingClientRect();
-    const x1 = a.left + a.width / 2 - R.left, y1 = a.top + a.height / 2 - R.top, x2 = (b.left + b.right) / 2 < a.left + a.width / 2 ? b.right - R.left : b.left - R.left, y2 = b.top + b.height / 2 - R.top;
+  svg.innerHTML = labels.map((lb, i) => {
+    const a = dots[i], b = placed[i]; if (!a) return "";
+    const x1 = a.left + a.width / 2 - R.left, y1 = a.top + a.height / 2 - R.top, x2 = (b.left + b.right) / 2 < a.left + a.width / 2 ? b.right - R.left : b.left - R.left, y2 = (b.top + b.bottom) / 2 - R.top;
     return Math.hypot(x2 - x1, y2 - y1) < 14 ? "" : `<line class="${lb.dataset.lv || ""}" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"/>`;
   }).join("");
 }

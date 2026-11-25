@@ -2662,3 +2662,7 @@ body.viewer #geoOnly { display: none; }
 .off-card { padding: 14px 18px; gap: 8px; }
 #kboard .rk, #gboard .rk { min-height: 3.9rem; } /* 세 줄 높이 같게 (이름이 없는 줄만 낮아지지 않게) */
 #gboard { padding-bottom: 16px; }
+/* 나라별 핀 (멀리서 볼 때): 사업 수 · 나라 등급 색 테두리 */
+.cpin { --c: var(--green); width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--panel-solid); border: 2.5px solid var(--c); box-shadow: 0 2px 8px rgba(0, 0, 0, .4); color: var(--text); font-size: var(--fs-xs); font-weight: 800; font-variant-numeric: tabular-nums; cursor: pointer; }
+.cpin.red { --c: var(--red); } .cpin.orange { --c: var(--orange); }
+.cpin:hover { background: color-mix(in srgb, var(--c) 22%, var(--panel-solid)); }
