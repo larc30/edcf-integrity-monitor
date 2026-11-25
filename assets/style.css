@@ -2646,3 +2646,10 @@ body.viewer #geoOnly { display: none; }
 }
 @media (max-width: 1500px) { .gc:not(.still) .gc-cnt { display: none; } .gc:not(.still) .gc-h .badge { margin-left: auto; }
   .gc-h { flex-wrap: nowrap; gap: 6px; padding-left: 11px; padding-right: 11px; } .gc-h > * { flex: none; } .gc-h .gc-new { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; } }
+
+/* ===== 등급 칸(두 화면 같게): 이름 줄은 빼고 숫자·등급 이름을 크게. 누르면 오른쪽 창에 목록 (2026-11-25) ===== */
+#kboard .rk-names, #gboard .rk-names { display: none; }
+#kboard .rk, #gboard .rk { grid-template-columns: minmax(4.6rem, max-content) minmax(0, 1fr); padding-top: 15px; padding-bottom: 15px; }
+#kboard .rk-num, #gboard .rk-num { grid-row: auto; font-size: 2.6rem; }
+#kboard .rk.none .rk-num, #gboard .rk.none .rk-num { font-size: 2rem; }
+#kboard .rk-lv, #gboard .rk-lv { font-size: var(--fs-lg); }
