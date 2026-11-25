@@ -3495,7 +3495,8 @@ initGeo({
   openDrawer: (title, body) => { state.openCid = null; state.drawerBack = null; state.riskList = null; state.openPid = null; $("#drawerTitle").innerHTML = title; const el = $("#drawerBody"); el.innerHTML = body; el.scrollTop = 0; $("#drawer").classList.add("open"); $("#drawerBg").classList.add("open"); return el; },
   getScope: () => { scopeCompanies(); return scope; },
   setScope: (v) => { scope = v; try { localStorage.setItem("edcf_scope2", scope); } catch {} },
-  companyTally: (pid) => { const t = { red: 0, orange: 0, none: 0, total: 0 }; state.companies.forEach((c) => { if (c.engagements.some((e) => e.project_id === pid)) { t[scanned() ? c.risk : "none"]++; t.total++; } }); return t; },
+  companyTally: (pid) => { const t = { red: 0, orange: 0, none: 0, total: 0, list: [] }; state.companies.forEach((c) => { if (c.engagements.some((e) => e.project_id === pid)) { const lv = scanned() ? c.risk : "none"; t[lv]++; t.total++; if (lv === "red" || lv === "orange") t.list.push({ id: c.id, name: c.name, lv }); } }); t.list.sort((a, b) => (a.lv === b.lv ? a.name.localeCompare(b.name, "ko") : a.lv === "red" ? -1 : 1)); return t; }, // list = 경고·주의 업체 이름 (수원국 사업 상세에 보여 줌)
+  openCompany: (cid) => openCompany(cid),
 });
 $("#geoScan").onclick = () => runWorkflow({ task: "geo" }, "수원국 스캔"); // 수원국 화면의 [지금 스캔] = 수원국만 (업체 화면의 [지금 스캔] = 업체만)
 

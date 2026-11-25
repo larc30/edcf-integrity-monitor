@@ -371,7 +371,7 @@ export async function renderGeo(opt = {}) {
       ${a?.level && a.partial ? `<div class="gp-reg">${esc(HOW[sa.how] || "")}${sa.zone ? `: ${esc(short(sa.zone, 60))}` : ""}${sa.refs.length ? `<br>참고 (등급에 안 넣음): ${esc(alertZones(a).zones.filter((z) => sa.refs.includes(z.text)).map((z) => `${z.lv}단계 ${short(z.text, 50)}`).join(" / "))}${sa.how === "base" ? " · 사업지가 이 지역이면 사업 수정 창에서 고르세요" : ""}` : ""}</div>` : ""}
       ${whyEv.length ? `<div class="gp-row"><span class="gp-k">근거</span><span class="gp-why">${whyEv.slice(0, 4).map((w) => `<span>${esc(w)}</span>`).join("")}</span></div>` : ""}
       <div class="gp-row"><span class="gp-k">가까운 사건</span><span class="gp-evs">${near.length ? near.map((e) => `<span class="gp-ev" title="${esc(e.title)}">${ibadge(e.type, "xs")}<span class="gp-ev-t">${esc(e.title)}</span>${e.d != null && !e.country_level ? `<b class="gp-km">${fmtKm(e.d)}</b>` : ""}</span>`).join("") : `<span class="muted small">${pl} · ${NEAR_KM}km 안 없음</span>`}</span></div>
-      <div class="gp-row"><span class="gp-k">참여 업체</span><span class="pj-sum">${co.total ? (["red", "orange"].filter((lv) => co[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${co[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) + `<span class="tot">/ ${co.total}</span>` : `<span class="tot">연결된 업체 없음</span>`}</span></div></div>`;
+      <div class="gp-row"><span class="gp-k">참여 업체</span><span class="pj-sum gp-cos">${co.total ? ((co.list || []).map((x) => `<button type="button" class="gp-co-b ${x.lv}" data-co="${x.id}" title="${LEVEL[x.lv]} · 누르면 업체 상세">${esc(x.name)}</button>`).join("") || `<span class="ok">이상 없음</span>`) + `<span class="tot">/ ${co.total}</span>` : `<span class="tot">연결된 업체 없음</span>`}</span></div></div>`;
   };
   const pRow = (x, same) => { const { p, r } = x, sel = ui.focus === p.id, w = own(r), co = ctx.companyTally(p.id);
     return `<div class="gc-p ${sel ? "sel" : ""}" data-gpid="${p.id}" role="button" tabindex="0"><div class="gc-pt"><span class="gp-no ${r.lv}">${pins.indexOf(x) + 1}</span><span class="pj-name" title="${esc(p.name)}">${esc(pShort(p))}</span>${same ? "" : siteChip(r.site)}${!sel && w.length ? `<span class="gc-why" title="${esc(w.join(" / "))}">${esc(w[0])}</span>` : ""}${!sel && (co.red || co.orange) ? `<span class="gp-co pj-sum">업체 ${["red", "orange"].filter((lv) => co[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${co[lv]}</span>`).join("")}</span>` : ""}</div>${sel ? detail(x) : ""}</div>`; };
@@ -387,7 +387,8 @@ export async function renderGeo(opt = {}) {
   const mvC = cOrder.filter(moved), stC = cOrder.filter((c) => !moved(c));
   $("#geoProjects").innerHTML = (mvC.map((c) => cCard(c, true)).join("") + (stC.length ? `<div class="gc-sec">변동 없음 ${stC.length}</div>` + stC.map((c) => cCard(c, false)).join("") : ""))
     || `<div class="empty small">${scope === "mine" ? "우리 팀 사업이 없습니다." : "등록된 사업이 없습니다."}</div>`;
-  $$("#geoProjects [data-gc]").forEach((el) => { const go = () => { const c = el.dataset.gc; ui.openC = ui.openC === c ? null : c; const drop = !!focusC; if (drop) ui.focus = null; renderGeo({ listOnly: !drop }); if (ui.openC === c) setTimeout(() => goCountry(c), drop ? 60 : 0); }; el.onclick = go; el.onkeydown = (e) => { if (e.key === "Enter") go(); }; });
+  $$("#geoProjects [data-co]").forEach((el) => el.onclick = (e) => { e.stopPropagation(); ctx.openCompany?.(el.dataset.co); });
+  $$("#geoProjects [data-gc]").forEach((el) => { const go = () => { const c = el.dataset.gc; ui.openC = ui.openC === c ? null : c; const drop = !!focusC; if (drop) ui.focus = null; renderGeo({ listOnly: !drop }); setTimeout(() => (ui.openC === c ? goCountry(c) : goWorld()), drop ? 60 : 0); }; el.onclick = go; el.onkeydown = (e) => { if (e.key === "Enter") go(); }; });
 
   // 아래: 최근 이벤트 목록
   const shown = evs.filter((e) => inGroup(e, ui.type)).filter((e) => !ui.lv || risk[e.country]?.lv === ui.lv);
@@ -438,23 +439,24 @@ function openGeoList(lv) {
   const codes = Object.keys(risk).filter((c) => risk[c].lv === lv).sort((a, b) => moved(b) - moved(a) || (newN[b] || 0) - (newN[a] || 0) || cname(a).localeCompare(cname(b), "ko"));
   const mvN = codes.filter(moved).length;
   const title = `<div class="d-name"><span class="nm">${LEVEL[lv]} 수원국</span><span class="cnt">${codes.length}개국</span><span class="tag">${esc(ctx.getScope() === "mine" ? ctx.mineLabel() : "EDCF 전체")}</span></div>`;
-  // 나라 카드: 머리에 나라 공통 여행경보(사업지 단계가 모두 같을 때) · 사업 줄에는 그 사업만의 근거 · 아래에 나라 이벤트 (같은 문장을 되풀이하지 않음)
   const chip = (sa) => sa?.lv ? `<span class="alert-chip ${ALERT[sa.lv][2]}"${sa.zone ? ` title="${esc(sa.zone)}"` : ""}>${ALERT[sa.lv][0]} ${ALERT[sa.lv][1]}</span>` : "";
   const body = codes.map((c, ci) => {
     const sec = mvN && mvN < codes.length && (ci === 0 || ci === mvN) ? `<div class="gl-sec">${ci === 0 ? `최근 7일 변동 ${mvN}` : `변동 없음 ${codes.length - mvN}`}</div>` : "";
-    const ps = pins.filter((x) => x.p.country === c).sort((a, b) => LV[b.r.lv] - LV[a.r.lv] || a.p.name.localeCompare(b.p.name, "ko"));
-    const evAll = evs.filter((e) => e.country === c).sort((a, b) => b.ms - a.ms), ev = evAll.slice(0, 4);
-    const same = new Set(ps.map((x) => x.r.site?.lv || 0)).size === 1, wide = evAll.filter((e) => e.country_level).map((e) => e.title);
-    const own = (r) => r.why.filter((w) => !/^(여행경보|특별여행주의보)/.test(w) && !wide.some((t) => w.includes(t))); // 여행경보는 칩으로, 나라 단위 사건은 아래 목록으로
-    return `${sec}<div class="gl-c">
-      <div class="gl-top"><b class="gl-name">${esc(cname(c))}</b><span class="gl-en">${esc(cen(c))}</span>${same ? chip(ps[0].r.site) : ""}${isSpecial(risk[c].alert) ? `<span class="alert-chip sp">특별여행주의보</span>` : ""}${(chg[c] || []).map((x) => `<span class="gc-new">${esc(chgText(x))}</span>`).join("")}<span class="gl-n">사업 ${ps.length}</span></div>
-      <div class="gl-ps">${ps.map(({ p, r }) => { const w = own(r), sub = (same ? "" : chip(r.site)) + w.slice(0, 3).map((x) => `<span>${esc(x)}</span>`).join("");
-        return `<div class="gl-p" data-glp="${p.id}" role="button" tabindex="0"><span class="badge ${r.lv}">${LEVEL[r.lv]}</span><div class="gl-pb"><div class="gl-pn">${esc(p.name)}</div>${sub ? `<div class="gl-why">${sub}</div>` : ""}</div><span class="rl-arr">›</span></div>`; }).join("")}</div>
+    const ps = pins.filter((x) => x.p.country === c);
+    const ev = evs.filter((e) => e.country === c).sort((a, b) => b.ms - a.ms).slice(0, 3);
+    const same = new Set(ps.map((x) => x.r.site?.lv || 0)).size === 1, top = ps.map((x) => x.r.site).sort((a, b) => (b?.lv || 0) - (a?.lv || 0))[0];
+    const n = { red: 0, orange: 0, none: 0 }; ps.forEach((x) => n[x.r.lv]++);
+    return `${sec}<div class="gl-c go" data-glc="${c}" role="button" tabindex="0">
+      <div class="gl-top"><b class="gl-name">${esc(cname(c))}</b><span class="gl-en">${esc(cen(c))}</span>${chip(same ? ps[0].r.site : top)}${isSpecial(risk[c].alert) ? `<span class="alert-chip sp">특별여행주의보</span>` : ""}${(chg[c] || []).map((x) => `<span class="gc-new">${esc(chgText(x))}</span>`).join("")}<span class="rl-arr">›</span></div>
       ${ev.length ? `<div class="gl-evs">${ev.map((e) => `<div class="gl-ev" title="${esc(e.title)}">${ibadge(e.type, "xs")}<span class="t">${esc(e.title)}</span><span class="d">${rel(e.ms)}</span></div>`).join("")}</div>` : ""}
+      <div class="gl-sum"><span>사업 ${ps.length}</span>${["red", "orange", "none"].filter((k) => n[k]).map((k) => `<span class="${k}">${LEVEL[k]} ${n[k]}</span>`).join("")}</div>
     </div>`;
   }).join("") || `<div class="empty small">해당 국가가 없습니다</div>`;
   const el = ctx.openDrawer(title, `<div class="rl">${body}</div>`);
-  el.querySelectorAll("[data-glp]").forEach((x) => { const go = () => { ctx.closeDrawer(); setFocus(x.dataset.glp); }; x.onclick = go; x.onkeydown = (e) => { if (e.key === "Enter") go(); }; });
+  el.querySelectorAll("[data-glc]").forEach((x) => { const go = () => { // 창을 닫고 그 나라로: 오른쪽 목록에서 펼치고 지도를 그 나라로 확대
+    const c = x.dataset.glc; ctx.closeDrawer(); ui.focus = null; ui.openC = c; renderGeo();
+    setTimeout(() => { goCountry(c); const row = document.querySelector(`#geoProjects [data-gc="${c}"]`), list = $("#geoProjects"); if (row && list) list.scrollTo({ top: list.scrollTop + row.getBoundingClientRect().top - list.getBoundingClientRect().top - 8, behavior: "smooth" }); }, 80);
+  }; x.onclick = go; x.onkeydown = (e) => { if (e.key === "Enter") go(); }; });
 }
 
 // 사업지에서 가까운 이벤트 (거리 순). 위치를 모르면 같은 나라 이벤트
@@ -613,6 +615,11 @@ function ensureMap() {
 // 핀 그리기. 멀리서(확대 PIN_ZOOM 미만) 사업을 하나씩 찍으면 190개 가까운 핀이 겹쳐 알아볼 수 없고 무거워서, 나라마다 핀 하나(사업 수 · 나라 등급 색)로 묶음
 // 확대하거나 사업을 고르면 사업 핀. 나라 핀을 누르면 그 나라로 확대 + 오른쪽 목록에서 그 나라를 펼침
 const PIN_ZOOM = 4.5;
+// 전체 지도로 (펼친 나라를 접었을 때)
+function goWorld() {
+  const pts = mapState?.fitPts?.length ? mapState.fitPts : (mapState?.pins || []).filter((x) => x.pt).map((x) => x.pt.ll);
+  if (map && pts.length) map.flyToBounds(L.latLngBounds(pts).pad(0.25), { maxZoom: 4, duration: 0.7 });
+}
 // 그 나라의 사업이 모두 보이게 확대 (나라 핀이나 오른쪽 목록의 나라 줄을 눌렀을 때)
 function goCountry(c) {
   const lls = (mapState?.pins || []).filter((x) => x.pt && x.p.country === c).map((x) => x.pt.ll);
@@ -655,8 +662,18 @@ function drawPins() {
     });
   } else {
     const short = (p) => String(p.name || "").replace(new RegExp("^" + cname(p.country) + "\\s*"), "").replace(/\s*사업$/, "");
+    // 사업지를 정하지 않은 사업은 나라 가운데 둘레에 하나씩 흩어 찍혀서 바다 위에 떠 보였음(인도네시아) → 나라마다 '사업지 미지정 N' 핀 하나로 묶음. 고른 사업만 제 핀으로
+    const loose = {};
+    pins.forEach((x) => { if (x.pt && x.pt.how === "국가 중심" && !(f && f.p.id === x.p.id)) (loose[x.p.country] = loose[x.p.country] || []).push(x); });
+    Object.entries(loose).forEach(([c, xs]) => {
+      const lv = xs.reduce((m, x) => (LV[x.r.lv] > LV[m] ? x.r.lv : m), "none"), dimC = !!f;
+      L.marker([GEO_COUNTRY[c][2], GEO_COUNTRY[c][3]], { icon: L.divIcon({ className: "", html: `<div class="cpin loose ${lv} ${dimC ? "dim" : ""}" data-cpin="${c}"><span>${xs.length}</span></div>`, iconSize: [30, 30], iconAnchor: [15, 15], tooltipAnchor: [0, -15] }), zIndexOffset: dimC ? 400 : 900 })
+        .bindTooltip(`<b>${ctx.esc(cname(c))}</b> · 사업지 미지정 ${xs.length}`, { direction: "top", className: "gtip" })
+        .on("click", () => { ui.focus = null; ui.openC = c; renderGeo(); const el = document.querySelector(`#geoProjects [data-gc="${c}"]`), list = $("#geoProjects"); if (el && list) list.scrollTo({ top: list.scrollTop + el.getBoundingClientRect().top - list.getBoundingClientRect().top - 8, behavior: "smooth" }); })
+        .addTo(layers.pin);
+    });
     pins.forEach(({ p, pt, r }, idx) => {
-      if (!pt) return;
+      if (!pt || (pt.how === "국가 중심" && !(f && f.p.id === p.id))) return;
       const dim = f && f.p.id !== p.id;
       const side = pins.some((o, k) => k < idx && o.pt && Math.abs(o.pt.ll[0] - pt.ll[0]) < 4 && o.pt.ll[1] > pt.ll[1] - 1 && o.pt.ll[1] - pt.ll[1] < 12) ? "l" : "r"; // 오른쪽 가까이에 다른 핀이 있으면 왼쪽에
       const lb = dim ? "" : `<span class="pin-lb ${side} ${r.lv}" style="visibility:hidden" title="${ctx.esc(p.name)}">${ctx.esc(short(p))}</span>`;
@@ -690,7 +707,7 @@ function drawMap(pins, evs, risk, fitPts) {
     evMarkers[e.id] = m;
   });
   // 사업: 핀 (멀리서는 나라별로 묶음)
-  mapState = { pins, risk, f };
+  mapState = { pins, risk, f, fitPts };
   drawPins();
   drawFocus(f, near);
   declutterSoon();
