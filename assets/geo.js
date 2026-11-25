@@ -312,7 +312,7 @@ export async function renderGeo() {
   $("#geoDate").textContent = `COUNTRY RISK · ${now.toISOString().slice(0, 10).replace(/-/g, ".")} (${"일월화수목금토"[now.getUTCDay()]})`;
   $("#geoSub").textContent = g.updated_at ? `마지막 갱신 ${String(g.updated_at).slice(5, 16).replace("-", "/")}` : "아직 저장된 수원국 정보가 없습니다";
   const mineN = state.projects.filter(ctx.isMine).length;
-  $("#geoScope").innerHTML = [["mine", ctx.mineLabel(), mineN, ctx.ICON_USER], ["all", "EDCF 전체", state.projects.length, ctx.ICON_ORG]]
+  $("#geoScope").innerHTML = [["mine", ctx.mineLabel(), mineN, ctx.ICON_USER], ["all", "EDCF 전체", state.projects.filter((p) => p.status !== "done").length, ctx.ICON_ORG]]
     .map(([k, l, n, ic]) => `<button data-s="${k}" class="sc-btn ${k} ${k === scope ? "active" : ""}" title="${l}: 사업 ${n}개"><span class="sc-ic">${ic}</span>${l}<span class="sc-n">사업 ${n}</span></button>`).join("");
   $$("#geoScope button").forEach((b) => b.onclick = () => { ctx.setScope(b.dataset.s); renderGeo(); });
   const aOk = Object.keys(alerts).length; // 연결 상태는 설정 > 고급 > API 연결에서
@@ -408,7 +408,9 @@ export async function renderGeo() {
   $$("#evFeed [data-evrv]").forEach((b) => b.onclick = (ev) => { ev.stopPropagation(); const e = shown.find((x) => x.id === b.closest("[data-eid]").dataset.eid); if (e) ctx.reviewGeoEvent([e, ...(e.more || [])], b.dataset.evrv); });
 
   last = { pins, evs, risk, moved, newN, chg, chgText };
-  drawMap(pins, evs, risk);
+  // 전체 지도의 범위는 보는 범위(우리 팀 / EDCF 전체)와 무관하게 진행 중인 모든 사업 기준: 탭을 바꿔도 지도가 같은 자리
+  const cN = {}, fitPts = state.projects.filter((p) => p.status !== "done").map((p) => projectPoint(p, (cN[p.country] = (cN[p.country] ?? -1) + 1))?.ll).filter(Boolean);
+  drawMap(pins, evs, risk, fitPts);
   // 고른 사업 카드가 목록 안에서 보이게 (페이지는 움직이지 않게 목록만 스크롤)
   const selEl = ui.focus && $(`#geoProjects [data-gpid="${ui.focus}"]`), list = $("#geoProjects");
   if (selEl) { const ra = selEl.getBoundingClientRect(), rb = list.getBoundingClientRect(); if (ra.top < rb.top || ra.bottom > rb.bottom) list.scrollTo({ top: list.scrollTop + ra.top - rb.top - 8, behavior: "smooth" }); }
@@ -588,7 +590,7 @@ function ensureMap() {
   loadWorld();
   return true;
 }
-function drawMap(pins, evs, risk) {
+function drawMap(pins, evs, risk, fitPts) {
   if (!ensureMap()) { $("#geoMap").innerHTML = `<div class="empty">지도를 불러오지 못했습니다 (인터넷 연결 또는 회사망 차단 확인)</div>`; return; }
   setTimeout(() => map.invalidateSize(), 0); setTimeout(() => map.invalidateSize(), 520); // 화면 전환(뒤집기) 뒤에도 크기 맞춤
   layers.halo.clearLayers(); layers.focus.clearLayers(); layers.ev.clearLayers(); layers.pin.clearLayers();
@@ -628,7 +630,7 @@ function drawMap(pins, evs, risk) {
   requestAnimationFrame(declutter);
   if (f) return;
   if (pts.length && (!map._fitted || ui.lv !== map._fitLv || map._fitFocus)) {
-    map.fitBounds(L.latLngBounds(pts).pad(0.25), { maxZoom: ui.lv ? 6 : 4, animate: map._fitted });
+    map.fitBounds(L.latLngBounds(fitPts?.length ? fitPts : pts).pad(0.25), { maxZoom: ui.lv ? 6 : 4, animate: map._fitted });
     map._fitted = true; map._fitLv = ui.lv; map._fitFocus = false;
   }
 }
