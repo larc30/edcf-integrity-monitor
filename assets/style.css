@@ -2761,3 +2761,63 @@ body.viewer #geoOnly { display: none; }
 .cpin.loose { background: var(--panel-solid); border: 2px dashed color-mix(in srgb, var(--text) 45%, transparent); color: var(--text-2); font-weight: 700; box-shadow: none; }
 .cpin.loose:hover { background: color-mix(in srgb, var(--text) 10%, var(--panel-solid)); }
 .cpn.loose { letter-spacing: 0; font-weight: 700; color: var(--muted); text-transform: none; }
+.cpn.loose { max-width: 13em; overflow: hidden; text-overflow: ellipsis; }
+/* 2026-11-25 밤: 최근 7일 숫자 크게 · 정상 줄 여백 줄임 · 업체 관리 참여 사업 한 줄에 하나씩 */
+.wk2 .val { font-size: 13px; font-weight: 700; fill: var(--text-2); }
+.wk2 .val.zero { opacity: .5; }
+.wk2 .val.now { font-size: 16px; }
+.wk2 .day { font-size: 11.5px; }
+#kboard .rk.none, #gboard .rk.none { min-height: 3.1rem; }
+.co-table .t-proj .ej { display: flex; margin: 0; padding: 2px 0; max-width: 100%; gap: 8px; }
+.co-table .t-proj .ej .role { flex: 0 0 auto; min-width: 5.2em; text-align: center; }
+.co-table .t-proj .ej-p { flex: 0 1 auto; min-width: 0; }
+.co-table .t-proj .ej-more { display: block; padding: 2px 0 0 calc(5.2em + 8px); font-size: var(--fs-xs); color: var(--muted); }
+/* ===== 묶음 목록의 새 모양 (2026-11-25 밤): 줄 사이 선(공책 느낌)을 빼고, 옅은 면 위에 줄마다 둥근 칸 · 올리면 밝아짐 ===== */
+:root { --soft: color-mix(in srgb, var(--text) 4%, transparent); --soft-h: color-mix(in srgb, var(--text) 7%, transparent); }
+/* 업체 정보 창의 참여 사업 */
+#coEngs .ce-box { border: 0; background: var(--soft); border-radius: 12px; padding: 4px; overflow: visible; }
+#coEngs .ce-head { background: none; border: 0; padding-top: 6px; padding-bottom: 3px; }
+#coEngs .ce-list .ce-row + .ce-row { border-top: 0; }
+#coEngs .ce-list .ce-row { border-radius: 9px; }
+#coEngs .ce-list .ce-row:hover { background: var(--soft-h); }
+#coEngs .ce-add { border-top: 0; margin-top: 2px; border-radius: 9px; background: color-mix(in srgb, var(--accent) 9%, transparent); }
+/* 사업 상세의 역할별 참여 업체 */
+.pd-grp { border: 0; background: var(--soft); border-radius: 12px; padding: 4px; overflow: visible; }
+.pd-grp-h { background: none; border: 0; padding: 6px 10px 3px; }
+.pd-grp .pd-row { border: 0; border-radius: 9px; padding: 8px 10px; }
+.pd-grp .pd-row:hover { background: var(--soft-h); }
+/* 설정 > 고급 > API 연결 */
+.conn-rows { border: 0; background: var(--soft); padding: 4px; overflow: visible; }
+.conn1 { border-radius: 9px; padding: 7px 12px; }
+.conn1 + .conn1 { border-top: 0; }
+.conn1:hover { background: var(--soft-h); }
+/* 설정 > 계정·권한, 메일 받는 사람 */
+.acc-team-h { border-bottom: 0; padding-bottom: 2px; }
+.acc-list .acc-row { border: 0; border-radius: 9px; margin: 0 -8px; padding: 4px 8px; }
+.acc-list .acc-row:hover { background: var(--soft-h); }
+#rcList > * { border: 0; border-radius: 9px; margin: 0 -8px; padding-left: 8px; padding-right: 8px; }
+#rcList > *:hover { background: var(--soft-h); }
+/* 설정 > 리스크 키워드: 기본 키워드는 접어 둠 */
+.kw-fold > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; }
+.kw-fold > summary::-webkit-details-marker { display: none; }
+.kw-fold > summary::after { content: "▸"; margin-left: 2px; color: var(--muted); font-size: var(--fs-xs); }
+.kw-fold[open] > summary::after { content: "▾"; }
+.kw-fold:not([open]) > summary { margin-bottom: 0; }
+/* 설정 화면 배치 (2026-11-25 밤): 윗줄 = 리스크 키워드 | 메일 받는 사람, 아랫줄 = 계정·권한 전체 폭(팀 묶음 두 칸) */
+@media (min-width: 1101px) {
+  body.role-super .set-grid { grid-template-columns: minmax(0, 1fr); }
+  body.role-super .set-grid .set-left { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
+  .acc-list { max-height: none; overflow: visible; padding-right: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 36px; align-items: start; }
+  .set-grid .acc-form { max-width: 48em; }
+}
+/* 휴대폰: 업체 관리 필터 줄이 화면 밖으로 넘치던 것 (사업 고르기 칸 18em 고정) → 줄을 바꿔 두 칸씩 */
+@media (max-width: 640px) {
+  .co-filters { flex-wrap: wrap; }
+  .co-filters .co-search { flex: 1 1 100%; max-width: none; }
+  .co-filters select, .co-filters #fProj { flex: 1 1 40%; width: auto; max-width: none; min-width: 0; }
+  .co-filters #fMoreBtn { margin-left: 0; }
+}
+/* 휴대폰 점검 (2026-11-25 밤): 사업 등록 창은 한 칸으로(뒤에 붙은 두 칸 규칙이 좁은 화면 규칙을 덮어썼음) · 오른쪽 창 제목이 한 글자만 넘어가지 않게 · 관리 탭은 숫자를 빼서 '설정'이 잘리지 않게 */
+@media (max-width: 760px) { .form.pjf { grid-template-columns: minmax(0, 1fr); } .pjf .site-pick { min-height: 260px; } }
+#drawerTitle { word-break: keep-all; overflow-wrap: anywhere; }
+@media (max-width: 640px) { #tabs .cnt { display: none; } }

@@ -1025,8 +1025,8 @@ function buildReport({ scope: sc0, period, done, detail = false }) {
   const ROLE_C = { "F/S": "#0E7490", 컨설턴트: "#1D4ED8", 본구매: "#A21CAF" };
   const role = (r) => `<span class="role" style="color:${ROLE_C[r] || "#3D4A63"}">${esc(r)}</span>`;
   const sc = scanned();
-  const cs = sc0 === "mine" ? state.companies.filter((c) => c.mine) : state.companies;
-  const ps = sc0 === "mine" ? state.projects.filter(isMine) : state.projects.filter(live);
+  const cs = sc0 === "mine" ? state.companies.filter((c) => c.mine) : dashCompanies(); // 대시보드와 같은 범위 (진행 중 사업 참여 업체)
+  const ps = sc0 === "mine" ? state.projects.filter((p) => isMine(p) && live(p)) : state.projects.filter(live);
   const ids = new Set(cs.map((c) => c.id));
   const days = period === "all" ? null : +period;
   const fs = state.findings.filter((f) => ids.has(f.company_id) && (f.status === "new" || (done && f.status === "reviewed")) && (!days || Date.now() - pubMs(f) <= days * DAY));
@@ -1066,13 +1066,17 @@ function buildReport({ scope: sc0, period, done, detail = false }) {
   // 한 장 요약 (기본): 경고·주의 이슈 한 줄씩 + 사업별 리스크 수
   const hotG = groups.filter((g) => g.rep.level === "red" || g.rep.level === "orange"), yelN = groups.length - hotG.length;
   const pStat = (p) => { const s = new Set(); state.companies.forEach((c) => { if (c.engagements.some((e) => e.project_id === p.id)) s.add(c); }); const k = { red: 0, orange: 0 }; s.forEach((c) => { if (sc && k[c.risk] != null) k[c.risk]++; }); return { n: s.size, k }; };
-  const hotCo = byCo(hotG);
   const LVN = { red: 2, orange: 1 };
   const projHot = ps.map((p) => { const set = new Set(); state.companies.forEach((c) => { if (c.engagements.some((e) => e.project_id === p.id)) set.add(c); }); const hot = sc ? [...set].filter((c) => c.risk !== "none").sort((x, y) => LV[y.risk] - LV[x.risk]) : []; const g = geoOf(p); return { p, hot, g, n: set.size, w: Math.max(LVN[hot[0]?.risk] || 0, LVN[g?.lv] || 0) }; });
   const projShow = projHot.filter((x) => x.w).sort((x, y) => y.w - x.w || y.hot.length - x.hot.length);
-  const simpleBody = `<h2>경고·주의 업체 <span class="mu">업체 ${hotCo.length} · 이슈 ${hotG.length}건${period !== "all" ? " · " + esc(periodL) : ""}</span></h2>
-${hotG.length ? `<table class="iss"><tr><th style="width:10%">등급</th><th style="width:30%">업체 · 관련 사업</th><th>내용</th></tr>${hotCo.slice(0, 30).map((gs) => { const g0 = gs[0]; return `<tr class="lv-${g0.rep.level}"><td>${bd(g0.rep.level)}</td><td><b>${esc(g0.companies.map((c) => c.name).join(" · "))}</b><div class="mu">${engShort(g0)}</div></td><td>${esc(brief(sumText(g0.rep), 110))}${gs.length > 1 ? ` <span class="mu">외 ${gs.length - 1}건</span>` : ""}</td></tr>`; }).join("")}</table>${hotCo.length > 30 ? `<div class="mu note">외 업체 ${hotCo.length - 30}</div>` : ""}` : `<div class="empty">경고·주의 이슈가 없습니다</div>`}
-${ps.length ? `<h2>경고·주의 사업 <span class="mu">사업 ${projShow.length}</span></h2>${projShow.length ? `<table><tr><th style="width:38%">사업</th><th>경고·주의 업체</th><th style="width:26%">수원국 리스크</th></tr>${projShow.map(({ p, hot, g, n }) => `<tr><td><b>${esc(p.name)}</b>${p.country && COUNTRY[p.country] && !p.name.includes(COUNTRY[p.country]) ? `<div class="mu">${esc(COUNTRY[p.country])}</div>` : ""}</td><td>${hot.map((c) => { const e = c.engagements.find((x) => x.project_id === p.id) || {}; return `<div class="co">${bd(c.risk)} ${esc(c.name)} <span class="mu">${esc([e.role, e.stage && e.stage !== "계약" ? e.stage : ""].filter(Boolean).join(" · "))}</span></div>`; }).join("") || `<span class="mu">없음</span>`}</td><td>${g && LVN[g.lv] ? `<b style="color:${C[g.lv][0]}">${C[g.lv][2]}</b>${[g.alert, ...g.why.slice(0, 2)].filter(Boolean).map((w) => `<div class="mu">${esc(w)}</div>`).join("")}` : `<span class="mu">정상</span>`}</td></tr>`).join("")}</table>` : `<div class="empty">경고·주의 사업이 없습니다</div>`}` : ""}
+  const hotOf = (c) => groupFindings(state.findings.filter((f) => f.company_id === c.id && f.status !== "dismissed" && (f.level === "red" || f.level === "orange")))
+    .sort((a, b) => LV[b.rep.level] - LV[a.rep.level] || (b.newest || 0) - (a.newest || 0));
+  const engOne = (c) => { const es = byRole(c.engagements.filter((e) => { const p = state.projects.find((x) => x.id === e.project_id); return p && live(p); })); return es.length ? `<span class="r">${esc(es[0].role)}</span><span class="pn">${esc(projName(es[0].project_id))}</span>${es.length > 1 ? `<span class="x">외 ${es.length - 1}</span>` : ""}` : `-`; };
+  const coRows = risky.map((c) => { const gs = hotOf(c); return `<tr class="lv-${c.risk}"><td>${bd(c.risk)}</td><td><b>${esc(c.name)}</b><div class="mu one">${engOne(c)}</div></td><td>${gs.length ? esc(brief(sumText(gs[0].rep), 96)) + (gs.length > 1 ? ` <span class="mu">외 ${gs.length - 1}건</span>` : "") : `<span class="mu">-</span>`}</td></tr>`; }).join("");
+  const projCo = projHot.filter((x) => x.hot.length).sort((x, y) => (LVN[y.hot[0].risk] || 0) - (LVN[x.hot[0].risk] || 0) || y.hot.length - x.hot.length);
+  const simpleBody = `<h2>경고·주의 업체 <span class="mu">업체 ${risky.length}</span></h2>
+${risky.length ? `<table class="iss"><tr><th style="width:9%">등급</th><th style="width:33%">업체 · 참여 사업</th><th>내용</th></tr>${coRows}</table>` : `<div class="empty">경고·주의 업체가 없습니다</div>`}
+${ps.length ? `<h2>경고·주의 업체가 있는 사업 <span class="mu">사업 ${projCo.length} / ${ps.length}</span></h2>${projCo.length ? `<table><tr><th style="width:38%">사업</th><th>경고·주의 업체</th><th style="width:26%">수원국 리스크</th></tr>${projCo.map(({ p, hot, g, n }) => `<tr><td><b>${esc(p.name)}</b>${p.country && COUNTRY[p.country] && !p.name.includes(COUNTRY[p.country]) ? `<div class="mu">${esc(COUNTRY[p.country])}</div>` : ""}</td><td>${hot.map((c) => { const e = c.engagements.find((x) => x.project_id === p.id) || {}; return `<div class="co">${bd(c.risk)} ${esc(c.name)} <span class="mu">${esc([e.role, e.stage && e.stage !== "계약" ? e.stage : ""].filter(Boolean).join(" · "))}</span></div>`; }).join("") || `<span class="mu">없음</span>`}</td><td>${g && LVN[g.lv] ? `<b style="color:${C[g.lv][0]}">${C[g.lv][2]}</b>${[g.alert, ...g.why.slice(0, 2)].filter(Boolean).map((w) => `<div class="mu">${esc(w)}</div>`).join("")}` : `<span class="mu">정상</span>`}</td></tr>`).join("")}</table>` : `<div class="empty">경고·주의 업체가 있는 사업이 없습니다</div>`}` : ""}
 `;
   const detailBody = `<h2>${done ? "이슈" : "확인할 이슈"} <span class="mu">${groups.length}건 · 등급 높은 순${groups.length > MAX ? ` · 앞의 ${MAX}건` : ""}</span></h2>
 ${groups.length ? groups.slice(0, MAX).map(issue).join("") : `<div class="empty">해당 기간에 ${done ? "" : "확인할 "}이슈가 없습니다</div>`}
@@ -1090,6 +1094,7 @@ ${ps.length ? `<h2>사업별 현황 <span class="mu">사업 ${ps.length}</span><
 * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 body { margin: 0; color: #0B1220; font: 13.5px/1.55 "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; word-break: keep-all; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 a { color: #4F46E5; text-decoration: none; } td a { white-space: nowrap; }
+table.iss { table-layout: fixed; } .one { display: flex; gap: 6px; } .one .pn { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .one .r, .one .x { flex: none; } .one .r { font-weight: 700; }
 .hero { background: #0B101C; background-image: linear-gradient(125deg, #0B101C 0%, #171E3F 55%, #0C2C3D 100%); color: #fff; border-radius: 16px; padding: 20px 22px 22px; break-inside: avoid; }
 .hero .top { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
 .hero .brand { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 800; letter-spacing: .1em; color: #A5B4FC; }
@@ -1807,7 +1812,7 @@ function renderCompanies() {
       <td class="t-chk"><input type="checkbox" data-sel="${c.id}" ${coState.sel.has(c.id) ? "checked" : ""} aria-label="${esc(c.name)} 선택"></td>
       <td class="t-name"><button class="co-name" data-open="${c.id}">${esc(c.name_official || c.name)}</button>${c.name_en ? `<div class="sub">${esc(c.name_en)}</div>` : ""}</td>
       <td class="t-cat">${esc(c.cat || "-")}${c.catGuess || c.category_source === "이름 추정" ? `<span class="src guess" title="업체명으로 추정: 스캔 때 DART 업종이 있으면 바뀜">추정</span>` : ""}</td>
-      <td class="t-proj">${c.engagements.length ? byRole(c.engagements).map(engChip).join("") : `<span class="muted">-</span>`}</td>
+      <td class="t-proj">${c.engagements.length ? (() => { const es = byRole(c.engagements); return es.slice(0, 3).map(engChip).join("") + (es.length > 3 ? `<span class="ej-more" title="${esc(es.slice(3).map((e) => projName(e.project_id) + " · " + e.role).join("\n"))}">외 ${es.length - 3}</span>` : ""); })() : `<span class="muted">-</span>`}</td>
       <td class="t-risk">${sc ? (c.idle ? `<span class="muted">미참여</span>` : c.risk !== "none" ? badge(c.risk) : `<span class="ok-t">정상</span>`) : `<span class="muted">-</span>`}</td>
       <td class="t-open">${c.open ? `<b>${c.open}</b>` : `<span class="muted">0</span>`}</td>
       <td class="t-id">${c.country !== "KR" ? `<span class="muted">해외</span>` : c.biz_no ? esc(fmtBiz(c.biz_no)) : `<span class="miss">없음</span>`}</td>
