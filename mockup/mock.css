@@ -173,3 +173,13 @@ button.tile:hover { border-color: var(--line-2); }
 .dc details div { padding: 2px 0; font-size: 13px; color: var(--text-2); }
 
 @media (max-width: 1100px) { .tiles { grid-template-columns: 1fr 1fr 1fr; } #co .mid, #geo .mid { grid-template-columns: 1fr; } .rad { grid-template-columns: 1fr; } }
+
+/* 변동 / 변동 없음 */
+.gh { margin: 8px 2px 0; font-size: 12px; font-weight: 700; color: var(--muted); }
+.gp.gs { padding: 8px 13px; background: none; } .gp.gs .t { font-weight: 600; color: var(--text-2); } .gp.gs .t .tv { margin-left: 2px; }
+.sub-p button.on { background: rgba(45, 212, 191, .12); }
+.dw h3 { margin: 18px 0 0; font-size: 13px; font-weight: 700; color: var(--muted); }
+.dc .ln .nw { margin: 0; color: #AEB3FF; font-size: 11px; }
+.dc details.st { padding: 5px 0; border-top: 1px solid var(--line); } .dc details.st:first-child { border-top: 0; }
+.dc details.st summary { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; color: var(--text); list-style: none; }
+.dc details.st summary span:last-child { margin-left: auto; font-size: 12px; color: var(--muted); }
