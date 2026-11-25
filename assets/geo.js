@@ -419,6 +419,7 @@ export async function renderGeo(opt = {}) {
   // 전체 지도의 범위는 보는 범위(우리 팀 / EDCF 전체)와 무관하게 진행 중인 모든 사업 기준: 탭을 바꿔도 지도가 같은 자리
   const cN = {}, fitPts = state.projects.filter((p) => p.status !== "done").map((p) => projectPoint(p, (cN[p.country] = (cN[p.country] ?? -1) + 1))?.ll).filter(Boolean);
   if (!opt.listOnly) drawMap(pins, evs, risk, fitPts); // 나라 줄을 펼치고 접을 때는 목록만
+  else { syncBack(); declutterSoon(); }
   // 고른 사업 카드가 목록 안에서 보이게 (페이지는 움직이지 않게 목록만 스크롤)
   const selEl = ui.focus && $(`#geoProjects [data-gpid="${ui.focus}"]`), list = $("#geoProjects");
   if (selEl) { const ra = selEl.getBoundingClientRect(), rb = list.getBoundingClientRect(); if (ra.top < rb.top || ra.bottom > rb.bottom) list.scrollTo({ top: list.scrollTop + ra.top - rb.top - 8, behavior: "smooth" }); }
@@ -730,7 +731,7 @@ function drawMap(pins, evs, risk, fitPts) {
 // 고른 사업: 100km 간격 점선 원 + 가까운 이벤트까지 선과 거리 + 지도 위 안내 상자
 function drawFocus(f, near) {
   const box = $("#mapFocus"), all = $("#mapAll");
-  all.classList.toggle("hidden", !f); all.onclick = () => setFocus(null);
+  syncBack();
   box.classList.add("hidden"); // 사업 정보는 오른쪽 카드 안에 펼쳐 보여 줌 (지도를 가리지 않게)
   if (!f) { map._focusPid = null; if (map._sweepOff) map._sweepOff(); return; }
   const c = f.pt.ll, accent = cssv("--accent-2");
@@ -764,7 +765,25 @@ function drawFocus(f, near) {
   map._focusPid = f.p.id;
   map._fitFocus = true;
 }
-function setFocus(pid) { ui.focus = pid; renderGeo(); }
+// 세 단계: 전체 지도 ↔ 나라 ↔ 사업. 들어간 순서의 반대로 나옴 (사업을 닫으면 그 나라, 나라를 닫으면 전체 지도)
+function setFocus(pid) {
+  const pins = mapState?.pins || [], was = ui.focus && pins.find((x) => x.p.id === ui.focus), now = pid && pins.find((x) => x.p.id === pid);
+  ui.focus = pid;
+  if (now) ui.openC = now.p.country;
+  if (!pid && was) { ui.openC = was.p.country; if (map) map._fitFocus = false; renderGeo(); goCountry(was.p.country); return; }
+  renderGeo();
+}
+// 지도 왼쪽 위 뒤로 버튼: 사업을 골랐으면 '‹ 나라 이름'(그 나라로), 나라만 펼쳤으면 '‹ 전체 지도'
+function syncBack() {
+  const all = $("#mapAll"), f = ui.focus && (mapState?.pins || []).find((x) => x.p.id === ui.focus);
+  if (!all) return;
+  const c = f ? f.p.country : ui.openC;
+  all.classList.toggle("hidden", !c);
+  if (!c) return;
+  all.querySelector("span").textContent = f ? cname(c) : "전체 지도";
+  all.title = f ? "사업 선택을 풀고 나라 지도로" : "전체 지도로";
+  all.onclick = () => { if (ui.focus) return setFocus(null); ui.openC = null; renderGeo({ listOnly: true }); goWorld(); };
+}
 // 이름표가 겹치면 자리를 바꿔 봄: 원래 쪽 → 반대쪽 → 핀 아래 → 핀 위. 모두 막히면 숨김 (등급 높은 사업부터 자리를 차지) · 확대하면 다시 보임
 const SIDES = ["r", "l", "b", "t"];
 // 여러 번 불려도 한 번만 (그리기·확대·이동이 겹칠 때마다 통째로 다시 재던 것을 줄임)
