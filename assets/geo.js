@@ -688,8 +688,8 @@ function drawPins() {
     pins.forEach((x) => { if (x.pt && x.pt.how === "국가 중심" && !(f && f.p.id === x.p.id)) (loose[x.p.country] = loose[x.p.country] || []).push(x); });
     Object.entries(loose).forEach(([c, xs]) => {
       const lv = xs.reduce((m, x) => (LV[x.r.lv] > LV[m] ? x.r.lv : m), "none"), dimC = !!f;
-      L.marker([GEO_COUNTRY[c][2], GEO_COUNTRY[c][3]], { icon: L.divIcon({ className: "", html: `<div class="cpin loose ${dimC ? "dim" : ""}" data-cpin="${c}"><span>${xs.length}</span></div><span class="cpn loose">미지정</span>`, iconSize: [30, 30], iconAnchor: [15, -15], tooltipAnchor: [0, 15] }), zIndexOffset: dimC ? 400 : 900 })
-        .bindTooltip(`<b>${ctx.esc(cname(c))}</b> · 사업지 미지정 ${xs.length}`, { direction: "top", className: "gtip" })
+      L.marker([GEO_COUNTRY[c][2], GEO_COUNTRY[c][3]], { icon: L.divIcon({ className: "", html: `<div class="cpin loose ${dimC ? "dim" : ""}" data-cpin="${c}"><span>${xs.length}</span></div><span class="cpn loose">${xs.length === 1 ? ctx.esc(short(xs[0].p)) : "미지정"}</span>`, iconSize: [30, 30], iconAnchor: [15, -15], tooltipAnchor: [0, 15] }), zIndexOffset: dimC ? 400 : 900 })
+        .bindTooltip(`<b>${ctx.esc(cname(c))}</b> · 사업지 미지정 ${xs.length}<br>${xs.slice(0, 6).map((x) => ctx.esc(x.p.name)).join("<br>")}${xs.length > 6 ? `<br><span class="muted">외 ${xs.length - 6}</span>` : ""}`, { direction: "top", className: "gtip" })
         .on("click", () => { ui.focus = null; ui.openC = c; renderGeo(); const el = document.querySelector(`#geoProjects [data-gc="${c}"]`), list = $("#geoProjects"); if (el && list) list.scrollTo({ top: list.scrollTop + el.getBoundingClientRect().top - list.getBoundingClientRect().top - 8, behavior: "smooth" }); })
         .addTo(layers.pin);
     });
