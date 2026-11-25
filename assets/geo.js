@@ -336,11 +336,6 @@ export async function renderGeo() {
     }).join("");
   $$("#gboard [data-glv]:not(:disabled)").forEach((b) => b.onclick = () => openGeoList(b.dataset.glv)); // 업체 리스크의 등급별 업체 목록과 같은 방식: 오른쪽 창에 나라별 내용
 
-  const chgAll = Object.values(chg).flat();
-  $("#geoDelta").innerHTML = `<div class="card-head"><h2>최근 7일 달라진 것</h2></div>`
-    + [["새 사건이 있는 나라", Object.keys(newN).length], ["여행경보 단계 변경", new Set(chgAll.filter((x) => x.k !== "special").map((x) => x.c)).size], ["특별여행주의보 새 발령", chgAll.filter((x) => x.k === "special" && x.to).length]]
-      .map(([l, n]) => `<div class="dl-row ${n ? "on" : ""}"><span>${l}</span><b>${n}</b></div>`).join("");
-
   // 왼쪽 아래: 이벤트 종류별 건수 (누르면 지도·목록 거르기)
   const tc = {}; evs.forEach((e) => (tc[e.type] = (tc[e.type] || 0) + 1));
   $("#evSummary").innerHTML = `<div class="card-head"><h2>이벤트 요약 ${info(`<div class="tip-p">수원국 안팎의 최근 사건입니다. 종류를 누르면 그것만 봅니다.</div><div class="tip-grid"><b>지진</b><span>USGS 규모 5.5 이상</span><b>재난</b><span>GDACS 주황·빨강 경보</span><b>감염병</b><span>WHO 발생 소식</span><b>그 밖</b><span>뉴스에서 찾아 AI가 판정</span></div><div class="tip-p muted">정치·선거는 참고용이라 등급에서 뺍니다.</div>`)}</h2><span class="muted small">${pl}</span></div>
