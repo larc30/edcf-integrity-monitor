@@ -16,6 +16,7 @@ import logging
 import math
 import json
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
@@ -425,6 +426,27 @@ def news_events(codes: list[str], gnews=news.google_news, naver=news.naver_news)
     return out, errors
 
 
+def alert_log(prev: dict, alerts: dict, codes: list[str], now_ms: int | None = None) -> list[dict]:
+    """여행경보가 바뀐 기록 (최근 30일, 사업이 있는 나라만). 화면의 '최근 7일 달라진 것'에 씀.
+    k: base(나머지 지역 단계) · level(가장 높은 지역 단계) · special(특별여행주의보 1 발령 / 0 해제)"""
+    now_ms = now_ms or int(time.time() * 1000)
+    log_ = [x for x in (prev.get("alert_log") or []) if now_ms - (x.get("at_ms") or 0) <= 30 * 86400e3]
+    old = prev.get("alerts") or {}
+    sp = lambda a: 1 if (a.get("special") and "special_partial" in a) else 0
+    for c in codes:
+        o, n = old.get(c), alerts.get(c)
+        if not o or not n:  # 처음 받는 나라는 비교할 것이 없음
+            continue
+        for k in ("base", "level"):
+            ov, nv = int(o.get(k) or 0), int(n.get(k) or 0)
+            if ov != nv:
+                log_.append({"c": c, "k": k, "from": ov, "to": nv, "at_ms": now_ms})
+                break  # 나머지 지역 단계가 바뀌었으면 그것만 적음
+        if sp(o) != sp(n) and "special_partial" in o:  # 예전 저장본(발령 여부를 잘못 적던 때)과는 비교하지 않음
+            log_.append({"c": c, "k": "special", "from": sp(o), "to": sp(n), "at_ms": now_ms})
+    return log_[-100:]
+
+
 def update(projects: list[dict] | None = None, get=httpx.get, gnews=news.google_news, naver=news.naver_news) -> dict:
     """meta/geo 갱신. 반환: 건수 요약 (공개 로그용)"""
     projects = projects if projects is not None else store.all_docs("projects")
@@ -444,6 +466,8 @@ def update(projects: list[dict] | None = None, get=httpx.get, gnews=news.google_
         alerts = f_alerts.result()
         if alerts:
             doc["alerts"], doc["alerts_at"] = alerts, store.now_str()
+            doc["alert_log"] = alert_log(prev, alerts, codes)
+            res["alert_changes"] = sum(1 for x in doc["alert_log"] if x.get("at_ms", 0) >= time.time() * 1000 - 60e3)
         res["alerts"] = len(alerts) if alerts else ("키 없음" if not config.MOFA_TRAVEL_KEY else 0)
     except Exception as e:
         res["alerts"] = f"오류 {type(e).__name__}"

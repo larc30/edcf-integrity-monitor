@@ -187,8 +187,9 @@ export function seed() {
             BD: { level: 2, base: 2, partial: false, zones: [{ lv: 2, text: "전 지역", rest: true }] },
             KE: { level: 3, base: 2, partial: true, zones: [{ lv: 3, text: "(데모 예시) 만데라주, 와지르주", rest: false }, { lv: 2, text: "(데모 예시) 3단계 지정 지역을 제외한 지역", rest: true }] },
             LA: { level: 4, base: 1, partial: true, zones: [{ lv: 4, text: "(데모 예시) 골든트라이앵글 경제특구", rest: false }, { lv: 1, text: "(데모 예시) 4단계 지정 지역을 제외한 지역", rest: true }] },
-            TZ: { level: 1, base: 1 }, MN: { level: 1, base: 1 }, VN: { level: 1, base: 1 }, KH: { level: 1, base: 1 }, UZ: { level: 1, base: 1 },
+            TZ: { level: 1, base: 1 }, MN: { level: 1, base: 1 }, VN: { level: 1, base: 1 }, KH: { level: 2, base: 2 }, UZ: { level: 1, base: 1 },
           },
+          alert_log: [{ c: "KH", k: "base", from: 1, to: 2, at_ms: now - 60 * H }],
           events: [
             ev("d1", "quake", "PH", 30, 7.4, 125.3, "필리핀 민다나오 다바오 북쪽 규모 6.8 지진", "USGS", { mag: 6.8, depth: 15 }),
             ev("d2", "flood", "BD", 52, 23.2, 90.9, "방글라데시 중부 폭우로 일부 지역 침수", "Google 뉴스"),

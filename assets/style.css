@@ -1616,9 +1616,6 @@ html.lite .rk-trend .wk2 path.line { filter: none; }
 .zone-box { margin-top: .7em; }
 .zone-box label .muted { display: block; font-weight: 400; margin: .2em 0 .35em; word-break: keep-all; }
 /* 업체 추가: 업체명 옆 [DART에서 가져오기] */
-.dl-row { display: flex; gap: .5em; align-items: stretch; }
-.dl-row input { flex: 1; min-width: 0; }
-.dl-row .btn { white-space: nowrap; }
 .dl-res { font-size: var(--fs-sm); line-height: 1.5; padding: .6em .8em; border: 1px solid var(--line, rgba(148,163,184,.3)); border-radius: 8px; margin: -.2em 0 .4em; word-break: keep-all; }
 .dl-res .dp-opt { display: flex; gap: .5em; align-items: flex-start; margin-top: .35em; font-weight: 400; flex-direction: row; }
 .dl-res .dp-opt input { width: auto; margin-top: .25em; }
@@ -2393,8 +2390,7 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
    ===================================================================== */
 :root { --h-l: 2.5rem; --h-m: 2.125rem; --h-s: 1.75rem; --r-l: 10px; --r-m: 9px; --r-s: 8px; }
 /* 큰 것 */
-.page-head .head-actions .btn, .modal .actions .btn, .modal .dl-row .btn { height: var(--h-l); padding-top: 0; padding-bottom: 0; border-radius: var(--r-l); font-size: var(--fs-base); box-sizing: border-box; }
-.modal .form input:not([type=checkbox]):not([type=radio]):not([type=file]), .modal .form select { height: var(--h-l); padding-top: 0; padding-bottom: 0; border-radius: var(--r-l); font-size: var(--fs-base); font-weight: 500; line-height: 1.2; box-sizing: border-box; }
+.page-head .head-actions .btn, .modal .actions .btn, .modal .modal .form input:not([type=checkbox]):not([type=radio]):not([type=file]), .modal .form select { height: var(--h-l); padding-top: 0; padding-bottom: 0; border-radius: var(--r-l); font-size: var(--fs-base); font-weight: 500; line-height: 1.2; box-sizing: border-box; }
 .top-search input, .pj-side #sideSearch, .cv-btn { height: var(--h-l); box-sizing: border-box; border-radius: var(--r-l); }
 .top-search input, .pj-side #sideSearch { padding-top: 0; padding-bottom: 0; }
 /* 보통 */
@@ -2408,8 +2404,7 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 /* 작은 것 */
 .item-actions .btn.sm, .pbox-foot .btn.sm, .site-f .btn.sm { height: var(--h-s); padding: 0 .65rem; border-radius: var(--r-s); }
 .btn.sm.dart-re { padding: 0; width: var(--h-l); }
-.modal .dl-row .btn.sm { height: var(--h-l); border-radius: var(--r-l); }
-/* 작은 주 버튼: 강조색 면 */
+.modal /* 작은 주 버튼: 강조색 면 */
 .btn.sm.primary { background: var(--accent-soft); color: var(--accent); border-color: transparent; box-shadow: none; font-weight: 650; }
 :root:not([data-theme="light"]) .btn.sm.primary { color: #AEB3FF; }
 .btn.sm.primary:hover { background: color-mix(in srgb, var(--accent) 26%, transparent); border-color: transparent; box-shadow: none; filter: none; }
@@ -2492,8 +2487,7 @@ html:has(#modalBg.open), html:has(#drawerBg.open) { overflow: hidden; }
 @media (max-width: 640px) { .ev-acts { margin-left: 0; flex-basis: 100%; } .ev-no-row { grid-template-columns: 1fr auto; } .ev-no-row .r { display: none; } }
 
 /* 팝업 입력 창: 업체명 칸과 버튼 사이 간격을 두 칸 사이 간격과 같게, 아직 고르지 않은 고르기 칸은 입력칸 안내 글자와 같은 흐린 색 */
-.modal .dl-row { gap: 10px; }
-.modal form select:has(option[value=""]:checked) { color: var(--muted); }
+.modal .modal form select:has(option[value=""]:checked) { color: var(--muted); }
 .modal form select option { color: var(--text); }
 
 #nameNote .btn { height: var(--h-s); margin-left: 6px; vertical-align: middle; }
@@ -2616,3 +2610,30 @@ body.viewer #geoOnly { display: none; }
 .gl-top { align-items: center; flex-wrap: wrap; }
 .gl-top .alert-chip { margin-left: 2px; }
 .gl-why { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 4px; }
+
+/* ===== 수원국 화면: 배치는 예전 그대로(왼쪽 등급 · 지도 · 오른쪽 목록), 오른쪽 목록만 나라별 묶음 (2026-11-25) ===== */
+.gc-p .gp-no.red { background: var(--red); } .gc-p .gp-no.orange { background: var(--orange); }
+.gc-pt .pj-name { font-size: var(--fs-sm); }
+
+.gc { flex-shrink: 0; border: 1px solid var(--line); border-radius: 13px; background: var(--panel-2); }
+.gc-h { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; padding: 10px 13px; cursor: pointer; border-radius: 13px; }
+.gc-h:hover { background: color-mix(in srgb, var(--text) 4%, transparent); }
+.gc-n { font-size: var(--fs-base); font-weight: 750; }
+.gc-cnt { margin-left: auto; font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
+.gc-new { padding: 1px 8px; border-radius: 6px; font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; background: var(--accent-soft); color: var(--accent); }
+:root:not([data-theme="light"]) .gc-new { color: #AEB3FF; }
+.gc-ps { display: flex; flex-direction: column; gap: 2px; padding: 4px 6px 7px; border-top: 1px solid var(--line); }
+.gc-p { border-radius: 9px; cursor: pointer; }
+.gc-pt { display: flex; align-items: center; gap: 8px; min-height: var(--h-m); padding: 4px 7px; font-size: var(--fs-sm); }
+.gc-pt .pj-name { flex: 0 1 auto; min-width: 5em; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gc-pt .gc-why { flex: 1 1 0; min-width: 0; text-align: right; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gc-pt .gp-co { margin-left: auto; flex: none; } .gc-pt .gc-why + .gp-co { margin-left: 0; }
+.gc-p:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
+.gc-p.sel { background: color-mix(in srgb, var(--accent-2) 10%, transparent); box-shadow: inset 0 0 0 1px var(--accent-2); }
+.gc-d { display: flex; flex-direction: column; gap: 5px; padding: 4px 9px 10px 35px; cursor: default; }
+.gc-rest { align-self: flex-start; margin: 2px 0 0 7px; padding: 2px 0; border: 0; background: none; font: inherit; font-size: var(--fs-xs); color: var(--muted); cursor: pointer; }
+.gc-rest:hover { color: var(--text-2); }
+.gc-sec, .gl-sec { margin: 8px 2px 0; font-size: var(--fs-xs); font-weight: 700; color: var(--muted); }
+.gl-sec:first-child { margin-top: 0; }
+.gc.still { background: none; } .gc.still .gc-h { padding: 7px 13px; } .gc.still .gc-n { font-weight: 600; color: var(--text-2); }
+.gl-top .gc-new { margin-left: 2px; }

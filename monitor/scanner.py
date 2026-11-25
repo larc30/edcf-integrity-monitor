@@ -661,7 +661,8 @@ def run_scan(only_names: list[str] | None = None, progress=None, should_stop=Non
                         totals[k] += s.get(k, 0)
                     totals["google_skipped"] = totals.get("google_skipped", 0) + s.get("google_skipped", 0)
                     for lv, n in (s.get("levels") or {}).items():
-                        totals.setdefault("levels", {})[lv] = totals["levels"].get(lv, 0) + n
+                        lvs = totals.setdefault("levels", {})  # 먼저 칸을 만들고 더함 (한 줄로 쓰면 오른쪽이 먼저 계산돼 KeyError: 새 이슈가 있는 업체가 모두 '실패'로 찍혔음)
+                        lvs[lv] = lvs.get(lv, 0) + n
                     errors += s["errors"]
             except Exception as e:
                 log.warning("업체 스캔 실패 (%d번째): %s", done + 1, type(e).__name__)  # 이름·내용은 실행 기록에만
