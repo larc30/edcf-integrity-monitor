@@ -2688,3 +2688,36 @@ body.viewer #geoOnly { display: none; }
 /* 지도 이름 정리: 나라 핀 아래에 나라 이름 · 멀리서는 도시 이름을 숨김 */
 .cpn { position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); white-space: nowrap; pointer-events: none; font-size: var(--fs-xs); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--map-name); }
 #geoMap.far .cn.city { display: none; }
+/* 업체 리스크 오른쪽 사업 목록 (2026-11-25): 막대를 빼고 등급별 수는 제목 줄 오른쪽 · 이상 없는 사업은 한 줄씩 */
+#projectMap .pj-top { align-items: center; margin-bottom: 9px; }
+#projectMap .pj:not(.ln):has(.pj-roles:empty) .pj-top { margin-bottom: 0; }
+#projectMap .pj-sec { flex-shrink: 0; margin: 8px 2px 0; font-size: var(--fs-xs); font-weight: 700; color: var(--muted); }
+#projectMap .pj-sec:first-child { margin-top: 0; }
+#projectMap .pj.ln { display: flex; align-items: center; gap: 8px; padding: 7px 13px; background: none; }
+#projectMap .pj.ln .pj-name { font-weight: 600; color: var(--text-2); }
+#projectMap .pj.ln:hover { background: color-mix(in srgb, var(--text) 4%, transparent); border-color: var(--line); }
+/* 업체 리스크도 수원국 화면과 같은 틀 (2026-11-25): 윗줄 등급 | 레이더 | 사업(같은 높이, 안에서 스크롤) · 아랫줄 이슈 전체 폭 2열 */
+@media (min-width: 1101px) {
+  .dash:not(.geo-dash) { grid-template-areas: "title title title" "risk radar proj" "issues issues issues"; }
+  .dash:not(.geo-dash) > .d-projects, .dash:not(.geo-dash) > .d-projects.fit { align-self: stretch; contain: size; }
+  .dash:not(.geo-dash) .d-issues { max-height: none; }
+  .dash:not(.geo-dash) .d-issues .issue-scroll { overflow: visible; margin-right: 0; padding-right: 0; }
+}
+@media (min-width: 1400px) { /* 2열은 넓은 화면에서만: 좁으면 ✓/✕ 버튼이 아랫줄로 떨어짐 */
+  .dash:not(.geo-dash) .d-issues .feed { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .dash:not(.geo-dash) .d-issues .feed > .ok-box, .dash:not(.geo-dash) .d-issues .feed > .bulk-bar, .dash:not(.geo-dash) .d-issues .feed > .muted { grid-column: 1 / -1; }
+}
+.item .dup { border-top: 1px dashed var(--line-2); }
+.item .dup.hidden { display: none; }
+/* 사업 카드는 두 줄: 사업명 · 등급별 수 / 역할별 업체를 한 줄에 이어서 */
+#projectMap .pj:not(.ln) { padding: 9px 13px 10px; }
+#projectMap .pj-top { margin-bottom: 7px; }
+#projectMap .pj-roles, #projectMap .pj-roles:has(.mini) { flex-direction: row; flex-wrap: wrap; gap: 5px 1.1em; }
+#projectMap .pj-roles > .pj-role, #projectMap .pj-roles:has(.mini) > .pj-role:not(.mini) { flex: 0 1 auto; display: inline-flex; align-items: center; }
+/* 업체 화면 윗줄 높이를 수원국 화면과 같게 (2026-11-25): 레이더를 키우고 왼쪽 칸은 아래 끝까지 */
+@media (min-width: 1101px) {
+  .dash:not(.geo-dash) { grid-template-rows: auto minmax(39.4rem, auto) auto; }
+  .dash:not(.geo-dash) .d-risk { align-self: stretch; }
+  .dash:not(.geo-dash) .radar { max-width: min(100%, 430px); }
+}
+.guide-new { font-size: var(--fs-xs); padding: 0 .4em; }
