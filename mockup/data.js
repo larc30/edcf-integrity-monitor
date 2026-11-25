@@ -42,11 +42,13 @@ const EV = [
   { c: "NG", ty: "war", title: "중부 지역 무장 습격 (예시)", src: "연합뉴스", ago: "3일 전", h: 75, km: 120, brg: 20 },
   { c: "VN", ty: "wx", title: "중부 해안 홍수 (예시)", src: "GDACS", ago: "3일 전", h: 80, km: 320, brg: 160 },
   { c: "BD", ty: "pol", title: "서부 국경 지역 시위 (예시)", src: "Google 뉴스", ago: "4일 전", h: 96, km: 245, brg: 255 },
-  { c: "NP", ty: "quake", title: "규모 5.6 지진 (예시)", src: "USGS", ago: "4일 전", h: 100, km: 95, brg: 300 },
+  { c: "PK", ty: "quake", title: "규모 5.6 지진 (예시)", src: "USGS", ago: "4일 전", h: 100, km: 95, brg: 300 },
   { c: "PK", ty: "war", title: "남서부 도심 차량 폭발로 다수 사상 (예시)", src: "연합뉴스", ago: "5일 전", h: 120, km: 37, brg: 200 },
-  { c: "ID", ty: "quake", title: "화산 분화로 주변 대피 (예시)", src: "GDACS", ago: "5일 전", h: 125, km: 210, brg: 110 },
+  { c: "PH", ty: "quake", title: "화산 분화로 주변 대피 (예시)", src: "GDACS", ago: "5일 전", h: 125, km: 210, brg: 110 },
   { c: "MM", ty: "war", title: "북부 지역 무력 충돌 (예시)", src: "연합뉴스", ago: "6일 전", h: 140, km: 41, brg: 10 },
   { c: "BD", ty: "quake", title: "규모 5.8 지진 (예시)", src: "USGS", ago: "6일 전", h: 145, km: 478, brg: 60, tag: "지진 M5.8" },
-  { c: "MZ", ty: "wx", title: "사이클론 상륙 예보 (예시)", src: "GDACS", ago: "6일 전", h: 150, km: 180, brg: 70 },
+  { c: "MM", ty: "wx", title: "사이클론 상륙 예보 (예시)", src: "GDACS", ago: "6일 전", h: 150, km: 180, brg: 70 },
   { c: "LK", ty: "pol", title: "수도 총파업 집회 (예시)", src: "Google 뉴스", ago: "6일 전", h: 155, km: 15, brg: 120 },
 ];
+// 최근 7일 안에 여행경보 단계가 바뀐 나라 (예시)
+const CHG = { LK: "여행경보 1단계 → 2단계 (3일 전)" };

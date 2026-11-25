@@ -26,9 +26,10 @@ const events = EV.map((e, k) => {
   c.evs.push(ev); return ev;
 });
 projects.forEach((p) => p.evs.sort((a, b) => a.km - b.km));
+countries.forEach((c) => { c.chg = CHG[c.id] || ""; c.moved = c.evs.length > 0 || !!c.chg; });
 const why = (p) => p.evs.length ? `${p.evs[0].name}, 사업지 ${p.evs[0].km}km (${p.evs[0].ago})` : "";
 // 정렬: 등급 → 새 사건이 있는 곳 먼저 → 사업 수
-countries.sort((a, b) => ORD[a.lv] - ORD[b.lv] || b.evs.length - a.evs.length || b.n - a.n);
+countries.sort((a, b) => ORD[a.lv] - ORD[b.lv] || b.moved - a.moved || b.evs.length - a.evs.length || b.n - a.n);
 const hot = projects.filter((p) => p.lv != "green").sort((a, b) => ORD[a.lv] - ORD[b.lv] || b.evs.length - a.evs.length || (a.evs[0]?.h ?? 1e9) - (b.evs[0]?.h ?? 1e9));
 const cnt = (lv) => countries.filter((c) => c.lv == lv);
 const sum = (cs) => cs.reduce((s, c) => s + c.n, 0);
@@ -84,13 +85,13 @@ function renderCo() {
 /* ---------- 수원국 리스크 ---------- */
 const ui = { mode: "c", open: null, sel: null };
 function renderGeo() {
-  const tile = (lv) => { const cs = cnt(lv); return `<button class="card tile ${lv}" data-lv="${lv}"><div class="lb">${LV[lv]}</div><div class="n"><b>${cs.length}</b><span>개국</span><i ${lv == "green" ? "hidden" : ""}>사업 ${sum(cs)}</i></div><div class="sub">${lv == "green" ? `사업 ${sum(cs)} · ` : ""}${cs.slice(0, 3).map((c) => c.ko).join(" · ")} 외 ${cs.length - 3}</div></button>`; };
+  const tile = (lv) => { const cs = cnt(lv); return `<button class="card tile ${lv}" data-lv="${lv}"><div class="lb">${LV[lv]}</div><div class="n"><b>${cs.length}</b><span>개국</span><i ${lv == "green" ? "hidden" : ""}>사업 ${sum(cs)}</i></div><div class="sub">${lv == "green" ? `사업 ${sum(cs)}` : `변동 ${cs.filter((c) => c.moved).length} · ${cs.filter((c) => c.moved).slice(0, 3).map((c) => c.ko).join(" · ")}`}</div></button>`; };
   const tc = Object.keys(TY).map((k) => [TY[k], events.filter((e) => e.ty == k).length]).sort((a, b) => b[1] - a[1]);
   $("#geo").innerHTML = `
   <div class="head"><div><div class="kick">COUNTRY RISK · 2026.11.24 (화)</div><h1>오늘의 <em>EDCF 수원국 리스크</em></h1><div class="last">마지막 갱신 11/24 13:30</div></div><span class="sp"></span>
     <div class="scope"><button>정보통신팀 사업 · 사업 20</button><button class="on">EDCF 전체 · 사업 ${projects.length}</button></div><button class="btn pri" style="background:var(--grad-geo)">지금 스캔</button></div>
   <div class="tiles">${tile("red")}${tile("orange")}${tile("green")}
-    <div class="card tile plain"><div class="lb">여행경보 · 사업지 기준</div><div class="row" style="margin-top:6px"><span class="al a34">3·4단계</span>출국권고 · 여행금지<b class="r">31</b></div><div class="row"><span class="al a2">2단계</span>여행자제<b class="o">58</b></div><div class="row"><span class="al a1">1단계</span>여행유의 · 없음<b>97</b></div></div>
+    <div class="card tile plain"><div class="lb">최근 7일 달라진 것</div><div class="row" style="margin-top:6px">새 사건이 있는 나라<b>${countries.filter((c) => c.evs.length).length}</b></div><div class="row">여행경보 단계 변경<b class="o">${Object.keys(CHG).length}</b></div><div class="row">특별여행주의보 새 발령<b>0</b></div></div>
     <div class="card tile plain"><div class="lb">최근 7일 이벤트</div><div class="n"><b>${events.length}</b><span>건</span></div><div class="bar">${tc.map(([t, n]) => `<i style="flex:${n};background:${t[1]}"></i>`).join("")}</div><div class="lg">${tc.map(([t, n]) => `<span><i class="sq" style="background:${t[1]}"></i>${t[0]} ${n}</span>`).join("")}</div></div>
   </div>
   <div class="mid">
@@ -117,15 +118,15 @@ function renderList() {
     $("#glH").textContent = "사업별 현황"; $("#glN").textContent = `경고·주의 ${hot.length}`;
     gl.innerHTML = hot.slice(0, 30).map((p, k) => pCard(p, k + 1)).join("");
   } else {
-    const cs = countries.filter((c) => c.lv != "green");
-    $("#glH").textContent = "수원국별 현황"; $("#glN").textContent = `경고·주의 ${cs.length}개국`;
-    gl.innerHTML = cs.map((c, k) => {
-      const withEv = c.ps.filter((p) => p.evs.length), rest = c.n - withEv.length, nat = c.evs.filter((e) => !e.p);
+    const cs = countries.filter((c) => c.lv != "green"), mv = cs.filter((c) => c.moved), st = cs.filter((c) => !c.moved);
+    $("#glH").textContent = "수원국별 현황"; $("#glN").textContent = `변동 ${mv.length}`;
+    const subs = (c, all) => { const ps = all ? c.ps.slice(0, 6) : c.ps.filter((p) => p.evs.length), rest = c.n - ps.length;
+      return ps.length || rest ? `<div class="sub-p">${ps.map((p) => `<button data-p="${projects.indexOf(p)}" class="${ui.sel == p ? "on" : ""}">${p.name.replace(c.ko + " ", "")}<span>${why(p)}</span></button>`).join("")}${rest ? `<div class="rest">그 밖 사업 ${rest}</div>` : ""}</div>` : ""; };
+    gl.innerHTML = mv.map((c, k) => { const nat = c.evs.filter((e) => !e.p);
       return `<div class="gp" data-c="${c.id}"><div class="t"><span class="no ${c.lv}">${k + 1}</span>${c.ko}<span class="c2">사업 ${c.n}</span>${badge(c.lv)}</div>
-        <div class="r">${tv(c.alert)}${c.evs.length ? `<span class="nw">새 사건 ${c.evs.length}</span>` : ""}${nat.map((e) => e.title.replace(" (예시)", "")).join(" · ")}</div>
-        ${ui.open == c.id || withEv.includes(ui.sel) ? `<div class="sub-p">${c.ps.map((p) => `<button data-p="${projects.indexOf(p)}" style="${ui.sel == p ? "background:rgba(45,212,191,.12)" : ""}">${p.name.replace(c.ko + " ", "")}<span>${why(p)}</span></button>`).slice(0, 6).join("")}${c.n > 6 ? `<div class="rest">그 밖 사업 ${c.n - 6}</div>` : ""}</div>`
-          : withEv.length ? `<div class="sub-p">${withEv.map((p) => `<button data-p="${projects.indexOf(p)}">${p.name.replace(c.ko + " ", "")}<span>${why(p)}</span></button>`).join("")}${rest ? `<div class="rest">그 밖 사업 ${rest} · 여행경보만 해당</div>` : ""}</div>` : ""}</div>`;
-    }).join("");
+        <div class="r">${tv(c.alert)}${c.evs.length ? `<span class="nw">새 사건 ${c.evs.length}</span>` : ""}${c.chg ? `<span class="nw">단계 변경</span>` : ""}${[c.chg, ...nat.map((e) => e.title.replace(" (예시)", ""))].filter(Boolean).join(" · ")}</div>${subs(c, ui.open == c.id)}</div>`; }).join("")
+      + `<div class="gh">변동 없음 ${st.length}</div>`
+      + st.map((c) => `<div class="gp gs" data-c="${c.id}"><div class="t">${c.ko}${tv(c.alert)}<span class="c2">사업 ${c.n}</span>${badge(c.lv)}</div>${ui.open == c.id ? subs(c, true) : ""}</div>`).join("");
   }
   gl.onclick = (ev) => {
     const pb = ev.target.closest("[data-p]"), cb = ev.target.closest("[data-c]");
@@ -133,17 +134,21 @@ function renderList() {
     else if (cb) { ui.open = ui.open == cb.dataset.c ? null : cb.dataset.c; renderList(); }
   };
 }
-function select(p) { ui.sel = p; if (p) ui.open = p.c.id; renderList(); drawMap(); const el = $("#gl .sel, #gl [style*='212']"); if (el) el.scrollIntoView({ block: "nearest" }); }
+function select(p) { ui.sel = p; if (p) ui.open = p.c.id; renderList(); drawMap(); const el = $("#gl .sel, #gl .sub-p .on"); if (el) el.scrollIntoView({ block: "nearest" }); }
 
 /* 등급을 누르면: 나라로 묶고 그 안에 사업 */
 function openLevel(lv) {
   const cs = cnt(lv);
+  const mv = cs.filter((c) => c.moved), st = cs.filter((c) => !c.moved);
   $("#dw").innerHTML = `<h2>${badge(lv)} 수원국 ${cs.length} <button class="x" id="dwX">×</button></h2><div class="sm">사업 ${sum(cs)}</div>
-    ${cs.map((c) => { const withEv = c.ps.filter((p) => p.evs.length), rest = c.ps.filter((p) => !p.evs.length);
+    ${mv.length ? `<h3>최근 7일 변동 ${mv.length}</h3>` : ""}
+    ${mv.map((c) => { const withEv = c.ps.filter((p) => p.evs.length), rest = c.ps.filter((p) => !p.evs.length);
       return `<div class="card dc"><div class="t">${c.ko}${tv(c.alert)}<span class="c2">사업 ${c.n}</span></div>
-        ${c.evs.length ? `<h4>최근 7일 사건</h4>${c.evs.map((e) => `<div class="ln"><i class="sq" style="background:${e.col}"></i><b>${e.title}</b><span>${e.src} · ${e.ago}</span></div>`).join("")}` : ""}
+        ${c.chg ? `<div class="ln"><span class="nw">단계 변경</span><b>${c.chg}</b></div>` : ""}
+        ${c.evs.length ? `<h4>사건</h4>${c.evs.map((e) => `<div class="ln"><i class="sq" style="background:${e.col}"></i><b>${e.title}</b><span>${e.src} · ${e.ago}</span></div>`).join("")}` : ""}
         ${withEv.length ? `<h4>사건이 가까운 사업</h4>${withEv.map((p) => `<div class="ln"><b>${p.name}</b><span>${p.evs[0].name} ${p.evs[0].km}km</span></div>`).join("")}` : ""}
-        ${rest.length ? `<details><summary>${withEv.length ? "그 밖 사업" : "사업"} ${rest.length}</summary>${rest.map((p) => `<div>${p.name}</div>`).join("")}</details>` : ""}</div>`; }).join("")}`;
+        ${rest.length ? `<details><summary>${withEv.length ? "그 밖 사업" : "사업"} ${rest.length}</summary>${rest.map((p) => `<div>${p.name}</div>`).join("")}</details>` : ""}</div>`; }).join("")}
+    ${st.length ? `<h3>변동 없음 ${st.length}</h3><div class="card dc">${st.map((c) => `<details class="st"><summary><b>${c.ko}</b>${tv(c.alert)}<span>사업 ${c.n}</span></summary>${c.ps.map((p) => `<div>${p.name}</div>`).join("")}</details>`).join("")}</div>` : ""}`;
   $("#dwBg").classList.add("open"); $("#dwX").onclick = closeDw;
 }
 const closeDw = () => $("#dwBg").classList.remove("open");
