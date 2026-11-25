@@ -2738,9 +2738,22 @@ body.viewer #geoOnly { display: none; }
 .wk-leg span { display: inline-flex; align-items: center; gap: .4em; }
 .wk-leg .lg { width: 8px; height: 8px; border-radius: 50%; }
 .wk-leg .lg.red { background: var(--red); } .wk-leg .lg.orange { background: var(--orange); }
-/* 사업 카드: 경고·주의 업체만 이름 + 역할 */
-#projectMap .pj-hot { display: flex; flex-wrap: wrap; gap: 5px 6px; }
-#projectMap .pj-hot:empty { display: none; }
-#projectMap .pj-hot .cchip small { font-weight: 600; margin-left: 2px; }
 #kboard .rk, #gboard .rk { min-height: 4.3rem; box-sizing: border-box; } /* 두 화면의 등급 줄 높이를 똑같이 */
 @media (min-width: 1101px) { .dash:not(.geo-dash), .dash.geo-dash { grid-template-rows: auto minmax(40.5rem, auto) auto; } } /* 두 화면의 윗줄 높이를 똑같이 */
+/* 2026-11-25 저녁: 사업 목록·사업 상세·업체 상세 다듬기 */
+#projectMap .pj-sec:first-child { margin-top: 0; }
+#projectMap .pj:not(.ln):has(.pj-roles:empty) .pj-top { margin-bottom: 0; }
+#projectMap .cchip.calm { border: 1px solid color-mix(in srgb, var(--text) 26%, transparent); color: var(--text-2); }
+/* 사업 상세: 역할마다 한 상자 (역할 머리 + 그 역할의 업체) */
+.pd-grp { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.pd-grp + .pd-grp { margin-top: 10px; }
+.pd-grp-h { padding: 8px 12px; background: var(--panel-2); border-bottom: 1px solid var(--line); }
+.pd-grp .pd-row { padding: 8px 12px; border-radius: 0; }
+/* 업체 상세의 참여 사업: 역할 | 사업명 | 단계 를 줄마다 같은 자리에 */
+.d-row.eng { justify-content: flex-start; gap: 10px; }
+.d-row.eng .role { flex: 0 0 auto; min-width: 5.2em; text-align: center; }
+.d-row.eng .de-n { flex: 1; min-width: 0; }
+.d-row.eng .stage { flex: 0 0 auto; }
+/* 등급 설명 풍선: 배지를 설명 첫 줄에 맞춤 (두 줄 설명의 가운데에 걸리던 것) */
+.tip-grid.lv { align-items: start; }
+.tip-grid.lv > span:nth-child(odd) { display: flex; align-items: center; min-height: 1.5em; }
