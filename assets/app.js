@@ -606,7 +606,8 @@ function renderHome() {
   const spark = () => {
     if (!sc) return "";
     const wk = Array.from({ length: 7 }, (_, i) => newByDay(6 - i)), max = Math.max(...wk.map((x) => Math.max(x.r, x.o)), 1), WD = "일월화수목금토";
-    const W = 300, LH = 50, H = LH * 2 + 18, L0 = 42, R0 = 14, X = (i) => L0 + (i / 6) * (W - L0 - R0);
+    const LH = matchMedia("(min-width: 1101px)").matches ? 74 : 50; // 세 칸 배치에서는 줄 높이를 키움 (윗줄 높이를 수원국 화면과 맞춤)
+    const W = 300, H = LH * 2 + 18, L0 = 42, R0 = 14, X = (i) => L0 + (i / 6) * (W - L0 - R0);
     const dayN = (i) => { const d = new Date(Date.now() - (6 - i) * DAY); return i === 6 ? "오늘" : WD[d.getDay()]; };
     const lane = (k, name, top) => {
       const base = top + LH - 6, Y = (v) => base - (v / max) * (LH - 28), P = wk.map((x, i) => [X(i), Y(x[k])]);
@@ -830,15 +831,22 @@ function findingHtml(g, showCompany = true) {
     </div>
     <div class="item-summary"${why ? ` title="${esc(why)}"` : ""}>${esc(sumText(f))}</div>
     <div class="item-meta">
-      <span class="src">${esc(String(f.source_name || "-").replace(/\s*·\s*(제재 키워드|업체명 검색|심층)\)/, ")"))} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}</span>
+      <span class="src">${esc(String(f.source_name || "-").replace(/\s*·\s*(제재 키워드|업체명 검색|심층)\)/, ")"))} · ${esc(f.published_at || "날짜 미상")}${f.url ? ` · <a href="${esc(f.url)}" target="_blank" rel="noopener">원문 ↗</a>` : ""}${more.length ? ` · <button type="button" class="ev-more" data-dupmore title="${esc(srcs.slice(0, 5).join(" · "))}">같은 내용 ${more.length}건 더</button>` : ""}</span>
       <span class="item-age">${g.newest ? relTime(g.newest) : ""}</span>
     </div>
-    ${more.length ? `<details class="dup"><summary>같은 내용 ${more.length}건 더${srcs.length ? ` <span class="dup-src">${esc(srcs.slice(0, 3).join(" · "))}${srcs.length > 3 ? " 외" : ""}</span>` : ""}</summary>
+    ${more.length ? `<div class="dup hidden">
       <div class="bd-list">${more.map((x) => `<div class="dup-row">${badge(x.level)}${showCompany && x.company_id !== f.company_id ? `<b>${esc(x.company_name)}</b>` : ""}
         ${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener" title="${esc(x.summary || "")}">${esc(x.title || x.summary || "-")}</a>` : `<span title="${esc(x.summary || "")}">${esc(x.title || x.summary || "-")}</span>`}
-        <span class="muted">${esc(x.source_name || "")}${x.published_at ? " · " + esc(x.published_at) : ""}</span></div>`).join("")}</div></details>` : ""}
+        <span class="muted">${esc(x.source_name || "")}${x.published_at ? " · " + esc(x.published_at) : ""}</span></div>`).join("")}</div></div>` : ""}
   </div>`;
 }
+// 이슈 카드의 '같은 내용 N건 더': 누르면 카드 아래에 펼침 (어느 목록에서든 같게)
+document.addEventListener("click", (e) => {
+  const bt = e.target.closest?.("[data-dupmore]"), d = bt?.closest(".item")?.querySelector(".dup");
+  if (!d) return;
+  e.stopPropagation();
+  d.classList.toggle("hidden"); bt.classList.toggle("open", !d.classList.contains("hidden"));
+});
 // 과거 이력 일괄 정리 ('확인했음'으로: 등급은 그대로, AI 판정 예시에는 쓰지 않음)
 async function bulkReview(groups) {
   const ids = groups.flatMap((g) => g.items.map((x) => x.id));
