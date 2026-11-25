@@ -606,14 +606,14 @@ function renderHome() {
   const spark = () => {
     if (!sc) return "";
     const wk = Array.from({ length: 7 }, (_, i) => newByDay(6 - i)), max = Math.max(...wk.map((x) => Math.max(x.r, x.o)), 1), WD = "일월화수목금토";
-    const LH = 56, W = 300, H = LH * 2 + 18, L0 = 20, R0 = 20, X = (i) => L0 + (i / 6) * (W - L0 - R0); // 좌우 여백 같게 (범례는 그래프 아래로)
+    const LH = 56, W = 300, H = LH * 2 + 18, L0 = 12, R0 = 12, X = (i) => L0 + (i / 6) * (W - L0 - R0); // 좌우 여백 같게 (범례는 그래프 아래로)
     const dayN = (i) => { const d = new Date(Date.now() - (6 - i) * DAY); return i === 6 ? "오늘" : WD[d.getDay()]; };
     const lane = (k, name, top) => {
       const base = top + LH - 6, Y = (v) => base - (v / max) * (LH - 28), P = wk.map((x, i) => [X(i), Y(x[k])]);
       const d = P.map(([x, y], i) => { if (!i) return `M${x.toFixed(1)},${y.toFixed(1)}`; const [px0, py0] = P[i - 1], mx = ((px0 + x) / 2).toFixed(1); return `C${mx},${py0.toFixed(1)} ${mx},${y.toFixed(1)} ${x.toFixed(1)},${y.toFixed(1)}`; }).join("");
       const area = `${d}L${X(6).toFixed(1)},${base}L${X(0).toFixed(1)},${base}Z`;
       const dots = P.map(([x, y], i) => `<g class="pt ${i === 6 ? "now" : ""}"><title>${dayN(i)} 새 ${name} ${wk[i][k]}건</title>${i === 6 ? `<circle class="halo ${k}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7"/>` : ""}<circle class="dot ${k}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${i === 6 ? 3.8 : 2.2}"/><text class="val ${i === 6 ? "now" : ""} ${wk[i][k] ? "" : "zero"}" x="${x.toFixed(1)}" y="${(y - 7).toFixed(1)}">${wk[i][k]}</text></g>`).join("");
-      return `<line class="base" x1="${L0 - 14}" x2="${W - R0 + 14}" y1="${base}" y2="${base}"/>
+      return `<line class="base" x1="0" x2="${W}" y1="${base}" y2="${base}"/>
         <path class="area ${k}" d="${area}" fill="url(#wkg-${k})"/><path class="line ${k}" d="${d}"/>${dots}`;
     };
     const days = wk.map((_, i) => `<text class="day ${i === 6 ? "now" : ""}" x="${X(i).toFixed(1)}" y="${H - 3}">${dayN(i)}</text>`).join("");
@@ -621,7 +621,7 @@ function renderHome() {
       <div class="rk-trend"><svg class="wk2" viewBox="0 0 ${W} ${H}" role="img" aria-label="최근 7일 새로 잡힌 경고 ${wk.map((x) => x.r).join(", ")}건, 주의 ${wk.map((x) => x.o).join(", ")}건">
         <defs><linearGradient id="wkg-r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--red)" stop-opacity=".38"/><stop offset="1" stop-color="var(--red)" stop-opacity="0"/></linearGradient>
         <linearGradient id="wkg-o" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--orange)" stop-opacity=".38"/><stop offset="1" stop-color="var(--orange)" stop-opacity="0"/></linearGradient></defs>
-        <rect class="today" x="${(X(6) - 15).toFixed(1)}" y="2" width="30" height="${H - 4}" rx="8"/>
+        <rect class="today" x="${(X(6) - 12).toFixed(1)}" y="2" width="24" height="${H - 4}" rx="8"/>
         ${lane("r", "경고", 0)}${lane("o", "주의", LH)}${days}</svg></div>
       <div class="wk-leg"><span><i class="lg red"></i>경고</span><span><i class="lg orange"></i>주의</span></div>`;
   };
@@ -690,7 +690,7 @@ function renderHome() {
     : (tl[b.id].red - tl[a.id].red) || (tl[b.id].orange - tl[a.id].orange) || a.name.localeCompare(b.name));
   // 경고·주의 업체가 있는 사업만 카드로, 나머지는 '이상 없음 N' 아래 한 줄씩 (수원국 목록의 '변동 없음'과 같은 틀)
   const hotP = !sc ? psSorted : psSorted.filter((p) => tl[p.id].red + tl[p.id].orange), calmP = !sc ? [] : psSorted.filter((p) => !(tl[p.id].red + tl[p.id].orange));
-  $("#projectMap").innerHTML = (hotP.map((p) => projectRow(p)).join("") + (calmP.length ? `<div class="pj-sec">이상 없음 ${calmP.length}</div>` + calmP.map((p) => projectRow(p, true)).join("") : ""))
+  $("#projectMap").innerHTML = ((sc && hotP.length ? `<div class="pj-sec">경고·주의 사업 ${hotP.length}</div>` : "") + hotP.map((p) => projectRow(p)).join("") + (calmP.length ? `<div class="pj-sec">이상 없는 사업 ${calmP.length}</div>` + calmP.map((p) => projectRow(p, true)).join("") : ""))
     || `<div class="empty small">${scope === "mine" ? "내가 담당하는 사업이 없습니다." : "등록된 사업이 없습니다."}</div>`;
   // 사업이 적어 칸이 많이 남으면 칸을 내용 높이까지만 (많으면 이슈 목록 끝까지 채우고 안에서 스크롤)
   { const pl = $("#projectMap"), card = pl.closest(".d-projects"); card.classList.remove("fit"); requestAnimationFrame(() => { const last = pl.lastElementChild; card.classList.toggle("fit", !!last && pl.clientHeight > 0 && last.getBoundingClientRect().bottom - pl.getBoundingClientRect().top < pl.clientHeight - 60); }); }
@@ -700,7 +700,7 @@ function renderHome() {
 
   renderJob(); checkSmooth();
 }
-// 사업 카드: 제목 줄 오른쪽에 등급별 업체 수, 그 아래 경고·주의 업체(이름 + 역할). line = 이상 없는 사업은 한 줄(사업명 · 업체 수)
+// 사업 카드: 사업명, 그 아래 역할별 업체(경고·주의는 이름 · 나머지는 '정상 N'). line = 이상 없는 사업은 한 줄(사업명 · 업체 수)
 function projectRow(p, line = false) {
   const rows = [];
   for (const c of state.companies) c.engagements.forEach((e) => { if (e.project_id === p.id) rows.push({ c, e }); });
@@ -708,17 +708,14 @@ function projectRow(p, line = false) {
   const sc = scanned(), t = { red: 0, orange: 0, yellow: 0, none: 0 };
   new Set(rows.map((r) => r.c)).forEach((c) => t[c.risk]++);
   const total = t.red + t.orange + t.none;
-  const hot = sc ? ["red", "orange"].filter((lv) => t[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${t[lv]}</span>`).join("") : "";
-  const sum = hot + `<span class="tot">업체 ${total}${sc || !total ? "" : " · 스캔 전"}</span>`;
-  const seen = new Set(), flagged = !sc ? [] : rows.filter(({ c, e }) => (c.risk === "red" || c.risk === "orange") && !seen.has(c.id + e.role) && seen.add(c.id + e.role))
-    .sort((a, b) => (a.c.risk === "red" ? 0 : 1) - (b.c.risk === "red" ? 0 : 1));
-  const chips = flagged.map(({ c, e }) => `<span class="cchip ${c.risk}" data-cid="${c.id}" title="${esc(c.name)} · ${LEVEL[c.risk]}"><span class="dot ${c.risk}"></span>${esc(c.name)}<small>${esc([e.role, e.rank ? e.rank + "순위" : e.stage && e.stage !== "계약" ? e.stage : ""].filter(Boolean).join(" · "))}</small></span>`).join("");
+  // 오른쪽 수: 카드에는 없음(아래 역할 줄에 업체가 다 보임 · 한 업체가 여러 역할이면 합계가 헷갈림), 한 줄짜리(이상 없는 사업)와 스캔 전에만 '업체 N'
+  const sum = line || !sc ? `<span class="tot">업체 ${total}${sc || !total ? "" : " · 스캔 전"}</span>` : "";
   const cn = p.country ? COUNTRY[p.country] || p.country : "", ctry = cn && !p.name.includes(cn) ? `<span class="pj-ctry">${esc(cn)}</span>` : ""; // 나라는 사업명에 없을 때만
-  const top = `<span class="pj-name" title="${esc(p.name)}">${esc(p.name)}</span>${ctry}<span class="pj-sum">${sum}</span>`;
+  const top = `<span class="pj-name" title="${esc(p.name)}">${esc(p.name)}</span>${ctry}${sum ? `<span class="pj-sum">${sum}</span>` : ""}`;
   if (line) return `<div class="pj ln" data-pid="${p.id}">${top}</div>`;
   return `<div class="pj" data-pid="${p.id}">
     <div class="pj-top">${top}</div>
-    ${sc ? `<div class="pj-hot">${chips}</div>` : `<div class="pj-roles">${pjRoles(rows, sc, true)}</div>`}
+    <div class="pj-roles">${pjRoles(rows, sc, true)}</div>
   </div>`;
 }
 // 사업 카드 안 업체: 역할(F/S → 컨설턴트 → 본구매)별로 한 줄씩: 역할이 섞여 보이지 않게
@@ -729,7 +726,7 @@ function pjRoles(rows, sc, compact = false) {
     if (!l.length) return "";
     const hot = l.filter(({ c }) => sc && c.risk !== "none"), calm = l.length - hot.length;
     // 경고·주의가 없는 역할도 줄은 보여 줌(정상 N): 사업에 어떤 역할(단계)의 업체가 들어와 있는지 알 수 있게
-    if (sc && compact) return `<div class="pj-role${hot.length ? "" : " mini"}">${roleTag(role || "기타")}<div class="pcos">${hot.map(({ c, e }) => `<span class="cchip ${c.risk}" data-cid="${c.id}" title="${esc(c.name)} · ${LEVEL[c.risk]}"><span class="dot ${c.risk}"></span>${esc(c.name)}${e.rank ? `<small>${e.rank}순위</small>` : e.stage && e.stage !== "계약" ? `<small>${esc(e.stage)}</small>` : ""}</span>`).join("")}${calm ? `<span class="cchip calm" title="${esc(l.filter(({ c }) => c.risk === "none").map(({ c }) => c.name).join(", "))}">정상 ${calm}</span>` : ""}</div></div>`;
+    if (sc && compact) return `<div class="pj-role${hot.length ? "" : " mini"}">${roleTag(role || "기타")}<div class="pcos">${hot.map(({ c, e }) => `<span class="cchip ${c.risk}" data-cid="${c.id}" title="${esc(c.name)} · ${LEVEL[c.risk]}"><span class="dot ${c.risk}"></span>${esc(c.name)}</span>`).join("")}${calm ? `<span class="cchip calm" title="${esc(l.filter(({ c }) => c.risk === "none").map(({ c }) => c.name).join(", "))}">정상 ${calm}</span>` : ""}</div></div>`;
     return `<div class="pj-role">${roleTag(role || "기타")}<div class="pcos">${l.map(({ c, e }) => `<span class="cchip ${sc ? c.risk : ""}" data-cid="${c.id}" title="${esc(c.name)}${sc ? " · " + LEVEL[c.risk] : ""}${e.stage && e.stage !== "계약" ? " · " + esc(e.stage) : ""}"><span class="dot ${sc ? c.risk : ""}"></span>${esc(c.name)}${e.rank ? `<small>${e.rank}순위</small>` : e.stage && e.stage !== "계약" ? `<small>${esc(e.stage)}</small>` : ""}</span>`).join("")}</div></div>`;
   }).join("");
 }
@@ -1276,11 +1273,11 @@ function openCompany(cid, back = null) {
   $("#drawerTitle").innerHTML = `${back ? `<button type="button" class="d-back" id="dBack">← ${String(back).startsWith("p:") ? "사업으로" : back === "official" ? "공식 제재 명단" : LEVEL[back] + " 업체 목록"}</button>` : ""}<div class="d-name"><span class="nm">${esc(c.name)}</span>${sc ? coBadge(c) : ""}</div>
     <div class="d-sub">${c.engagements.length ? `참여 사업 ${c.engagements.length} · ${ROLE_ORDER.filter((r) => c.engagements.some((e) => e.role === r)).map((r) => `${esc(r)} ${c.engagements.filter((e) => e.role === r).length}`).join(" · ")}` : "사업 미연결"}${c.cat ? ` · ${esc(c.cat)}` : ""}</div>`;
   // 순서: 이슈 → 업체 정보 → 참여 사업 → 검사 결과 (찾아온 사람이 먼저 보는 순서대로, 같은 내용은 한 번만)
-  const engRow = (e, i) => `<div class="d-row"><span>${roleTag(e.role)} ${esc(projName(e.project_id))} ${stageTag(e)}</span></div>`; // 오른쪽 창은 보기만: 연결·빼기·삭제는 업체 정보 팝업([정보 수정])에서만
+  const engRow = (e, i) => `<div class="d-row eng">${roleTag(e.role)}<span class="de-n">${esc(projName(e.project_id))}</span>${stageTag(e)}</div>`; // 오른쪽 창은 보기만: 연결·빼기·삭제는 업체 정보 팝업([정보 수정])에서만
   const engRows = c.engagements.map((e, i) => [e, i]).sort((x, y) => ROLE_ORDER.indexOf(x[0].role) - ROLE_ORDER.indexOf(y[0].role) || projName(x[0].project_id).localeCompare(projName(y[0].project_id), "ko")).map(([e, i]) => engRow(e, i));
   $("#drawerBody").innerHTML = `
     <div class="d-actions">
-      <button class="btn sm primary" id="dScan">다시 스캔</button>
+      <button class="btn sm primary" id="dScan">업체 스캔</button>
       <button class="btn sm" id="dHwpx" title="리스크 모니터링 보고서 (HWPX)">보고서</button>
       <a class="btn sm" target="_blank" rel="noopener" href="https://search.naver.com/search.naver?where=news&query=${encodeURIComponent('"' + c.name + '"')}">네이버 뉴스 ↗</a>
     </div>
