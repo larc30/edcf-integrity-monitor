@@ -606,7 +606,7 @@ function ensureMap() {
   map.createPane("names"); map.getPane("names").style.zIndex = 450; map.getPane("names").style.pointerEvents = "none";
   layers = { halo: L.layerGroup().addTo(map), focus: L.layerGroup().addTo(map), ev: L.layerGroup().addTo(map), pin: L.layerGroup().addTo(map) };
   map.on("zoomend", zoomClass);
-  map.on("zoomend", () => { if (mapState && (pinMode() !== map._pinMode || map._pinMode === "country")) drawPins(); }); // 확대 단계가 바뀌면 나라 핀 ↔ 사업 핀 (나라 핀은 확대할 때마다 밀어내기를 다시 계산)
+  map.on("zoomend", () => { if (mapState && (pinMode() !== map._pinMode || map._pinMode === "country" || pinSpread().sig !== map._pinSig)) drawPins(); }); // 확대 단계가 바뀌면 나라 핀 ↔ 사업 핀 (나라 핀은 확대할 때마다 밀어내기를 다시 계산)
   map.on("zoomend moveend", declutterSoon);
   new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
   map._fitted = false;
@@ -639,6 +639,17 @@ function goCountry(c) {
 }
 let mapState = null;
 const pinMode = () => (mapState?.f || map.getZoom() >= PIN_ZOOM ? "pins" : "country");
+// 사업 핀 벌리기: 화면에서 PIN_NEAR 픽셀 안에 모인 사업 핀을 한 묶음으로 보고, 묶음 가운데를 기준으로 옆으로 나란히 놓음 (같은 도시의 사업 여러 개)
+// → { 사업 id: 옆으로 옮길 픽셀 }, sig = 묶음 모양(확대해도 그대로면 다시 그리지 않음)
+const PIN_NEAR = 20, PIN_GAP = 25;
+function pinSpread() {
+  const { pins, f } = mapState, xs = pins.filter(({ p, pt }) => pt && !(pt.how === "국가 중심" && !(f && f.p.id === p.id))).map((x) => ({ id: x.p.id, q: map.latLngToContainerPoint(x.pt.ll) }));
+  const groups = [];
+  xs.forEach((a) => { const g = groups.find((g) => Math.hypot(g.q.x - a.q.x, g.q.y - a.q.y) < PIN_NEAR); if (g) g.ids.push(a.id); else groups.push({ q: a.q, ids: [a.id] }); });
+  const dx = {};
+  groups.forEach((g) => g.ids.forEach((id, i) => { dx[id] = g.ids.length > 1 ? Math.round((i - (g.ids.length - 1) / 2) * Math.min(PIN_GAP, 150 / g.ids.length)) : 0; }));
+  return { dx, sig: groups.filter((g) => g.ids.length > 1).map((g) => g.ids.join("+")).join("|") };
+}
 function drawPins() {
   if (!mapState || !map) return;
   const { pins, risk, f } = mapState, mode = pinMode();
@@ -682,12 +693,14 @@ function drawPins() {
         .on("click", () => { ui.focus = null; ui.openC = c; renderGeo(); const el = document.querySelector(`#geoProjects [data-gc="${c}"]`), list = $("#geoProjects"); if (el && list) list.scrollTo({ top: list.scrollTop + el.getBoundingClientRect().top - list.getBoundingClientRect().top - 8, behavior: "smooth" }); })
         .addTo(layers.pin);
     });
+    const sp = pinSpread();
+    map._pinSig = sp.sig;
     pins.forEach(({ p, pt, r }, idx) => {
       if (!pt || (pt.how === "국가 중심" && !(f && f.p.id === p.id))) return;
-      const dim = f && f.p.id !== p.id;
+      const dim = f && f.p.id !== p.id, dx = sp.dx[p.id] || 0;
       const side = pins.some((o, k) => k < idx && o.pt && Math.abs(o.pt.ll[0] - pt.ll[0]) < 4 && o.pt.ll[1] > pt.ll[1] - 1 && o.pt.ll[1] - pt.ll[1] < 12) ? "l" : "r"; // 오른쪽 가까이에 다른 핀이 있으면 왼쪽에
       const lb = dim ? "" : `<span class="pin-lb ${side} ${r.lv}" style="visibility:hidden" title="${ctx.esc(p.name)}">${ctx.esc(short(p))}</span>`;
-      const m = L.marker(pt.ll, { icon: L.divIcon({ className: "", html: `<div class="gpin-w"><div class="gpin ${r.lv} ${dim ? "dim" : ""} ${f && f.p.id === p.id ? "hi" : ""}" data-pin="${p.id}"><span>${idx + 1}</span></div>${lb}</div>`, iconSize: [28, 36], iconAnchor: [14, 34], tooltipAnchor: [0, -30] }), zIndexOffset: dim ? 500 : 1000 })
+      const m = L.marker(pt.ll, { icon: L.divIcon({ className: "", html: `<div class="gpin-w"><div class="gpin ${r.lv} ${dim ? "dim" : ""} ${f && f.p.id === p.id ? "hi" : ""}" data-pin="${p.id}"><span>${idx + 1}</span></div>${lb}</div>`, iconSize: [28, 36], iconAnchor: [14 - dx, 34], tooltipAnchor: [dx, -30] }), zIndexOffset: dim ? 500 : 1000 })
         .bindTooltip(`<b>${ctx.esc(p.name)}</b><br><span class="en">${ctx.esc(pt.en)}</span> · ${LEVEL[r.lv]}${r.why.length ? `<br><span class="muted">${ctx.esc(r.why.join(" / "))}</span>` : ""}`, { direction: "top", className: "gtip" })
         .on("click", () => setFocus(ui.focus === p.id ? null : p.id))
         .addTo(layers.pin);
