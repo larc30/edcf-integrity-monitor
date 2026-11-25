@@ -97,6 +97,7 @@ EVENT_WORDS = [
 NEWS_QUERY_WORDS = ["지진", "홍수", "태풍", "테러", "내전", "쿠데타", "폭동", "산불", "콜레라", "선거", "정권"]
 KEEP_DAYS = 365  # 과거 이력(30일 이상)도 볼 수 있게 1년 보관
 NEW_DAYS = 14  # 뉴스 이벤트로 새로 넣는 기사의 기간 (오래된 기사가 다시 색인돼 최근 날짜로 들어오는 것을 줄임)
+DESC_LEN = 220  # AI 에 같이 주는 검색 결과 요약문 길이 (판정 뒤에는 지움)
 QUAKE_KM = 600
 KST = timezone(timedelta(hours=9))
 
@@ -141,6 +142,62 @@ def classify(text: str) -> str | None:
         if any(w.lower() in t for w in words):
             return kind
     return None
+
+
+_CITIES: dict | None = None
+
+
+def _cities(code: str) -> list:
+    """그 나라의 도시 목록 [[영문, 위도, 경도, 한글], ...] (assets/cities.json · GeoNames, 화면의 도시 찾기와 같은 파일)"""
+    global _CITIES
+    if _CITIES is None:
+        try:
+            from pathlib import Path
+            _CITIES = json.loads((Path(__file__).resolve().parent.parent / "assets" / "cities.json").read_text(encoding="utf-8"))
+        except Exception:
+            _CITIES = {}
+    return _CITIES.get(code) or []
+
+
+def _norm_place(s: str) -> str:
+    return re.sub(r"[^a-z0-9가-힣]", "", str(s or "").lower())
+
+
+def locate(code: str, title: str = "", place: str = "") -> tuple[float, float, str] | None:
+    """사건이 일어난 곳 찾기. 제목 속 도시 이름(한글) → AI 가 적어 준 지명(영어) 순. 못 찾으면 None (나라 한가운데에 임의로 찍지 않음)"""
+    city = next((c for c in CITY if c in title), None)
+    if city:
+        return (CITY[city][0], CITY[city][1], city)
+    rows = _cities(code)
+    # 제목 속 한글 도시 이름 (세 글자 이상만: 짧은 이름은 다른 낱말과 겹침)
+    ko = sorted(((r[3], r) for r in rows if len(r) > 3 and len(str(r[3])) >= 3 and str(r[3]) in title), key=lambda x: -len(x[0]))
+    if ko:
+        r = ko[0][1]
+        return (r[1], r[2], r[3])
+    if place:
+        by = {_norm_place(r[0]): r for r in reversed(rows)}  # 같은 이름이면 앞쪽(큰 도시)
+        for part in [place] + [p for p in re.split(r"[,/·]| and ", place) if p.strip()]:
+            bare = _norm_place(re.sub(r"\b(city|province|regency|district|state|region|prefecture|county|island)\b", "", part, flags=re.I))
+            for key in (_norm_place(part), bare, bare + "city"):  # 'Cebu City' ↔ 'Cebu' 어느 쪽으로 적혀도
+                if key and key in by:
+                    r = by[key]
+                    return (r[1], r[2], r[0])
+    return None
+
+
+def _place_event(e: dict, place: str = "") -> None:
+    """뉴스 사건의 자리: 찾으면 그 도시, 못 찾으면 '나라 단위'(noloc · country_level = 거리 규칙에서 빠지고 지도에 찍지 않음)"""
+    code = e.get("country")
+    hit = locate(code, e.get("title") or "", place or e.get("place_ai") or "") if code in COUNTRY else None
+    if place:
+        e["place_ai"] = place
+    if hit:
+        e.update(lat=hit[0], lng=hit[1], place=hit[2], loc="city")
+        e.pop("noloc", None)
+        e.pop("country_level", None)
+    elif code in COUNTRY:
+        e.update(lat=COUNTRY[code][2], lng=COUNTRY[code][3], loc="none", noloc=True, country_level=True)
+        e.pop("place", None)
 
 
 def _jitter(key: str, base: tuple[float, float]) -> tuple[float, float]:
@@ -384,8 +441,16 @@ def _ms(pub: str) -> int:
             return 0
 
 
+def _desc(it: dict) -> str:
+    """검색 결과의 요약문(본문 앞부분). 제목을 되풀이한 것(Google 뉴스)은 쓸모가 없어 뺌"""
+    s, title = " ".join((it.get("snippet") or "").split()), (it.get("title") or "").strip()
+    if not s or (title and title[:20] in s and len(s) < len(title) + 40):
+        return ""
+    return s[:DESC_LEN]
+
+
 def news_events(codes: list[str], gnews=news.google_news, naver=news.naver_news) -> tuple[list[dict], int]:
-    out, seen, errors = [], set(), 0
+    out, seen, errors = [], {}, 0
     since = int((datetime.now(KST) - timedelta(days=NEW_DAYS)).timestamp() * 1000)  # 새로 넣는 것은 최근 기사만 (보관은 KEEP_DAYS)
     codes = [c for c in codes if c in COUNTRY and c != "KR"]
 
@@ -414,15 +479,21 @@ def news_events(codes: list[str], gnews=news.google_news, naver=news.naver_news)
             kind = classify(title)
             ms = _ms(it.get("published_at") or "")
             key = title.replace(" ", "")[:40]
-            if not kind or ms < since or key in seen:
+            if not kind or ms < since:
                 continue
-            seen.add(key)
-            city = next((c for c in CITY if c in title), None)
-            base = CITY[city] if city else (COUNTRY[code][2], COUNTRY[code][3])
-            lat, lng = _jitter(it.get("url") or title, base) if not city else base
-            out.append({"id": "news-" + hashlib.md5((it.get("url") or title).encode()).hexdigest()[:12], "type": kind, "country": code,
-                        "lat": lat, "lng": lng, "title": title[:140], "url": it.get("url") or "", "at_ms": ms,
-                        "source": f"{it.get('via') or '뉴스'} · {it.get('source_name') or ''}".strip(" ·")})
+            if key in seen:  # 같은 기사를 두 곳에서 받았으면 요약문이 있는 쪽 것을 실어 둠
+                if not seen[key].get("desc") and _desc(it):
+                    seen[key]["desc"] = _desc(it)
+                continue
+            # 자리는 제목 속 도시 이름으로. 없으면 나라 단위로 두고, AI 판정 때 지명을 받으면 그때 옮김 (예전: 나라 한가운데 둘레에 임의로 찍어 거리 근거가 엉뚱했음)
+            ev = {"id": "news-" + hashlib.md5((it.get("url") or title).encode()).hexdigest()[:12], "type": kind, "country": code,
+                  "title": title[:140], "url": it.get("url") or "", "at_ms": ms,
+                  "source": f"{it.get('via') or '뉴스'} · {it.get('source_name') or ''}".strip(" ·")}
+            if _desc(it):
+                ev["desc"] = _desc(it)
+            _place_event(ev)
+            seen[key] = ev
+            out.append(ev)
     return out, errors
 
 
@@ -518,14 +589,22 @@ def update(projects: list[dict] | None = None, get=httpx.get, gnews=news.google_
     examples = {"no": [{"title": v["title"], "country": (COUNTRY.get(v.get("country")) or [v.get("country") or ""])[0], "reason": v.get("note") or v.get("reason") or ""} for _, v in by_at if v.get("s") == "no"][:30],
                 "ok": [{"title": v["title"], "country": (COUNTRY.get(v.get("country")) or [v.get("country") or ""])[0]} for _, v in by_at if v.get("s") == "ok"][:20]}
     res["reviews"] = {"ok": len(rv_ok), "no": len(rv_no)}
+    from . import analyzer
     merged.update({e["id"]: e for e in quakes + gd + who})
     for e in evs:
         if e["id"] not in rej and e["id"] not in rv_no and not (merged.get(e["id"]) or {}).get("ai"):
             merged[e["id"]] = e
+        elif e.get("desc") and e["id"] in merged and (merged[e["id"]].get("ai_v") or 1) < analyzer.EVENT_AI_V and e["id"] not in rv_ok:
+            merged[e["id"]]["desc"] = e["desc"]  # 다시 판정할 것: 요약문만 빌려 줌
     for i in rv_no:  # 관련 없음으로 처리한 것은 뺌 (공식 자료 포함)
         merged.pop(i, None)
+    # 예전 방식으로 저장된 뉴스 사건(자리 표시 loc 가 없음 = 나라 한가운데 둘레에 임의로 찍힌 것일 수 있음)은 자리를 다시 잡음
+    for e in merged.values():
+        if str(e.get("id", "")).startswith("news-") and not e.get("loc"):
+            _place_event(e)
+    res["located"] = sum(1 for e in merged.values() if e.get("loc") == "city")
+    res["noloc"] = sum(1 for e in merged.values() if e.get("noloc"))
     # 최종 판정은 AI: 단어로 잡은 뉴스 가운데 아직 판정하지 않은 것 (한 번에 최근 60건까지, 나머지는 다음 실행에)
-    from . import analyzer
     # 예전 지침으로 판정한 것(ai_v 가 낮음)도 한 번 다시 판정
     # 담당자가 '관련 있음'으로 확인한 것은 다시 판정하지 않음
     todo = sorted((e for e in merged.values() if str(e.get("id", "")).startswith("news-") and e["id"] not in rv_ok
@@ -537,7 +616,8 @@ def update(projects: list[dict] | None = None, get=httpx.get, gnews=news.google_
         todo_ids, recent = {e["id"] for e in todo}, int((datetime.now(KST) - timedelta(days=10)).timestamp() * 1000)
         known = sorted((e for e in merged.values() if e["id"] not in todo_ids and (e.get("at_ms") or 0) >= recent and (e.get("ai") or not str(e["id"]).startswith("news-"))),
                        key=lambda e: -(e.get("at_ms") or 0))[:60]
-        verdict = analyzer.judge_events([{"title": e.get("title"), "country": cn(e), "date": ymd(e)} for e in todo],
+        res["with_desc"] = sum(1 for e in todo if e.get("desc"))
+        verdict = analyzer.judge_events([{"title": e.get("title"), "country": cn(e), "date": ymd(e), "desc": e.get("desc") or ""} for e in todo],
                                         known=[{"title": e.get("title"), "country": cn(e), "date": ymd(e)} for e in known], examples=examples)
         kept = dropped = dropped2 = same_n = 0
         for i, e in enumerate(todo):
@@ -551,6 +631,8 @@ def update(projects: list[dict] | None = None, get=httpx.get, gnews=news.google_
                 dropped2 += 1 if v.get("reviewed_out") else 0
             else:
                 e.update(ai=True, ai_v=analyzer.EVENT_AI_V, note=v["note"], **({"type": v["type"]} if v["type"] in analyzer.EVENT_TYPES else {}))
+                _place_event(e, v.get("place") or "")  # AI 가 제목·요약문에서 읽은 지명으로 자리를 다시 잡음
+                e.pop("desc", None)
                 kept += 1
         # 같은 사건: 대표(root) 이벤트 id 를 same 에 적음 → 화면이 하나로 묶어 보여 줌 (나라가 같을 때만)
         for i, e in enumerate(todo):

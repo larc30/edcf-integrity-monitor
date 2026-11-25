@@ -288,7 +288,7 @@ def _review(client, user_head: str, payload: list[dict], first: dict) -> dict:
 
 
 # ---------- 수원국 이벤트 뉴스 판정 ----------
-EVENT_AI_V = 4  # 판정 지침을 고치면 올림: 예전 지침으로 판정한 뉴스 이벤트를 한 번 다시 판정 (geo.update)
+EVENT_AI_V = 5  # 판정 지침을 고치면 올림: 예전 지침으로 판정한 뉴스 이벤트를 한 번 다시 판정 (geo.update)
 EVENT_TYPES = ("quake", "war", "terror", "unrest", "flood", "storm", "fire", "volcano", "politics", "disease")
 
 
@@ -298,6 +298,7 @@ class EventJudgement(BaseModel):
     type: Literal["quake", "war", "terror", "unrest", "flood", "storm", "fire", "volcano", "politics", "disease", "none"]
     summary_ko: str
     same_as: str = ""  # 같은 사건을 다룬 것: 이미 있는 이벤트면 "K번호", 이번 목록의 다른 기사면 "N번호", 없으면 빈칸
+    place: str = ""  # 사건이 일어난 도시·지역 이름(영어 표기). 제목·요약문에 지명이 없으면 빈칸
 
 
 class EventKeep(BaseModel):
@@ -336,6 +337,13 @@ EVENT_PROMPT = """당신은 한국수출입은행 EDCF(대외경제협력기금)
    [이미 있는 이벤트] 목록의 것이면 "K번호"(예: "K3"), 이번 [기사 목록]의 앞선 기사면 "N번호"(예: "N0"), 없으면 빈칸.
    제목 표현·수치(사망자 수·피해액)가 달라도 같은 사건이면 같은 것으로 봅니다. 나라가 다르거나, 같은 종류라도 별개의 사건
    (다른 지역의 다른 홍수, 날짜가 떨어진 다른 시위)이면 빈칸. affects_project 가 false 면 빈칸.
+
+5. place: 사건이 일어난 도시나 주(州)·지역의 이름을 영어 표기로 적습니다(예: "Bogor", "Mandalay", "Cebu"). 여러 곳이면 가장 중심이 되는 한 곳.
+   제목에 없으면 snippet(검색 결과의 요약문 = 본문 앞부분, 없을 수도 있음)에서 찾습니다. snippet 은 place 를 찾는 데만 쓰고,
+   1~4번은 제목을 기준으로 판정합니다.
+   '사건이 일어난 곳'으로 적힌 지명만 적습니다. 기사를 쓴 곳('자카르타=연합뉴스')이나 발표한 기관·사람의 소속
+   ('자카르타 수색구조사무소장', '마닐라 주재 대사관')에 든 지명은 사건 장소가 아닙니다.
+   제목과 snippet 어디에도 지명이 없거나 나라 이름만 있으면 빈칸. 짐작해서 채우지 마세요.
 
 [담당자가 판단한 사례]가 함께 오면 그 판단을 따릅니다: '관련 없음' 사례와 같은 유형(같은 이유)은 false,
 '관련 있음' 사례와 같은 유형은 true 쪽으로 봅니다."""
@@ -393,7 +401,7 @@ def _review_events(client, items: list[dict], idxs: list[int], ex: str) -> set[i
 
 
 def judge_events(items: list[dict], known: list[dict] | None = None, examples: dict | None = None) -> dict[int, dict] | None:
-    """items: [{title, country(나라 이름), date}] → {idx: {affects, type, note, same}}. 키가 없거나 실패하면 None (단어 분류 결과를 그대로 씀)
+    """items: [{title, country(나라 이름), date, desc(검색 결과 요약문, 없어도 됨)}] → {idx: {affects, type, note, same, place}}. 키가 없거나 실패하면 None (단어 분류 결과를 그대로 씀)
     known: 이미 화면에 있는 최근 이벤트 [{title, country, date}] (같은 사건 묶기용) → same = ("K", known 번호) | ("N", items 번호) | None
     examples: {"no": [{title, country, reason}], "ok": [{title, country}]} 담당자 판단 사례"""
     if not items or not config.ANTHROPIC_API_KEY:
@@ -408,7 +416,7 @@ def judge_events(items: list[dict], known: list[dict] | None = None, examples: d
     try:
         for start in range(0, len(items), 30):
             chunk = items[start : start + 30]
-            payload = [{"idx": i, "country": it.get("country"), "date": it.get("date"), "title": it.get("title")} for i, it in enumerate(chunk)]
+            payload = [{"idx": i, "country": it.get("country"), "date": it.get("date"), "title": it.get("title"), **({"snippet": it["desc"][:220]} if it.get("desc") else {})} for i, it in enumerate(chunk)]
             resp = client.messages.parse(
                 model=config.CLAUDE_MODEL,
                 max_tokens=8000,
@@ -429,7 +437,7 @@ def judge_events(items: list[dict], known: list[dict] | None = None, examples: d
                             same = ("K", n)
                         elif ref[0] == "N" and n < len(chunk) and n != j.idx:
                             same = ("N", start + n)
-                    out[start + j.idx] = {"affects": bool(j.affects_project) and j.type != "none", "type": j.type, "note": (j.summary_ko or "")[:120], "same": same}
+                    out[start + j.idx] = {"affects": bool(j.affects_project) and j.type != "none", "type": j.type, "note": (j.summary_ko or "")[:120], "same": same, "place": (j.place or "").strip()[:60]}
     except Exception as e:
         log.warning("수원국 이벤트 AI 판정 실패: %s", type(e).__name__)
         if not out:

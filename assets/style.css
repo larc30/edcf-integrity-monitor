@@ -2673,3 +2673,18 @@ body.viewer #geoOnly { display: none; }
 .cpin.red { color: #fff; } .cpin.orange { color: #2B1400; }
 .cpin.red:hover, .cpin.orange:hover { background: color-mix(in srgb, var(--c) 85%, #fff); }
 #geoMap.far .gev { display: none; }
+/* 수원국 사업 상세의 참여 업체 이름 · 등급 창의 나라 카드 */
+.gp-cos { flex-wrap: wrap; gap: 4px 8px; white-space: normal; }
+.gp-co-b { border: 0; background: none; padding: 0; font: inherit; font-weight: 750; cursor: pointer; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; }
+.gp-co-b.red { color: var(--red); } .gp-co-b.orange { color: var(--orange); }
+.gp-co-b:hover { text-decoration-color: currentColor; }
+.gl-c.go { cursor: pointer; } .gl-c.go:hover, .gl-c.go:focus-visible { border-color: color-mix(in srgb, var(--accent) 50%, transparent); outline: none; }
+.gl-c.go .rl-arr { margin-left: auto; color: var(--muted); } .gl-c.go:hover .rl-arr { color: var(--accent); }
+.gl-c.go .gl-evs { margin-top: 10px; padding-top: 10px; }
+.gl-sum { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 10px; font-size: var(--fs-sm); font-weight: 700; color: var(--text-2); }
+.gl-sum .red { color: var(--red); } .gl-sum .orange { color: var(--orange); } .gl-sum .none { color: var(--green); }
+.cpin.loose { border-style: dashed; } .cpin.loose.red, .cpin.loose.orange { background: color-mix(in srgb, var(--c) 30%, var(--panel-solid)); border-color: var(--c); color: var(--text); }
+.cpin.dim { opacity: .4; }
+/* 지도 이름 정리: 나라 핀 아래에 나라 이름 · 멀리서는 도시 이름을 숨김 */
+.cpn { position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); white-space: nowrap; pointer-events: none; font-size: var(--fs-xs); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--map-name); }
+#geoMap.far .cn.city { display: none; }
