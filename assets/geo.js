@@ -864,7 +864,8 @@ export function mountSitePicker(el, { lat, lng, country }, onPick) {
   m.createPane("land"); m.getPane("land").style.zIndex = 200;
   const draw = () => {
     if (!world || !el.isConnected) return;
-    L.geoJSON(worldWrap || world, { pane: "land", renderer: landRenderer(m), interactive: false, style: () => ({ stroke: true, color: cssv("--map-border"), weight: 0.8, opacity: 1, fill: true, fillColor: cssv("--map-land"), fillOpacity: 1 }) }).addTo(m);
+    // 가운데 지도 + 좌우 복사본 (복사본은 뒤늦게 만들어지므로 없으면 가운데만). 예전에는 복사본이 생기면 가운데가 빠졌음
+    L.geoJSON(worldWrap ? [...world, ...worldWrap] : world, { pane: "land", renderer: landRenderer(m), interactive: false, style: () => ({ stroke: true, color: cssv("--map-border"), weight: 0.8, opacity: 1, fill: true, fillColor: cssv("--map-land"), fillOpacity: 1 }) }).addTo(m);
     // 자리를 찾기 쉽게: 아는 도시를 작은 점과 이름으로
     // 처음(나라 전체가 보이는 배율)에는 이름을 뿌리지 않고, 확대하면(5.5 이상) 보이는 범위의 도시만 · 서로 겹치면 뒤의 것을 숨김
     // 나라 이름은 늘 보이게 (어느 나라를 보고 있는지 알 수 있게): 수원국 영문 이름을 나라 가운데에
@@ -875,13 +876,17 @@ export function mountSitePicker(el, { lat, lng, country }, onPick) {
       if (!el.isConnected) return;
       const on = m.getZoom() >= 5.5;
       if (on && !m.hasLayer(cityLayer)) cityLayer.addTo(m); else if (!on && m.hasLayer(cityLayer)) m.removeLayer(cityLayer);
+      const edge = el.getBoundingClientRect(), placed = [], hitP = (q) => placed.some((p) => !(q.right + 4 < p.left || q.left - 4 > p.right || q.bottom + 2 < p.top || q.top - 2 > p.bottom));
+      // 나라 이름 자리를 먼저 잡음 (나라 이름끼리 겹치면 뒤의 것을 숨김), 그 다음 겹치지 않는 도시 이름
+      const cs = [...el.querySelectorAll(".sp-country")]; cs.forEach((x) => { x.style.visibility = ""; });
+      const cq = cs.map((x) => x.getBoundingClientRect());
+      cs.forEach((x, i) => { const q = cq[i]; if (q.right < edge.left || q.left > edge.right || q.bottom < edge.top || q.top > edge.bottom) return; if (hitP(q)) x.style.visibility = "hidden"; else placed.push(q); });
       if (!on) return;
-      const edge = el.getBoundingClientRect(), placed = [...el.querySelectorAll(".sp-country")].map((x) => x.getBoundingClientRect()); // 나라 이름 자리를 먼저 잡고, 겹치는 도시 이름은 숨김
       el.querySelectorAll(".sp-city").forEach((x) => {
         x.style.visibility = "";
         const q = x.getBoundingClientRect();
         if (q.right < edge.left || q.left > edge.right || q.bottom < edge.top || q.top > edge.bottom) return;
-        if (placed.some((p) => !(q.right + 4 < p.left || q.left - 4 > p.right || q.bottom + 2 < p.top || q.top - 2 > p.bottom))) x.style.visibility = "hidden"; else placed.push(q);
+        if (hitP(q)) x.style.visibility = "hidden"; else placed.push(q);
       });
     };
     m.on("zoomend moveend", () => setTimeout(tidy, 30)); setTimeout(tidy, 80);

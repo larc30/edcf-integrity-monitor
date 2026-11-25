@@ -2762,3 +2762,13 @@ body.viewer #geoOnly { display: none; }
 .cpin.loose:hover { background: color-mix(in srgb, var(--text) 10%, var(--panel-solid)); }
 .cpn.loose { letter-spacing: 0; font-weight: 700; color: var(--muted); text-transform: none; }
 .cpn.loose { max-width: 13em; overflow: hidden; text-overflow: ellipsis; }
+/* 2026-11-25 밤: 최근 7일 숫자 크게 · 정상 줄 여백 줄임 · 업체 관리 참여 사업 한 줄에 하나씩 */
+.wk2 .val { font-size: 13px; font-weight: 700; fill: var(--text-2); }
+.wk2 .val.zero { opacity: .5; }
+.wk2 .val.now { font-size: 16px; }
+.wk2 .day { font-size: 11.5px; }
+#kboard .rk.none, #gboard .rk.none { min-height: 3.1rem; }
+.co-table .t-proj .ej { display: flex; margin: 0; padding: 2px 0; max-width: 100%; gap: 8px; }
+.co-table .t-proj .ej .role { flex: 0 0 auto; min-width: 5.2em; text-align: center; }
+.co-table .t-proj .ej-p { flex: 0 1 auto; min-width: 0; }
+.co-table .t-proj .ej-more { display: block; padding: 2px 0 0 calc(5.2em + 8px); font-size: var(--fs-xs); color: var(--muted); }
