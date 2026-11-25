@@ -687,7 +687,9 @@ function renderHome() {
   const tl = Object.fromEntries(ps.map((p) => [p.id, tally(p)]));
   const psSorted = [...ps].sort((a, b) => !sc ? a.name.localeCompare(b.name)
     : (tl[b.id].red - tl[a.id].red) || (tl[b.id].orange - tl[a.id].orange) || a.name.localeCompare(b.name));
-  $("#projectMap").innerHTML = psSorted.map((p) => projectRow(p)).join("")
+  // 경고·주의 업체가 있는 사업만 카드로, 나머지는 '이상 없음 N' 아래 한 줄씩 (수원국 목록의 '변동 없음'과 같은 틀)
+  const hotP = !sc ? psSorted : psSorted.filter((p) => tl[p.id].red + tl[p.id].orange), calmP = !sc ? [] : psSorted.filter((p) => !(tl[p.id].red + tl[p.id].orange));
+  $("#projectMap").innerHTML = (hotP.map((p) => projectRow(p)).join("") + (calmP.length ? `<div class="pj-sec">이상 없음 ${calmP.length}</div>` + calmP.map((p) => projectRow(p, true)).join("") : ""))
     || `<div class="empty small">${scope === "mine" ? "내가 담당하는 사업이 없습니다." : "등록된 사업이 없습니다."}</div>`;
   // 사업이 적어 칸이 많이 남으면 칸을 내용 높이까지만 (많으면 이슈 목록 끝까지 채우고 안에서 스크롤)
   { const pl = $("#projectMap"), card = pl.closest(".d-projects"); card.classList.remove("fit"); requestAnimationFrame(() => { const last = pl.lastElementChild; card.classList.toggle("fit", !!last && pl.clientHeight > 0 && last.getBoundingClientRect().bottom - pl.getBoundingClientRect().top < pl.clientHeight - 60); }); }
@@ -697,22 +699,21 @@ function renderHome() {
 
   renderJob(); checkSmooth();
 }
-// 사업 한 줄: 업체 등급 분포(막대) + 등급별 업체 수. '하나라도 경고이면 사업 전체가 경고'처럼 보이지 않게
-function projectRow(p) {
+// 사업 카드: 제목 줄 오른쪽에 등급별 업체 수, 그 아래 역할별 업체. line = 이상 없는 사업은 한 줄(사업명 · 업체 수)
+function projectRow(p, line = false) {
   const rows = [];
   for (const c of state.companies) c.engagements.forEach((e) => { if (e.project_id === p.id) rows.push({ c, e }); });
   rows.sort((a, b) => ROLE_ORDER.indexOf(a.e.role) - ROLE_ORDER.indexOf(b.e.role) || byOrder(a, b));
   const sc = scanned(), t = { red: 0, orange: 0, yellow: 0, none: 0 };
   new Set(rows.map((r) => r.c)).forEach((c) => t[c.risk]++);
   const total = t.red + t.orange + t.none;
-  const bar = !total ? "" : !sc ? `<i class="pending" style="flex:1"></i>`
-    : ["red", "orange", "none"].filter((lv) => t[lv]).map((lv) => `<i class="${lv}" style="flex:${t[lv]}" title="${LEVEL[lv]} ${t[lv]}개"></i>`).join("");
-  const sum = !total ? `<span class="tot">연결된 업체 없음</span>`
-    : !sc ? `<span class="tot">업체 ${total} · 스캔 전</span>`
-    : (["red", "orange"].filter((lv) => t[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${t[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) + `<span class="tot">/ ${total}개</span>`;
+  const hot = sc ? ["red", "orange"].filter((lv) => t[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${t[lv]}</span>`).join("") : "";
+  const sum = hot ? hot + `<span class="tot">/ ${total}</span>` : `<span class="tot">업체 ${total}${sc || !total ? "" : " · 스캔 전"}</span>`;
+  const cn = p.country ? COUNTRY[p.country] || p.country : "", ctry = cn && !p.name.includes(cn) ? `<span class="pj-ctry">${esc(cn)}</span>` : ""; // 나라는 사업명에 없을 때만
+  const top = `<span class="pj-name" title="${esc(p.name)}">${esc(p.name)}</span>${ctry}<span class="pj-sum">${sum}</span>`;
+  if (line) return `<div class="pj ln" data-pid="${p.id}">${top}</div>`;
   return `<div class="pj" data-pid="${p.id}">
-    <div class="pj-top"><span class="pj-name" title="${esc(p.name)}">${esc(p.name)}</span>${p.country ? `<span class="pj-ctry">${esc(COUNTRY[p.country] || p.country)}</span>` : ""}</div>
-    ${total ? `<div class="pj-dist"><div class="pj-bar">${bar}</div><div class="pj-sum">${sum}</div></div>` : `<div class="pj-dist"><div class="pj-sum">${sum}</div></div>`}
+    <div class="pj-top">${top}</div>
     <div class="pj-roles">${pjRoles(rows, sc, true)}</div>
   </div>`;
 }

@@ -2688,3 +2688,11 @@ body.viewer #geoOnly { display: none; }
 /* 지도 이름 정리: 나라 핀 아래에 나라 이름 · 멀리서는 도시 이름을 숨김 */
 .cpn { position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); white-space: nowrap; pointer-events: none; font-size: var(--fs-xs); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--map-name); }
 #geoMap.far .cn.city { display: none; }
+/* 업체 리스크 오른쪽 사업 목록 (2026-11-25): 막대를 빼고 등급별 수는 제목 줄 오른쪽 · 이상 없는 사업은 한 줄씩 */
+#projectMap .pj-top { align-items: center; margin-bottom: 9px; }
+#projectMap .pj:not(.ln):has(.pj-roles:empty) .pj-top { margin-bottom: 0; }
+#projectMap .pj-sec { flex-shrink: 0; margin: 8px 2px 0; font-size: var(--fs-xs); font-weight: 700; color: var(--muted); }
+#projectMap .pj-sec:first-child { margin-top: 0; }
+#projectMap .pj.ln { display: flex; align-items: center; gap: 8px; padding: 7px 13px; background: none; }
+#projectMap .pj.ln .pj-name { font-weight: 600; color: var(--text-2); }
+#projectMap .pj.ln:hover { background: color-mix(in srgb, var(--text) 4%, transparent); border-color: var(--line); }
