@@ -2617,21 +2617,12 @@ body.viewer #geoOnly { display: none; }
 .gl-top .alert-chip { margin-left: 2px; }
 .gl-why { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 4px; }
 
-/* ===== 수원국 화면: 위쪽 한 줄(등급 · 달라진 것 · 이벤트 요약) + 넓은 지도 + 나라별 목록 (2026-11-25) ===== */
-@media (min-width: 1101px) {
-  .geo-dash { grid-template-columns: minmax(0, 6.3fr) minmax(0, 3.7fr); grid-template-rows: auto auto minmax(560px, auto) auto; grid-template-areas: "title title" "risk risk" "map proj" "issues issues"; }
-  .geo-dash .d-risk { display: grid; grid-template-columns: minmax(0, 5fr) minmax(15em, 2.2fr) minmax(0, 3.4fr); gap: var(--gap, 16px); align-items: stretch; }
-  .geo-dash #gboard { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: auto 1fr; column-gap: 18px; padding-bottom: 16px; }
-  .geo-dash #gboard .rk-names { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-  .geo-dash #gboard .card-head { grid-column: 1 / -1; }
-  .geo-dash #gboard .rk { border-top: 0; margin: 0; min-width: 0; }
-  .geo-dash .ev-card .ev-grid { flex: 1; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: minmax(min-content, 1fr); }
-}
-#geoDelta { margin: 0; padding: 20px 20px 14px; display: flex; flex-direction: column; }
+/* ===== 수원국 화면: 배치는 예전 그대로(왼쪽 등급 · 지도 · 오른쪽 목록), 왼쪽에 달라진 것 칸 + 오른쪽 나라별 목록 (2026-11-25) ===== */
+#geoDelta { flex: 0 0 auto; margin: 0; padding: 20px 20px 12px; display: flex; flex-direction: column; }
 #geoDelta .card-head { margin-bottom: 6px; }
 .gc-p .gp-no.red { background: var(--red); } .gc-p .gp-no.orange { background: var(--orange); }
 .gc-pt .pj-name { font-size: var(--fs-sm); }
-.dl-row { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 5px 0; font-size: var(--fs-sm); color: var(--muted); border-top: 1px solid var(--line); }
+.dl-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 5px 0; font-size: var(--fs-sm); color: var(--muted); border-top: 1px solid var(--line); }
 .dl-row:first-of-type { border-top: 0; }
 .dl-row b { font-size: var(--fs-md); font-variant-numeric: tabular-nums; color: var(--muted); }
 .dl-row.on { color: var(--text-2); } .dl-row.on b { color: var(--accent-2); }
@@ -2658,9 +2649,3 @@ body.viewer #geoOnly { display: none; }
 .gl-sec:first-child { margin-top: 0; }
 .gc.still { background: none; } .gc.still .gc-h { padding: 7px 13px; } .gc.still .gc-n { font-weight: 600; color: var(--text-2); }
 .gl-top .gc-new { margin-left: 2px; }
-.geo-dash #gboard .rk-names { word-break: keep-all; }
-@media (min-width: 1101px) and (max-width: 1420px) {
-  .geo-dash .d-risk { grid-template-columns: minmax(0, 5fr) minmax(13.5em, 2.3fr) minmax(0, 3.2fr); }
-  .geo-dash #gboard { column-gap: 8px; } .geo-dash #gboard .rk { grid-template-columns: 3.7rem minmax(0, 1fr); gap: 2px 8px; }
-  .geo-dash .ev-card .ev-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
