@@ -246,11 +246,16 @@ export function siteMMI(mag, dKm, depth = 10) {
   return Math.max(1, Math.min(12, v));
 }
 // 사업지 등급 = 여행경보 + 사업지 둘레 사건 (GEO_RULES). 이유는 높은 등급부터
+// 다른 나라에서 난 사건은 거리가 가까워도 이 사업에 잇지 않음(2026-11-25 사용자 결정): 사람이 일으킨 사건(분쟁·테러·시위·정치·감염병)만 해당
+// 예외 = 제목·요약에 이 나라 이름이 같이 나오는 분쟁·테러(두 나라 사이의 전쟁·국경 충돌). 지진·태풍·홍수·화산·산불은 국경과 무관하게 거리로 봄
+const BORDER_TYPES = ["war", "terror", "unrest", "politics", "disease"];
+const namesCountry = (e, c) => { const t = `${e.title || ""} ${e.title_en || ""} ${e.note || ""}`.toLowerCase(); return [cname(c), cen(c)].some((n) => n && n !== c && t.includes(String(n).toLowerCase())); };
+export const concerns = (e, country) => !country || !e.country || e.country === country || !BORDER_TYPES.includes(e.type) || ((e.type === "war" || e.type === "terror") && namesCountry(e, country));
 export function siteRisk(pt, country, evs, alerts, opt = {}) {
   const a = alerts[country] || null, sa = siteAlert(a, { ll: pt, country, ...opt }), base = alertRisk(a, sa);
   let lv = base.lv; const why = base.lv === "red" ? [...base.why] : [], warn = base.lv === "orange" ? [...base.why] : [];
   if (pt) for (const r of GEO_RULES) {
-    const hit = evs.filter((e) => r.types.includes(e.type) && Number.isFinite(e.lat) && Date.now() - e.ms <= r.days * DAY && (!r.mmi || e.mag)
+    const hit = evs.filter((e) => r.types.includes(e.type) && Number.isFinite(e.lat) && Date.now() - e.ms <= r.days * DAY && (!r.mmi || e.mag) && concerns(e, country)
         && (r.gdacs ? e.gdacs === r.gdacs : true) && (r.who ? e.source === "WHO" && e.country === country : !e.country_level))
       .map((e) => { const d = km(pt, [e.lat, e.lng]); return { e, d, mmi: r.mmi ? Math.round(siteMMI(+e.mag, d, e.depth)) : 0 }; })
       .filter((x) => (r.country ? true : r.mmi ? x.mmi >= r.mmi : x.d <= r.km)).sort((x, y) => y.mmi - x.mmi || x.d - y.d)[0];
@@ -493,7 +498,7 @@ function groupEvents(list) {
 }
 function nearEvents(pt, evs, country) {
   if (!pt) return evs.filter((e) => e.country === country);
-  return evs.filter((e) => Number.isFinite(e.lat) && Number.isFinite(e.lng)).map((e) => ({ ...e, d: km(pt.ll, [e.lat, e.lng]) }))
+  return evs.filter((e) => Number.isFinite(e.lat) && Number.isFinite(e.lng) && concerns(e, country)).map((e) => ({ ...e, d: km(pt.ll, [e.lat, e.lng]) }))
     .filter((e) => e.d <= NEAR_KM).sort((a, b) => a.d - b.d);
 }
 
