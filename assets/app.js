@@ -1916,12 +1916,11 @@ function pjListRow(p, sc) {
   const open = pjState.open === p.id;
   return `<div class="pl-item ${open ? "open" : ""} ${live(p) ? "" : "done"}">
     <div class="pl-row" data-pl="${p.id}" role="button" tabindex="0">
-      <span class="pl-name" title="${esc(p.name)}">${esc(p.name)}${live(p) ? "" : `<span class="tag">완료</span>`}</span>
+      <span class="pl-name" title="${esc(p.name)}"><span class="pl-nt">${esc(p.name)}</span>${live(p) ? "" : `<span class="tag">완료</span>`}${canEditProject(p) ? `<button type="button" class="pl-edit" data-edit-proj="${p.id}" title="수정" aria-label="${esc(p.name)} 수정">${PENCIL}</button>` : ""}</span>
       <span class="pl-ctry">${esc(COUNTRY[p.country] || "")}</span>
       <span class="pl-team">${esc(teamName(p.team))}</span>
       <span class="pl-roles">${ROLES.map((r) => `<span class="${n[r] ? "" : "zero"}">${roleTag(r)}<b>${n[r] || 0}</b></span>`).join("")}</span>
       <span class="pl-risk pj-sum">${!cs.size ? "" : sc ? (["red", "orange"].filter((lv) => t[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${t[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) : ""}</span>
-      <span class="pl-act">${canEditProject(p) ? `<button type="button" class="pl-edit" data-edit-proj="${p.id}" title="수정" aria-label="${esc(p.name)} 수정">${PENCIL}</button>` : ""}</span>
       <span class="pl-caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
     </div>
     ${open ? projectCard(p, sc) : ""}
@@ -3241,6 +3240,10 @@ async function renderUsage(reload) {
   const aiEst = aiUsd, adj = +(u.claude_adj?.[m]?.usd || 0);
   aiUsd = Math.max(0, aiEst + adj);
   state.usageAi = { m, est: aiEst };
+  // 실제 청구액 (검사 프로그램이 Anthropic 사용량·비용 API 로 받아 둔 값 · 조직 전체): 있으면 추정·직접 맞춘 값 대신 이 금액
+  const act = u.claude_actual?.[m], actOk = act && isFinite(+act.usd), actErr = !actOk && u.claude_actual_err;
+  if (actOk) aiUsd = +act.usd;
+  $("#btnUsageFix").classList.toggle("hidden", !!actOk || !isSuper());
   // Firestore: 오늘 · 이번 달 (화면 + 검사 프로그램)
   const rd = (day) => (u.web_days?.[day]?.reads || 0) + (u.batch_days?.[day]?.reads || 0);
   const today = rd(d);
@@ -3254,7 +3257,7 @@ async function renderUsage(reload) {
   const md = (x) => `${+String(x).slice(5, 7)}/${+String(x).slice(8, 10)}`;
   $("#usagePeriod").textContent = `${md(m + "-01")} ~ ${md(d)}`;
   const aiFirst = Object.keys(u.claude_days || {}).filter((x) => x.startsWith(m)).sort()[0], adjAt = u.claude_adj?.[m]?.at;
-  const aiNote = adjAt ? `콘솔 금액 반영 ${md(adjAt)}` : aiFirst && aiFirst.slice(8, 10) !== "01" ? `${md(aiFirst)}부터 기록` : "";
+  const aiNote = actOk ? `실제 청구 · ${md(act.to)} ${String(act.to).slice(11, 16)}까지` : actErr ? `실제 청구액 조회 실패 · ${actErr.msg || ""}` : adjAt ? `콘솔 금액 반영 ${md(adjAt)}` : aiFirst && aiFirst.slice(8, 10) !== "01" ? `${md(aiFirst)}부터 기록` : "";
   const aiCalls = Object.entries(cm).map(([model, x]) => `${/sonnet/.test(model) ? "Sonnet" : /haiku/.test(model) ? "Haiku" : model} ${num(x.calls)}회`).join(" · ");
   const fsPct = Math.round((today / FS_FREE) * 100);
   // [이름, 설명(마우스를 올리면), 금액, 달러, 상태, 막대, 줄 1, 줄 2, 줄 1 강조, 실제 청구 화면]
@@ -3266,7 +3269,7 @@ async function renderUsage(reload) {
   const total = aiUsd + fsUsd;
   // 돈이 나가는 것(Claude)과 무료 한도를 봐야 하는 것(Firebase 읽기)만. 0원인 항목은 주의가 필요할 때만
   const shown = rows.filter(([k, , amt, , stt]) => k === "Claude AI" || k === "Firebase DB" || amt !== "0원" || stt !== "ok");
-  $("#usageList").innerHTML = `<div class="ut-grid"><div class="ut total"><div class="ut-h"><b>합계</b></div><div class="ut-amt">${total ? won(total) : "0원"}${total ? `<small>$${total.toFixed(2)}</small>` : ""}</div></div>`
+  $("#usageList").innerHTML = `<div class="ut-sum"><span>합계</span><b>${total ? won(total) : "0원"}</b>${total ? `<small>$${total.toFixed(2)}</small>` : ""}</div><div class="ut-grid">`
     + shown.map(([k, role, amt, usd, stt, b, l1, l2, hot, link]) => `<div class="ut ${stt}" title="${esc(role)}"><div class="ut-h"><b>${k}</b>${link ? `<a class="u-link" href="${link}" target="_blank" rel="noopener" title="실제 청구 화면">실제 사용량 ↗</a>` : ""}</div><div class="ut-amt">${amt}${usd ? `<small>${usd}</small>` : ""}</div>${b}<div class="ut-d${hot ? " hot" : ""}">${esc(l1)}</div>${l2 ? `<div class="ut-d">${esc(l2)}</div>` : ""}</div>`).join("") + `</div>`;
 }
 $("#btnUsage").onclick = () => renderUsage(true);
