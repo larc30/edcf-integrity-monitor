@@ -30,11 +30,11 @@ const LEVEL_DEF = {
   yellow: "기록만 남기는 이력: 1년 지난 제재와 처분(EXIMIIS '해지' 포함), 계열사가 받은 처분, 의혹과 고발, 소송과 분쟁, 중대재해와 부실시공, 재무 악화",
 };
 const levelTip = () => `<div class="tip-p">업체에 걸린 이슈 가운데 가장 높은 등급입니다.</div>
-  <div class="tip-grid lv"><span>${badge("red")}</span><span>지금 유효한 제재 (입찰 제한 · MDB · 기간 중 영업정지)</span>
-  <span>${badge("orange")}</span><span>제재로 이어질 수 있는 진행 중 사안 (수사 · 기소 · 과징금)</span>
+  <div class="tip-grid lv"><span>${badge("red")}</span><span>지금 유효한 제재<span class="tip-ex">입찰 제한 · MDB · 기간 중 영업정지</span></span>
+  <span>${badge("orange")}</span><span>제재로 이어질 수 있는 진행 중 사안<span class="tip-ex">수사 · 기소 · 과징금</span></span>
   <span>${badge("none")}</span><span>경고·주의 이슈 없음</span></div>
   <div class="tip-sep">등급이 아닌 표시 (기사에 붙음)</div>
-  <div class="tip-grid lv"><span>${badge("yellow")}</span><span>기록만 남기는 과거·간접 이력. 참고만 있는 업체는 정상</span></div>`;
+  <div class="tip-grid lv"><span>${badge("yellow")}</span><span>기록만 남기는 과거·간접 이력<span class="tip-ex">참고만 있는 업체는 정상</span></span></div>`;
 // i 버튼: 마우스를 올리거나 누르면 설명 (cls 'r' = 오른쪽 맞춤)
 const sumText = (f) => String(f?.summary || f?.title || "").replace(/^※[^.]*확인\.\s*/, "");
 const info = (html, cls = "") => `<span class="itip ${cls}" tabindex="0" role="note" aria-label="설명">i<span class="tip">${html}</span></span>`;
@@ -714,7 +714,7 @@ function renderHome() {
     : (tl[b.id].red - tl[a.id].red) || (tl[b.id].orange - tl[a.id].orange) || a.name.localeCompare(b.name));
   // 경고·주의 업체가 있는 사업만 카드로, 나머지는 '이상 없음 N' 아래 한 줄씩 (수원국 목록의 '변동 없음'과 같은 틀)
   const hotP = !sc ? psSorted : psSorted.filter((p) => tl[p.id].red + tl[p.id].orange), calmP = !sc ? [] : psSorted.filter((p) => !(tl[p.id].red + tl[p.id].orange));
-  $("#projectMap").innerHTML = ((sc && hotP.length ? `<div class="pj-sec">경고·주의 업체 있음 ${hotP.length}</div>` : "") + hotP.map((p) => projectRow(p)).join("") + (calmP.length ? `<div class="pj-sec">경고·주의 업체 없음 ${calmP.length}</div>` + calmP.map((p) => projectRow(p, true)).join("") : ""))
+  $("#projectMap").innerHTML = ((sc && hotP.length ? `<div class="pj-sec">리스크 업체 참여 ${hotP.length}</div>` : "") + hotP.map((p) => projectRow(p)).join("") + (calmP.length ? `<div class="pj-sec">이상 없음 ${calmP.length}</div>` + calmP.map((p) => projectRow(p, true)).join("") : ""))
     || `<div class="empty small">${scope === "mine" ? "내가 담당하는 사업이 없습니다." : "등록된 사업이 없습니다."}</div>`;
   // 사업이 적어 칸이 많이 남으면 칸을 내용 높이까지만 (많으면 이슈 목록 끝까지 채우고 안에서 스크롤)
   { const pl = $("#projectMap"), card = pl.closest(".d-projects"); card.classList.remove("fit"); requestAnimationFrame(() => { const last = pl.lastElementChild; card.classList.toggle("fit", !!last && pl.clientHeight > 0 && last.getBoundingClientRect().bottom - pl.getBoundingClientRect().top < pl.clientHeight - 60); }); }
@@ -824,10 +824,10 @@ function openOfficial(cs = scopeCompanies()) {
 }
 function showMdbKorea(back) {
   const mk = state.mdbKorea || {};
-  modal(`<h2>MDB 한국 국적 제재 기업 <span class="count">${mk.count || 0}</span></h2>
+  modal(`${back ? `<button type="button" class="d-back" id="mkBack">← 공식 제재 명단</button>` : ""}<h2>MDB 한국 국적 제재 기업 <span class="count">${mk.count || 0}</span></h2>
     <p class="muted small">MDB 제재 리스트에서 국적이 한국인 기업 · ${esc(mk.at || "")} 기준</p>
     ${mk.items?.length ? `<div class="mk-list">${mk.items.map((e) => `<a class="mk-row" href="${esc(e.url)}" target="_blank" rel="noopener" title="${esc(e.sanctions || "")}"><span>${esc(e.name)}</span><span class="ds">${esc(MDB_NAME[e.dataset] || e.dataset)} ↗</span></a>`).join("")}</div>` : `<div class="empty">현재 한국 국적 제재 기업이 없습니다.</div>`}`);
-  if (back) $("#modalClose").onclick = back;
+  if (back) $("#mkBack").onclick = back;
 }
 const MDB_NAME = { worldbank_debarred: "World Bank", adb_sanctions: "ADB", afdb_sanctions: "AfDB", iadb_sanctions: "IDB", ebrd_ineligible: "EBRD" };
 

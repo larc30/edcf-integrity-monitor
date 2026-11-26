@@ -3063,3 +3063,7 @@ body.viewer #geoOnly { display: none; }
 .d-radar:has(.radar-names:not(:empty)) .radar-hud .hud.bl { margin-top: 28px; }
 /* 판단 가이드: 덧붙임 글 속의 판단 · 등급 낱말에 색 */
 .gd3 em { font-style: normal; font-weight: 650; } .gd3 em.ok { color: var(--green); } .gd3 em.no, .gd3 em.red { color: var(--red); } .gd3 em.orange { color: var(--orange); }
+/* 다섯 가지 손봄 (2026-11-27): 등급 설명의 예시는 아랫줄 · 등급 이름 한 단계 크게(두 화면 같게) · 이슈 목록 아래 접힌 줄 글자 크게 */
+.tip-ex { display: block; margin-top: 1px; font-size: var(--fs-xs); color: var(--muted); }
+#kboard .rk-lv, #gboard .rk-lv { font-size: var(--fs-lg); }
+#refWrap > summary, #doneWrap > summary { font-size: var(--fs-base); font-weight: 550; color: var(--text-2); }
