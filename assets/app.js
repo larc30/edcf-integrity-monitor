@@ -1864,7 +1864,7 @@ function renderCompanies() {
       <td class="t-open">${c.open ? `<b>${c.open}</b>` : `<span class="muted">0</span>`}</td>
       <td class="t-id">${c.country !== "KR" ? `<span class="muted">해외</span>` : c.biz_no ? esc(fmtBiz(c.biz_no)) : `<span class="miss">없음</span>`}</td>
       <td class="t-id t-ceo">${c.ceo ? esc(c.ceo) : `<span class="muted">-</span>`}</td>
-      <td class="t-act"><button class="icon-btn danger" data-del="${c.id}" title="삭제" aria-label="${esc(c.name)} 삭제">${TRASH}</button></td>
+      <td class="t-act"><button type="button" class="icon-btn ibtn del" data-del="${c.id}" title="삭제" aria-label="${esc(c.name)} 삭제">${TRASH}</button></td>
     </tr>`).join("");
   // 선택 (일괄 삭제)
   const visible = list.map((c) => c.id), nSel = visible.filter((id) => coState.sel.has(id)).length;
@@ -1917,7 +1917,7 @@ function pjListRow(p, sc) {
   const open = pjState.open === p.id;
   return `<div class="pl-item ${open ? "open" : ""} ${live(p) ? "" : "done"}">
     <div class="pl-row" data-pl="${p.id}" role="button" tabindex="0">
-      <span class="pl-name" title="${esc(p.name)}"><span class="pl-nt">${esc(p.name)}</span>${live(p) ? "" : `<span class="tag">완료</span>`}${canEditProject(p) ? `<button type="button" class="pl-edit" data-edit-proj="${p.id}" title="수정" aria-label="${esc(p.name)} 수정">${PENCIL}</button>` : ""}</span>
+      <span class="pl-name" title="${esc(p.name)}"><span class="pl-nt">${esc(p.name)}</span>${live(p) ? "" : `<span class="tag">완료</span>`}${canEditProject(p) ? `<button type="button" class="ibtn pl-edit" data-edit-proj="${p.id}" title="수정" aria-label="${esc(p.name)} 수정">${PENCIL}</button>` : ""}</span>
       <span class="pl-ctry">${esc(COUNTRY[p.country] || "")}</span>
       <span class="pl-team">${esc(teamName(p.team))}</span>
       <span class="pl-roles">${ROLES.map((r) => `<span class="${n[r] ? "" : "zero"}">${roleTag(r)}<b>${n[r] || 0}</b></span>`).join("")}</span>
@@ -2012,12 +2012,12 @@ function projectCard(p, sc) {
           <span class="right">
             ${k > 0 ? `<button class="upbtn leadbtn" data-up="${p.id}|${esc(role)}|${c.id}|${rr[0].c.id}" title="대표사로 지정">대표</button>` : ""}
             <select class="stage-sel ${e.stage && e.stage !== "계약" ? "on" : ""}" data-stage-sel="${c.id}|${i}" title="단계${e.stage === "우선협상" && e.rank ? ` · ${e.rank}순위` : ""}" aria-label="단계">${STAGE_OPTS.map(([v, l]) => `<option value="${v}" ${v === stageVal(e) ? "selected" : ""}>${l}</option>`).join("")}</select>
-            <button class="xbtn" data-unlink="${c.id}|${i}" title="이 사업에서 빼기">✕</button>
+            <button type="button" class="ibtn del" data-unlink="${c.id}|${i}" title="이 사업에서 빼기" aria-label="이 사업에서 빼기">${TRASH}</button>
           </span></div>`).join("")}
         <div class="drop-hint">끌어다 놓기</div>
       </div>`;
     }).join("")}</div>
-    <div class="pbox-foot">${ownerTag(p)}${canEditProject(p) ? "" : `<span class="muted small">보기 전용 (다른 팀 사업)</span>`}<span class="pf-act ${canEditProject(p) ? "" : "hidden"}"><button class="btn sm ghost" data-edit-proj="${p.id}">수정</button><button class="btn sm ghost danger" data-del-proj="${p.id}">삭제</button></span></div>
+    <div class="pbox-foot">${ownerTag(p)}${canEditProject(p) ? "" : `<span class="muted small">보기 전용 (다른 팀 사업)</span>`}<span class="pf-act ${canEditProject(p) ? "" : "hidden"}"><button type="button" class="ibtn" data-edit-proj="${p.id}" title="수정" aria-label="${esc(p.name)} 수정">${PENCIL}</button><button type="button" class="ibtn del" data-del-proj="${p.id}" title="삭제" aria-label="${esc(p.name)} 삭제">${TRASH}</button></span></div>
   </div>`;
 }
 $("#sideSearch").addEventListener("input", () => renderProjects());
@@ -3048,7 +3048,7 @@ function renderSettings() {
   renderAccess();
 
   if ($("#rcCount")) $("#rcCount").textContent = state.recipients.length;
-  $("#rcList").innerHTML = state.recipients.map((r) => `<div class="lst-row rc"><span class="lst-m" title="${esc(r.email)}">${esc(r.email)}</span><span class="lst-x"><button class="xbtn" data-del-rc="${r.id}" title="삭제">✕</button></span></div>`).join("") || `<div class="lst-empty">아직 없습니다</div>`;
+  $("#rcList").innerHTML = state.recipients.map((r) => `<div class="lst-row rc"><span class="lst-m" title="${esc(r.email)}">${esc(r.email)}</span><span class="lst-x"><button type="button" class="ibtn del" data-del-rc="${r.id}" title="삭제" aria-label="삭제">${TRASH}</button></span></div>`).join("") || `<div class="lst-empty">아직 없습니다</div>`;
   $$("[data-del-rc]").forEach((b) => b.onclick = async () => { await deleteDoc(doc(db, "recipients", b.dataset.delRc)); state.recipients = state.recipients.filter((r) => r.id !== b.dataset.delRc); renderSettings(); });
   if ($("#advCard").open) renderAdvanced();
 }
@@ -3074,7 +3074,7 @@ function renderAccess() {
   const roleCell = (u) => isSuper() && !isSuperMail(u.id) ? `<select data-acc-role="${esc(u.id)}" aria-label="권한"><option value="member" ${u.role !== "admin" ? "selected" : ""}>팀원</option><option value="admin" ${u.role === "admin" ? "selected" : ""}>팀 관리자</option></select>`
     : `<span class="lst-t ${u.role}">${ROLE_L[u.role] || "팀원"}</span>`;
   const rows = users.filter((u) => teams.includes(u.team || "") && pass(u)).sort((a, b) => order.indexOf(a.team || "") - order.indexOf(b.team || "") || RO.indexOf(a.role) - RO.indexOf(b.role) || a.id.localeCompare(b.id));
-  const html = rows.map((u) => `<div class="lst-row acc${u.id === me() ? " me" : ""}"><span class="lst-m" title="${esc(u.id)}">${esc(u.id)}${u.id === me() ? `<em>나</em>` : ""}</span>${teamCell(u)}${roleCell(u)}<span class="lst-x">${canEditUser(u) ? `<button class="xbtn" data-del-acc="${esc(u.id)}" title="삭제">✕</button>` : ""}</span></div>`).join("");
+  const html = rows.map((u) => `<div class="lst-row acc${u.id === me() ? " me" : ""}"><span class="lst-m" title="${esc(u.id)}">${esc(u.id)}${u.id === me() ? `<em>나</em>` : ""}</span>${teamCell(u)}${roleCell(u)}<span class="lst-x">${canEditUser(u) ? `<button type="button" class="ibtn del" data-del-acc="${esc(u.id)}" title="삭제" aria-label="삭제">${TRASH}</button>` : ""}</span></div>`).join("");
   $("#accCount").textContent = users.length;
   // 팀원은 있는데 팀 관리자가 없는 팀 (팀당 1명 권장)
   const noAdmin = Object.keys(TEAMS).filter((k) => users.some((u) => u.team === k && u.role === "member") && !users.some((u) => u.team === k && (u.role === "admin" || u.role === "super" || isSuperMail(u.id))));
