@@ -2969,3 +2969,76 @@ body.viewer #geoOnly { display: none; }
 .gd2-c { grid-template-columns: minmax(0, 16.5em) minmax(0, 1fr); padding: 6px 12px; }
 .gd2-r { padding: 6px 12px; } .gd2-r.rs { grid-template-columns: 9em minmax(0, 1fr); }
 @media (max-width: 760px) { .gd2-cols { grid-template-columns: minmax(0, 1fr); } .gd2-c { grid-template-columns: minmax(0, 1fr); } }
+/* ===== 이슈 판단 가이드 3차 (2026-11-26, '가독성 · 밸런스'): 위 = 업체 등급 세 칸 / 아래 왼쪽 = 버튼 · 관련 없음 이유 / 아래 오른쪽 = 상황별 판단
+   오른쪽은 상황 | 판단 | 덧붙임 세 칸(판단 칩이 한 줄로 서게) · 두 칸의 아래 끝이 맞게 줄 높이를 나눔 · 예전 .gd2-* 규칙은 안 씀 ===== */
+.gd3 { font-size: var(--fs-sm); line-height: 1.5; word-break: keep-all; }
+.gd3 p { margin: 0; color: var(--text-2); } .gd3 b { font-weight: 650; color: var(--text); }
+.gd3-lead { margin: 0 0 14px !important; padding: 9px 14px; border-radius: var(--r-l); background: var(--accent-soft); color: var(--text) !important; }
+.gd3 h3 { margin: 0 0 8px; font-size: var(--fs-base); font-weight: 750; }
+.gd3-lv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.gd3-t { padding: 10px 14px; border-radius: 12px; background: var(--soft); }
+.gd3-th { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.gd3-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.75fr); gap: 0 24px; margin-top: 18px; }
+.modal.wide.guide:has(.gd3) { max-width: 1200px; }
+.gd3-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.gd3-col .gd3-s { display: flex; flex-direction: column; } .gd3-col .gd3-s.grow { flex: 1 1 auto; }
+.gd3-list { display: grid; gap: 4px; grid-auto-rows: auto; } .gd3-s.grow .gd3-list { flex: 1 1 auto; align-content: stretch; } /* 남는 높이는 줄마다 똑같이 나눔 (제 높이 + 같은 몫) */
+.gd3-r, .gd3-c { display: grid; align-items: center; gap: 12px; min-height: 2.25rem; padding: 5px 14px; border-radius: 10px; background: var(--soft); box-sizing: border-box; }
+.gd3-r { grid-template-columns: 9.6em minmax(0, 1fr); }
+.gd3-c { grid-template-columns: minmax(0, 17em) 6.6em minmax(0, 1fr); }
+.gd3-c > p { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; }
+.gd3 i { font-style: normal; color: var(--muted); margin-left: 6px; }
+.gd3 .ga { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 7px; font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; background: var(--soft-h); color: var(--text-2); }
+.gd3 .ga.ok { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); }
+.gd3 .ga.no { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red); }
+@media (max-width: 900px) { .gd3-lv, .gd3-cols { grid-template-columns: minmax(0, 1fr); } .gd3-cols { gap: 18px 0; } .gd3-c { grid-template-columns: minmax(0, 1fr) auto; } .gd3-c > p { grid-column: 1 / -1; } }
+.gd3-c > p > i:first-child { margin-left: 0; }
+/* 판단 가이드: 위 등급 세 칸과 아래 두 칸이 같은 세로 줄에 서게 (같은 3칸 격자 · 왼쪽 = 첫 칸, 오른쪽 = 둘째 + 셋째 칸) */
+.gd3-lv { gap: 16px; }
+.gd3-cols { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 16px; }
+.gd3-cols > .gd3-col:last-child { grid-column: 2 / 4; }
+.gd3-t { border-radius: 10px; }
+@media (max-width: 900px) { .gd3-cols { grid-template-columns: minmax(0, 1fr); gap: 18px 0; } .gd3-cols > .gd3-col:last-child { grid-column: auto; } }
+/* 판단 가이드: 아래도 위와 같은 세 칸 (버튼 · 관련 없음으로 볼 상황 · 관련 있음으로 볼 상황) · 칸마다 상황 한 줄 + 덧붙임 한 줄 */
+.gd3-cols3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 16px; margin-top: 18px; }
+.gd3 h3 .ga { margin-left: 4px; vertical-align: 1px; }
+.gd3-k { display: flex; flex-direction: column; justify-content: center; gap: 3px; min-height: 3.4rem; padding: 8px 14px; border-radius: 10px; background: var(--soft); box-sizing: border-box; }
+.gd3-k > p { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; }
+.gd3-k > p > i:first-child { margin-left: 0; }
+.gd3-rs { margin-top: 3px !important; } .gd3-rs span { padding: 1px 7px; border-radius: 6px; font-size: var(--fs-xs); background: var(--soft-h); color: var(--text-2); white-space: nowrap; }
+@media (max-width: 900px) { .gd3-cols3 { grid-template-columns: minmax(0, 1fr); gap: 18px 0; } }
+/* ===== 레이더 아래 업체 이름 줄 (2026-11-26): 레이더를 조금 줄이고(365px), 점이 어느 업체인지 경고 · 주의 한 줄씩 · 넘치면 '외 N' =====
+   왼쪽 칸(등급 · 최근 7일 · 공식 제재 명단)은 그대로. 이름 줄이 범례를 겸해서 아래 범례는 숨김 · 레이더는 380 → 365px */
+.radar-names:empty { display: none; }
+.radar-names { position: relative; z-index: 2; align-self: stretch; display: grid; gap: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+.rn-row { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.rn-k { flex: none; display: inline-flex; align-items: center; gap: 6px; width: 4.6rem; height: var(--h-s); font-size: var(--fs-sm); font-weight: 700; color: var(--text-2); }
+.rn-k i { width: 8px; height: 8px; border-radius: 50%; background: var(--red); } .rn-row.orange .rn-k i { background: var(--orange); }
+.rn-k b { margin-left: 2px; font-variant-numeric: tabular-nums; color: var(--text); }
+.rn-list { flex: 1 1 0; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; overflow: hidden; max-height: var(--h-s); }
+.rn-row.orange .rn-list { max-height: calc(var(--h-s) * 2 + 6px); } /* 주의는 두 줄까지 (한 줄이면 한 줄 높이) */
+.rn-chip, .rn-more { flex: none; height: var(--h-s); padding: 0 10px; border-radius: var(--r-s); border: 1px solid transparent; font: inherit; font-size: var(--fs-xs); font-weight: 650; white-space: nowrap; cursor: pointer; color: var(--text); background: color-mix(in srgb, var(--red) 14%, transparent); }
+.rn-row.orange .rn-chip { background: color-mix(in srgb, var(--orange) 14%, transparent); }
+.rn-chip { max-width: 11em; overflow: hidden; text-overflow: ellipsis; }
+.rn-chip:hover { border-color: color-mix(in srgb, var(--red) 55%, transparent); } .rn-row.orange .rn-chip:hover { border-color: color-mix(in srgb, var(--orange) 55%, transparent); }
+.rn-more { background: var(--soft); color: var(--text-2); } .rn-more:hover { background: var(--soft-h); }
+.rn-none { font-size: var(--fs-xs); color: var(--muted); line-height: var(--h-s); }
+.rdot.hot { transform: scale(1.8); z-index: 5; }
+/* 범례는 레이더 바로 아래 (2026-11-26 사용자) */
+.d-radar:has(.radar-names:not(:empty)) .radar-hud { align-self: stretch; }
+.d-radar:has(.radar-names:not(:empty)) .radar-hud .hud.bl { position: static; justify-content: center; }
+@media (min-width: 1101px) {
+  .dash:not(.geo-dash) .d-radar:has(.radar-names:not(:empty)) .radar { max-width: min(100%, 365px); margin-top: auto; margin-bottom: 0; }
+  .dash:not(.geo-dash) .d-radar:has(.radar-names:not(:empty)) .radar-hud { margin-bottom: auto; }
+  .dash:not(.geo-dash) .d-radar:has(.radar-names.two) .radar { max-width: min(100%, 340px); }
+  .dash:not(.geo-dash) .d-radar:has(.radar-names:not(:empty)) { justify-content: flex-start; padding-top: 40px; }
+}
+/* 업체 등급 칸: 업체 이름 줄을 뺌(레이더 아래 이름 줄과 겹침) → 세 줄을 같은 높이로 (칸 전체 높이는 수원국 등급 칸과 같게 4.3 + 4.3 + 3.1 = 3.9 × 3) */
+#kboard .rk-names:empty { display: none; }
+#kboard .rk.red, #kboard .rk.orange, #kboard .rk.none { min-height: 3.9rem; }
+/* 판단 가이드: 아래 = 이슈 처리 버튼 | 상황별 판단 한 묶음 (두 칸 격자가 위의 주의 · 정상 칸과 같은 세로 줄) */
+.gd3-cols3 > .gd3-col.wide { grid-column: 2 / 4; }
+.gd3-list.two { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(6, auto); grid-auto-flow: column; gap: 4px 16px; }
+.gd3-kh { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+@media (max-width: 900px) { .gd3-cols3 > .gd3-col.wide { grid-column: auto; } .gd3-list.two { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-flow: row; } }
+#kboard .rk.on .rk-num, #kboard .rk .rk-num { grid-row: auto; } #kboard .rk .rk-lv { align-self: center; }
