@@ -32,6 +32,7 @@ for k in range(0, 4000):
 wd = "월화수목금토일"[now.weekday()]
 body = body.replace(f"({wd})", "({{WD}})")
 body = re.sub(r">\s*\n\s*<", "><", body)
+body = body.replace(report.LOGO_URL(), "assets/mail-logo.png")  # 데모는 저장소 안 그림으로 (합치기 전에도 보이게)
 out = ("// 데모용 메일 미리보기 — make_demo_mail.py 로 만든 파일 (가상 업체, 실제 메일 템플릿 그대로)\n"
        "export const MAIL_SUBJECT = " + json.dumps(subject, ensure_ascii=False) + ";\n"
        "export const MAIL_HTML = " + json.dumps(body, ensure_ascii=False) + ";\n")

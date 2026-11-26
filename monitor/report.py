@@ -2,8 +2,10 @@
 import datetime
 import html
 import logging
+import os
 import re
 import smtplib
+from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
@@ -115,6 +117,9 @@ def _src(f: dict) -> str:
     name = re.sub(r"\s*\([^)]*(Google|Naver|네이버|키워드|뉴스)[^)]*\)\s*$", "", str(f.get("source_name") or "")).strip()
     return name or ("공식 명단" if f.get("source_type") != "news" else "뉴스")
 
+
+LOGO_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "mail-logo.png")
+LOGO_URL = lambda: str(config.DASHBOARD_URL or "").rstrip("/") + "/assets/mail-logo.png"
 
 GEO_KO = {"quake": "지진", "storm": "태풍", "flood": "홍수", "volcano": "화산", "fire": "산불", "disease": "감염병", "war": "분쟁", "terror": "테러", "unrest": "시위"}
 
@@ -230,6 +235,7 @@ def build() -> tuple[str, str, list[str]]:
     shown_news = news_g[:max(0, MAX - len(shown_off))]
     rest = len(sendable) - len(shown_off) - len(shown_news)
     dash_url = E(config.DASHBOARD_URL)
+    logo_url = E(LOGO_URL())  # 대시보드와 같은 로고 그림. 보낼 때는 메일 안에 같이 넣음(send: 바깥 그림을 막는 메일 프로그램에서도 보이게)
     issues = (section("공식 제재 명단", f"{len(official)}건", shown_off) + section("뉴스 · 검토 신호", f"{len(news_g)}건", shown_news)) if sendable else (
         f'<tr><td style="padding:22px 24px 0;"><div style="background:{BG2};border-radius:12px;padding:18px;text-align:center;font-size:14px;font-weight:600;color:{TEXT2};">'
         f'오늘 새로 나온 경고·주의 이슈가 없습니다</div></td></tr>')
@@ -273,10 +279,10 @@ def build() -> tuple[str, str, list[str]]:
 <table width="660" cellpadding="0" cellspacing="0" style="max-width:660px;width:100%;background:#FFFFFF;border:1px solid {LINE};border-radius:16px;">
 <tr><td bgcolor="#0B101C" style="background:#0B101C;background-image:linear-gradient(125deg,#0B101C 0%,#171E3F 55%,#0C2C3D 100%);padding:24px 24px 24px;border-radius:15px 15px 0 0;">
   <table width="100%" cellpadding="0" cellspacing="0"><tr>
-    <td style="font-size:11.5px;font-weight:800;letter-spacing:.1em;color:#A5B4FC;white-space:nowrap;"><span style="display:inline-block;width:15px;height:15px;border-radius:5px;background:#5B5BF0;background-image:linear-gradient(135deg,#7C83FF,#22D3EE);vertical-align:-3px;margin-right:7px;"></span>EDCF RADAR</td>
+    <td style="font-size:11.5px;font-weight:800;letter-spacing:.1em;color:#A5B4FC;white-space:nowrap;"><img src="{logo_url}" width="18" height="18" alt="" style="display:inline-block;width:18px;height:18px;border:0;border-radius:6px;background:#5B5BF0;vertical-align:-4px;margin-right:7px;">EDCF RADAR</td>
     <td align="right" style="font-size:14px;font-weight:700;color:#FFFFFF;white-space:nowrap;">{today} ({weekday})</td></tr>
   <tr>
-    <td style="padding-top:6px;font-size:24px;font-weight:800;letter-spacing:-.03em;line-height:1.2;color:#FFFFFF;white-space:nowrap;">오늘의 <span style="color:#8FA2FF;">업체 리스크</span></td>
+    <td style="padding-top:6px;font-size:24px;font-weight:800;letter-spacing:-.03em;line-height:1.2;color:#FFFFFF;white-space:nowrap;">오늘의 <span style="color:#8FA2FF;">EDCF 리스크</span></td>
     <td align="right" style="padding:6px 0 2px 10px;vertical-align:bottom;font-size:12px;line-height:1.6;color:#A9B6CC;">{scan_txt}업체 {len(overview)}</td></tr></table>
   <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;"><tr>{tiles}</tr></table>
 </td></tr>
@@ -331,14 +337,28 @@ def send(to_override: str | None = None) -> dict:
     if not (config.SMTP_USER and config.SMTP_PASSWORD):
         raise RuntimeError("SMTP_USER / SMTP_PASSWORD Secret이 설정되지 않았습니다.")
 
-    msg = MIMEMultipart("alternative")
+    logo = None
+    try:  # 로고 그림을 메일 안에 같이 넣음 (바깥 그림을 막는 메일 프로그램에서도 보임). 못 읽으면 주소 그대로 둠
+        with open(LOGO_FILE, "rb") as fp:
+            logo = MIMEImage(fp.read(), "png")
+        logo.add_header("Content-ID", "<edcf-radar-logo>")
+        logo.add_header("Content-Disposition", "inline", filename="logo.png")
+    except Exception as e:
+        log.warning("메일 로고 넣기 실패: %s", type(e).__name__)
+        logo = None
+    mail_html = body.replace(html.escape(LOGO_URL()), "cid:edcf-radar-logo") if logo is not None else body
+    msg = MIMEMultipart("related") if logo is not None else MIMEMultipart("alternative")
+    alt = MIMEMultipart("alternative") if logo is not None else msg
     msg["Subject"] = ("[테스트] " if to_override else "") + subject
     msg["From"] = config.MAIL_FROM
     msg["To"] = ", ".join(recipients)
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = make_msgid(domain=(config.MAIL_FROM or "edcf-radar").split("@")[-1] or None)
-    msg.attach(MIMEText(getattr(build, "last_text", "") or subject, "plain", "utf-8"))  # 텍스트 본문 먼저, HTML 나중 (보는 프로그램이 고름)
-    msg.attach(MIMEText(body, "html", "utf-8"))
+    alt.attach(MIMEText(getattr(build, "last_text", "") or subject, "plain", "utf-8"))  # 텍스트 본문 먼저, HTML 나중 (보는 프로그램이 고름)
+    alt.attach(MIMEText(mail_html, "html", "utf-8"))
+    if logo is not None:
+        msg.attach(alt)
+        msg.attach(logo)
     with smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT, timeout=30) as s:
         s.starttls()
         s.login(config.SMTP_USER, config.SMTP_PASSWORD)
