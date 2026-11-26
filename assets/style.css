@@ -2969,3 +2969,27 @@ body.viewer #geoOnly { display: none; }
 .gd2-c { grid-template-columns: minmax(0, 16.5em) minmax(0, 1fr); padding: 6px 12px; }
 .gd2-r { padding: 6px 12px; } .gd2-r.rs { grid-template-columns: 9em minmax(0, 1fr); }
 @media (max-width: 760px) { .gd2-cols { grid-template-columns: minmax(0, 1fr); } .gd2-c { grid-template-columns: minmax(0, 1fr); } }
+/* ===== 이슈 판단 가이드 3차 (2026-11-26, '가독성 · 밸런스'): 위 = 업체 등급 세 칸 / 아래 왼쪽 = 버튼 · 관련 없음 이유 / 아래 오른쪽 = 상황별 판단
+   오른쪽은 상황 | 판단 | 덧붙임 세 칸(판단 칩이 한 줄로 서게) · 두 칸의 아래 끝이 맞게 줄 높이를 나눔 · 예전 .gd2-* 규칙은 안 씀 ===== */
+.gd3 { font-size: var(--fs-sm); line-height: 1.5; word-break: keep-all; }
+.gd3 p { margin: 0; color: var(--text-2); } .gd3 b { font-weight: 650; color: var(--text); }
+.gd3-lead { margin: 0 0 14px !important; padding: 9px 14px; border-radius: var(--r-l); background: var(--accent-soft); color: var(--text) !important; }
+.gd3 h3 { margin: 0 0 8px; font-size: var(--fs-base); font-weight: 750; }
+.gd3-lv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.gd3-t { padding: 10px 14px; border-radius: 12px; background: var(--soft); }
+.gd3-th { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.gd3-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.75fr); gap: 0 24px; margin-top: 18px; }
+.modal.wide.guide:has(.gd3) { max-width: 1200px; }
+.gd3-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.gd3-col .gd3-s { display: flex; flex-direction: column; } .gd3-col .gd3-s.grow { flex: 1 1 auto; }
+.gd3-list { display: grid; gap: 4px; grid-auto-rows: auto; } .gd3-s.grow .gd3-list { flex: 1 1 auto; align-content: stretch; } /* 남는 높이는 줄마다 똑같이 나눔 (제 높이 + 같은 몫) */
+.gd3-r, .gd3-c { display: grid; align-items: center; gap: 12px; min-height: 2.25rem; padding: 5px 14px; border-radius: 10px; background: var(--soft); box-sizing: border-box; }
+.gd3-r { grid-template-columns: 9.6em minmax(0, 1fr); }
+.gd3-c { grid-template-columns: minmax(0, 17em) 6.6em minmax(0, 1fr); }
+.gd3-c > p { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; }
+.gd3 i { font-style: normal; color: var(--muted); margin-left: 6px; }
+.gd3 .ga { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 7px; font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; background: var(--soft-h); color: var(--text-2); }
+.gd3 .ga.ok { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); }
+.gd3 .ga.no { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red); }
+@media (max-width: 900px) { .gd3-lv, .gd3-cols { grid-template-columns: minmax(0, 1fr); } .gd3-cols { gap: 18px 0; } .gd3-c { grid-template-columns: minmax(0, 1fr) auto; } .gd3-c > p { grid-column: 1 / -1; } }
+.gd3-c > p > i:first-child { margin-left: 0; }
