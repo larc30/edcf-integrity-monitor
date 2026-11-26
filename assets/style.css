@@ -2961,3 +2961,25 @@ body.viewer #geoOnly { display: none; }
 .lst-row.rc { grid-template-columns: minmax(0, 1fr) 3.2rem; }
 .lst-t { padding-left: 16px; } .lst-h.acc > span:nth-child(2), .lst-h.acc > span:nth-child(3) { padding-left: 16px; }
 @media (max-width: 640px) { .lst-row.acc { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 3.2rem; } }
+/* ===== 최근 7일 칸 (2026-11-26): 경고 · 주의를 따로 한 칸씩 (칸 머리에 7일 합계), 요일은 맨 아래 한 번 · 높이만 늘려 빈 곳이 많던 것을 고침 ===== */
+.wk-card .rk-trend.wk-ps { flex: 1; display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 8px; }
+.wk-p { padding: 8px 10px 6px; border-radius: 12px; background: var(--soft); }
+.wk-ph { display: flex; align-items: baseline; justify-content: space-between; padding: 0 2px; }
+.wk-ph i { font-style: normal; font-size: var(--fs-sm); font-weight: 700; color: var(--text-2); }
+.wk-ph b { font-size: var(--fs-sm); font-weight: 750; font-variant-numeric: tabular-nums; color: var(--muted); }
+.wk-p.r .wk-ph b.on { color: var(--red); } .wk-p.o .wk-ph b.on { color: var(--orange); }
+.wk-dayrow { padding: 0 10px; margin-top: -2px; }
+/* ===== 판단 가이드: 상황별 판단 (상황 | 이렇게 처리) ===== */
+.modal.wide.guide { max-width: 1160px; }
+.gd2-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); }
+.gd2-cases { background: var(--soft); border-radius: 12px; padding: 4px; }
+.gd2-c { display: grid; grid-template-columns: minmax(0, 15.5em) minmax(0, 1fr); gap: 12px; align-items: center; padding: 6px 12px; border-radius: 9px; }
+.gd2-c:hover { background: var(--soft-h); }
+.gd2-c b { font-weight: 650; color: var(--text); }
+.gd2-c > span { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; color: var(--text-2); }
+.gd2-c i { font-style: normal; color: var(--muted); margin-left: 4px; }
+@media (max-width: 760px) { .gd2-cols { grid-template-columns: minmax(0, 1fr); } .gd2-c { grid-template-columns: minmax(0, 1fr); gap: 4px; } }
+.gd2-cols { grid-template-columns: minmax(0, .8fr) minmax(0, 1.6fr); }
+.gd2-c { grid-template-columns: minmax(0, 17.5em) minmax(0, 1fr); padding: 5px 12px; }
+@media (max-width: 760px) { .gd2-cols { grid-template-columns: minmax(0, 1fr); } .gd2-c { grid-template-columns: minmax(0, 1fr); } }
+.wk-dayrow .wk2 .day { font-size: 14.5px; } .wk-p .wk2 .val { font-size: 14.5px; } .wk-p .wk2 .val.now { font-size: 17px; }
