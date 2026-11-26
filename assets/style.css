@@ -3067,3 +3067,7 @@ body.viewer #geoOnly { display: none; }
 .tip-ex { display: block; margin-top: 1px; font-size: var(--fs-xs); color: var(--muted); }
 #kboard .rk-lv, #gboard .rk-lv { font-size: var(--fs-lg); }
 #refWrap > summary, #doneWrap > summary { font-size: var(--fs-base); font-weight: 550; color: var(--text-2); }
+/* 사업 관리 목록의 수정 = 연필 아이콘 버튼 (2026-11-27: 줄마다 '수정' 글자 버튼이 되풀이돼 무거움) */
+.pl-edit { width: var(--h-s); height: var(--h-s); display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--r-s); background: var(--soft); color: var(--text-2); cursor: pointer; }
+.pl-edit svg { width: 15px; height: 15px; }
+.pl-edit:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }

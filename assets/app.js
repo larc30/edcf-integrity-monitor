@@ -83,6 +83,7 @@ function toast(msg, ms = 2800) {
   clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), ms);
 }
 // 창: 닫기는 오른쪽 위 X 하나 (아래 버튼 줄에는 주 버튼만)
+const PENCIL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>`;
 const X_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
 function modal(html) {
   const m = $("#modal"); m.className = "modal"; m.innerHTML = html;
@@ -1791,6 +1792,7 @@ const CO_VIEWS = [
   ["open", "미확인 이슈", "'관련 있음·관련 없음' 처리 전 이슈가 있는 업체"],
   ["info", "정보 보완 필요", "사업자번호 또는 영문명이 없어 조회가 불완전한 업체"],
 ];
+const mailOk = (s) => /^[a-z0-9._%+-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/i.test(s) && !/\.\./.test(s); // 메일 주소 모양 (브라우저 기본 검사는 'a@b'도 통과)
 const needInfo = (c) => (c.country === "KR" && !c.biz_no) || !c.name_en;
 // 사업자번호는 업체마다 하나 (같은 번호 두 업체 금지). 해외 업체는 사업자번호 없이 영문명·국가로 구분
 const bizDigits = (b) => String(b || "").replace(/\D/g, "");
@@ -1839,7 +1841,7 @@ function renderCompanies() {
   keep("#fProj", `<option value="">사업 전체</option><option value="__none">사업 미연결</option>` + projOptions(live)
     + (state.projects.some((p) => !live(p)) ? `<optgroup label="완료된 사업">${state.projects.filter((p) => !live(p)).sort((x, y) => x.name.localeCompare(y.name, "ko")).map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</optgroup>` : ""));
   keep("#fCat", `<option value="">업종 전체</option>` + CATS.map((k) => `<option value="${k}">${k}</option>`).join(""));
-  $("#coViews").innerHTML = CO_VIEWS.map(([k, l, d]) => `<button data-v="${k}" class="cv-btn ${k} ${k === coState.view ? "active" : ""}" title="${d}">${l}<span class="n">${state.companies.filter((c) => inView(c, k)).length}</span></button>`).join("");
+  $("#coViews").innerHTML = CO_VIEWS.filter(([k]) => k !== "open" || k === coState.view || state.companies.some((c) => inView(c, k))).map(([k, l, d]) => `<button data-v="${k}" class="cv-btn ${k} ${k === coState.view ? "active" : ""}" title="${d}">${l}<span class="n">${state.companies.filter((c) => inView(c, k)).length}</span></button>`).join("");
   $$("#coViews button").forEach((b) => b.onclick = () => { coState.view = b.dataset.v; renderCompanies(); });
 
   const list = state.companies.filter(poolMatches).sort((a, b) => CO_SORT[coState.sort](a, b) * coState.dir);
@@ -1848,7 +1850,7 @@ function renderCompanies() {
   // 상세 필터(역할·단계·국내해외): 평소에는 접어 두고, 고른 것이 있으면 펼친 채로 개수 표시
   { const n = CO_MORE.filter((id) => $(id).value).length, btn = $("#fMoreBtn"), open = n > 0 || btn.getAttribute("aria-expanded") === "true";
     $("#fMore").classList.toggle("hidden", !open); btn.classList.toggle("on", open); btn.innerHTML = `${FILTER_IC}<span>상세 필터</span>${n ? `<b class="fn">${n}</b>` : ""}<i class="chev">${open ? "▴" : "▾"}</i>`; }
-  $("#poolShown").textContent = list.length === state.companies.length ? "" : `${state.companies.length}개 중 ${list.length}개`;
+  $("#poolShown").textContent = "";
   $$("#coTable th[data-sort]").forEach((th) => { th.classList.toggle("on", th.dataset.sort === coState.sort); th.classList.toggle("desc", th.dataset.sort === coState.sort && coState.dir < 0); });
   const engChip = (e) => `<span class="ej" title="${esc(projName(e.project_id))} · ${esc(e.role)} · ${esc(e.stage || "계약")}">${roleTag(e.role)}<span class="ej-p">${esc(projName(e.project_id))}</span>${stageTag(e)}</span>`;
   $("#pool").innerHTML = !list.length ? `<tr><td colspan="9" class="empty">${state.companies.length ? "조건에 맞는 업체가 없습니다." : "업체가 없습니다. [일괄 등록] 또는 [+ 업체 추가]를 이용하세요."}</td></tr>`
@@ -1919,7 +1921,7 @@ function pjListRow(p, sc) {
       <span class="pl-team">${esc(teamName(p.team))}</span>
       <span class="pl-roles">${ROLES.map((r) => `<span class="${n[r] ? "" : "zero"}">${roleTag(r)}<b>${n[r] || 0}</b></span>`).join("")}</span>
       <span class="pl-risk pj-sum">${!cs.size ? "" : sc ? (["red", "orange"].filter((lv) => t[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${t[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) : ""}</span>
-      <span class="pl-act">${canEditProject(p) ? `<button type="button" class="btn sm" data-edit-proj="${p.id}">수정</button>` : ""}</span>
+      <span class="pl-act">${canEditProject(p) ? `<button type="button" class="pl-edit" data-edit-proj="${p.id}" title="수정" aria-label="${esc(p.name)} 수정">${PENCIL}</button>` : ""}</span>
       <span class="pl-caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
     </div>
     ${open ? projectCard(p, sc) : ""}
@@ -2851,8 +2853,9 @@ $("#btnBulk").onclick = () => {
 
 $("#rcForm").onsubmit = async (ev) => {
   ev.preventDefault();
-  const email = ev.target.email.value.trim();
-  if (state.recipients.some((r) => r.email === email)) return toast("이미 등록된 주소입니다");
+  const email = ev.target.email.value.trim().toLowerCase();
+  if (!mailOk(email)) { ev.target.email.focus(); return toast("메일 주소를 확인하세요"); }
+  if (state.recipients.some((r) => String(r.email).toLowerCase() === email)) return toast("이미 등록된 주소입니다");
   const data = { email, active: true };
   const ref = await addDoc(collection(db, "recipients"), data);
   state.recipients.push({ id: ref.id, ...data });
@@ -3005,7 +3008,7 @@ function openEdcfOld() {
   $("#edcfPaste").onclick = openEdcfPaste;
 }
 function openEdcfPaste() {
-  modal(`<h2>EDCF 부정당업자 명단 붙여넣기</h2>
+  modal(`<button type="button" class="d-back" id="edcfBack">← 공식 제재 명단</button><h2>EDCF 부정당업자 명단 붙여넣기</h2>
     <p class="muted small">EXIMIIS 엑셀에서 <b>제목 줄(업체명, 상태, 제재기간 …)부터</b> 표 전체를 복사해 붙여넣으세요.</p>
     <textarea id="edcfText" placeholder="엑셀 표를 제목 줄부터 복사해 붙여넣으세요.
 복사가 막히면 쉼표로 직접 입력해도 됩니다 (제목 줄 필수, 예시는 가상 데이터):
@@ -3013,7 +3016,7 @@ function openEdcfPaste() {
 업체명, 상태, 제재기간, 사업자번호
 도레온건설, 등록, 2026.01.01 ~ 2027.12.31, 000-00-00000"></textarea>
     <div class="actions"><button class="btn primary" id="edcfParse">확인</button></div>`);
-  $("#modalClose").onclick = () => openOfficial();
+  $("#edcfBack").onclick = () => openOfficial();
   $("#edcfParse").onclick = () => {
     try {
       const list = rowsToEdcf($("#edcfText").value.split(/\r?\n/).map((l) => l.split(l.includes("\t") ? "\t" : l.includes("|") ? "|" : ",").map((x) => x.trim())));
@@ -3074,7 +3077,7 @@ function renderAccess() {
   const html = rows.map((u) => `<div class="lst-row acc${u.id === me() ? " me" : ""}"><span class="lst-m" title="${esc(u.id)}">${esc(u.id)}${u.id === me() ? `<em>나</em>` : ""}</span>${teamCell(u)}${roleCell(u)}<span class="lst-x">${canEditUser(u) ? `<button class="xbtn" data-del-acc="${esc(u.id)}" title="삭제">✕</button>` : ""}</span></div>`).join("");
   $("#accCount").textContent = users.length;
   // 팀원은 있는데 팀 관리자가 없는 팀 (팀당 1명 권장)
-  const noAdmin = Object.keys(TEAMS).filter((k) => users.some((u) => u.team === k && u.role === "member") && !users.some((u) => u.team === k && u.role === "admin"));
+  const noAdmin = Object.keys(TEAMS).filter((k) => users.some((u) => u.team === k && u.role === "member") && !users.some((u) => u.team === k && (u.role === "admin" || u.role === "super" || isSuperMail(u.id))));
   $("#accWarn").textContent = noAdmin.length ? `팀 관리자 없음 · ${noAdmin.map((k) => TEAMS[k]).join(", ")}` : "";
   $("#accWarn").classList.toggle("hidden", !noAdmin.length || !isSuper());
   $("#accList").innerHTML = html || `<div class="lst-empty">맞는 계정이 없습니다</div>`;
@@ -3111,7 +3114,9 @@ async function saveUser(email, patch) {
 $("#accForm").onsubmit = async (ev) => {
   ev.preventDefault();
   const f = ev.target, email = f.email.value.trim().toLowerCase();
+  if (!mailOk(email)) { f.email.focus(); return toast("메일 주소를 확인하세요"); }
   if (!email || isSuperMail(email) || state.users.some((u) => u.id === email)) return toast("이미 있는 계정입니다");
+  if (!/@gmail\.com$/.test(email) && !confirm(`${email}\ngmail.com 주소가 아닙니다. 이 주소로 만든 Google 계정이 있어야 로그인할 수 있습니다.\n\n추가할까요?`)) return;
   const team = isSuper() ? (f.team.value || null) : myTeam(), role = isSuper() ? f.role.value : "member";
   await saveUser(email, { team, role, added_by: me(), added_at: nowStr() });
   f.email.value = ""; toast(`${email} 추가 (${teamName(team)} ${ROLE_L[role]}): 그 계정으로 Google 로그인하면 들어올 수 있습니다`, 5000);
