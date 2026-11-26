@@ -606,25 +606,24 @@ function renderHome() {
   const spark = () => {
     if (!sc) return "";
     const wk = Array.from({ length: 7 }, (_, i) => newByDay(6 - i)), max = Math.max(...wk.map((x) => Math.max(x.r, x.o)), 1), WD = "일월화수목금토";
-    // 경고 · 주의를 따로 한 칸씩 (칸 머리에 7일 합계 '건'), 요일은 맨 아래 한 번. 칸마다 그래프는 제 비율이라 빈 곳이 안 생김
-    const LH = 88, W = 300, L0 = 14, R0 = 14, X = (i) => L0 + (i / 6) * (W - L0 - R0);
+    const LH = 56, W = 300, H = LH * 2 + 18, L0 = 12, R0 = 12, X = (i) => L0 + (i / 6) * (W - L0 - R0); // 좌우 여백 같게 (범례는 그래프 아래로)
     const dayN = (i) => { const d = new Date(Date.now() - (6 - i) * DAY); return i === 6 ? "오늘" : WD[d.getDay()]; };
-    const lane = (k, name) => {
-      const base = LH - 6, Y = (v) => base - (v / max) * (LH - 30), P = wk.map((x, i) => [X(i), Y(x[k])]);
+    const lane = (k, name, top) => {
+      const base = top + LH - 6, Y = (v) => base - (v / max) * (LH - 28), P = wk.map((x, i) => [X(i), Y(x[k])]);
       const d = P.map(([x, y], i) => { if (!i) return `M${x.toFixed(1)},${y.toFixed(1)}`; const [px0, py0] = P[i - 1], mx = ((px0 + x) / 2).toFixed(1); return `C${mx},${py0.toFixed(1)} ${mx},${y.toFixed(1)} ${x.toFixed(1)},${y.toFixed(1)}`; }).join("");
       const area = `${d}L${X(6).toFixed(1)},${base}L${X(0).toFixed(1)},${base}Z`;
       const dots = P.map(([x, y], i) => `<g class="pt ${i === 6 ? "now" : ""}"><title>${dayN(i)} 새 ${name} ${wk[i][k]}건</title>${i === 6 ? `<circle class="halo ${k}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7"/>` : ""}<circle class="dot ${k}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${i === 6 ? 3.8 : 2.2}"/><text class="val ${i === 6 ? "now" : ""} ${wk[i][k] ? "" : "zero"}" x="${x.toFixed(1)}" y="${(y - 7).toFixed(1)}">${wk[i][k]}</text></g>`).join("");
-      const sum = wk.reduce((a, x) => a + x[k], 0);
-      return `<div class="wk-p ${k}"><div class="wk-ph"><i>${name}</i><b class="${sum ? "on" : ""}">${sum}건</b></div>
-        <svg class="wk2" viewBox="0 0 ${W} ${LH}" role="img" aria-label="최근 7일 새로 잡힌 ${name} ${wk.map((x) => x[k]).join(", ")}건">
-        <defs><linearGradient id="wkg-${k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--${k === "r" ? "red" : "orange"})" stop-opacity=".38"/><stop offset="1" stop-color="var(--${k === "r" ? "red" : "orange"})" stop-opacity="0"/></linearGradient></defs>
-        <rect class="today" x="${(X(6) - 12).toFixed(1)}" y="2" width="24" height="${LH - 4}" rx="8"/>
-        <line class="base" x1="0" x2="${W}" y1="${base}" y2="${base}"/>
-        <path class="area ${k}" d="${area}" fill="url(#wkg-${k})"/><path class="line ${k}" d="${d}"/>${dots}</svg></div>`;
+      return `<line class="base" x1="0" x2="${W}" y1="${base}" y2="${base}"/>
+        <path class="area ${k}" d="${area}" fill="url(#wkg-${k})"/><path class="line ${k}" d="${d}"/>${dots}`;
     };
-    const days = wk.map((_, i) => `<text class="day ${i === 6 ? "now" : ""}" x="${X(i).toFixed(1)}" y="12">${dayN(i)}</text>`).join("");
+    const days = wk.map((_, i) => `<text class="day ${i === 6 ? "now" : ""}" x="${X(i).toFixed(1)}" y="${H - 3}">${dayN(i)}</text>`).join("");
     return `<div class="card-head"><h2>최근 7일</h2><span class="wk-sub">새로 잡힌 이슈</span></div>
-      <div class="rk-trend wk-ps">${lane("r", "경고")}${lane("o", "주의")}<div class="wk-dayrow"><svg class="wk2" viewBox="0 0 ${W} 16" aria-hidden="true">${days}</svg></div></div>`;
+      <div class="rk-trend"><svg class="wk2" viewBox="0 0 ${W} ${H}" role="img" aria-label="최근 7일 새로 잡힌 경고 ${wk.map((x) => x.r).join(", ")}건, 주의 ${wk.map((x) => x.o).join(", ")}건">
+        <defs><linearGradient id="wkg-r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--red)" stop-opacity=".38"/><stop offset="1" stop-color="var(--red)" stop-opacity="0"/></linearGradient>
+        <linearGradient id="wkg-o" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--orange)" stop-opacity=".38"/><stop offset="1" stop-color="var(--orange)" stop-opacity="0"/></linearGradient></defs>
+        <rect class="today" x="${(X(6) - 12).toFixed(1)}" y="2" width="24" height="${H - 4}" rx="8"/>
+        ${lane("r", "경고", 0)}${lane("o", "주의", LH)}${days}</svg></div>
+      <div class="wk-leg"><span><i class="lg red"></i>경고</span><span><i class="lg orange"></i>주의</span></div>`;
   };
   $("#kboard").innerHTML = `<div class="card-head"><h2>업체 등급 ${info(levelTip())}</h2>${sc ? "" : `<span class="muted small">스캔 전</span>`}</div>`
     + ["red", "orange", "none"].map((lv) => {
@@ -933,7 +932,7 @@ const GUIDE_CASES = [ // [상황, 처리] : 처리는 어느 버튼인지 먼저
   ["처분은 확정됐고 시작일이 아직 안 됨", `%OK% <span class="badge red">경고</span>`],
   ["영업정지", `%OK% <i>기간 중</i> <span class="badge red">경고</span> <i>끝났거나 기간을 모르면</i> <span class="badge orange">주의</span>`],
   ["집행정지 결정", `%OK% 주의로 유지 <i>판결이 나오면 다시 확인</i>`],
-  ["입찰 · 계약과 무관한 규제 위반", `%NO% 기타 <i>공시 누락 · 기업결합 신고 등</i>`],
+  ["입찰 · 계약과 무관한 규제 위반", `%OK% <i>공시 누락 · 기업결합 신고 등</i>`],
   ["대표자 개인 사건", `%NO% 회사가 대상이 아닐 때 <i>회사도 대상이면</i> %OK%`],
   ["공식 제재 명단에 오름", `%OK% 같은 회사 <i>이름만 비슷하면</i> %NO%`],
   ["처리한 사건의 후속 기사", `자동으로 같은 처리 <i>등급이 오르면 다시 뜸</i>`],

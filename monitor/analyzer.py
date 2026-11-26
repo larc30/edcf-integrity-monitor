@@ -525,8 +525,10 @@ def summarize_guide(dismissed: list[str], confirmed: list[str], current: str) ->
     resp = client.messages.create(model=config.CLAUDE_MODEL, max_tokens=1200, messages=[{"role": "user", "content": user}])
     usage.track(resp, config.CLAUDE_MODEL)
     text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text").strip()
-    lines = [ln.strip() for ln in text.splitlines() if ln.strip().startswith("-")][:10]
-    return "\n".join(ln[:120] for ln in lines)
+    # 줄 머리가 '-' 가 아니어도(•, *, 1. 등) 지침 줄로 읽음: '-' 로 시작하는 줄만 받다가 한 줄도 못 건진 적이 있음 (2026-11-20 저장본이 빈 값)
+    lines = [re.sub(r"^\s*(?:[-*•·▪◦]+|\d+[.)])\s*", "", ln).strip() for ln in text.splitlines()]
+    lines = [ln for ln in lines if len(ln) >= 6 and not ln.endswith(":")][:10]
+    return "\n".join("- " + ln[:118] for ln in lines)
 
 
 def _feedback_text(feedback: dict | None) -> str:

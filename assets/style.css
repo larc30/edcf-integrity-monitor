@@ -2909,22 +2909,8 @@ body.viewer #geoOnly { display: none; }
 .gd2-qa .q { display: flex; } .gd2-qa { padding: 7px 12px; } .gd2-qa + .gd2-qa { margin-top: 5px; }
 .gd2-r { padding: 4px 0; } .gd2 section + section { margin-top: 10px; } .gd2-lead { margin-bottom: 10px; }
 .modal.wide.guide { max-height: 94vh; }
-/* ===== 업체 화면 레이더 칸 (2026-11-26): 레이더를 줄여 위로 올리고, 아래에 공식 제재 명단을 한 줄로 · 왼쪽 칸은 등급 + 최근 7일 두 장(수원국 화면과 같은 짜임) ===== */
-@media (min-width: 1101px) {
-  .dash:not(.geo-dash) .radar { max-width: min(100%, 370px); }
-  .dash:not(.geo-dash) .d-radar { justify-content: flex-start; padding-top: 34px; gap: 14px; }
-}
-.d-radar .radar-hud { align-self: stretch; }
-.d-radar .radar-hud .hud.bl { position: static; justify-content: center; }
-.d-radar #noteCard { position: relative; z-index: 2; align-self: stretch; margin-top: auto; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 2px 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; box-shadow: none; }
-.d-radar #noteCard:hover { background: none; border-color: var(--line); }
-.d-radar #noteCard .oc-mini { margin: 0; }
-@media (min-width: 1101px) {
-  .dash:not(.geo-dash) .radar { max-width: min(100%, 380px); margin-top: auto; }
-  .dash:not(.geo-dash) .d-radar { padding-top: 22px; }
-}
-.d-radar #noteCard .oc-head h2 { white-space: nowrap; }
-@media (max-width: 1400px) { .d-radar #noteCard { flex-direction: column; align-items: stretch; gap: 8px; } }
+/* ===== 업체 화면 레이더 (2026-11-26 사용자 결정): 배치는 예전 그대로 두고 레이더 크기만 줄임 (430 → 380px) ===== */
+@media (min-width: 1101px) { .dash:not(.geo-dash) .radar { max-width: min(100%, 380px); } }
 /* ===== 설정: 계정·권한 / 메일 받는 사람을 같은 모양의 목록으로 (2026-11-26) =====
    옅은 면 안의 표: 맨 윗줄이 새로 추가하는 줄, 그 아래 한 줄에 하나씩 (팀 묶음·빈 팀 안내 없음). 배치 = 윗줄 리스크 키워드, 아랫줄 계정·권한 | 메일 받는 사람 */
 @media (min-width: 1101px) {
@@ -2961,14 +2947,6 @@ body.viewer #geoOnly { display: none; }
 .lst-row.rc { grid-template-columns: minmax(0, 1fr) 3.2rem; }
 .lst-t { padding-left: 16px; } .lst-h.acc > span:nth-child(2), .lst-h.acc > span:nth-child(3) { padding-left: 16px; }
 @media (max-width: 640px) { .lst-row.acc { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 3.2rem; } }
-/* ===== 최근 7일 칸 (2026-11-26): 경고 · 주의를 따로 한 칸씩 (칸 머리에 7일 합계), 요일은 맨 아래 한 번 · 높이만 늘려 빈 곳이 많던 것을 고침 ===== */
-.wk-card .rk-trend.wk-ps { flex: 1; display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 8px; }
-.wk-p { padding: 8px 10px 6px; border-radius: 12px; background: var(--soft); }
-.wk-ph { display: flex; align-items: baseline; justify-content: space-between; padding: 0 2px; }
-.wk-ph i { font-style: normal; font-size: var(--fs-sm); font-weight: 700; color: var(--text-2); }
-.wk-ph b { font-size: var(--fs-sm); font-weight: 750; font-variant-numeric: tabular-nums; color: var(--muted); }
-.wk-p.r .wk-ph b.on { color: var(--red); } .wk-p.o .wk-ph b.on { color: var(--orange); }
-.wk-dayrow { padding: 0 10px; margin-top: -2px; }
 /* ===== 판단 가이드: 상황별 판단 (상황 | 이렇게 처리) ===== */
 .modal.wide.guide { max-width: 1160px; }
 .gd2-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); }
@@ -2982,4 +2960,12 @@ body.viewer #geoOnly { display: none; }
 .gd2-cols { grid-template-columns: minmax(0, .8fr) minmax(0, 1.6fr); }
 .gd2-c { grid-template-columns: minmax(0, 17.5em) minmax(0, 1fr); padding: 5px 12px; }
 @media (max-width: 760px) { .gd2-cols { grid-template-columns: minmax(0, 1fr); } .gd2-c { grid-template-columns: minmax(0, 1fr); } }
-.wk-dayrow .wk2 .day { font-size: 14.5px; } .wk-p .wk2 .val { font-size: 14.5px; } .wk-p .wk2 .val.now { font-size: 17px; }
+/* 판단 가이드: 줄마다 떨어진 칸으로 (줄 사이 선 없이 · 2026-11-26 사용자) */
+.gd2-cases { background: none; padding: 0; display: grid; gap: 4px; }
+.gd2-c { background: var(--soft); padding: 7px 12px; }
+.gd2-r { margin-top: 4px; padding: 7px 12px; border-radius: 9px; background: var(--soft); }
+.gd2 h3 + .gd2-r { margin-top: 0; }
+.gd2-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr); }
+.gd2-c { grid-template-columns: minmax(0, 16.5em) minmax(0, 1fr); padding: 6px 12px; }
+.gd2-r { padding: 6px 12px; } .gd2-r.rs { grid-template-columns: 9em minmax(0, 1fr); }
+@media (max-width: 760px) { .gd2-cols { grid-template-columns: minmax(0, 1fr); } .gd2-c { grid-template-columns: minmax(0, 1fr); } }
