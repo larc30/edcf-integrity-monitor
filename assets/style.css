@@ -2821,3 +2821,50 @@ body.viewer #geoOnly { display: none; }
 @media (max-width: 760px) { .form.pjf { grid-template-columns: minmax(0, 1fr); } .pjf .site-pick { min-height: 260px; } }
 #drawerTitle { word-break: keep-all; overflow-wrap: anywhere; }
 @media (max-width: 640px) { #tabs .cnt { display: none; } }
+/* ===== 로그인 화면 다듬기 (2026-11-26): 문구 정리 · 로고·제목 크게 · 버튼은 큰 규격(--h-l) ===== */
+.login-card { padding: 44px 32px 40px; }
+.login-card .logo { margin-bottom: 20px; }
+.login-card .logo-mark svg { width: 32px; height: 32px; }
+.login-card h1 { font-size: var(--fs-xl); font-weight: 850; letter-spacing: -0.03em; line-height: 1.15; margin: 0 0 8px; }
+.login-sub { margin: 0; color: var(--text-2); font-size: var(--fs-base); font-weight: 500; }
+.login-msg { margin: 26px 0 12px; color: var(--muted); font-size: var(--fs-sm); line-height: 1.6; word-break: keep-all; }
+.login-msg b { color: var(--text); font-weight: 650; }
+.login-card .btn { width: 100%; max-width: 300px; height: var(--h-l); justify-content: center; }
+.login-card .btn.ghost { border: 1px solid var(--line-2); }
+/* ===== 수원국 지도·목록 (2026-11-26): 나라 핀 = 위치 아이콘 + 사업 수 알약 · 사업지 미지정 = 점선 알약 · 사업 핀 = 물방울 모양 · 여행경보 칩은 조용하게 ===== */
+.cpin { display: flex; align-items: center; justify-content: center; gap: 3px; border-radius: 999px; }
+.cpin svg { position: static; z-index: auto; flex: none; width: 10px; height: 12px; fill: currentColor; opacity: .85; } .cpin svg circle { fill: var(--panel-solid); }
+.cpin.red svg circle { fill: var(--red); } .cpin.orange svg circle { fill: var(--orange); }
+.cpin.none svg { color: var(--green); }
+.cpin.loose { border-width: 1.5px; font-size: var(--fs-xs); white-space: nowrap; }
+.gpin { width: 28px; height: 36px; border: 0; border-radius: 0; background: none; box-shadow: none; transform: none; transform-origin: 50% 100%; display: block; }
+.gpin svg { position: absolute; z-index: 0; inset: 0; width: 28px; height: 36px; overflow: visible; } /* Leaflet 이 지도 안 svg 에 겹침 순서 200 을 줘서 번호를 가림 → 0 으로 */
+.gpin svg path { fill: var(--c, var(--green)); stroke: #fff; stroke-width: 2; stroke-linejoin: round; }
+.gpin span { position: absolute; z-index: 1; left: 0; top: 0; width: 28px; height: 27px; display: grid; place-items: center; transform: none; }
+.gpin.hi { transform: scale(1.28); box-shadow: none; }
+.gpin.hi svg path { stroke-width: 2.4; }
+/* 나라 줄: 새 사건 표시가 없는 나라(.calm)는 좁은 화면에서도 '사업 N'을 보여 줌 */
+@media (max-width: 1500px) { .gc.calm .gc-cnt { display: block; } .gc.calm .gc-h .badge { margin-left: 0; } }
+/* 여행경보 칩: 꽉 찬 색 대신 옅은 면 + 같은 색 글자 (등급 배지가 먼저 보이게) */
+#geoProjects .alert-chip, .gl-top .alert-chip { --ac: var(--muted); background: color-mix(in srgb, var(--ac) 13%, transparent); color: var(--ac); box-shadow: none; font-weight: 700; }
+#geoProjects .alert-chip.a1, .gl-top .alert-chip.a1 { --ac: #7FA8FF; } #geoProjects .alert-chip.a2, .gl-top .alert-chip.a2 { --ac: #E8B93A; }
+#geoProjects .alert-chip.a3, .gl-top .alert-chip.a3 { --ac: #FF7B72; } #geoProjects .alert-chip.a4, .gl-top .alert-chip.a4 { --ac: #D6DCE8; }
+#geoProjects .alert-chip.sp, .gl-top .alert-chip.sp { --ac: #F4A261; }
+:root[data-theme="light"] #geoProjects .alert-chip.a1, :root[data-theme="light"] .gl-top .alert-chip.a1 { --ac: #1E4FD8; }
+:root[data-theme="light"] #geoProjects .alert-chip.a2, :root[data-theme="light"] .gl-top .alert-chip.a2 { --ac: #8A6400; }
+:root[data-theme="light"] #geoProjects .alert-chip.a3, :root[data-theme="light"] .gl-top .alert-chip.a3 { --ac: #C81E1E; }
+:root[data-theme="light"] #geoProjects .alert-chip.a4, :root[data-theme="light"] .gl-top .alert-chip.a4 { --ac: #111827; }
+:root[data-theme="light"] #geoProjects .alert-chip.sp, :root[data-theme="light"] .gl-top .alert-chip.sp { --ac: #9A3412; }
+/* 펼친 나라의 여행경보 지역 (외교부 문구) */
+.gc-al { display: grid; gap: 2px; margin: 2px 7px 5px; padding: 7px 10px; border-radius: 9px; background: var(--soft); font-size: var(--fs-xs); line-height: 1.5; color: var(--text-2); }
+.gc-al > div { display: grid; grid-template-columns: 3.2em minmax(0, 1fr); gap: 8px; } .gc-al b { font-weight: 700; color: var(--muted); }
+/* ===== 관리 화면 줄 맞춤 · 팝업 입력칸 간격 (2026-11-26) ===== */
+/* 사업 관리: 왼쪽 업체 검색칸의 위 끝 = 오른쪽 목록의 위 끝 (4px 어긋나 있었음) */
+.pj-side .card-head { margin-bottom: 8px; }
+/* 설정: 카드 제목 줄 높이를 같게 (버튼이 있는 카드만 제목이 5px 내려가 있었음) */
+#view-settings .set-grid .card > .card-head { min-height: var(--h-m); }
+/* 팝업 입력칸: 줄 사이 10 → 14px, 칸 사이 10 → 12px, 칸 제목과 입력칸 사이 5 → 6px */
+.modal .form:not(.pjf) { gap: 14px; }
+.modal .form .row { gap: 14px 12px; }
+.modal .form label:not(.mini-check):not(.check), .modal .form .fld { gap: 6px; }
+.modal .dl-row { gap: 12px; } /* 업체명 칸과 [DART 검색] 사이 = 칸 사이 간격 */

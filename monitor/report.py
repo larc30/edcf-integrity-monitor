@@ -2,8 +2,10 @@
 import datetime
 import html
 import logging
+import os
 import re
 import smtplib
+from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
@@ -116,13 +118,17 @@ def _src(f: dict) -> str:
     return name or ("공식 명단" if f.get("source_type") != "news" else "뉴스")
 
 
+LOGO_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "mail-logo.png")
+LOGO_URL = lambda: str(config.DASHBOARD_URL or "").rstrip("/") + "/assets/mail-logo.png"
+
 GEO_KO = {"quake": "지진", "storm": "태풍", "flood": "홍수", "volcano": "화산", "fire": "산불", "disease": "감염병", "war": "분쟁", "terror": "테러", "unrest": "시위"}
 
 
 def build() -> tuple[str, str, list[str]]:
     """returns (subject, html, finding_ids_included)
-    일일 메일 (v2, 2026-11-18): 사실만 짧게. 맨 위 요약 한 줄 → 업체 등급(전날 대비) → 오늘 새 이슈(공식 명단 / 뉴스 나눠서, 출처·관련 사업)
-    → 수원국 새 공식 경보(GDACS·WHO·USGS) → 수신 안내. 참고 이력·30일 지난 기사는 건수만."""
+    일일 메일 (v5, 2026-11-26): PDF 보고서와 같은 틀. 남색 머리(제목 · 날짜 · 스캔 시각 · 업체 등급 세 칸, 전날 대비)
+    → 오늘 새 이슈(공식 명단 / 뉴스, 등급 색을 옅게 깐 카드) → 수원국 새 공식 경보(GDACS·WHO·USGS) → 대시보드 버튼.
+    참고 이력·30일 지난 기사는 넣지 않음. 메일 프로그램 호환을 위해 표 + 줄 안 스타일만 씀."""
     now = store.now_kst()
     today = now.strftime("%Y-%m-%d")
     overview, finds, engs = load_overview()
@@ -179,23 +185,16 @@ def build() -> tuple[str, str, list[str]]:
         if abs(sum(int(prev.get(k) or 0) for k in ("red", "orange", "none")) - len(overview)) > max(5, len(overview) * 0.1):
             return ""
         d = n - int(prev.get(lv) or 0)
-        return "" if d == 0 else f' <span style="font-size:12px;font-weight:700;color:{MUTED};white-space:nowrap;">전일 {"+" if d > 0 else "−"}{abs(d)}</span>'
+        return "" if d == 0 else f'전일 {"+" if d > 0 else "−"}{abs(d)}'
     # 수원국: 지난 24시간 안에 새로 들어온 공식 경보 (GDACS·WHO·USGS)
     since = int((now - datetime.timedelta(hours=24)).timestamp() * 1000)
     geo_new = [e for e in (meta["geo"].get("events") or []) if (e.get("at_ms") or 0) >= since and str(e.get("source") or "").split(" ")[0] in ("GDACS", "WHO", "USGS")]
-
-    def eng_line(g):
-        ids = list(dict.fromkeys(f["company_id"] for f in g))
-        parts = []
-        for i in ids[:2]:
-            for e in sorted(engs.get(i, []), key=lambda e: ROLE_ORDER.get(e.get("role"), 9))[:2]:
-                parts.append(f"{e.get('project_name') or '-'} ({e.get('role') or '-'}" + (f", {e['rank']}순위" if e.get("rank") else "") + ")")
-        return " · ".join(parts) if parts else "사업 미연결"
 
     MAX = 15
     ROLE_C = {"F/S": ("#0E7490", "#E0F4F8"), "컨설턴트": ("#1D4ED8", "#E6EEFE"), "본구매": ("#A21CAF", "#F8E8FB")}
     tag = lambda t, fg=TEXT2, bg=SOFT: (f'<span style="display:inline-block;padding:1px 7px;border-radius:5px;font-size:11px;line-height:17px;'
                                          f'font-weight:700;color:{fg};background:{bg};white-space:nowrap;">{E(t)}</span>')
+    TINT = {"red": ("#FFF4F3", "#F8D6D2"), "orange": ("#FFF8EE", "#F6E0C0")}  # (면, 테두리): PDF 보고서의 경고·주의 줄과 같은 옅은 면
 
     def eng_tags(g):
         out = []
@@ -206,99 +205,90 @@ def build() -> tuple[str, str, list[str]]:
                            + (f' · {e["rank"]}순위' if e.get("rank") else "") + "</span>")
         return "<br>".join(out)
 
-    def item(n, g):
+    def item(g):
         f = g[0]
-        fg = COLORS[f["level"]][0]
+        bg, bd = TINT.get(f["level"], (BG2, LINE))
         more = f" · 같은 사건 {len(g) - 1}건 더" if len(g) > 1 else ""
         link = f' · <a href="{E(f["url"])}" style="color:{LINK};text-decoration:none;font-weight:700;">원문</a>' if f.get("url") else ""
-        cat = tag(f["category"]) if f.get("category") and f["category"] != "기타" else ""
+        cat = tag(f["category"], TEXT2, "#FFFFFF") if f.get("category") and f["category"] != "기타" else ""
         et = eng_tags(g)
-        return (f'<tr><td style="padding:14px 0;border-bottom:1px solid {LINE};">'
-                f'<table width="100%" cellpadding="0" cellspacing="0"><tr>'
-                f'<td width="34" style="vertical-align:top;padding-top:1px;"><span style="display:inline-block;width:24px;height:24px;border-radius:50%;background:{fg};color:#FFFFFF;font-size:12px;font-weight:800;line-height:24px;text-align:center;">{n}</span></td>'
-                f'<td style="vertical-align:top;">'
-                f'<div style="font-size:16px;font-weight:800;color:{TEXT};line-height:1.4;">{E(" · ".join(grouping.companies_of(g)))} {_badge(f["level"])} {cat}</div>'
-                f'<div style="margin-top:3px;font-size:12px;color:{MUTED};">{E(_src(f))} · {E(f.get("published_at") or "날짜 미상")}{more}{link}</div>'
-                f'<div style="margin-top:6px;font-size:14px;line-height:1.6;color:{TEXT};">{E(_sum(f)[:180])}</div>'
-                + (f'<div style="margin-top:8px;padding:7px 12px;border-left:3px solid {ACCENT};background:#F2F3FE;font-size:12.5px;line-height:1.7;">'
-                   f'<b style="color:{ACCENT};">관련 사업</b>&nbsp; {et}</div>' if et else "")
-                + '</td></tr></table></td></tr>')
+        return (f'<tr><td style="padding-top:8px;"><table width="100%" cellpadding="0" cellspacing="0" style="background:{bg};border:1px solid {bd};border-radius:12px;">'
+                f'<tr><td style="padding:13px 16px 12px;">'
+                f'<div style="font-size:16px;font-weight:800;color:{TEXT};line-height:1.45;">{_badge(f["level"])}&nbsp; {E(" · ".join(grouping.companies_of(g)))} {cat}</div>'
+                f'<div style="margin-top:5px;font-size:14px;line-height:1.6;color:{TEXT};">{E(_sum(f)[:180])}</div>'
+                + (f'<div style="margin-top:7px;font-size:12.5px;line-height:1.75;">{et}</div>' if et else "")
+                + f'<div style="margin-top:6px;font-size:12px;color:{MUTED};">{E(_src(f))} · {E(f.get("published_at") or "날짜 미상")}{more}{link}</div>'
+                '</td></tr></table></td></tr>')
 
-    def section(no, title, cnt, gs, start=1):
+    def band(title, cnt):
+        return (f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#E9ECFB;border-radius:10px;"><tr>'
+                f'<td style="padding:9px 14px;font-size:16px;font-weight:800;color:#1E1B4B;">{title}</td>'
+                f'<td align="right" style="padding:9px 14px;font-size:13px;font-weight:600;color:#4B5578;white-space:nowrap;">{cnt}</td></tr></table>')
+
+    def section(title, cnt, gs):
         if not gs:
             return ""
-        return (f'<tr><td style="padding:26px 28px 0;">'
-                f'<div style="font-size:18px;font-weight:800;color:{TEXT};padding-bottom:8px;border-bottom:2px solid {NAVY};">'
-                f'<span style="color:{ACCENT};">{no}</span>&nbsp; {title} <span style="font-size:13px;font-weight:700;color:{MUTED};">{cnt}</span></div>'
-                f'<table width="100%" cellpadding="0" cellspacing="0">{"".join(item(start + k, g) for k, g in enumerate(gs))}</table></td></tr>')
+        return (f'<tr><td style="padding:22px 24px 0;">{band(title, cnt)}'
+                f'<table width="100%" cellpadding="0" cellspacing="0">{"".join(item(g) for g in gs)}</table></td></tr>')
 
     shown_off = official[:MAX]
     shown_news = news_g[:max(0, MAX - len(shown_off))]
     rest = len(sendable) - len(shown_off) - len(shown_news)
     dash_url = E(config.DASHBOARD_URL)
-    # 오늘 핵심: 새 경고·주의 가운데 위쪽 3건 (공식 명단 → 뉴스, 등급 높은 순)
-    top3 = sorted(shown_off + shown_news, key=lambda g: -LEVEL_ORDER.get(g[0].get("level"), 0))[:3]
-    top_html = ""
-    if top3:
-        top_rows = "".join(
-            f'<tr><td style="padding:9px 0;border-top:1px solid #F3E2B8;font-size:14px;line-height:1.55;color:{TEXT};">'
-            f'{_badge(g[0]["level"])} <b>{E(" · ".join(grouping.companies_of(g)))}</b> '
-            f'<span style="color:{TEXT2};">{E(_sum(g[0])[:70])}</span></td></tr>' for g in top3)
-        top_html = (f'<tr><td style="padding:18px 28px 0;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#FFF8E6;border:1px solid #F3D58A;border-radius:12px;">'
-                    f'<tr><td style="padding:14px 18px 6px;font-size:16px;font-weight:800;color:{TEXT};">오늘 먼저 볼 이슈</td></tr>'
-                    f'<tr><td style="padding:0 18px 8px;"><table width="100%" cellpadding="0" cellspacing="0">{top_rows}</table></td></tr></table></td></tr>')
-    secs, no = [], 1
-    circ = "①②③④⑤"
-    grade_sec = (f'<tr><td style="padding:26px 28px 0;"><div style="font-size:18px;font-weight:800;color:{TEXT};padding-bottom:8px;border-bottom:2px solid {NAVY};">'
-                 f'<span style="color:{ACCENT};">{circ[0]}</span>&nbsp; 업체 등급 <span style="font-size:13px;font-weight:700;color:{MUTED};">업체 {len(overview)}</span></div>'
-                 f'<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px;"><tr></tr></table></td></tr>')
-    no = 1
-    if shown_off:
-        secs.append(section(circ[no], "공식 제재 명단", f"{len(official)}건", shown_off)); no += 1
-    if shown_news:
-        secs.append(section(circ[no], "뉴스 · 검토 신호", f"{len(news_g)}건", shown_news, len(shown_off) + 1)); no += 1
-    issues = "".join(secs) if sendable else (f'<tr><td style="padding:22px 28px 0;font-size:14px;color:{TEXT2};">오늘 새로 나온 경고·주의 이슈는 없습니다.</td></tr>')
-    skipped = [t for t in (f"경고·주의 {rest}건" if rest > 0 else "", f"7일 안에 알린 업체·분류 {repeat}건" if repeat else "") if t]
+    logo_url = E(LOGO_URL())  # 대시보드와 같은 로고 그림. 보낼 때는 메일 안에 같이 넣음(send: 바깥 그림을 막는 메일 프로그램에서도 보이게)
+    issues = (section("공식 제재 명단", f"{len(official)}건", shown_off) + section("뉴스 · 검토 신호", f"{len(news_g)}건", shown_news)) if sendable else (
+        f'<tr><td style="padding:22px 24px 0;"><div style="background:{BG2};border-radius:12px;padding:18px;text-align:center;font-size:14px;font-weight:600;color:{TEXT2};">'
+        f'오늘 새로 나온 경고·주의 이슈가 없습니다</div></td></tr>')
+    skipped = [t for t in (f"경고·주의 {rest}건" if rest > 0 else "", f"7일 안에 알린 업체 {repeat}건" if repeat else "") if t]
     geo_html = ""
     if geo_new:
         items = "".join(
-            f'<tr><td style="padding:10px 0;border-bottom:1px solid {LINE};font-size:14px;line-height:1.55;color:{TEXT};">'
+            f'<tr><td style="padding:10px 4px;border-bottom:1px solid {LINE};font-size:14px;line-height:1.55;color:{TEXT};">'
             f'{tag(GEO_KO.get(e.get("type"), e.get("type") or ""), "#0E7490", "#E0F4F8")} {E(str(e.get("title") or "")[:100])} '
             f'<span style="font-size:12px;color:{MUTED};">{E(str(e.get("source") or "").split(" ")[0])}</span></td></tr>' for e in geo_new[:5])
-        geo_html = (f'<tr><td style="padding:26px 28px 0;"><div style="font-size:18px;font-weight:800;color:{TEXT};padding-bottom:8px;border-bottom:2px solid {NAVY};">'
-                    f'<span style="color:{ACCENT};">{circ[no]}</span>&nbsp; 수원국 새 공식 경보 <span style="font-size:13px;font-weight:700;color:{MUTED};">지난 24시간</span></div>'
+        geo_html = (f'<tr><td style="padding:22px 24px 0;">{band("수원국 새 공식 경보", "지난 24시간")}'
                     f'<table width="100%" cellpadding="0" cellspacing="0">{items}</table></td></tr>')
     weekday = "월화수목금토일"[now.weekday()]
     scan_at = str(meta["status"].get("last_scan_at") or "")[:16]
+    scan_txt = (scan_at[11:] if scan_at.startswith(today) else scan_at[5:]) + " 기준 · " if len(scan_at) >= 16 else ""
     summary = (f"새 이슈 경고 {new_red} · 주의 {new_org}건 · 모니터링 업체 {len(overview)} 가운데 경고 {n_red} · 주의 {n_org}"
                if sendable else f"새 경고·주의 이슈 없음 · 모니터링 업체 {len(overview)} 가운데 경고 {n_red} · 주의 {n_org}")
-    def who(lv):
+
+    def who(lv):  # 대시보드 등급 칸과 같은 표기: '한 곳 외 N'
         l = [c["name"] for c in overview if c["risk"] == lv]
-        return (E(", ".join(l[:2])) + (f" 외 {len(l) - 2}" if len(l) > 2 else "")) if l else "해당 없음"
-    grade_boxes = "".join(
-        f'<td width="33%" style="padding:0 {4 if i < 2 else 0}px 0 {4 if i else 0}px;vertical-align:top;">'
-        f'<div style="border:1px solid {LINE};border-top:4px solid {COLORS[lv][0]};border-radius:10px;padding:10px 14px;background:#FFFFFF;">'
-        f'<div style="font-size:13px;font-weight:800;color:{COLORS[lv][0]};">{COLORS[lv][2]}</div>'
-        f'<div style="font-size:28px;font-weight:800;color:{COLORS[lv][0]};line-height:1.2;">{n}{delta(lv, n)}</div>'
-        f'<div style="font-size:11.5px;color:{MUTED};line-height:1.45;">{who(lv) if lv != "none" else "경고·주의 없음"}</div></div></td>'
-        for i, (lv, n) in enumerate((("red", n_red), ("orange", n_org), ("none", n_ok))))
-    grade_sec = grade_sec.replace("<tr></tr>", f"<tr>{grade_boxes}</tr>")
+        return (E(l[0]) + (f" 외 {len(l) - 1}" if len(l) > 1 else "")) if l else ""
+
+    # 남색 머리 안의 등급 세 칸 (글자·면·테두리): 등급 색을 남색 위에 옅게 깐 면. 메일은 색 섞기(color-mix)를 못 써서 미리 섞은 값
+    HERO = {"red": ("#FF6B6F", "#39243D", "#7D3748"), "orange": ("#FFA630", "#392F32", "#7D562A"), "none": ("#2DD4BF", "#17384C", "#1F6E74")}
+
+    def tile(lv, n):
+        c, bg, bd = HERO[lv]
+        sub = " · ".join(x for x in (who(lv) if lv != "none" else "", delta(lv, n)) if x)  # 이름 '한 곳 외 N' · 전일 대비
+        # 등급 이름(왼쪽) · 숫자(오른쪽) 한 줄 + 아래 흐린 한 줄: 칸 높이를 낮게
+        return (f'<td width="32%" bgcolor="{bg}" style="background:{bg};border:1px solid {bd};border-radius:12px;padding:9px 14px 10px;vertical-align:top;">'
+                f'<table width="100%" cellpadding="0" cellspacing="0"><tr>'
+                f'<td style="font-size:14px;font-weight:800;color:{c};white-space:nowrap;">{COLORS[lv][2]}</td>'
+                f'<td align="right" style="font-size:26px;font-weight:800;line-height:1.15;letter-spacing:-.02em;color:{c};">{n}</td></tr></table>'
+                + (f'<div style="margin-top:1px;font-size:12px;line-height:1.4;color:#A9B6CC;">{sub}</div>' if sub else "") + '</td>')
+    tiles = '<td width="2%" style="font-size:0;line-height:0;">&nbsp;</td>'.join(tile(lv, n) for lv, n in (("red", n_red), ("orange", n_org), ("none", n_ok)))
 
     body = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{E(subject)}</title></head>
 <body style="margin:0;background:{BG};font-family:{FONT};color:{TEXT};word-break:keep-all;">
 <div style="display:none;max-height:0;overflow:hidden;">{E(summary)}</div>
 <table width="100%" cellpadding="0" cellspacing="0" style="background:{BG};"><tr><td align="center" style="padding:20px 12px;">
-<table width="660" cellpadding="0" cellspacing="0" style="max-width:660px;width:100%;background:#FFFFFF;border:1px solid {LINE};border-radius:14px;">
-<tr><td style="background:{NAVY};background-image:linear-gradient(120deg,#0A0F1E 0%,#141B3A 60%,#0B2A3A 100%);padding:22px 28px 20px;border-radius:13px 13px 0 0;">
+<table width="660" cellpadding="0" cellspacing="0" style="max-width:660px;width:100%;background:#FFFFFF;border:1px solid {LINE};border-radius:16px;">
+<tr><td bgcolor="#0B101C" style="background:#0B101C;background-image:linear-gradient(125deg,#0B101C 0%,#171E3F 55%,#0C2C3D 100%);padding:24px 24px 24px;border-radius:15px 15px 0 0;">
   <table width="100%" cellpadding="0" cellspacing="0"><tr>
-    <td style="font-size:14px;font-weight:800;color:#FFFFFF;"><span style="display:inline-block;width:22px;height:22px;border-radius:7px;background:#5B5BF0;background-image:linear-gradient(135deg,#7C83FF,#22D3EE);vertical-align:-6px;margin-right:8px;"></span>EDCF RADAR</td>
-    <td align="right" style="font-size:12px;font-weight:700;color:#9FB0C8;">{today} ({weekday})</td></tr></table>
-  <div style="margin-top:14px;font-size:24px;font-weight:800;color:#FFFFFF;line-height:1.3;">오늘의 <span style="color:#9AA3FF;">EDCF</span> <span style="color:#7DD3FC;">업체 리스크</span></div>
-  <div style="margin-top:6px;font-size:13px;color:#C9D4E5;">{E(summary)}</div>
+    <td style="font-size:11.5px;font-weight:800;letter-spacing:.1em;color:#A5B4FC;white-space:nowrap;"><img src="{logo_url}" width="18" height="18" alt="" style="display:inline-block;width:18px;height:18px;border:0;border-radius:6px;background:#5B5BF0;vertical-align:-4px;margin-right:7px;">EDCF RADAR</td>
+    <td align="right" style="font-size:14px;font-weight:700;color:#FFFFFF;white-space:nowrap;">{today} ({weekday})</td></tr>
+  <tr>
+    <td style="padding-top:6px;font-size:24px;font-weight:800;letter-spacing:-.03em;line-height:1.2;color:#FFFFFF;white-space:nowrap;">오늘의 <span style="color:#8FA2FF;">EDCF 리스크</span></td>
+    <td align="right" style="padding:6px 0 2px 10px;vertical-align:bottom;font-size:12px;line-height:1.6;color:#A9B6CC;">{scan_txt}업체 {len(overview)}</td></tr></table>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;"><tr>{tiles}</tr></table>
 </td></tr>
-{top_html}{grade_sec}{issues}{geo_html}
-<tr><td style="padding:24px 28px 26px;">
-  <a href="{dash_url}" style="display:inline-block;padding:10px 18px;border-radius:9px;background:{ACCENT};color:#FFFFFF;font-size:14px;font-weight:700;text-decoration:none;">대시보드에서 확인·처리</a>
+{issues}{geo_html}
+<tr><td style="padding:22px 24px 26px;">
+  <a href="{dash_url}" style="display:inline-block;padding:10px 18px;border-radius:10px;background:{ACCENT};color:#FFFFFF;font-size:14px;font-weight:700;text-decoration:none;">대시보드에서 확인·처리</a>
   {f'<span style="margin-left:10px;font-size:12px;color:{MUTED};">메일에서 생략: {" · ".join(skipped)}</span>' if skipped else ""}
 </td></tr>
 </table></td></tr></table></body></html>"""
@@ -347,14 +337,28 @@ def send(to_override: str | None = None) -> dict:
     if not (config.SMTP_USER and config.SMTP_PASSWORD):
         raise RuntimeError("SMTP_USER / SMTP_PASSWORD Secret이 설정되지 않았습니다.")
 
-    msg = MIMEMultipart("alternative")
+    logo = None
+    try:  # 로고 그림을 메일 안에 같이 넣음 (바깥 그림을 막는 메일 프로그램에서도 보임). 못 읽으면 주소 그대로 둠
+        with open(LOGO_FILE, "rb") as fp:
+            logo = MIMEImage(fp.read(), "png")
+        logo.add_header("Content-ID", "<edcf-radar-logo>")
+        logo.add_header("Content-Disposition", "inline", filename="logo.png")
+    except Exception as e:
+        log.warning("메일 로고 넣기 실패: %s", type(e).__name__)
+        logo = None
+    mail_html = body.replace(html.escape(LOGO_URL()), "cid:edcf-radar-logo") if logo is not None else body
+    msg = MIMEMultipart("related") if logo is not None else MIMEMultipart("alternative")
+    alt = MIMEMultipart("alternative") if logo is not None else msg
     msg["Subject"] = ("[테스트] " if to_override else "") + subject
     msg["From"] = config.MAIL_FROM
     msg["To"] = ", ".join(recipients)
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = make_msgid(domain=(config.MAIL_FROM or "edcf-radar").split("@")[-1] or None)
-    msg.attach(MIMEText(getattr(build, "last_text", "") or subject, "plain", "utf-8"))  # 텍스트 본문 먼저, HTML 나중 (보는 프로그램이 고름)
-    msg.attach(MIMEText(body, "html", "utf-8"))
+    alt.attach(MIMEText(getattr(build, "last_text", "") or subject, "plain", "utf-8"))  # 텍스트 본문 먼저, HTML 나중 (보는 프로그램이 고름)
+    alt.attach(MIMEText(mail_html, "html", "utf-8"))
+    if logo is not None:
+        msg.attach(alt)
+        msg.attach(logo)
     with smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT, timeout=30) as s:
         s.starttls()
         s.login(config.SMTP_USER, config.SMTP_PASSWORD)

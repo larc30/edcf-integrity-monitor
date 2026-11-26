@@ -112,7 +112,7 @@ onAuthStateChanged(auth, async (user) => {
     $("#loginMsg").innerHTML = msg;
     $("#btnLogin").classList.toggle("hidden", denied); $("#btnLogout2").classList.toggle("hidden", !denied);
   };
-  if (!user) return showLogin("허용된 Google 계정으로 로그인하세요.", false);
+  if (!user) return showLogin("등록된 계정으로 로그인하세요", false);
   // 내 권한: 슈퍼관리자(고정) → users/{메일} → 예전 방식(관리자 목록·meta/access, 슈퍼관리자가 옮기기 전까지)
   const email = String(user.email || "").toLowerCase();
   let meRole = null;
@@ -126,7 +126,7 @@ onAuthStateChanged(auth, async (user) => {
     try { const a = await getDoc(doc(db, "meta", "access")); if (a.exists() && (a.data().emails || []).includes(email)) meRole = { role: "member", team: null, legacy: true }; } catch {}
   }
   const allowed = !!meRole;
-  if (!allowed) return showLogin(`<b>${esc(user.email)}</b> 계정은 접근 권한이 없습니다.<br>관리자에게 허용 목록 추가를 요청하세요.`, true);
+  if (!allowed) return showLogin(`<b>${esc(user.email)}</b> 계정은 등록되지 않았습니다<br>팀 관리자에게 계정 등록을 요청하세요`, true);
   $("#loginView").classList.add("hidden"); $("#appView").classList.remove("hidden");
   if (window.__DEMO && !$(".demo-banner")) $("#appView").insertAdjacentHTML("afterbegin", `<div class="demo-banner">DEMO · 가상 데이터로 보는 화면입니다 (실제 업체·Firebase와 연결되지 않음) · <a href="./">실제 화면으로</a></div>`);
   $("#userEmail").textContent = user.email;
@@ -1098,13 +1098,13 @@ table.iss { table-layout: fixed; } .one { display: flex; gap: 6px; } .one .pn { 
 .hero { background: #0B101C; background-image: linear-gradient(125deg, #0B101C 0%, #171E3F 55%, #0C2C3D 100%); color: #fff; border-radius: 16px; padding: 20px 22px 22px; break-inside: avoid; }
 .hero .top { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
 .hero .brand { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 800; letter-spacing: .1em; color: #A5B4FC; }
-.hero .mk { width: 15px; height: 15px; border-radius: 5px; background: linear-gradient(135deg, #7C83FF, #22D3EE); }
+.hero .mk { width: 18px; height: 18px; border-radius: 6px; background: linear-gradient(135deg, #7C83FF, #22D3EE); display: grid; place-items: center; } .hero .mk svg { width: 12px; height: 12px; }
 .hero h1 { margin: 6px 0 0; font-size: 28px; line-height: 1.15; font-weight: 800; letter-spacing: -.03em; color: #fff; }
 .hero h1 span { color: #8FA2FF; }
 .hero .meta { text-align: right; font-size: 12px; color: #A9B6CC; line-height: 1.5; } .hero .meta b { display: block; font-size: 16px; color: #fff; }
 .kpi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
 .kpi > div { display: flex; align-items: center; justify-content: space-between; background: color-mix(in srgb, var(--c) 16%, transparent); border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); border-radius: 12px; padding: 12px 18px; color: var(--c); }
-.kpi span { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 800; } .kpi span::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--c); } .kpi b { font-size: 44px; line-height: 1; font-weight: 800; letter-spacing: -.03em; }
+.kpi span { font-size: 16px; font-weight: 800; } .kpi b { font-size: 44px; line-height: 1; font-weight: 800; letter-spacing: -.03em; }
 h2 { display: flex; align-items: center; gap: 8px; font-size: 16.5px; font-weight: 800; letter-spacing: -.01em; margin: 22px 0 0; padding: 9px 14px; border-radius: 10px; background: #E9ECFB; color: #1E1B4B; break-after: avoid; }
 h2 .no { flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%; background: #4F46E5; color: #fff; font-size: 11.5px; font-weight: 700; display: grid; place-items: center; }
 h2 .mu { margin-left: auto; font-weight: 500; color: #4B5578; }
@@ -1124,7 +1124,7 @@ td b { font-size: 14px; } td .co + .co { margin-top: 4px; }
 .empty { margin-top: 10px; border: 1px dashed #DDE2EB; border-radius: 10px; padding: 16px; text-align: center; color: #0D9488; }
 .note { margin-top: 8px; }
 </style></head><body>
-<div class="hero"><div class="top"><div><div class="brand"><span class="mk"></span>EDCF RADAR</div><h1><span>EDCF 업체 리스크</span> 보고서</h1></div>
+<div class="hero"><div class="top"><div><div class="brand"><span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9" opacity=".45"/><circle cx="12" cy="12" r="5" opacity=".7"/><path d="M12 12 L19 6"/><circle cx="12" cy="12" r="1.6" fill="#fff"/></svg></span>EDCF RADAR</div><h1><span>EDCF 리스크</span> 보고서</h1></div>
   <div class="meta"><b>${esc((state.status.last_scan_at || now).slice(0, 16))} 기준</b>${esc(scopeL)} · 업체 ${cs.length}</div></div>
 <div class="kpi">${["red", "orange", "none"].map((lv) => `<div style="--c:${{ red: "#FF5A5F", orange: "#FF9F1C", none: "#2DD4BF" }[lv]}"><span>${C[lv][2]}</span><b>${t[lv]}</b></div>`).join("")}</div></div>
 ${(detail ? detailBody : simpleBody)}
@@ -1294,9 +1294,9 @@ function openCompany(cid, back = null) {
     </section>
 
     <section class="d-sec">
-      <div class="d-sec-head"><h3>업체 정보</h3>${canManage() ? `<button type="button" class="btn sm" id="dEdit">정보 수정</button>` : ""}</div>
+      <div class="d-sec-head"><h3>업체 정보${c.corp_code ? `<span class="dart-tag" title="DART 고유번호 ${esc(c.corp_code)}">DART 확인</span>` : ""}</h3>${canManage() ? `<button type="button" class="btn sm" id="dEdit">정보 수정</button>` : ""}</div>
       <dl class="d-info">${[["공식 명칭", c.name_official], ["사업자등록번호", c.country !== "KR" ? "해외 업체" : fmtBiz(c.biz_no), c.bizno_source], ["대표자", c.ceo], ["영문명", c.name_en], ["업종", c.cat, c.catGuess ? "추정" : c.category_source], ["별칭", c.aliases], ["보조 키워드", c.context_keywords], ["메모", c.note]]
-        .filter(([k, v]) => v || ["사업자등록번호", "대표자", "영문명"].includes(k)).map(([k, v, h]) => `<div><dt>${k}</dt><dd>${v ? esc(v) : `<span class="miss">없음</span>`}${v ? hint(h) : ""}</dd></div>`).join("")}</dl>
+        .filter(([k, v]) => v || ["사업자등록번호", "대표자", "영문명"].includes(k)).map(([k, v, h]) => `<div><dt>${k}</dt><dd>${v ? esc(v) : `<span class="miss">없음</span>`}${v && !(c.corp_code && /^DART/.test(h || "")) ? hint(h) : ""}</dd></div>`).join("")}</dl>
     </section>
 
     <section class="d-sec">
