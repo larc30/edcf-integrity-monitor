@@ -3042,3 +3042,24 @@ body.viewer #geoOnly { display: none; }
 .gd3-kh { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 @media (max-width: 900px) { .gd3-cols3 > .gd3-col.wide { grid-column: auto; } .gd3-list.two { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-flow: row; } }
 #kboard .rk.on .rk-num, #kboard .rk .rk-num { grid-row: auto; } #kboard .rk .rk-lv { align-self: center; }
+/* 판단 가이드 4차 (2026-11-26 밤 사용자: '칩을 오른쪽 끝에 두는 게 어색 · 좌우로 나눈 칸보다 한 줄씩 · 줄바꿈이 지저분')
+   아래는 모두 한 줄짜리 줄: 왼쪽 = 이름 | 설명, 오른쪽 = 상황 | 판단 칩 | 덧붙임 (칩은 줄마다 하나, 같은 자리) · 예외와 등급은 글로만 */
+.gd3-cols3 .gd3-col:not(.wide) .gd3-r { grid-template-columns: 6.8em minmax(0, 1fr); }
+.gd3-cols3 .gd3-c { grid-template-columns: minmax(0, 17.5em) 6.6em minmax(0, 1fr); }
+.gd3-cols3 .gd3-c > p { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gd3-cols3 .gd3-r > p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gd3-col .gd3-s.g4 { flex: 4 1 auto; } .gd3-col .gd3-s.g5 { flex: 5 1 auto; }
+.gd3-col .gd3-s.g4 .gd3-list, .gd3-col .gd3-s.g5 .gd3-list { flex: 1 1 auto; align-content: stretch; }
+.gd3-t p { text-wrap: balance; } /* 마지막 줄에 낱말 하나만 남지 않게 */
+@media (max-width: 900px) { .gd3-cols3 .gd3-c { grid-template-columns: minmax(0, 1fr) auto; } .gd3-cols3 .gd3-c > p { grid-column: 1 / -1; white-space: normal; } .gd3-cols3 .gd3-r > p { white-space: normal; } }
+/* 레이더 칸 다듬기 (2026-11-26 밤 사용자): 범례를 레이더에서 조금 띄우고, 아래 이름 줄의 머리(경고 N · 주의 N)는 점 없이 알약으로 */
+.d-radar:has(.radar-names:not(:empty)) .radar-hud .hud.bl { margin-top: 14px; }
+.rn-k { width: 4.8rem; justify-content: center; gap: 5px; border-radius: 999px; background: color-mix(in srgb, var(--red) 18%, transparent); color: var(--red); }
+.rn-row.orange .rn-k { background: color-mix(in srgb, var(--orange) 18%, transparent); color: var(--orange); }
+.rn-k i { display: none; } .rn-k b { margin-left: 0; color: inherit; }
+/* 레이더 칸 (2026-11-26 밤 사용자): 이름 줄 머리는 다른 곳의 등급 배지와 같은 꽉 찬 색(점 없이) · 범례는 레이더에서 더 띄움 */
+.rn-k.badge { width: 4.6rem; height: auto; margin-top: 3px; justify-content: center; gap: 5px; font-size: var(--fs-sm); }
+.rn-k.badge::before { display: none; }
+.d-radar:has(.radar-names:not(:empty)) .radar-hud .hud.bl { margin-top: 28px; }
+/* 판단 가이드: 덧붙임 글 속의 판단 · 등급 낱말에 색 */
+.gd3 em { font-style: normal; font-weight: 650; } .gd3 em.ok { color: var(--green); } .gd3 em.no, .gd3 em.red { color: var(--red); } .gd3 em.orange { color: var(--orange); }

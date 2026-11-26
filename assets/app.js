@@ -671,7 +671,7 @@ function renderHome() {
   $("#radarHud").innerHTML = `<span class="hud tl"><b>RISK RADAR</b><i>${scope === "mine" ? mineLabel() : "EDCF 전체"}</i></span>
     <span class="hud bl"><span><i class="lg red"></i>경고</span><span><i class="lg orange"></i>주의</span><span><i class="lg none"></i>정상</span></span>`;
   const rnRow = (lv) => { const l = [...byLv[lv]].sort((a, b) => b.open - a.open || a.name.localeCompare(b.name, "ko"));
-    return `<div class="rn-row ${lv}"><span class="rn-k"><i></i>${LEVEL[lv]}<b>${l.length}</b></span><span class="rn-list">${l.map((c) => `<button type="button" class="rn-chip" data-cid="${c.id}" title="${esc(c.name)}">${esc(c.name)}</button>`).join("") || `<span class="rn-none">없음</span>`}${l.length ? `<button type="button" class="rn-more hidden" data-rnlv="${lv}"></button>` : ""}</span></div>`; };
+    return `<div class="rn-row ${lv}"><span class="rn-k badge ${lv}">${LEVEL[lv]}<b>${l.length}</b></span><span class="rn-list">${l.map((c) => `<button type="button" class="rn-chip" data-cid="${c.id}" title="${esc(c.name)}">${esc(c.name)}</button>`).join("") || `<span class="rn-none">없음</span>`}${l.length ? `<button type="button" class="rn-more hidden" data-rnlv="${lv}"></button>` : ""}</span></div>`; };
   $("#radarNames").innerHTML = sc ? rnRow("red") + rnRow("orange") : "";
   $$("#radarNames .rn-chip").forEach((b) => { b.onclick = () => openCompany(b.dataset.cid);
     const dot = () => $(`#radar .rdot[data-cid="${b.dataset.cid}"]`); b.onmouseenter = () => dot()?.classList.add("hot"); b.onmouseleave = () => dot()?.classList.remove("hot"); });
@@ -946,25 +946,23 @@ function pickDismissReason(n, REASONS = DISMISS_REASONS) {
 }
 
 // ---------- 판단 가이드 (4개 팀 공통 기준) ----------
-const GUIDE_CASES = [ // [상황, 판단(ok 관련 있음 · no 관련 없음 · auto), 덧붙임] : 판단 칩을 같은 자리에 세워 한눈에 훑게
-  ["계열사 · 모회사 · 현지 법인이 처분받음", "no", `다른 법인 <i>같은 법인이면</i> %OK%`],
-  ["컨소시엄(공동수급)이 처분받음", "ok", `이 업체도 처분 대상일 때 <i>다른 구성원만이면</i> %NO%`],
+const GUIDE_CASES = [ // [상황, 판단(ok 관련 있음 · no 관련 없음), 덧붙임] : 한 줄에 칩 하나 (예외는 글로만)
+  ["계열사 · 모회사 · 현지 법인이 처분받음", "no", `다른 법인 <i>같은 법인이면 <em class="ok">관련 있음</em></i>`],
   ["이름이 같은 다른 회사 기사", "no", `동명이인 <i>업종 · 지역 · 대표자로 확인</i>`],
   ["수주 · 협력 · 인사 기사에 이름만 나옴", "no", `단순 언급`],
-  ["칼럼 · 시황 · 기획 기사", "no", `단순 언급 <i>새 처분 · 수사를 직접 전하면</i> %OK%`],
-  ["이미 끝난 과거 처분을 다시 다룸", "no", `과거 일 <i>기간 중이면</i> %OK%`],
-  ["처분은 확정됐고 시작일이 아직 안 됨", "ok", `<span class="badge red">경고</span>`],
-  ["영업정지", "ok", `<i>기간 중</i> <span class="badge red">경고</span> <i>끝났거나 기간을 모르면</i> <span class="badge orange">주의</span>`],
-  ["집행정지 결정", "ok", `주의로 유지 <i>판결이 나오면 다시 확인</i>`],
-  ["입찰 · 계약과 무관한 규제 위반", "ok", `<i>공시 누락 · 기업결합 신고 등</i>`],
-  ["대표자 개인 사건", "no", `회사가 대상이 아닐 때 <i>회사도 대상이면</i> %OK%`],
-  ["공식 제재 명단에 오름", "ok", `같은 회사 <i>이름만 비슷하면</i> %NO%`],
-  ["처리한 사건의 후속 기사", "auto", `자동으로 같은 처리 <i>등급이 오르면 다시 뜸</i>`],
+  ["칼럼 · 시황 · 기획 기사", "no", `단순 언급 <i>새 처분 · 수사를 직접 전하면 <em class="ok">관련 있음</em></i>`],
+  ["이미 끝난 과거 처분을 다시 다룸", "no", `과거 일 <i>기간 중이면 <em class="ok">관련 있음</em></i>`],
+  ["대표자 개인 사건", "no", `회사가 대상이 아닐 때 <i>회사도 대상이면 <em class="ok">관련 있음</em></i>`],
+  ["컨소시엄(공동수급)이 처분받음", "ok", `이 업체도 처분 대상일 때 <i>다른 구성원만이면 <em class="no">관련 없음</em></i>`],
+  ["처분은 확정됐고 시작일이 아직 안 됨", "ok", `시작 전이어도 <em class="red">경고</em>`],
+  ["영업정지", "ok", `기간 중이면 <em class="red">경고</em> <i>끝났거나 기간을 모르면 <em class="orange">주의</em></i>`],
+  ["집행정지 결정", "ok", `<em class="orange">주의</em>로 유지 <i>판결이 나오면 다시 확인</i>`],
+  ["입찰 · 계약과 무관한 규제 위반", "ok", `공시 누락 · 기업결합 신고 등`],
+  ["공식 제재 명단에 오름", "ok", `같은 회사일 때 <i>이름만 비슷하면 <em class="no">관련 없음</em></i>`],
 ];
-const GUIDE_CHIP = { ok: '<span class="ga ok">✓ 관련 있음</span>', no: '<span class="ga no">✕ 관련 없음</span>', auto: '<span class="ga">자동</span>' };
-const guideFill = (a) => a.replace(/%OK%/g, GUIDE_CHIP.ok).replace(/%NO%/g, GUIDE_CHIP.no);
-// 배치: 위 = 업체 등급 세 칸 / 아래도 같은 세 칸 = 이슈 처리 버튼 · 관련 없음으로 볼 상황 · 관련 있음으로 볼 상황
-const guideCases = (v) => GUIDE_CASES.filter((c) => c[1] === v).map(([q, , a]) => `<div class="gd3-k"><div class="gd3-kh"><b>${q}</b>${GUIDE_CHIP[v]}</div><p>${guideFill(a)}</p></div>`).join("");
+const GUIDE_CHIP = { ok: '<span class="ga ok">✓ 관련 있음</span>', no: '<span class="ga no">✕ 관련 없음</span>' };
+const GUIDE_REASONS = [["동명이인", "이름만 같은 다른 회사"], ["다른 법인", "모회사 · 자회사 · 계열사"], ["단순 언급", "이름만 나오고 처분 대상이 아님"], ["과거 일", "이미 끝난 처분 · 사건"], ["기타", "이유를 짧게 적음"]]; // DISMISS_REASONS 와 같은 다섯 가지 (가이드용 짧은 말)
+// 배치: 위 = 업체 등급 세 칸 / 아래 왼쪽(경고 칸 폭) = 이슈 처리 버튼 · 관련 없음 이유 / 아래 오른쪽(주의 + 정상 칸 폭) = 상황별 판단. 아래는 모두 한 줄짜리 줄
 const GUIDE_HTML = `
 <div class="gd3">
   <p class="gd3-lead">애매하면 <b>관련 있음</b>, <b>관련 없음</b>은 확실할 때만</p>
@@ -977,25 +975,30 @@ const GUIDE_HTML = `
   </section>
   <div class="gd3-cols3">
     <div class="gd3-col">
-      <section class="gd3-s grow"><h3>이슈 처리 버튼</h3>
+      <section class="gd3-s g4"><h3>이슈 처리 버튼</h3>
         <div class="gd3-list">
-          <div class="gd3-k"><b>${GUIDE_CHIP.ok}</b><p>이 업체 이야기가 맞음 · 등급 유지</p></div>
-          <div class="gd3-k"><b>${GUIDE_CHIP.no}</b><p>이 업체 이야기가 아님 · 등급에서 빠짐 · 이유를 고름</p><p class="gd3-rs">${DISMISS_REASONS.map(([, l, d]) => `<span title="${d}">${l.replace(/\s*\(.*\)$/, "")}</span>`).join("")}</p></div>
-          <div class="gd3-k"><b><span class="ga">되돌리기</span></b><p>처리 전으로 돌아감</p></div>
-          <div class="gd3-k"><b><span class="ga">후속 기사</span></b><p>${guideFill(GUIDE_CASES.find((c) => c[1] === "auto")[2])}</p></div>
+          <div class="gd3-r"><span>${GUIDE_CHIP.ok}</span><p>이 업체 이야기가 맞음 · 등급 유지</p></div>
+          <div class="gd3-r"><span>${GUIDE_CHIP.no}</span><p>이 업체 이야기가 아님 · 등급에서 빠짐</p></div>
+          <div class="gd3-r"><span><span class="ga">되돌리기</span></span><p>처리 전으로 돌아감</p></div>
+          <div class="gd3-r"><span><span class="ga">후속 기사</span></span><p>자동 처리 · 등급이 오르면 다시 뜸</p></div>
         </div>
+      </section>
+      <section class="gd3-s g5"><h3>관련 없음 이유</h3>
+        <div class="gd3-list">${GUIDE_REASONS.map(([l, d]) => `<div class="gd3-r"><b>${l}</b><p>${d}</p></div>`).join("")}</div>
       </section>
     </div>
     <div class="gd3-col wide">
-      <section class="gd3-s grow"><h3>상황별 판단</h3><div class="gd3-list two">${guideCases("no")}${guideCases("ok")}</div></section>
+      <section class="gd3-s grow"><h3>상황별 판단</h3>
+        <div class="gd3-list">${GUIDE_CASES.map(([q, v, a]) => `<div class="gd3-c"><b>${q}</b><span>${GUIDE_CHIP[v]}</span><p>${a}</p></div>`).join("")}</div>
+      </section>
     </div>
   </div>
 </div>`;
 const GUIDE_PRINT_CSS = `body{font-family:'Pretendard','Malgun Gothic',sans-serif;color:#0B1220;margin:12mm;font-size:11px;line-height:1.5;word-break:keep-all}h1{font-size:19px;margin:0 0 6px}
 .gd3-lead{margin:0 0 10px;padding:7px 12px;border-radius:8px;background:#EEF0FE}h3{font-size:13px;margin:0 0 6px}section{margin-bottom:12px}p{margin:0}b{font-weight:700}
 .gd3-lv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.gd3-t{border:1px solid #DCE1EC;border-radius:8px;padding:8px 10px}.gd3-th{display:flex;gap:6px;align-items:center;margin-bottom:3px}
-.gd3-cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.gd3-col.wide{grid-column:2/4}.gd3-list.two{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(6,auto);grid-auto-flow:column;gap:0 8px}.gd3-kh{display:flex;justify-content:space-between;gap:8px}.gd3-k{border:1px solid #DCE1EC;border-radius:8px;padding:6px 10px;margin-bottom:5px}.gd3-k b{display:block;margin-bottom:2px}
-.gd3-rs span{display:inline-block;margin:3px 4px 0 0;padding:0 6px;border-radius:5px;background:#EEF1F6}i{font-style:normal;color:#64748B;margin:0 2px 0 6px}
+.gd3-cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 12px}.gd3-col.wide{grid-column:2/4}.gd3-r,.gd3-c{display:grid;gap:8px;padding:5px 2px;border-bottom:1px solid #E3E7EF;align-items:center}.gd3-r{grid-template-columns:6.4em 1fr}.gd3-c{grid-template-columns:15em 6.4em 1fr}.gd3-k{border:1px solid #DCE1EC;border-radius:8px;padding:6px 10px;margin-bottom:5px}.gd3-k b{display:block;margin-bottom:2px}
+.gd3-rs span{display:inline-block;margin:3px 4px 0 0;padding:0 6px;border-radius:5px;background:#EEF1F6}i{font-style:normal;color:#64748B;margin:0 2px 0 6px}em{font-style:normal;font-weight:700}em.ok{color:#0D9488}em.no,em.red{color:#D92D20}em.orange{color:#C2570A}
 .ga{display:inline-block;padding:0 7px;border-radius:6px;border:1px solid #CBD2E0;font-weight:700;white-space:nowrap}.ga.ok{color:#0D9488;border-color:#0D9488}.ga.no{color:#D92D20;border-color:#D92D20}
 .badge{display:inline-block;padding:0 8px;border-radius:9px;font-weight:700;font-size:11px;white-space:nowrap}.badge.red{background:#D92D20;color:#fff}.badge.orange{background:#F57C00;color:#2B1400}.badge.none{background:#E2E8F0;color:#475569}@page{size:A4;margin:0}`;
 function openGuide() {
