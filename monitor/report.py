@@ -180,7 +180,7 @@ def build() -> tuple[str, str, list[str]]:
         if abs(sum(int(prev.get(k) or 0) for k in ("red", "orange", "none")) - len(overview)) > max(5, len(overview) * 0.1):
             return ""
         d = n - int(prev.get(lv) or 0)
-        return "" if d == 0 else f' <span style="font-size:12px;font-weight:700;letter-spacing:0;color:#A9B6CC;white-space:nowrap;">전일 {"+" if d > 0 else "−"}{abs(d)}</span>'
+        return "" if d == 0 else f'전일 {"+" if d > 0 else "−"}{abs(d)}'
     # 수원국: 지난 24시간 안에 새로 들어온 공식 경보 (GDACS·WHO·USGS)
     since = int((now - datetime.timedelta(hours=24)).timestamp() * 1000)
     geo_new = [e for e in (meta["geo"].get("events") or []) if (e.get("at_ms") or 0) >= since and str(e.get("source") or "").split(" ")[0] in ("GDACS", "WHO", "USGS")]
@@ -257,11 +257,13 @@ def build() -> tuple[str, str, list[str]]:
 
     def tile(lv, n):
         c, bg, bd = HERO[lv]
-        names = who(lv) if lv != "none" else ""
-        return (f'<td width="32%" bgcolor="{bg}" style="background:{bg};border:1px solid {bd};border-radius:12px;padding:12px 14px 13px;vertical-align:top;">'
-                f'<div style="font-size:13px;font-weight:800;color:{c};"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{c};margin-right:6px;"></span>{COLORS[lv][2]}</div>'
-                f'<div style="margin-top:2px;font-size:32px;font-weight:800;line-height:1.15;letter-spacing:-.02em;color:{c};">{n}{delta(lv, n)}</div>'
-                + (f'<div style="margin-top:3px;font-size:12px;line-height:1.4;color:#A9B6CC;">{names}</div>' if names else "") + '</td>')
+        sub = " · ".join(x for x in (who(lv) if lv != "none" else "", delta(lv, n)) if x)  # 이름 '한 곳 외 N' · 전일 대비
+        # 등급 이름(왼쪽) · 숫자(오른쪽) 한 줄 + 아래 흐린 한 줄: 칸 높이를 낮게
+        return (f'<td width="32%" bgcolor="{bg}" style="background:{bg};border:1px solid {bd};border-radius:12px;padding:9px 14px 10px;vertical-align:top;">'
+                f'<table width="100%" cellpadding="0" cellspacing="0"><tr>'
+                f'<td style="font-size:14px;font-weight:800;color:{c};white-space:nowrap;">{COLORS[lv][2]}</td>'
+                f'<td align="right" style="font-size:26px;font-weight:800;line-height:1.15;letter-spacing:-.02em;color:{c};">{n}</td></tr></table>'
+                + (f'<div style="margin-top:1px;font-size:12px;line-height:1.4;color:#A9B6CC;">{sub}</div>' if sub else "") + '</td>')
     tiles = '<td width="2%" style="font-size:0;line-height:0;">&nbsp;</td>'.join(tile(lv, n) for lv, n in (("red", n_red), ("orange", n_org), ("none", n_ok)))
 
     body = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{E(subject)}</title></head>
