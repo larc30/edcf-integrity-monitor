@@ -606,7 +606,7 @@ function renderHome() {
   const spark = () => {
     if (!sc) return "";
     const wk = Array.from({ length: 7 }, (_, i) => newByDay(6 - i)), max = Math.max(...wk.map((x) => Math.max(x.r, x.o)), 1), WD = "일월화수목금토";
-    const LH = 56, W = 300, H = LH * 2 + 18, L0 = 12, R0 = 12, X = (i) => L0 + (i / 6) * (W - L0 - R0); // 좌우 여백 같게 (범례는 그래프 아래로)
+    const LH = 114, W = 300, H = LH * 2 + 18, L0 = 12, R0 = 12, X = (i) => L0 + (i / 6) * (W - L0 - R0); // 좌우 여백 같게 (범례는 그래프 아래로)
     const dayN = (i) => { const d = new Date(Date.now() - (6 - i) * DAY); return i === 6 ? "오늘" : WD[d.getDay()]; };
     const lane = (k, name, top) => {
       const base = top + LH - 6, Y = (v) => base - (v / max) * (LH - 28), P = wk.map((x, i) => [X(i), Y(x[k])]);
@@ -922,53 +922,53 @@ function pickDismissReason(n, REASONS = DISMISS_REASONS) {
 }
 
 // ---------- 판단 가이드 (4개 팀 공통 기준) ----------
+const GUIDE_QA = [ // [질문, 답(짧게)] : 답은 '어느 버튼인지' 먼저
+  ["계열사 · 모회사 · 현지 법인이 처분받았다는 기사", `%NO% 다른 법인 <i>같은 법인이면</i> %OK%`],
+  ["컨소시엄(공동수급)이 처분받았다는 기사", `%OK% 처분 대상에 이 업체가 있을 때 <i>다른 구성원만이면</i> %NO%`],
+  ["이미 끝난 과거 처분을 다시 다룬 기사", `%NO% 과거 일 <i>기간 중이면</i> %OK%`],
+  ["영업정지 기사", `%OK% <i>기간 중이면</i> <span class="badge red">경고</span> <i>끝났거나 기간을 모르면</i> <span class="badge orange">주의</span>`],
+  ["집행정지 결정이 난 기사", `%OK% 주의로 유지 <i>판결이 나오면 다시 확인</i>`],
+  ["대표자 개인 사건", `%NO% 회사가 대상이 아닐 때 <i>회사도 대상이면</i> %OK%`],
+  ["공식 명단(조달청 · MDB · EXIMIIS)에 올랐을 때", `%OK% 같은 회사 <i>이름만 비슷하면</i> %NO%`],
+].map(([q, a]) => [q, a.replace(/%OK%/g, '<span class="ga ok">✓ 관련 있음</span>').replace(/%NO%/g, '<span class="ga no">✕ 관련 없음</span>')]);
 const GUIDE_HTML = `
-<div class="gd">
-  <p class="gd-lead">누가 처리해도 같은 결과가 나오도록 정한 공통 기준입니다. 애매하면 <b>관련 있음</b>으로 두고, <b>관련 없음</b>은 확실할 때만 씁니다.</p>
-
-  <section class="gd-s"><h3><span class="gd-n">1</span>업체 등급</h3>
-  <div class="gd-lv">
-    <div class="gd-l red"><span class="badge red">경고</span><b>지금 유효한 제재</b><p>입찰참가자격 제한 · MDB 제재 · EXIMIIS 등록 · 등록말소 · 기간 중인 영업정지</p></div>
-    <div class="gd-l orange"><span class="badge orange">주의</span><b>제재로 이어질 수 있는 진행 중 사안</b><p>수사 · 기소 · 과징금 · 처분 예고 · 부도 · 회생 · 집행정지 · 기간이 끝난 영업정지</p></div>
-    <div class="gd-l none"><span class="badge none">정상</span><b>그 밖</b><p>회색 '참고'는 등급에 들지 않는 이력</p></div>
-  </div></section>
-
-  <section class="gd-s"><h3><span class="gd-n">2</span>이슈 처리 버튼</h3>
-  <div class="gd-btns">
-    <div class="gd-b ok"><b>✓ 관련 있음</b><p><em>이 업체 이야기가 맞음.</em> 등급은 그대로 두고 목록에서 내림</p></div>
-    <div class="gd-b no"><b>✕ 관련 없음</b><p><em>이 업체 이야기가 아님.</em> 등급에서 빠짐. 이유를 고름</p></div>
-    <div class="gd-b"><b>되돌리기</b><p>잘못 눌렀을 때. 처리 전 상태로 돌아감</p></div>
+<div class="gd2">
+  <p class="gd2-lead">애매하면 <b>관련 있음</b>, <b>관련 없음</b>은 확실할 때만</p>
+  <div class="gd2-cols">
+    <div class="gd2-col">
+      <section><h3>업체 등급</h3>
+        <div class="gd2-r"><span class="badge red">경고</span><div><b>지금 유효한 제재</b><p>입찰참가자격 제한 · MDB 제재 · EXIMIIS 등록 · 등록말소 · 기간 중인 영업정지</p></div></div>
+        <div class="gd2-r"><span class="badge orange">주의</span><div><b>제재로 이어질 수 있는 진행 중 사안</b><p>수사 · 기소 · 과징금 · 처분 예고 · 부도 · 회생 · 집행정지 · 기간이 끝난 영업정지</p></div></div>
+        <div class="gd2-r"><span class="badge none">정상</span><div><b>그 밖</b><p>회색 '참고'는 등급에 들지 않는 이력</p></div></div>
+      </section>
+      <section><h3>이슈 처리 버튼</h3>
+        <div class="gd2-r"><span class="ga ok">✓ 관련 있음</span><div><p>이 업체 이야기가 맞음 · 등급 유지</p></div></div>
+        <div class="gd2-r"><span class="ga no">✕ 관련 없음</span><div><p>이 업체 이야기가 아님 · 등급에서 빠짐 · 이유를 고름</p></div></div>
+        <div class="gd2-r"><span class="ga">되돌리기</span><div><p>처리 전으로 돌아감</p></div></div>
+      </section>
+      <section><h3>관련 없음 이유</h3>
+        ${DISMISS_REASONS.map(([, l, d]) => `<div class="gd2-r rs"><b>${l}</b><div><p>${d}</p></div></div>`).join("")}
+      </section>
+    </div>
+    <div class="gd2-col">
+      <section><h3>자주 묻는 경우</h3>
+        ${GUIDE_QA.map(([q, a]) => `<div class="gd2-qa"><div class="q"><em>Q</em>${q}</div><div class="a"><em>A</em><span>${a}</span></div></div>`).join("")}
+      </section>
+    </div>
   </div>
-  <p class="gd-note">같은 사건의 후속 기사는 처리한 대로 자동으로 따라가고, 등급이 오르면 다시 알립니다.</p></section>
-
-  <section class="gd-s"><h3><span class="gd-n">3</span>관련 없음 이유</h3>
-  <div class="gd-rs">${DISMISS_REASONS.map(([, l, d]) => `<div><b>${l}</b><p>${d}</p></div>`).join("")}</div></section>
-
-  <section class="gd-s"><h3><span class="gd-n">4</span>자주 헷갈리는 경우</h3>
-  <div class="gd-qa">
-    <div><b>계열사 · 모회사 · 현지 법인</b><p>처분 대상이 다른 법인이면 <span class="no">관련 없음</span>, 같은 법인이면 <span class="ok">관련 있음</span></p></div>
-    <div><b>공동수급 (컨소시엄)</b><p>처분 대상에 이 업체가 있으면 <span class="ok">관련 있음</span>, 다른 구성원만이면 <span class="no">관련 없음</span></p></div>
-    <div><b>끝난 과거 처분</b><p>기간이 끝났고 새 내용이 없으면 <span class="no">관련 없음</span>, 기간 중이면 <span class="ok">관련 있음</span></p></div>
-    <div><b>영업정지 (기사로만 확인될 때)</b><p>기사에 기간이 적혀 있고 오늘이 그 안이면 <span class="badge red">경고</span>, 기간이 끝나면 자동으로 <span class="badge orange">주의</span>. 기간을 알 수 없으면 주의</p></div>
-    <div><b>집행정지</b><p><span class="ok">관련 있음</span> (주의 유지). 판결이 나오면 다시 확인</p></div>
-    <div><b>대표자 개인 사건</b><p>회사가 대상이 아니면 <span class="no">관련 없음</span>, 회사도 대상이면 <span class="ok">관련 있음</span></p></div>
-    <div><b>공식 명단 (조달청 · MDB · EXIMIIS)</b><p>원 출처를 먼저 확인. 같은 회사면 <span class="ok">관련 있음</span>, 이름만 비슷하면 <span class="no">관련 없음</span></p></div>
-  </div></section>
 </div>`;
-const GUIDE_PRINT_CSS = `body{font-family:'Pretendard','Malgun Gothic',sans-serif;color:#0B1220;margin:12mm;font-size:12px;line-height:1.55;word-break:keep-all}h1{font-size:19px;margin:0 0 4px}
-.gd-lead{background:#EEF0FE;border-left:4px solid #5B5BF0;border-radius:8px;padding:8px 12px}.gd-s{margin-top:14px;break-inside:avoid}.gd-s h3{font-size:14px;margin:0 0 7px;padding-bottom:5px;border-bottom:2px solid #0B1220;display:flex;gap:7px;align-items:center}
-.gd-n{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#5B5BF0;color:#fff;font-size:11px}.gd-lv,.gd-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.gd-rs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
-.gd-qa{display:grid;grid-template-columns:1fr 1fr;gap:6px}.gd-qa .wide{grid-column:1/-1}.gd-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.gd-l,.gd-b,.gd-rs div,.gd-qa div{border:1px solid #DCE1EC;border-radius:8px;padding:7px 10px}.gd-l.red{border-top:3px solid #D92D20}.gd-l.orange{border-top:3px solid #F57C00}.gd-l.none{border-top:3px solid #94A3B8}
-.gd-b.ok{border-top:3px solid #0D9488}.gd-b.no{border-top:3px solid #D92D20}p{margin:3px 0 0}b{display:block}.gd-qa p b,.gd-s>p b{display:inline}em{font-style:normal;font-weight:700}
-span.ok{color:#0D9488;font-weight:700}span.no{color:#D92D20;font-weight:700}.badge{display:inline-block;padding:1px 8px;border-radius:9px;font-weight:700;font-size:11px;margin-bottom:3px}.badge.red{background:#D92D20;color:#fff}.badge.orange{background:#F57C00;color:#2B1400}.badge.none{background:#E2E8F0;color:#475569}
-.gd-note{margin-top:6px;color:#64748B}@page{size:A4;margin:0}`;
+const GUIDE_PRINT_CSS = `body{font-family:'Pretendard','Malgun Gothic',sans-serif;color:#0B1220;margin:12mm;font-size:11.5px;line-height:1.5;word-break:keep-all}h1{font-size:19px;margin:0 0 6px}
+.gd2-lead{margin:0 0 10px;padding:7px 12px;border-radius:8px;background:#EEF0FE}.gd2-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}section{break-inside:avoid;margin-bottom:12px}
+h3{font-size:13px;margin:0 0 6px;padding-bottom:4px;border-bottom:1.5px solid #0B1220}.gd2-r{display:grid;grid-template-columns:6.2em 1fr;gap:8px;padding:4px 0;align-items:start}.gd2-r.rs{grid-template-columns:8.5em 1fr}
+p{margin:0}b{font-weight:700}.gd2-r b{display:block}.gd2-qa{padding:6px 0;border-bottom:1px solid #E3E7EF}.gd2-qa .q{font-weight:700}.gd2-qa .a{margin-top:2px}em{font-style:normal;font-weight:800;color:#5B5BF0;margin-right:6px}i{font-style:normal;color:#64748B;margin:0 2px 0 6px}
+.ga{display:inline-block;padding:0 7px;border-radius:6px;border:1px solid #CBD2E0;font-weight:700;white-space:nowrap}.ga.ok{color:#0D9488;border-color:#0D9488}.ga.no{color:#D92D20;border-color:#D92D20}
+.badge{display:inline-block;padding:0 8px;border-radius:9px;font-weight:700;font-size:11px;white-space:nowrap;justify-self:start}.badge.red{background:#D92D20;color:#fff}.badge.orange{background:#F57C00;color:#2B1400}.badge.none{background:#E2E8F0;color:#475569}@page{size:A4;margin:0}`;
 function openGuide() {
   try { localStorage.setItem("edcf_guide_seen", "1"); } catch {}
   $("#guideNew")?.remove();
   modal(`<h2>이슈 판단 가이드</h2>${GUIDE_HTML}
     <div class="actions"><button class="btn" id="gdPrint">인쇄 · PDF로 저장</button></div>`);
-  $("#modal").classList.add("wide");
+  $("#modal").classList.add("wide", "guide");
   $("#gdPrint").onclick = () => {
     const w = window.open("", "_blank");
     if (!w) return toast("팝업이 막혔습니다. 브라우저에서 팝업을 허용해 주세요");
@@ -1875,6 +1875,7 @@ function pjListRow(p, sc) {
       <span class="pl-team">${esc(teamName(p.team))}</span>
       <span class="pl-roles">${ROLES.map((r) => `<span class="${n[r] ? "" : "zero"}">${roleTag(r)}<b>${n[r] || 0}</b></span>`).join("")}</span>
       <span class="pl-risk pj-sum">${!cs.size ? "" : sc ? (["red", "orange"].filter((lv) => t[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${t[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) : ""}</span>
+      <span class="pl-act">${canEditProject(p) ? `<button type="button" class="btn sm" data-edit-proj="${p.id}">수정</button>` : ""}</span>
       <span class="pl-caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
     </div>
     ${open ? projectCard(p, sc) : ""}
@@ -1917,7 +1918,7 @@ function renderProjects() {
   const board = $("#projBoard"); board.className = view === "list" ? "pj-list" : "pj-grid";
   board.innerHTML = (view === "list" ? ps.map((p) => pjListRow(p, sc)) : ps.map((p) => projectCard(p, sc))).join("")
     || `<div class="empty">${pq ? "찾는 사업이 없습니다" : state.projects.length ? "우리 팀 사업이 없습니다." : "사업이 없습니다. 오른쪽 위에서 새 사업을 추가하세요."}</div>`;
-  $$("#projBoard [data-pl]").forEach((el) => { const go = () => { pjState.open = pjState.open === el.dataset.pl ? null : el.dataset.pl; renderProjects(); }; el.onclick = go; el.onkeydown = (e) => { if (e.key === "Enter") go(); }; });
+  $$("#projBoard [data-pl]").forEach((el) => { const go = (e) => { if (e?.target?.closest?.("[data-edit-proj]")) return; pjState.open = pjState.open === el.dataset.pl ? null : el.dataset.pl; renderProjects(); }; el.onclick = go; el.onkeydown = (e) => { if (e.key === "Enter") go(e); }; });
   bindDnd();
 }
 // 단계 선택 상자 (진행 순서: 입찰중 → 우선협상 → 계약)
@@ -3000,7 +3001,7 @@ function renderSettings() {
   renderAccess();
 
   if ($("#rcCount")) $("#rcCount").textContent = state.recipients.length;
-  $("#rcList").innerHTML = state.recipients.map((r) => `<div class="srow"><span>${esc(r.email)}</span><button class="xbtn" data-del-rc="${r.id}" title="삭제">✕</button></div>`).join("") || `<div class="muted small">아직 없습니다.</div>`;
+  $("#rcList").innerHTML = state.recipients.map((r) => `<div class="lst-row rc"><span class="lst-m" title="${esc(r.email)}">${esc(r.email)}</span><span class="lst-x"><button class="xbtn" data-del-rc="${r.id}" title="삭제">✕</button></span></div>`).join("") || `<div class="lst-empty">아직 없습니다</div>`;
   $$("[data-del-rc]").forEach((b) => b.onclick = async () => { await deleteDoc(doc(db, "recipients", b.dataset.delRc)); state.recipients = state.recipients.filter((r) => r.id !== b.dataset.delRc); renderSettings(); });
   if ($("#advCard").open) renderAdvanced();
 }
@@ -3022,20 +3023,17 @@ function renderAccess() {
   const q = accF.q.trim().toLowerCase();
   const pass = (u) => (!q || u.id.includes(q)) && (!accF.role || u.role === accF.role);
   const teams = order.filter((t) => (accF.team === "all" || accF.team === t) && (t || cnt("") > 0));
-  const roleCtl = (u) => isSuper() && !isSuperMail(u.id) ? `<select data-acc-team="${esc(u.id)}">${teamOpts(u.team)}</select><select data-acc-role="${esc(u.id)}"><option value="member" ${u.role !== "admin" ? "selected" : ""}>팀원</option><option value="admin" ${u.role === "admin" ? "selected" : ""}>팀 관리자</option></select>`
-    : isSuper() ? `<select data-acc-team="${esc(u.id)}" title="슈퍼관리자도 소속 팀은 바꿀 수 있음 (권한은 그대로)">${teamOpts(u.team)}</select><span class="tag super">슈퍼관리자</span>`
-    : `<span class="tag ${u.role}">${ROLE_L[u.role] || "팀원"}</span>`;
-  const html = teams.map((t) => {
-    const all = users.filter((u) => (u.team || "") === t);
-    const us = all.filter(pass).sort((a, b) => RO.indexOf(a.role) - RO.indexOf(b.role) || a.id.localeCompare(b.id));
-    if ((q || accF.role) && !us.length) return "";
-    const n = (r) => all.filter((u) => u.role === r).length;
-    const sum = RO.filter((r) => n(r)).map((r) => `${ROLE_L[r]} ${n(r)}`).join(" · ");
-    const noAdmin = t && all.some((u) => u.role === "member") && !n("admin");
-    return `<section class="acc-team" style="--tc:${TEAM_C[t]}"><div class="acc-team-h"><i class="acc-dot"></i><b>${t ? TEAMS[t] : "팀 미지정"}</b><span class="acc-n">${all.length}</span><span class="acc-sum">${sum}</span>${noAdmin ? `<span class="acc-warn">팀 관리자 없음</span>` : ""}</div>
-      ${us.length ? us.map((u) => `<div class="srow acc-row${u.id === me() ? " me" : ""}"><span class="acc-mail" title="${esc(u.id)}">${esc(u.id)}${u.id === me() ? ` <em>나</em>` : ""}</span><span class="acc-ctl">${roleCtl(u)}</span><span class="acc-x">${canEditUser(u) ? `<button class="xbtn" data-del-acc="${esc(u.id)}" title="삭제">✕</button>` : ""}</span></div>`).join("") : `<div class="acc-empty">아직 계정이 없습니다</div>`}</section>`;
-  }).join("");
-  $("#accList").innerHTML = html || `<div class="acc-empty">맞는 계정이 없습니다</div>`;
+  const teamCell = (u) => isSuper() ? `<select data-acc-team="${esc(u.id)}" aria-label="팀"${isSuperMail(u.id) ? ` title="슈퍼관리자도 소속 팀은 바꿀 수 있음 (권한은 그대로)"` : ""}>${teamOpts(u.team)}</select>` : `<span class="lst-t">${esc(u.team ? TEAMS[u.team] : "팀 미지정")}</span>`;
+  const roleCell = (u) => isSuper() && !isSuperMail(u.id) ? `<select data-acc-role="${esc(u.id)}" aria-label="권한"><option value="member" ${u.role !== "admin" ? "selected" : ""}>팀원</option><option value="admin" ${u.role === "admin" ? "selected" : ""}>팀 관리자</option></select>`
+    : `<span class="lst-t ${u.role}">${ROLE_L[u.role] || "팀원"}</span>`;
+  const rows = users.filter((u) => teams.includes(u.team || "") && pass(u)).sort((a, b) => order.indexOf(a.team || "") - order.indexOf(b.team || "") || RO.indexOf(a.role) - RO.indexOf(b.role) || a.id.localeCompare(b.id));
+  const html = rows.map((u) => `<div class="lst-row acc${u.id === me() ? " me" : ""}"><span class="lst-m" title="${esc(u.id)}">${esc(u.id)}${u.id === me() ? `<em>나</em>` : ""}</span>${teamCell(u)}${roleCell(u)}<span class="lst-x">${canEditUser(u) ? `<button class="xbtn" data-del-acc="${esc(u.id)}" title="삭제">✕</button>` : ""}</span></div>`).join("");
+  $("#accCount").textContent = users.length;
+  // 팀원은 있는데 팀 관리자가 없는 팀 (팀당 1명 권장)
+  const noAdmin = Object.keys(TEAMS).filter((k) => users.some((u) => u.team === k && u.role === "member") && !users.some((u) => u.team === k && u.role === "admin"));
+  $("#accWarn").textContent = noAdmin.length ? `팀 관리자 없음 · ${noAdmin.map((k) => TEAMS[k]).join(", ")}` : "";
+  $("#accWarn").classList.toggle("hidden", !noAdmin.length || !isSuper());
+  $("#accList").innerHTML = html || `<div class="lst-empty">맞는 계정이 없습니다</div>`;
   $$("[data-acc-f]").forEach((b) => b.onclick = () => { accF.team = b.dataset.accF; renderAccess(); });
   $("#accQ").oninput = (e) => { accF.q = e.target.value; const pos = e.target.selectionStart; renderAccess(); const n = $("#accQ"); n.focus(); n.setSelectionRange(pos, pos); };
   $("#accRoleF").onchange = (e) => { accF.role = e.target.value; renderAccess(); };
