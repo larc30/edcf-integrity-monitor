@@ -537,7 +537,19 @@ function fixLabels() {
   }).join("");
 }
 let fixT = null;
-window.addEventListener("resize", () => { clearTimeout(fixT); fixT = setTimeout(fixLabels, 150); });
+window.addEventListener("resize", () => { clearTimeout(fixT); fixT = setTimeout(() => { fixLabels(); fitRadarNames(); }, 150); });
+function fitRadarNames() {
+  $$("#radarNames .rn-row").forEach((row) => {
+    const list = row.querySelector(".rn-list"), more = row.querySelector(".rn-more"), chips = [...row.querySelectorAll(".rn-chip")];
+    if (!more || !chips.length) return;
+    chips.forEach((c) => c.classList.remove("hidden")); more.classList.add("hidden");
+    const fits = () => list.scrollWidth <= list.clientWidth + 1;
+    if (fits()) return;
+    more.classList.remove("hidden");
+    let shown = chips.length;
+    do { shown--; chips[shown].classList.add("hidden"); more.textContent = `외 ${chips.length - shown}`; } while (shown > 1 && !fits()); // 적어도 한 곳은 남김
+  });
+}
 function radarBurst() {
   const el = $("#radar");
   if (!el) return;
@@ -653,6 +665,13 @@ function renderHome() {
   renderRadar(cs);
   $("#radarHud").innerHTML = `<span class="hud tl"><b>RISK RADAR</b><i>${scope === "mine" ? mineLabel() : "EDCF 전체"}</i></span>
     <span class="hud bl"><span><i class="lg red"></i>경고</span><span><i class="lg orange"></i>주의</span><span><i class="lg none"></i>정상</span></span>`;
+  const rnRow = (lv) => { const l = [...byLv[lv]].sort((a, b) => b.open - a.open || a.name.localeCompare(b.name, "ko"));
+    return `<div class="rn-row ${lv}"><span class="rn-k"><i></i>${LEVEL[lv]}<b>${l.length}</b></span><span class="rn-list">${l.map((c) => `<button type="button" class="rn-chip" data-cid="${c.id}" title="${esc(c.name)}">${esc(c.name)}</button>`).join("") || `<span class="rn-none">없음</span>`}</span>${l.length ? `<button type="button" class="rn-more hidden" data-rnlv="${lv}"></button>` : ""}</div>`; };
+  $("#radarNames").innerHTML = sc ? rnRow("red") + rnRow("orange") : "";
+  $$("#radarNames .rn-chip").forEach((b) => { b.onclick = () => openCompany(b.dataset.cid);
+    const dot = () => $(`#radar .rdot[data-cid="${b.dataset.cid}"]`); b.onmouseenter = () => dot()?.classList.add("hot"); b.onmouseleave = () => dot()?.classList.remove("hot"); });
+  $$("#radarNames .rn-more").forEach((b) => b.onclick = () => openRiskList(b.dataset.rnlv));
+  fitRadarNames();
   $("#radarInfo").innerHTML = info(`<div class="tip-p">가운데에 가까울수록 등급이 높습니다.</div><div class="tip-grid"><b>점</b><span>경고·주의 업체 (누르면 상세)</span><b>정상</b><span>바깥 원에 숫자로만</span></div>`, "r");
 
   // ④ 확인이 필요한 이슈 (경고 → 공식 제재 → 최신)
@@ -935,11 +954,12 @@ const GUIDE_CASES = [ // [상황, 판단(ok 관련 있음 · no 관련 없음 ·
   ["입찰 · 계약과 무관한 규제 위반", "ok", `<i>공시 누락 · 기업결합 신고 등</i>`],
   ["대표자 개인 사건", "no", `회사가 대상이 아닐 때 <i>회사도 대상이면</i> %OK%`],
   ["공식 제재 명단에 오름", "ok", `같은 회사 <i>이름만 비슷하면</i> %NO%`],
-  ["처리한 사건의 후속 기사", "auto", `같은 처리 <i>등급이 오르면 다시 뜸</i>`],
+  ["처리한 사건의 후속 기사", "auto", `자동으로 같은 처리 <i>등급이 오르면 다시 뜸</i>`],
 ];
 const GUIDE_CHIP = { ok: '<span class="ga ok">✓ 관련 있음</span>', no: '<span class="ga no">✕ 관련 없음</span>', auto: '<span class="ga">자동</span>' };
 const guideFill = (a) => a.replace(/%OK%/g, GUIDE_CHIP.ok).replace(/%NO%/g, GUIDE_CHIP.no);
-// 배치: 위 = 업체 등급 세 칸 / 아래 왼쪽 = 이슈 처리 버튼 · 관련 없음 이유 / 아래 오른쪽 = 상황별 판단 (두 칸의 아래 끝이 맞게 줄 높이를 나눔)
+// 배치: 위 = 업체 등급 세 칸 / 아래도 같은 세 칸 = 이슈 처리 버튼 · 관련 없음으로 볼 상황 · 관련 있음으로 볼 상황
+const guideCases = (v) => GUIDE_CASES.filter((c) => c[1] === v).map(([q, , a]) => `<div class="gd3-k"><b>${q}</b><p>${guideFill(a)}</p></div>`).join("");
 const GUIDE_HTML = `
 <div class="gd3">
   <p class="gd3-lead">애매하면 <b>관련 있음</b>, <b>관련 없음</b>은 확실할 때만</p>
@@ -950,31 +970,30 @@ const GUIDE_HTML = `
       <div class="gd3-t"><div class="gd3-th"><span class="badge none">정상</span><b>그 밖</b></div><p>회색 '참고'는 등급에 들지 않는 이력</p></div>
     </div>
   </section>
-  <div class="gd3-cols">
+  <div class="gd3-cols3">
     <div class="gd3-col">
-      <section class="gd3-s"><h3>이슈 처리 버튼</h3>
+      <section class="gd3-s grow"><h3>이슈 처리 버튼</h3>
         <div class="gd3-list">
-          <div class="gd3-r"><span>${GUIDE_CHIP.ok}</span><p>이 업체 이야기가 맞음 · 등급 유지</p></div>
-          <div class="gd3-r"><span>${GUIDE_CHIP.no}</span><p>이 업체 이야기가 아님 · 등급에서 빠짐 · 이유를 고름</p></div>
-          <div class="gd3-r"><span><span class="ga">되돌리기</span></span><p>처리 전으로 돌아감</p></div>
+          <div class="gd3-k"><b>${GUIDE_CHIP.ok}</b><p>이 업체 이야기가 맞음 · 등급 유지</p></div>
+          <div class="gd3-k"><b>${GUIDE_CHIP.no}</b><p>이 업체 이야기가 아님 · 등급에서 빠짐 · 이유를 고름</p><p class="gd3-rs">${DISMISS_REASONS.map(([, l, d]) => `<span title="${d}">${l.replace(/\s*\(.*\)$/, "")}</span>`).join("")}</p></div>
+          <div class="gd3-k"><b><span class="ga">되돌리기</span></b><p>처리 전으로 돌아감</p></div>
+          <div class="gd3-k"><b><span class="ga">후속 기사</span></b><p>${guideFill(GUIDE_CASES.find((c) => c[1] === "auto")[2])}</p></div>
         </div>
-      </section>
-      <section class="gd3-s grow"><h3>관련 없음 이유</h3>
-        <div class="gd3-list">${DISMISS_REASONS.map(([, l, d]) => `<div class="gd3-r"><b>${l}</b><p>${d}</p></div>`).join("")}</div>
       </section>
     </div>
     <div class="gd3-col">
-      <section class="gd3-s grow"><h3>상황별 판단</h3>
-        <div class="gd3-list">${GUIDE_CASES.map(([q, v, a]) => `<div class="gd3-c"><b>${q}</b><span>${GUIDE_CHIP[v]}</span><p>${guideFill(a)}</p></div>`).join("")}</div>
-      </section>
+      <section class="gd3-s grow"><h3>이럴 때는 ${GUIDE_CHIP.no}</h3><div class="gd3-list">${guideCases("no")}</div></section>
+    </div>
+    <div class="gd3-col">
+      <section class="gd3-s grow"><h3>이럴 때는 ${GUIDE_CHIP.ok}</h3><div class="gd3-list">${guideCases("ok")}</div></section>
     </div>
   </div>
 </div>`;
 const GUIDE_PRINT_CSS = `body{font-family:'Pretendard','Malgun Gothic',sans-serif;color:#0B1220;margin:12mm;font-size:11px;line-height:1.5;word-break:keep-all}h1{font-size:19px;margin:0 0 6px}
 .gd3-lead{margin:0 0 10px;padding:7px 12px;border-radius:8px;background:#EEF0FE}h3{font-size:13px;margin:0 0 6px}section{margin-bottom:12px}p{margin:0}b{font-weight:700}
 .gd3-lv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.gd3-t{border:1px solid #DCE1EC;border-radius:8px;padding:8px 10px}.gd3-th{display:flex;gap:6px;align-items:center;margin-bottom:3px}
-.gd3-cols{display:grid;grid-template-columns:1fr 1.5fr;gap:16px}.gd3-r,.gd3-c{display:grid;gap:8px;padding:5px 8px;border-bottom:1px solid #E3E7EF;align-items:center}
-.gd3-r{grid-template-columns:8.5em 1fr}.gd3-c{grid-template-columns:15em 6.4em 1fr}i{font-style:normal;color:#64748B;margin:0 2px 0 6px}
+.gd3-cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.gd3-k{border:1px solid #DCE1EC;border-radius:8px;padding:6px 10px;margin-bottom:5px}.gd3-k b{display:block;margin-bottom:2px}
+.gd3-rs span{display:inline-block;margin:3px 4px 0 0;padding:0 6px;border-radius:5px;background:#EEF1F6}i{font-style:normal;color:#64748B;margin:0 2px 0 6px}
 .ga{display:inline-block;padding:0 7px;border-radius:6px;border:1px solid #CBD2E0;font-weight:700;white-space:nowrap}.ga.ok{color:#0D9488;border-color:#0D9488}.ga.no{color:#D92D20;border-color:#D92D20}
 .badge{display:inline-block;padding:0 8px;border-radius:9px;font-weight:700;font-size:11px;white-space:nowrap}.badge.red{background:#D92D20;color:#fff}.badge.orange{background:#F57C00;color:#2B1400}.badge.none{background:#E2E8F0;color:#475569}@page{size:A4;margin:0}`;
 function openGuide() {

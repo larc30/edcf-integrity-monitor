@@ -2999,3 +2999,32 @@ body.viewer #geoOnly { display: none; }
 .gd3-cols > .gd3-col:last-child { grid-column: 2 / 4; }
 .gd3-t { border-radius: 10px; }
 @media (max-width: 900px) { .gd3-cols { grid-template-columns: minmax(0, 1fr); gap: 18px 0; } .gd3-cols > .gd3-col:last-child { grid-column: auto; } }
+/* 판단 가이드: 아래도 위와 같은 세 칸 (버튼 · 관련 없음으로 볼 상황 · 관련 있음으로 볼 상황) · 칸마다 상황 한 줄 + 덧붙임 한 줄 */
+.gd3-cols3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 16px; margin-top: 18px; }
+.gd3 h3 .ga { margin-left: 4px; vertical-align: 1px; }
+.gd3-k { display: flex; flex-direction: column; justify-content: center; gap: 3px; min-height: 3.4rem; padding: 8px 14px; border-radius: 10px; background: var(--soft); box-sizing: border-box; }
+.gd3-k > p { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; }
+.gd3-k > p > i:first-child { margin-left: 0; }
+.gd3-rs { margin-top: 3px !important; } .gd3-rs span { padding: 1px 7px; border-radius: 6px; font-size: var(--fs-xs); background: var(--soft-h); color: var(--text-2); white-space: nowrap; }
+@media (max-width: 900px) { .gd3-cols3 { grid-template-columns: minmax(0, 1fr); gap: 18px 0; } }
+/* ===== 레이더 아래 업체 이름 줄 (2026-11-26): 레이더를 조금 줄이고(365px), 점이 어느 업체인지 경고 · 주의 한 줄씩 · 넘치면 '외 N' =====
+   왼쪽 칸(등급 · 최근 7일 · 공식 제재 명단)은 그대로. 이름 줄이 범례를 겸해서 아래 범례는 숨김 · 레이더는 380 → 365px */
+.radar-names:empty { display: none; }
+.radar-names { position: relative; z-index: 2; align-self: stretch; display: grid; gap: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+.rn-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.rn-k { flex: none; display: inline-flex; align-items: center; gap: 6px; width: 4.6rem; font-size: var(--fs-sm); font-weight: 700; color: var(--text-2); }
+.rn-k i { width: 8px; height: 8px; border-radius: 50%; background: var(--red); } .rn-row.orange .rn-k i { background: var(--orange); }
+.rn-k b { margin-left: 2px; font-variant-numeric: tabular-nums; color: var(--text); }
+.rn-list { flex: 0 1 auto; min-width: 0; display: flex; gap: 6px; overflow: hidden; }
+.rn-chip, .rn-more { flex: none; height: var(--h-s); padding: 0 10px; border-radius: var(--r-s); border: 1px solid transparent; font: inherit; font-size: var(--fs-xs); font-weight: 650; white-space: nowrap; cursor: pointer; color: var(--text); background: color-mix(in srgb, var(--red) 14%, transparent); }
+.rn-row.orange .rn-chip { background: color-mix(in srgb, var(--orange) 14%, transparent); }
+.rn-chip { max-width: 11em; overflow: hidden; text-overflow: ellipsis; }
+.rn-chip:hover { border-color: color-mix(in srgb, var(--red) 55%, transparent); } .rn-row.orange .rn-chip:hover { border-color: color-mix(in srgb, var(--orange) 55%, transparent); }
+.rn-more { background: var(--soft); color: var(--text-2); } .rn-more:hover { background: var(--soft-h); }
+.rn-none { font-size: var(--fs-xs); color: var(--muted); line-height: var(--h-s); }
+.rdot.hot { transform: scale(1.8); z-index: 5; }
+.d-radar:has(.radar-names:not(:empty)) .radar-hud .hud.bl { display: none; }
+@media (min-width: 1101px) {
+  .dash:not(.geo-dash) .d-radar:has(.radar-names:not(:empty)) .radar { max-width: min(100%, 365px); margin-top: auto; margin-bottom: auto; }
+  .dash:not(.geo-dash) .d-radar:has(.radar-names:not(:empty)) { justify-content: flex-start; padding-top: 40px; }
+}
