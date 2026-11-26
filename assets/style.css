@@ -3153,3 +3153,12 @@ body.viewer #geoOnly { display: none; }
 #evFoot details > summary { cursor: pointer; font-size: var(--fs-base); font-weight: 550; color: var(--text-2); }
 #evFoot details[open] > summary, #evFoot details > summary:hover { color: var(--text); }
 #evFoot details[open] > .ev-no-l { margin-top: 8px; }
+/* 윗줄 높이 2차 (2026-11-27 사용자: '지도 아래 공백이 많음 · 세 칸을 조금씩 올려도 · 업체 화면도 같이'): 두 화면 윗줄 40.5rem → 38.9rem (레이더 365px 은 그대로 · 레이더 칸 위 여백만 줄임) */
+@media (min-width: 1101px) {
+  .dash:not(.geo-dash), .dash.geo-dash { grid-template-rows: auto minmax(38.9rem, auto) auto; } /* 두 화면이 같은 높이가 되는 가장 낮은 값: 수원국 왼쪽 칸(등급 + 이벤트 요약 여섯 줄)이 622px 필요 */
+  .dash:not(.geo-dash) .d-radar:has(.radar-names:not(:empty)) { padding-top: 28px; }
+}
+/* 수원국 등급 칸: 이름 줄이 없는 정상 줄을 낮춰 칸 높이를 업체 등급 칸과 같게 (경고·주의 69 + 69 + 정상 48 = 업체 62 × 3) */
+#gboard .rk.none { min-height: 3rem; padding-top: 0; padding-bottom: 0; }
+/* 업체 상세 '검사 결과': 표시는 검사 수행 여부만, 걸린 것은 아랫줄 글로 (지금 제재 중이면 빨강) */
+.ck .d.hot { color: var(--red); font-weight: 650; }

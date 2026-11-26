@@ -1236,10 +1236,11 @@ function checkGrid(c) {
   const lc = c.last_check;
   if (!lc) return `<div class="empty small">아직 스캔하지 않았습니다.</div>`;
   const n = lc.news || {}, m = lc.mdb || {}, p = lc.pps || {};
-  const cell = (st, k, d) => `<div class="ck ${st}"><span class="ic">${{ ok: "✓", warn: "!", bad: "✕", na: "–" }[st]}</span><div><b>${k}</b><div class="d">${d}</div></div></div>`;
+  // 표시(✓ ! ✕ –)는 '검사를 했는지'만: ✓ 대조함 · ! 일부 못 함(번호·영문명 없음) · ✕ 실패 · – 해당 없음. 걸린 것이 있는지는 아랫줄 글로(지금 제재 중이면 빨강)
+  const cell = (st, k, d, hot) => `<div class="ck ${st}"><span class="ic">${{ ok: "✓", warn: "!", bad: "✕", na: "–" }[st]}</span><div><b>${k}</b><div class="d${hot ? " hot" : ""}">${d}</div></div></div>`;
   const hits = edcfByCompany(edcfMatches(state.edcf)).find((x) => x.c.id === c.id);
   const pps = {
-    ok: () => cell(p.hits ? "bad" : "ok", "조달청 부정당제재", p.hits ? `현재 제재 ${p.hits}건` : "현재 제재 없음"),
+    ok: () => cell("ok", "조달청 부정당제재", p.hits ? `현재 제재 ${p.hits}건` : "현재 제재 없음", !!p.hits),
     no_bizno: () => cell("warn", "조달청 부정당제재", "사업자번호 없음"),
     not_connected: () => cell("na", "조달청 부정당제재", "미연결"),
     foreign: () => cell("na", "조달청 부정당제재", "해외 업체"),
@@ -1250,7 +1251,7 @@ function checkGrid(c) {
     ${cell("ok", "판정", lc.analyzer === "claude" ? "AI 판정 (Claude)" : "키워드 규칙")}
     ${cell(m.status === "ok" ? "ok" : m.status === "no_lists" ? "bad" : "warn", "MDB 제재 리스트", m.status === "ok" ? `${m.lists}개 리스트 대조` : m.status === "no_lists" ? "리스트 오류" : "영문명 없음")}
     ${pps}
-    ${cell(!state.edcf.length ? "na" : hits ? (hits.active ? "bad" : "warn") : "ok", "EDCF 부정당업자", !state.edcf.length ? "명단 없음" : hits ? `${hits.active ? "제재 중" : "과거 이력"} ${hits.n}건` : "일치 없음")}
+    ${cell(!state.edcf.length ? "na" : "ok", "EDCF 부정당업자", !state.edcf.length ? "명단 없음" : hits ? `${hits.active ? "제재 중" : "과거 이력"} ${hits.n}건` : "일치 없음", !!hits?.active)}
   </div>
   ${(lc.identity?.notes || []).slice(0, 1).map((t) => `<div class="ck-note">${esc(t)}</div>`).join("")}`;
 }
