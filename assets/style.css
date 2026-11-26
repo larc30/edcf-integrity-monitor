@@ -3144,3 +3144,7 @@ body.viewer #geoOnly { display: none; }
 #projectMap .pj-roles > .pj-role:not(:last-child)::after { content: ""; position: absolute; right: 0; top: 5px; bottom: 5px; width: 1px; background: var(--line-2); }
 #projectMap .pj-roles > .pj-role:last-child { margin-right: 0; padding-right: 0; }
 #projectMap .pj-role > .role { min-width: 0; padding: 0; border: 0; background: none; color: var(--text-2); font-size: var(--fs-sm); font-weight: 700; }
+/* 사업 카드 역할 이름 2차 (2026-11-27 사용자: '색과 알약까지 빼니 단계 구분이 안 보임'): 색은 빼되 알약 모양은 되살림(회색 면) · 세로선은 그대로 */
+#projectMap .pj-role > .role { padding: 2px 9px; border-radius: 7px; background: var(--soft-h); color: var(--text-2); font-size: var(--fs-xs); font-weight: 700; }
+/* 레이더 크기는 이름 줄 수와 무관하게 그대로 (2026-11-27 사용자: '주의가 두 줄일 때 레이더가 줄어듦 · 아래 줄만 바뀌어야') */
+@media (min-width: 1101px) { .dash:not(.geo-dash) .d-radar:has(.radar-names.two) .radar { max-width: min(100%, 365px); } }
