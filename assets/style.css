@@ -3100,3 +3100,21 @@ body.viewer #geoOnly { display: none; }
 .run-err .go { font-size: var(--fs-sm); }
 @media (max-width: 1280px) { .ut-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ut.total { grid-column: 1 / -1; } }
 @media (max-width: 640px) { .ut-grid { grid-template-columns: minmax(0, 1fr); } .ut.total { grid-column: auto; } }
+/* ===== JG css 전체 점검 (2026-11-27 · tools/uicheck/audit.js 로 화면·팝업·오른쪽 창 27곳을 잼) =====
+   ① 보조 글자(출처·시각·항목 이름·영문명 줄)가 12px 이던 곳을 13px(fs-sm)로: 12px 는 칩·배지·개수 표시에만
+   ② 사업 관리 카드: 단계 고르기 칸 28px(예전 23px) · 수정/삭제 · 빼기 버튼 간격 */
+.rl-cat, .rl-src, .ev-time, .ev-src, .gc-cnt, .gl-en, .gl-n, .gl-ev .d { font-size: var(--fs-sm); }
+.d-info dt { font-size: var(--fs-sm); font-weight: 650; }
+.co-table .t-name .sub, .co-table .miss { font-size: var(--fs-sm); }
+.pbox-head .ctry, .ptitle .ctry, .owner { font-size: var(--fs-sm); }
+#projectMap .pj-sec { font-size: var(--fs-sm); }
+.wk-card .wk-sub, .wk-leg { font-size: var(--fs-sm); }
+.rn-chip, .rn-more { font-size: var(--fs-sm); }
+.lst-h { font-size: var(--fs-sm); }
+#coEngs .ce-head span { font-size: var(--fs-sm); }
+#fMoreBtn .chev { font-size: var(--fs-xs); }
+.stage-sel, .stage-sel.on { height: var(--h-s); } /* 글자·폭은 그대로: 키우면 업체 이름이 더 잘림 */
+.corow .stage-sel + .xbtn, .corow .xbtn { margin-left: 4px; }
+.pbox-foot .pf-act { gap: 6px; }
+.bd-co { min-height: var(--h-m); box-sizing: border-box; }
+.co-top { margin-bottom: 12px; }
