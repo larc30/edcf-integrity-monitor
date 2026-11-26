@@ -2821,3 +2821,13 @@ body.viewer #geoOnly { display: none; }
 @media (max-width: 760px) { .form.pjf { grid-template-columns: minmax(0, 1fr); } .pjf .site-pick { min-height: 260px; } }
 #drawerTitle { word-break: keep-all; overflow-wrap: anywhere; }
 @media (max-width: 640px) { #tabs .cnt { display: none; } }
+/* ===== 로그인 화면 다듬기 (2026-11-26): 문구 정리 · 로고·제목 크게 · 버튼은 큰 규격(--h-l) ===== */
+.login-card { padding: 44px 32px 40px; }
+.login-card .logo { margin-bottom: 20px; }
+.login-card .logo-mark svg { width: 32px; height: 32px; }
+.login-card h1 { font-size: var(--fs-xl); font-weight: 850; letter-spacing: -0.03em; line-height: 1.15; margin: 0 0 8px; }
+.login-sub { margin: 0; color: var(--text-2); font-size: var(--fs-base); font-weight: 500; }
+.login-msg { margin: 26px 0 12px; color: var(--muted); font-size: var(--fs-sm); line-height: 1.6; word-break: keep-all; }
+.login-msg b { color: var(--text); font-weight: 650; }
+.login-card .btn { width: 100%; max-width: 300px; height: var(--h-l); justify-content: center; }
+.login-card .btn.ghost { border: 1px solid var(--line-2); }

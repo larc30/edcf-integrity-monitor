@@ -112,7 +112,7 @@ onAuthStateChanged(auth, async (user) => {
     $("#loginMsg").innerHTML = msg;
     $("#btnLogin").classList.toggle("hidden", denied); $("#btnLogout2").classList.toggle("hidden", !denied);
   };
-  if (!user) return showLogin("허용된 Google 계정으로 로그인하세요.", false);
+  if (!user) return showLogin("등록된 계정으로 로그인하세요", false);
   // 내 권한: 슈퍼관리자(고정) → users/{메일} → 예전 방식(관리자 목록·meta/access, 슈퍼관리자가 옮기기 전까지)
   const email = String(user.email || "").toLowerCase();
   let meRole = null;
@@ -126,7 +126,7 @@ onAuthStateChanged(auth, async (user) => {
     try { const a = await getDoc(doc(db, "meta", "access")); if (a.exists() && (a.data().emails || []).includes(email)) meRole = { role: "member", team: null, legacy: true }; } catch {}
   }
   const allowed = !!meRole;
-  if (!allowed) return showLogin(`<b>${esc(user.email)}</b> 계정은 접근 권한이 없습니다.<br>관리자에게 허용 목록 추가를 요청하세요.`, true);
+  if (!allowed) return showLogin(`<b>${esc(user.email)}</b> 계정은 등록되지 않았습니다<br>팀 관리자에게 계정 등록을 요청하세요`, true);
   $("#loginView").classList.add("hidden"); $("#appView").classList.remove("hidden");
   if (window.__DEMO && !$(".demo-banner")) $("#appView").insertAdjacentHTML("afterbegin", `<div class="demo-banner">DEMO · 가상 데이터로 보는 화면입니다 (실제 업체·Firebase와 연결되지 않음) · <a href="./">실제 화면으로</a></div>`);
   $("#userEmail").textContent = user.email;
