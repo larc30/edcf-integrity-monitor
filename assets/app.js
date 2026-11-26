@@ -671,7 +671,7 @@ function renderHome() {
   $("#radarHud").innerHTML = `<span class="hud tl"><b>RISK RADAR</b><i>${scope === "mine" ? mineLabel() : "EDCF 전체"}</i></span>
     <span class="hud bl"><span><i class="lg red"></i>경고</span><span><i class="lg orange"></i>주의</span><span><i class="lg none"></i>정상</span></span>`;
   const rnRow = (lv) => { const l = [...byLv[lv]].sort((a, b) => b.open - a.open || a.name.localeCompare(b.name, "ko"));
-    return `<div class="rn-row ${lv}"><span class="rn-k"><i></i>${LEVEL[lv]}<b>${l.length}</b></span><span class="rn-list">${l.map((c) => `<button type="button" class="rn-chip" data-cid="${c.id}" title="${esc(c.name)}">${esc(c.name)}</button>`).join("") || `<span class="rn-none">없음</span>`}${l.length ? `<button type="button" class="rn-more hidden" data-rnlv="${lv}"></button>` : ""}</span></div>`; };
+    return `<div class="rn-row ${lv}"><span class="rn-k badge ${lv}">${LEVEL[lv]}<b>${l.length}</b></span><span class="rn-list">${l.map((c) => `<button type="button" class="rn-chip" data-cid="${c.id}" title="${esc(c.name)}">${esc(c.name)}</button>`).join("") || `<span class="rn-none">없음</span>`}${l.length ? `<button type="button" class="rn-more hidden" data-rnlv="${lv}"></button>` : ""}</span></div>`; };
   $("#radarNames").innerHTML = sc ? rnRow("red") + rnRow("orange") : "";
   $$("#radarNames .rn-chip").forEach((b) => { b.onclick = () => openCompany(b.dataset.cid);
     const dot = () => $(`#radar .rdot[data-cid="${b.dataset.cid}"]`); b.onmouseenter = () => dot()?.classList.add("hot"); b.onmouseleave = () => dot()?.classList.remove("hot"); });
@@ -947,18 +947,18 @@ function pickDismissReason(n, REASONS = DISMISS_REASONS) {
 
 // ---------- 판단 가이드 (4개 팀 공통 기준) ----------
 const GUIDE_CASES = [ // [상황, 판단(ok 관련 있음 · no 관련 없음), 덧붙임] : 한 줄에 칩 하나 (예외는 글로만)
-  ["계열사 · 모회사 · 현지 법인이 처분받음", "no", `다른 법인 <i>같은 법인이면 관련 있음</i>`],
+  ["계열사 · 모회사 · 현지 법인이 처분받음", "no", `다른 법인 <i>같은 법인이면 <em class="ok">관련 있음</em></i>`],
   ["이름이 같은 다른 회사 기사", "no", `동명이인 <i>업종 · 지역 · 대표자로 확인</i>`],
   ["수주 · 협력 · 인사 기사에 이름만 나옴", "no", `단순 언급`],
-  ["칼럼 · 시황 · 기획 기사", "no", `단순 언급 <i>새 처분 · 수사를 직접 전하면 관련 있음</i>`],
-  ["이미 끝난 과거 처분을 다시 다룸", "no", `과거 일 <i>기간 중이면 관련 있음</i>`],
-  ["대표자 개인 사건", "no", `회사가 대상이 아닐 때 <i>회사도 대상이면 관련 있음</i>`],
-  ["컨소시엄(공동수급)이 처분받음", "ok", `이 업체도 처분 대상일 때 <i>다른 구성원만이면 관련 없음</i>`],
-  ["처분은 확정됐고 시작일이 아직 안 됨", "ok", `시작 전이어도 경고`],
-  ["영업정지", "ok", `기간 중이면 경고 <i>끝났거나 기간을 모르면 주의</i>`],
-  ["집행정지 결정", "ok", `주의로 유지 <i>판결이 나오면 다시 확인</i>`],
+  ["칼럼 · 시황 · 기획 기사", "no", `단순 언급 <i>새 처분 · 수사를 직접 전하면 <em class="ok">관련 있음</em></i>`],
+  ["이미 끝난 과거 처분을 다시 다룸", "no", `과거 일 <i>기간 중이면 <em class="ok">관련 있음</em></i>`],
+  ["대표자 개인 사건", "no", `회사가 대상이 아닐 때 <i>회사도 대상이면 <em class="ok">관련 있음</em></i>`],
+  ["컨소시엄(공동수급)이 처분받음", "ok", `이 업체도 처분 대상일 때 <i>다른 구성원만이면 <em class="no">관련 없음</em></i>`],
+  ["처분은 확정됐고 시작일이 아직 안 됨", "ok", `시작 전이어도 <em class="red">경고</em>`],
+  ["영업정지", "ok", `기간 중이면 <em class="red">경고</em> <i>끝났거나 기간을 모르면 <em class="orange">주의</em></i>`],
+  ["집행정지 결정", "ok", `<em class="orange">주의</em>로 유지 <i>판결이 나오면 다시 확인</i>`],
   ["입찰 · 계약과 무관한 규제 위반", "ok", `공시 누락 · 기업결합 신고 등`],
-  ["공식 제재 명단에 오름", "ok", `같은 회사일 때 <i>이름만 비슷하면 관련 없음</i>`],
+  ["공식 제재 명단에 오름", "ok", `같은 회사일 때 <i>이름만 비슷하면 <em class="no">관련 없음</em></i>`],
 ];
 const GUIDE_CHIP = { ok: '<span class="ga ok">✓ 관련 있음</span>', no: '<span class="ga no">✕ 관련 없음</span>' };
 const GUIDE_REASONS = [["동명이인", "이름만 같은 다른 회사"], ["다른 법인", "모회사 · 자회사 · 계열사"], ["단순 언급", "이름만 나오고 처분 대상이 아님"], ["과거 일", "이미 끝난 처분 · 사건"], ["기타", "이유를 짧게 적음"]]; // DISMISS_REASONS 와 같은 다섯 가지 (가이드용 짧은 말)
@@ -998,7 +998,7 @@ const GUIDE_PRINT_CSS = `body{font-family:'Pretendard','Malgun Gothic',sans-seri
 .gd3-lead{margin:0 0 10px;padding:7px 12px;border-radius:8px;background:#EEF0FE}h3{font-size:13px;margin:0 0 6px}section{margin-bottom:12px}p{margin:0}b{font-weight:700}
 .gd3-lv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.gd3-t{border:1px solid #DCE1EC;border-radius:8px;padding:8px 10px}.gd3-th{display:flex;gap:6px;align-items:center;margin-bottom:3px}
 .gd3-cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 12px}.gd3-col.wide{grid-column:2/4}.gd3-r,.gd3-c{display:grid;gap:8px;padding:5px 2px;border-bottom:1px solid #E3E7EF;align-items:center}.gd3-r{grid-template-columns:6.4em 1fr}.gd3-c{grid-template-columns:15em 6.4em 1fr}.gd3-k{border:1px solid #DCE1EC;border-radius:8px;padding:6px 10px;margin-bottom:5px}.gd3-k b{display:block;margin-bottom:2px}
-.gd3-rs span{display:inline-block;margin:3px 4px 0 0;padding:0 6px;border-radius:5px;background:#EEF1F6}i{font-style:normal;color:#64748B;margin:0 2px 0 6px}
+.gd3-rs span{display:inline-block;margin:3px 4px 0 0;padding:0 6px;border-radius:5px;background:#EEF1F6}i{font-style:normal;color:#64748B;margin:0 2px 0 6px}em{font-style:normal;font-weight:700}em.ok{color:#0D9488}em.no,em.red{color:#D92D20}em.orange{color:#C2570A}
 .ga{display:inline-block;padding:0 7px;border-radius:6px;border:1px solid #CBD2E0;font-weight:700;white-space:nowrap}.ga.ok{color:#0D9488;border-color:#0D9488}.ga.no{color:#D92D20;border-color:#D92D20}
 .badge{display:inline-block;padding:0 8px;border-radius:9px;font-weight:700;font-size:11px;white-space:nowrap}.badge.red{background:#D92D20;color:#fff}.badge.orange{background:#F57C00;color:#2B1400}.badge.none{background:#E2E8F0;color:#475569}@page{size:A4;margin:0}`;
 function openGuide() {
