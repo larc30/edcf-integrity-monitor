@@ -1236,10 +1236,11 @@ function checkGrid(c) {
   const lc = c.last_check;
   if (!lc) return `<div class="empty small">아직 스캔하지 않았습니다.</div>`;
   const n = lc.news || {}, m = lc.mdb || {}, p = lc.pps || {};
-  const cell = (st, k, d) => `<div class="ck ${st}"><span class="ic">${{ ok: "✓", warn: "!", bad: "✕", na: "–" }[st]}</span><div><b>${k}</b><div class="d">${d}</div></div></div>`;
+  // 표시(✓ ! ✕ –)는 '검사를 했는지'만: ✓ 대조함 · ! 일부 못 함(번호·영문명 없음) · ✕ 실패 · – 해당 없음. 걸린 것이 있는지는 아랫줄 글로(지금 제재 중이면 빨강)
+  const cell = (st, k, d, hot) => `<div class="ck ${st}"><span class="ic">${{ ok: "✓", warn: "!", bad: "✕", na: "–" }[st]}</span><div><b>${k}</b><div class="d${hot ? " hot" : ""}">${d}</div></div></div>`;
   const hits = edcfByCompany(edcfMatches(state.edcf)).find((x) => x.c.id === c.id);
   const pps = {
-    ok: () => cell(p.hits ? "bad" : "ok", "조달청 부정당제재", p.hits ? `현재 제재 ${p.hits}건` : "현재 제재 없음"),
+    ok: () => cell("ok", "조달청 부정당제재", p.hits ? `현재 제재 ${p.hits}건` : "현재 제재 없음", !!p.hits),
     no_bizno: () => cell("warn", "조달청 부정당제재", "사업자번호 없음"),
     not_connected: () => cell("na", "조달청 부정당제재", "미연결"),
     foreign: () => cell("na", "조달청 부정당제재", "해외 업체"),
@@ -1250,7 +1251,7 @@ function checkGrid(c) {
     ${cell("ok", "판정", lc.analyzer === "claude" ? "AI 판정 (Claude)" : "키워드 규칙")}
     ${cell(m.status === "ok" ? "ok" : m.status === "no_lists" ? "bad" : "warn", "MDB 제재 리스트", m.status === "ok" ? `${m.lists}개 리스트 대조` : m.status === "no_lists" ? "리스트 오류" : "영문명 없음")}
     ${pps}
-    ${cell(!state.edcf.length ? "na" : hits ? (hits.active ? "bad" : "warn") : "ok", "EDCF 부정당업자", !state.edcf.length ? "명단 없음" : hits ? `${hits.active ? "제재 중" : "과거 이력"} ${hits.n}건` : "일치 없음")}
+    ${cell(!state.edcf.length ? "na" : "ok", "EDCF 부정당업자", !state.edcf.length ? "명단 없음" : hits ? `${hits.active ? "제재 중" : "과거 이력"} ${hits.n}건` : "일치 없음", !!hits?.active)}
   </div>
   ${(lc.identity?.notes || []).slice(0, 1).map((t) => `<div class="ck-note">${esc(t)}</div>`).join("")}`;
 }
@@ -1863,7 +1864,7 @@ function renderCompanies() {
       <td class="t-open">${c.open ? `<b>${c.open}</b>` : `<span class="muted">0</span>`}</td>
       <td class="t-id">${c.country !== "KR" ? `<span class="muted">해외</span>` : c.biz_no ? esc(fmtBiz(c.biz_no)) : `<span class="miss">없음</span>`}</td>
       <td class="t-id t-ceo">${c.ceo ? esc(c.ceo) : `<span class="muted">-</span>`}</td>
-      <td class="t-act"><button class="icon-btn danger" data-del="${c.id}" title="삭제" aria-label="${esc(c.name)} 삭제">${TRASH}</button></td>
+      <td class="t-act"><button type="button" class="icon-btn ibtn del" data-del="${c.id}" title="삭제" aria-label="${esc(c.name)} 삭제">${TRASH}</button></td>
     </tr>`).join("");
   // 선택 (일괄 삭제)
   const visible = list.map((c) => c.id), nSel = visible.filter((id) => coState.sel.has(id)).length;
@@ -1916,7 +1917,7 @@ function pjListRow(p, sc) {
   const open = pjState.open === p.id;
   return `<div class="pl-item ${open ? "open" : ""} ${live(p) ? "" : "done"}">
     <div class="pl-row" data-pl="${p.id}" role="button" tabindex="0">
-      <span class="pl-name" title="${esc(p.name)}"><span class="pl-nt">${esc(p.name)}</span>${live(p) ? "" : `<span class="tag">완료</span>`}${canEditProject(p) ? `<button type="button" class="pl-edit" data-edit-proj="${p.id}" title="수정" aria-label="${esc(p.name)} 수정">${PENCIL}</button>` : ""}</span>
+      <span class="pl-name" title="${esc(p.name)}"><span class="pl-nt">${esc(p.name)}</span>${live(p) ? "" : `<span class="tag">완료</span>`}${canEditProject(p) ? `<button type="button" class="ibtn pl-edit" data-edit-proj="${p.id}" title="수정" aria-label="${esc(p.name)} 수정">${PENCIL}</button>` : ""}</span>
       <span class="pl-ctry">${esc(COUNTRY[p.country] || "")}</span>
       <span class="pl-team">${esc(teamName(p.team))}</span>
       <span class="pl-roles">${ROLES.map((r) => `<span class="${n[r] ? "" : "zero"}">${roleTag(r)}<b>${n[r] || 0}</b></span>`).join("")}</span>
@@ -2011,12 +2012,12 @@ function projectCard(p, sc) {
           <span class="right">
             ${k > 0 ? `<button class="upbtn leadbtn" data-up="${p.id}|${esc(role)}|${c.id}|${rr[0].c.id}" title="대표사로 지정">대표</button>` : ""}
             <select class="stage-sel ${e.stage && e.stage !== "계약" ? "on" : ""}" data-stage-sel="${c.id}|${i}" title="단계${e.stage === "우선협상" && e.rank ? ` · ${e.rank}순위` : ""}" aria-label="단계">${STAGE_OPTS.map(([v, l]) => `<option value="${v}" ${v === stageVal(e) ? "selected" : ""}>${l}</option>`).join("")}</select>
-            <button class="xbtn" data-unlink="${c.id}|${i}" title="이 사업에서 빼기">✕</button>
+            <button type="button" class="ibtn del" data-unlink="${c.id}|${i}" title="이 사업에서 빼기" aria-label="이 사업에서 빼기">${TRASH}</button>
           </span></div>`).join("")}
         <div class="drop-hint">끌어다 놓기</div>
       </div>`;
     }).join("")}</div>
-    <div class="pbox-foot">${ownerTag(p)}${canEditProject(p) ? "" : `<span class="muted small">보기 전용 (다른 팀 사업)</span>`}<span class="pf-act ${canEditProject(p) ? "" : "hidden"}"><button class="btn sm ghost" data-edit-proj="${p.id}">수정</button><button class="btn sm ghost danger" data-del-proj="${p.id}">삭제</button></span></div>
+    <div class="pbox-foot">${ownerTag(p)}${canEditProject(p) ? "" : `<span class="muted small">보기 전용 (다른 팀 사업)</span>`}<span class="pf-act ${canEditProject(p) ? "" : "hidden"}"><button type="button" class="ibtn" data-edit-proj="${p.id}" title="수정" aria-label="${esc(p.name)} 수정">${PENCIL}</button><button type="button" class="ibtn del" data-del-proj="${p.id}" title="삭제" aria-label="${esc(p.name)} 삭제">${TRASH}</button></span></div>
   </div>`;
 }
 $("#sideSearch").addEventListener("input", () => renderProjects());
@@ -3047,7 +3048,7 @@ function renderSettings() {
   renderAccess();
 
   if ($("#rcCount")) $("#rcCount").textContent = state.recipients.length;
-  $("#rcList").innerHTML = state.recipients.map((r) => `<div class="lst-row rc"><span class="lst-m" title="${esc(r.email)}">${esc(r.email)}</span><span class="lst-x"><button class="xbtn" data-del-rc="${r.id}" title="삭제">✕</button></span></div>`).join("") || `<div class="lst-empty">아직 없습니다</div>`;
+  $("#rcList").innerHTML = state.recipients.map((r) => `<div class="lst-row rc"><span class="lst-m" title="${esc(r.email)}">${esc(r.email)}</span><span class="lst-x"><button type="button" class="ibtn del" data-del-rc="${r.id}" title="삭제" aria-label="삭제">${TRASH}</button></span></div>`).join("") || `<div class="lst-empty">아직 없습니다</div>`;
   $$("[data-del-rc]").forEach((b) => b.onclick = async () => { await deleteDoc(doc(db, "recipients", b.dataset.delRc)); state.recipients = state.recipients.filter((r) => r.id !== b.dataset.delRc); renderSettings(); });
   if ($("#advCard").open) renderAdvanced();
 }
@@ -3073,7 +3074,7 @@ function renderAccess() {
   const roleCell = (u) => isSuper() && !isSuperMail(u.id) ? `<select data-acc-role="${esc(u.id)}" aria-label="권한"><option value="member" ${u.role !== "admin" ? "selected" : ""}>팀원</option><option value="admin" ${u.role === "admin" ? "selected" : ""}>팀 관리자</option></select>`
     : `<span class="lst-t ${u.role}">${ROLE_L[u.role] || "팀원"}</span>`;
   const rows = users.filter((u) => teams.includes(u.team || "") && pass(u)).sort((a, b) => order.indexOf(a.team || "") - order.indexOf(b.team || "") || RO.indexOf(a.role) - RO.indexOf(b.role) || a.id.localeCompare(b.id));
-  const html = rows.map((u) => `<div class="lst-row acc${u.id === me() ? " me" : ""}"><span class="lst-m" title="${esc(u.id)}">${esc(u.id)}${u.id === me() ? `<em>나</em>` : ""}</span>${teamCell(u)}${roleCell(u)}<span class="lst-x">${canEditUser(u) ? `<button class="xbtn" data-del-acc="${esc(u.id)}" title="삭제">✕</button>` : ""}</span></div>`).join("");
+  const html = rows.map((u) => `<div class="lst-row acc${u.id === me() ? " me" : ""}"><span class="lst-m" title="${esc(u.id)}">${esc(u.id)}${u.id === me() ? `<em>나</em>` : ""}</span>${teamCell(u)}${roleCell(u)}<span class="lst-x">${canEditUser(u) ? `<button type="button" class="ibtn del" data-del-acc="${esc(u.id)}" title="삭제" aria-label="삭제">${TRASH}</button>` : ""}</span></div>`).join("");
   $("#accCount").textContent = users.length;
   // 팀원은 있는데 팀 관리자가 없는 팀 (팀당 1명 권장)
   const noAdmin = Object.keys(TEAMS).filter((k) => users.some((u) => u.team === k && u.role === "member") && !users.some((u) => u.team === k && (u.role === "admin" || u.role === "super" || isSuperMail(u.id))));

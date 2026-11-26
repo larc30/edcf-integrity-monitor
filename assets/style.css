@@ -3144,3 +3144,44 @@ body.viewer #geoOnly { display: none; }
 #projectMap .pj-roles > .pj-role:not(:last-child)::after { content: ""; position: absolute; right: 0; top: 5px; bottom: 5px; width: 1px; background: var(--line-2); }
 #projectMap .pj-roles > .pj-role:last-child { margin-right: 0; padding-right: 0; }
 #projectMap .pj-role > .role { min-width: 0; padding: 0; border: 0; background: none; color: var(--text-2); font-size: var(--fs-sm); font-weight: 700; }
+/* 사업 카드 역할 이름 2차 (2026-11-27 사용자: '색과 알약까지 빼니 단계 구분이 안 보임'): 색은 빼되 알약 모양은 되살림(회색 면) · 세로선은 그대로 */
+#projectMap .pj-role > .role { padding: 2px 9px; border-radius: 7px; background: var(--soft-h); color: var(--text-2); font-size: var(--fs-xs); font-weight: 700; }
+/* 레이더 크기는 이름 줄 수와 무관하게 그대로 (2026-11-27 사용자: '주의가 두 줄일 때 레이더가 줄어듦 · 아래 줄만 바뀌어야') */
+@media (min-width: 1101px) { .dash:not(.geo-dash) .d-radar:has(.radar-names.two) .radar { max-width: min(100%, 365px); } }
+/* 수원국 이벤트 목록 아래 접힌 칸 (2026-11-27 사용자: '같은 버튼인데 업체 화면과 결과가 다름'): 처리한 이벤트는 목록에서 빠져 여기로 (업체 화면의 .issue-foot 과 같은 모양) */
+#evFoot .ev-no, #evFoot .ev-ok { margin: 0; padding-top: 0; border-top: 0; }
+#evFoot details > summary { cursor: pointer; font-size: var(--fs-base); font-weight: 550; color: var(--text-2); }
+#evFoot details[open] > summary, #evFoot details > summary:hover { color: var(--text); }
+#evFoot details[open] > .ev-no-l { margin-top: 8px; }
+/* 윗줄 높이 2차 (2026-11-27 사용자: '지도 아래 공백이 많음 · 세 칸을 조금씩 올려도 · 업체 화면도 같이'): 두 화면 윗줄 40.5rem → 38.9rem (레이더 365px 은 그대로 · 레이더 칸 위 여백만 줄임) */
+@media (min-width: 1101px) {
+  .dash:not(.geo-dash), .dash.geo-dash { grid-template-rows: auto minmax(38.9rem, auto) auto; } /* 두 화면이 같은 높이가 되는 가장 낮은 값: 수원국 왼쪽 칸(등급 + 이벤트 요약 여섯 줄)이 622px 필요 */
+  .dash:not(.geo-dash) .d-radar:has(.radar-names:not(:empty)) { padding-top: 28px; }
+}
+/* 수원국 등급 칸: 이름 줄이 없는 정상 줄을 낮춰 칸 높이를 업체 등급 칸과 같게 (경고·주의 69 + 69 + 정상 48 = 업체 62 × 3) */
+#gboard .rk.none { min-height: 3rem; padding-top: 0; padding-bottom: 0; }
+/* 업체 상세 '검사 결과': 표시는 검사 수행 여부만, 걸린 것은 아랫줄 글로 (지금 제재 중이면 빨강) */
+.ck .d.hot { color: var(--red); font-weight: 650; }
+/* ===== 알약 표시 통일 (2026-11-27 사용자: '모든 화면의 알약이 같은 기준 · 색과 앞의 점') =====
+   ① 등급 배지(.badge): 둥근 끝 · 13px/750 · 높이 22 · 앞의 점 없음 (경고·주의는 꽉 찬 색 / 정상·미참여·참고는 옅은 면)
+   ② 속성 태그(역할 · 단계 · 분류 · 여행경보 · 새 사건 · NEW · 대표 · 미확인 · 나라): 모서리 6px · 12px/700 · 높이 21 · 옅은 면 · 테두리·점 없음
+   ③ 업체 이름 칩(.cchip · .rn-chip): 모서리 8px · 13px/600 · 등급 색 옅은 면 · 점 없음 ('정상 N'은 테두리만)
+   ④ 개수(.count)는 둥근 끝 그대로 */
+.badge::before { display: none; }
+.tag, .role, .stage, .alert-chip, .gc-new, .new-pill, .rl-open, .ev-ctry, .corow .lead, .gd3 .ga, #projectMap .pj-role > .role {
+  display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; height: 1.3125rem; padding: 0 8px; border: 0; border-radius: 6px;
+  font-size: var(--fs-xs); font-weight: 700; line-height: 1; letter-spacing: 0; white-space: nowrap; }
+.cchip { border-radius: 8px; font-weight: 600; }
+.cchip .dot { display: none; }
+.cchip.red, .cchip.orange { border-color: transparent; }
+.rn-chip, .rn-more { font-weight: 600; }
+/* ===== 수정 · 삭제 아이콘 버튼 (2026-11-27 사용자: '수정·삭제도 전체적으로 같은 모양 · 아이콘으로') =====
+   수정 = 연필 · 삭제/빼기 = 휴지통, 28px 옅은 면. 올리면 수정은 강조색 · 삭제는 빨강. 키워드 칩의 ✕ 와 팝업 아래의 글자 버튼([업체 삭제] 등)은 그대로 */
+.ibtn { flex: none; width: var(--h-s); height: var(--h-s); display: inline-grid; place-items: center; padding: 0; border: 0; border-radius: var(--r-s); background: var(--soft); color: var(--text-2); cursor: pointer; }
+.ibtn svg { width: 15px; height: 15px; }
+.ibtn:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.ibtn.del:hover { background: var(--red-bg); color: var(--red); }
+#coEngs .ce-ic.del { background: var(--soft); color: var(--text-2); }
+#coEngs .ce-ic.del:hover { background: var(--red-bg); color: var(--red); }
+.pbox-foot .pf-act { gap: 6px; }
+.corow .ibtn { margin-left: 6px; }
