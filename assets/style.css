@@ -3185,3 +3185,11 @@ body.viewer #geoOnly { display: none; }
 #coEngs .ce-ic.del:hover { background: var(--red-bg); color: var(--red); }
 .pbox-foot .pf-act { gap: 6px; }
 .corow .ibtn { margin-left: 6px; }
+/* 윗줄 높이 3차 (2026-11-27 사용자: '지도 아래를 아예 안 줄인 건가'): 두 화면 윗줄 38.9rem → 37.5rem (처음 40.5rem 에서 48px 줄임 · 600px).
+   자리를 내려고 수원국 이벤트 요약 줄을 낮추고, 업체 화면은 레이더 칸 여백과 최근 7일 그래프 높이를 조금 줄임 (레이더 365px 은 그대로) */
+@media (min-width: 1101px) {
+  .dash:not(.geo-dash), .dash.geo-dash { grid-template-rows: auto minmax(37.5rem, auto) auto; }
+  .dash:not(.geo-dash) .d-radar:has(.radar-names:not(:empty)) { padding-top: 18px; }
+  .d-radar:has(.radar-names:not(:empty)) .radar-hud .hud.bl { margin-top: 18px; }
+  .geo-dash .ev-chip { padding-top: 4px; padding-bottom: 4px; }
+}

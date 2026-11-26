@@ -624,7 +624,7 @@ function renderHome() {
   const spark = () => {
     if (!sc) return "";
     const wk = Array.from({ length: 7 }, (_, i) => newByDay(6 - i)), max = Math.max(...wk.map((x) => Math.max(x.r, x.o)), 1), WD = "일월화수목금토";
-    const LH = 56, W = 300, H = LH * 2 + 18, L0 = 12, R0 = 12, X = (i) => L0 + (i / 6) * (W - L0 - R0); // 좌우 여백 같게 (범례는 그래프 아래로)
+    const LH = 44, W = 300, H = LH * 2 + 18, L0 = 12, R0 = 12, X = (i) => L0 + (i / 6) * (W - L0 - R0); // 좌우 여백 같게 (범례는 그래프 아래로)
     const dayN = (i) => { const d = new Date(Date.now() - (6 - i) * DAY); return i === 6 ? "오늘" : WD[d.getDay()]; };
     const lane = (k, name, top) => {
       const base = top + LH - 6, Y = (v) => base - (v / max) * (LH - 28), P = wk.map((x, i) => [X(i), Y(x[k])]);
