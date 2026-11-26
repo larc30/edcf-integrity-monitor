@@ -39,6 +39,32 @@ def cost_usd(model: str, n_in: int, n_out: int) -> float | None:
     return None if not p else (n_in * p[0] + n_out * p[1]) / 1e6
 
 
+def fetch_actual() -> tuple[str, dict] | None:
+    """이번 달 실제 청구액 (Anthropic 사용량·비용 API · 조직 전체 · UTC 기준 1일부터 지금까지).
+
+    관리자 키(ANTHROPIC_ADMIN_KEY)가 있을 때만. 금액은 4~24시간 늦게 반영됨(data_refreshed_at 까지가 확정분).
+    돌려주는 값: ("ok", {month, usd, to, at}) / ("err", {msg, at}) / None(키 없음)
+    """
+    from . import config, store
+    if not config.ANTHROPIC_ADMIN_KEY:
+        return None
+    at = store.now_str()
+    try:
+        from datetime import datetime, timezone
+
+        import anthropic
+        start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        # 묶음·시간 단위를 주지 않으면 기간 전체가 한 줄로 옴 (금액 amount 는 센트 단위 문자열: 할인 뒤 · 크레딧 차감 전)
+        page = anthropic.Anthropic(api_key=config.ANTHROPIC_ADMIN_KEY).beta.organization.analytics.cost.list(starting_at=start)
+        if page.data_refreshed_at is None:  # 아직 이 기간의 자료가 하나도 안 들어옴 (0원이라는 뜻이 아님) → 추정 금액을 그대로 둠
+            return ("err", {"msg": "아직 자료 없음", "at": at})
+        cents = sum(float(r.cost.amount) for r in page.data)
+        to = page.data_refreshed_at.astimezone(store.now_kst().tzinfo).strftime("%Y-%m-%d %H:%M")
+        return ("ok", {"month": start.strftime("%Y-%m"), "usd": round(cents / 100, 4), "to": to, "at": at})
+    except Exception as e:
+        return ("err", {"msg": type(e).__name__, "at": at})
+
+
 def flush(kind: str = "") -> None:
     """실행이 끝날 때 한 번: meta/usage 에 이번 실행분을 더함"""
     try:
@@ -56,7 +82,16 @@ def flush(kind: str = "") -> None:
         if _claude:
             data["claude"] = {month: {m.replace(".", "_"): {"in": Increment(a[0]), "out": Increment(a[1]), "calls": Increment(a[2])} for m, a in _claude.items()}}
             data["claude_days"] = {day: {"in": Increment(sum(a[0] for a in _claude.values())), "out": Increment(sum(a[1] for a in _claude.values()))}}
+        act = fetch_actual()
+        if act and act[0] == "ok":
+            from google.cloud.firestore_v1 import DELETE_FIELD
+            v = act[1]
+            data["claude_actual"] = {v["month"]: {"usd": v["usd"], "to": v["to"], "at": v["at"]}}
+            data["claude_actual_err"] = DELETE_FIELD
+        elif act:
+            data["claude_actual_err"] = act[1]
         store.db().collection("meta").document("usage").set(data, merge=True)
-        log.info("사용량 기록: 실행 %d초 · Claude 호출 %d회", secs, sum(a[2] for a in _claude.values()))
+        log.info("사용량 기록: 실행 %d초 · Claude 호출 %d회 · 실제 청구액 %s", secs, sum(a[2] for a in _claude.values()),
+                 "키 없음" if not act else "받음" if act[0] == "ok" else f"실패({act[1]['msg']})")
     except Exception as e:
         log.warning("사용량 기록 실패: %s", type(e).__name__)

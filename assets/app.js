@@ -3241,6 +3241,10 @@ async function renderUsage(reload) {
   const aiEst = aiUsd, adj = +(u.claude_adj?.[m]?.usd || 0);
   aiUsd = Math.max(0, aiEst + adj);
   state.usageAi = { m, est: aiEst };
+  // 실제 청구액 (검사 프로그램이 Anthropic 사용량·비용 API 로 받아 둔 값 · 조직 전체): 있으면 추정·직접 맞춘 값 대신 이 금액
+  const act = u.claude_actual?.[m], actOk = act && isFinite(+act.usd), actErr = !actOk && u.claude_actual_err;
+  if (actOk) aiUsd = +act.usd;
+  $("#btnUsageFix").classList.toggle("hidden", !!actOk || !isSuper());
   // Firestore: 오늘 · 이번 달 (화면 + 검사 프로그램)
   const rd = (day) => (u.web_days?.[day]?.reads || 0) + (u.batch_days?.[day]?.reads || 0);
   const today = rd(d);
@@ -3254,7 +3258,7 @@ async function renderUsage(reload) {
   const md = (x) => `${+String(x).slice(5, 7)}/${+String(x).slice(8, 10)}`;
   $("#usagePeriod").textContent = `${md(m + "-01")} ~ ${md(d)}`;
   const aiFirst = Object.keys(u.claude_days || {}).filter((x) => x.startsWith(m)).sort()[0], adjAt = u.claude_adj?.[m]?.at;
-  const aiNote = adjAt ? `콘솔 금액 반영 ${md(adjAt)}` : aiFirst && aiFirst.slice(8, 10) !== "01" ? `${md(aiFirst)}부터 기록` : "";
+  const aiNote = actOk ? `실제 청구 · ${md(act.to)} ${String(act.to).slice(11, 16)}까지` : actErr ? `실제 청구액 조회 실패 · ${actErr.msg || ""}` : adjAt ? `콘솔 금액 반영 ${md(adjAt)}` : aiFirst && aiFirst.slice(8, 10) !== "01" ? `${md(aiFirst)}부터 기록` : "";
   const aiCalls = Object.entries(cm).map(([model, x]) => `${/sonnet/.test(model) ? "Sonnet" : /haiku/.test(model) ? "Haiku" : model} ${num(x.calls)}회`).join(" · ");
   const fsPct = Math.round((today / FS_FREE) * 100);
   // [이름, 설명(마우스를 올리면), 금액, 달러, 상태, 막대, 줄 1, 줄 2, 줄 1 강조, 실제 청구 화면]
