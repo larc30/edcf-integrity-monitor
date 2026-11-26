@@ -30,11 +30,11 @@ const LEVEL_DEF = {
   yellow: "기록만 남기는 이력: 1년 지난 제재와 처분(EXIMIIS '해지' 포함), 계열사가 받은 처분, 의혹과 고발, 소송과 분쟁, 중대재해와 부실시공, 재무 악화",
 };
 const levelTip = () => `<div class="tip-p">업체에 걸린 이슈 가운데 가장 높은 등급입니다.</div>
-  <div class="tip-grid lv"><span>${badge("red")}</span><span>지금 유효한 제재 (입찰 제한 · MDB · 기간 중 영업정지)</span>
-  <span>${badge("orange")}</span><span>제재로 이어질 수 있는 진행 중 사안 (수사 · 기소 · 과징금)</span>
+  <div class="tip-grid lv"><span>${badge("red")}</span><span>지금 유효한 제재<span class="tip-ex">입찰 제한 · MDB · 기간 중 영업정지</span></span>
+  <span>${badge("orange")}</span><span>제재로 이어질 수 있는 진행 중 사안<span class="tip-ex">수사 · 기소 · 과징금</span></span>
   <span>${badge("none")}</span><span>경고·주의 이슈 없음</span></div>
   <div class="tip-sep">등급이 아닌 표시 (기사에 붙음)</div>
-  <div class="tip-grid lv"><span>${badge("yellow")}</span><span>기록만 남기는 과거·간접 이력. 참고만 있는 업체는 정상</span></div>`;
+  <div class="tip-grid lv"><span>${badge("yellow")}</span><span>기록만 남기는 과거·간접 이력<span class="tip-ex">참고만 있는 업체는 정상</span></span></div>`;
 // i 버튼: 마우스를 올리거나 누르면 설명 (cls 'r' = 오른쪽 맞춤)
 const sumText = (f) => String(f?.summary || f?.title || "").replace(/^※[^.]*확인\.\s*/, "");
 const info = (html, cls = "") => `<span class="itip ${cls}" tabindex="0" role="note" aria-label="설명">i<span class="tip">${html}</span></span>`;
@@ -83,6 +83,7 @@ function toast(msg, ms = 2800) {
   clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), ms);
 }
 // 창: 닫기는 오른쪽 위 X 하나 (아래 버튼 줄에는 주 버튼만)
+const PENCIL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>`;
 const X_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
 function modal(html) {
   const m = $("#modal"); m.className = "modal"; m.innerHTML = html;
@@ -714,7 +715,7 @@ function renderHome() {
     : (tl[b.id].red - tl[a.id].red) || (tl[b.id].orange - tl[a.id].orange) || a.name.localeCompare(b.name));
   // 경고·주의 업체가 있는 사업만 카드로, 나머지는 '이상 없음 N' 아래 한 줄씩 (수원국 목록의 '변동 없음'과 같은 틀)
   const hotP = !sc ? psSorted : psSorted.filter((p) => tl[p.id].red + tl[p.id].orange), calmP = !sc ? [] : psSorted.filter((p) => !(tl[p.id].red + tl[p.id].orange));
-  $("#projectMap").innerHTML = ((sc && hotP.length ? `<div class="pj-sec">경고·주의 업체 있음 ${hotP.length}</div>` : "") + hotP.map((p) => projectRow(p)).join("") + (calmP.length ? `<div class="pj-sec">경고·주의 업체 없음 ${calmP.length}</div>` + calmP.map((p) => projectRow(p, true)).join("") : ""))
+  $("#projectMap").innerHTML = ((sc && hotP.length ? `<div class="pj-sec">리스크 업체 참여 ${hotP.length}</div>` : "") + hotP.map((p) => projectRow(p)).join("") + (calmP.length ? `<div class="pj-sec">이상 없음 ${calmP.length}</div>` + calmP.map((p) => projectRow(p, true)).join("") : ""))
     || `<div class="empty small">${scope === "mine" ? "내가 담당하는 사업이 없습니다." : "등록된 사업이 없습니다."}</div>`;
   // 사업이 적어 칸이 많이 남으면 칸을 내용 높이까지만 (많으면 이슈 목록 끝까지 채우고 안에서 스크롤)
   { const pl = $("#projectMap"), card = pl.closest(".d-projects"); card.classList.remove("fit"); requestAnimationFrame(() => { const last = pl.lastElementChild; card.classList.toggle("fit", !!last && pl.clientHeight > 0 && last.getBoundingClientRect().bottom - pl.getBoundingClientRect().top < pl.clientHeight - 60); }); }
@@ -824,10 +825,10 @@ function openOfficial(cs = scopeCompanies()) {
 }
 function showMdbKorea(back) {
   const mk = state.mdbKorea || {};
-  modal(`<h2>MDB 한국 국적 제재 기업 <span class="count">${mk.count || 0}</span></h2>
+  modal(`${back ? `<button type="button" class="d-back" id="mkBack">← 공식 제재 명단</button>` : ""}<h2>MDB 한국 국적 제재 기업 <span class="count">${mk.count || 0}</span></h2>
     <p class="muted small">MDB 제재 리스트에서 국적이 한국인 기업 · ${esc(mk.at || "")} 기준</p>
     ${mk.items?.length ? `<div class="mk-list">${mk.items.map((e) => `<a class="mk-row" href="${esc(e.url)}" target="_blank" rel="noopener" title="${esc(e.sanctions || "")}"><span>${esc(e.name)}</span><span class="ds">${esc(MDB_NAME[e.dataset] || e.dataset)} ↗</span></a>`).join("")}</div>` : `<div class="empty">현재 한국 국적 제재 기업이 없습니다.</div>`}`);
-  if (back) $("#modalClose").onclick = back;
+  if (back) $("#mkBack").onclick = back;
 }
 const MDB_NAME = { worldbank_debarred: "World Bank", adb_sanctions: "ADB", afdb_sanctions: "AfDB", iadb_sanctions: "IDB", ebrd_ineligible: "EBRD" };
 
@@ -1791,6 +1792,7 @@ const CO_VIEWS = [
   ["open", "미확인 이슈", "'관련 있음·관련 없음' 처리 전 이슈가 있는 업체"],
   ["info", "정보 보완 필요", "사업자번호 또는 영문명이 없어 조회가 불완전한 업체"],
 ];
+const mailOk = (s) => /^[a-z0-9._%+-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/i.test(s) && !/\.\./.test(s); // 메일 주소 모양 (브라우저 기본 검사는 'a@b'도 통과)
 const needInfo = (c) => (c.country === "KR" && !c.biz_no) || !c.name_en;
 // 사업자번호는 업체마다 하나 (같은 번호 두 업체 금지). 해외 업체는 사업자번호 없이 영문명·국가로 구분
 const bizDigits = (b) => String(b || "").replace(/\D/g, "");
@@ -1839,7 +1841,7 @@ function renderCompanies() {
   keep("#fProj", `<option value="">사업 전체</option><option value="__none">사업 미연결</option>` + projOptions(live)
     + (state.projects.some((p) => !live(p)) ? `<optgroup label="완료된 사업">${state.projects.filter((p) => !live(p)).sort((x, y) => x.name.localeCompare(y.name, "ko")).map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</optgroup>` : ""));
   keep("#fCat", `<option value="">업종 전체</option>` + CATS.map((k) => `<option value="${k}">${k}</option>`).join(""));
-  $("#coViews").innerHTML = CO_VIEWS.map(([k, l, d]) => `<button data-v="${k}" class="cv-btn ${k} ${k === coState.view ? "active" : ""}" title="${d}">${l}<span class="n">${state.companies.filter((c) => inView(c, k)).length}</span></button>`).join("");
+  $("#coViews").innerHTML = CO_VIEWS.filter(([k]) => k !== "open" || k === coState.view || state.companies.some((c) => inView(c, k))).map(([k, l, d]) => `<button data-v="${k}" class="cv-btn ${k} ${k === coState.view ? "active" : ""}" title="${d}">${l}<span class="n">${state.companies.filter((c) => inView(c, k)).length}</span></button>`).join("");
   $$("#coViews button").forEach((b) => b.onclick = () => { coState.view = b.dataset.v; renderCompanies(); });
 
   const list = state.companies.filter(poolMatches).sort((a, b) => CO_SORT[coState.sort](a, b) * coState.dir);
@@ -1848,7 +1850,7 @@ function renderCompanies() {
   // 상세 필터(역할·단계·국내해외): 평소에는 접어 두고, 고른 것이 있으면 펼친 채로 개수 표시
   { const n = CO_MORE.filter((id) => $(id).value).length, btn = $("#fMoreBtn"), open = n > 0 || btn.getAttribute("aria-expanded") === "true";
     $("#fMore").classList.toggle("hidden", !open); btn.classList.toggle("on", open); btn.innerHTML = `${FILTER_IC}<span>상세 필터</span>${n ? `<b class="fn">${n}</b>` : ""}<i class="chev">${open ? "▴" : "▾"}</i>`; }
-  $("#poolShown").textContent = list.length === state.companies.length ? "" : `${state.companies.length}개 중 ${list.length}개`;
+  $("#poolShown").textContent = "";
   $$("#coTable th[data-sort]").forEach((th) => { th.classList.toggle("on", th.dataset.sort === coState.sort); th.classList.toggle("desc", th.dataset.sort === coState.sort && coState.dir < 0); });
   const engChip = (e) => `<span class="ej" title="${esc(projName(e.project_id))} · ${esc(e.role)} · ${esc(e.stage || "계약")}">${roleTag(e.role)}<span class="ej-p">${esc(projName(e.project_id))}</span>${stageTag(e)}</span>`;
   $("#pool").innerHTML = !list.length ? `<tr><td colspan="9" class="empty">${state.companies.length ? "조건에 맞는 업체가 없습니다." : "업체가 없습니다. [일괄 등록] 또는 [+ 업체 추가]를 이용하세요."}</td></tr>`
@@ -1919,7 +1921,7 @@ function pjListRow(p, sc) {
       <span class="pl-team">${esc(teamName(p.team))}</span>
       <span class="pl-roles">${ROLES.map((r) => `<span class="${n[r] ? "" : "zero"}">${roleTag(r)}<b>${n[r] || 0}</b></span>`).join("")}</span>
       <span class="pl-risk pj-sum">${!cs.size ? "" : sc ? (["red", "orange"].filter((lv) => t[lv]).map((lv) => `<span class="${lv}">${LEVEL[lv]} ${t[lv]}</span>`).join("") || `<span class="ok">이상 없음</span>`) : ""}</span>
-      <span class="pl-act">${canEditProject(p) ? `<button type="button" class="btn sm" data-edit-proj="${p.id}">수정</button>` : ""}</span>
+      <span class="pl-act">${canEditProject(p) ? `<button type="button" class="pl-edit" data-edit-proj="${p.id}" title="수정" aria-label="${esc(p.name)} 수정">${PENCIL}</button>` : ""}</span>
       <span class="pl-caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
     </div>
     ${open ? projectCard(p, sc) : ""}
@@ -2851,8 +2853,9 @@ $("#btnBulk").onclick = () => {
 
 $("#rcForm").onsubmit = async (ev) => {
   ev.preventDefault();
-  const email = ev.target.email.value.trim();
-  if (state.recipients.some((r) => r.email === email)) return toast("이미 등록된 주소입니다");
+  const email = ev.target.email.value.trim().toLowerCase();
+  if (!mailOk(email)) { ev.target.email.focus(); return toast("메일 주소를 확인하세요"); }
+  if (state.recipients.some((r) => String(r.email).toLowerCase() === email)) return toast("이미 등록된 주소입니다");
   const data = { email, active: true };
   const ref = await addDoc(collection(db, "recipients"), data);
   state.recipients.push({ id: ref.id, ...data });
@@ -3005,7 +3008,7 @@ function openEdcfOld() {
   $("#edcfPaste").onclick = openEdcfPaste;
 }
 function openEdcfPaste() {
-  modal(`<h2>EDCF 부정당업자 명단 붙여넣기</h2>
+  modal(`<button type="button" class="d-back" id="edcfBack">← 공식 제재 명단</button><h2>EDCF 부정당업자 명단 붙여넣기</h2>
     <p class="muted small">EXIMIIS 엑셀에서 <b>제목 줄(업체명, 상태, 제재기간 …)부터</b> 표 전체를 복사해 붙여넣으세요.</p>
     <textarea id="edcfText" placeholder="엑셀 표를 제목 줄부터 복사해 붙여넣으세요.
 복사가 막히면 쉼표로 직접 입력해도 됩니다 (제목 줄 필수, 예시는 가상 데이터):
@@ -3013,7 +3016,7 @@ function openEdcfPaste() {
 업체명, 상태, 제재기간, 사업자번호
 도레온건설, 등록, 2026.01.01 ~ 2027.12.31, 000-00-00000"></textarea>
     <div class="actions"><button class="btn primary" id="edcfParse">확인</button></div>`);
-  $("#modalClose").onclick = () => openOfficial();
+  $("#edcfBack").onclick = () => openOfficial();
   $("#edcfParse").onclick = () => {
     try {
       const list = rowsToEdcf($("#edcfText").value.split(/\r?\n/).map((l) => l.split(l.includes("\t") ? "\t" : l.includes("|") ? "|" : ",").map((x) => x.trim())));
@@ -3074,7 +3077,7 @@ function renderAccess() {
   const html = rows.map((u) => `<div class="lst-row acc${u.id === me() ? " me" : ""}"><span class="lst-m" title="${esc(u.id)}">${esc(u.id)}${u.id === me() ? `<em>나</em>` : ""}</span>${teamCell(u)}${roleCell(u)}<span class="lst-x">${canEditUser(u) ? `<button class="xbtn" data-del-acc="${esc(u.id)}" title="삭제">✕</button>` : ""}</span></div>`).join("");
   $("#accCount").textContent = users.length;
   // 팀원은 있는데 팀 관리자가 없는 팀 (팀당 1명 권장)
-  const noAdmin = Object.keys(TEAMS).filter((k) => users.some((u) => u.team === k && u.role === "member") && !users.some((u) => u.team === k && u.role === "admin"));
+  const noAdmin = Object.keys(TEAMS).filter((k) => users.some((u) => u.team === k && u.role === "member") && !users.some((u) => u.team === k && (u.role === "admin" || u.role === "super" || isSuperMail(u.id))));
   $("#accWarn").textContent = noAdmin.length ? `팀 관리자 없음 · ${noAdmin.map((k) => TEAMS[k]).join(", ")}` : "";
   $("#accWarn").classList.toggle("hidden", !noAdmin.length || !isSuper());
   $("#accList").innerHTML = html || `<div class="lst-empty">맞는 계정이 없습니다</div>`;
@@ -3111,7 +3114,9 @@ async function saveUser(email, patch) {
 $("#accForm").onsubmit = async (ev) => {
   ev.preventDefault();
   const f = ev.target, email = f.email.value.trim().toLowerCase();
+  if (!mailOk(email)) { f.email.focus(); return toast("메일 주소를 확인하세요"); }
   if (!email || isSuperMail(email) || state.users.some((u) => u.id === email)) return toast("이미 있는 계정입니다");
+  if (!/@gmail\.com$/.test(email) && !confirm(`${email}\ngmail.com 주소가 아닙니다. 이 주소로 만든 Google 계정이 있어야 로그인할 수 있습니다.\n\n추가할까요?`)) return;
   const team = isSuper() ? (f.team.value || null) : myTeam(), role = isSuper() ? f.role.value : "member";
   await saveUser(email, { team, role, added_by: me(), added_at: nowStr() });
   f.email.value = ""; toast(`${email} 추가 (${teamName(team)} ${ROLE_L[role]}): 그 계정으로 Google 로그인하면 들어올 수 있습니다`, 5000);
@@ -3245,19 +3250,24 @@ async function renderUsage(reload) {
   const loads = u.web?.[m]?.loads || 0;
   // GitHub Actions
   const ac = u.actions?.[m] || {};
+  // 기간: 이번 달 1일 ~ 오늘. Claude 는 기록이 시작된 날이 1일보다 늦으면 그 날을, 콘솔 금액에 맞췄으면 맞춘 날을 보여 줌
+  const md = (x) => `${+String(x).slice(5, 7)}/${+String(x).slice(8, 10)}`;
+  $("#usagePeriod").textContent = `${md(m + "-01")} ~ ${md(d)}`;
+  const aiFirst = Object.keys(u.claude_days || {}).filter((x) => x.startsWith(m)).sort()[0], adjAt = u.claude_adj?.[m]?.at;
+  const aiNote = adjAt ? `콘솔 금액 반영 ${md(adjAt)}` : aiFirst && aiFirst.slice(8, 10) !== "01" ? `${md(aiFirst)}부터 기록` : "";
+  const aiCalls = Object.entries(cm).map(([model, x]) => `${/sonnet/.test(model) ? "Sonnet" : /haiku/.test(model) ? "Haiku" : model} ${num(x.calls)}회`).join(" · ");
+  const fsPct = Math.round((today / FS_FREE) * 100);
+  // [이름, 설명(마우스를 올리면), 금액, 달러, 상태, 막대, 줄 1, 줄 2, 줄 1 강조, 실제 청구 화면]
   const rows = [
-    ["Claude AI", "기사 판정 (Haiku · 경고·주의만 Sonnet 재검토) · 막대는 월 3만 원 기준", aiParts.join(" · ") || "이번 달 기록 없음", aiUsd ? `${won(aiUsd)} ($${aiUsd.toFixed(2)})` : "0원", aiUsd * KRW >= WARN_KRW ? "warn" : "ok", bar(aiUsd * KRW, WARN_KRW), "https://console.anthropic.com/settings/usage"],
-    ["Firebase DB", "읽기 · 하루 5만 건까지 무료 · 막대는 오늘 읽기", `오늘 ${num(today)}건 · 이번 달 ${num(fsMonth)}건 · 화면 열기 ${num(loads)}회`, fsUsd ? won(fsUsd) : "0원", today > FS_FREE * 0.8 ? "warn" : "ok", bar(today, FS_FREE), "https://console.firebase.google.com/project/edcf-monitor/usage"],
-    ["Firebase 함수", "[지금 스캔] 즉시 실행 · 월 200만 회 무료", "요청이 있을 때만 실행", "0원", "ok", ""],
-    ["GitHub Actions", "검사 실행 · 공개 저장소 무료 (비공개면 월 2,000분 무료)", `${num(ac.runs)}회 · 약 ${num(ac.minutes)}분`, "0원", "ok", bar(ac.minutes || 0, 2000)],
-    ["Apps Script · Gmail", "예비 실행 · 메일 발송", "Google 계정 무료 한도 안", "0원", "ok", ""],
+    ["Claude AI", `기사 판정 (Haiku · 경고·주의만 Sonnet 재검토) · 막대는 월 3만 원 기준${aiParts.length ? " · " + aiParts.join(" · ") : ""}`, aiUsd ? won(aiUsd) : "0원", aiUsd ? `$${aiUsd.toFixed(2)}` : "", aiUsd * KRW >= WARN_KRW ? "warn" : "ok", bar(aiUsd * KRW, WARN_KRW), aiCalls || "이번 달 기록 없음", aiNote, false, "https://console.anthropic.com/settings/usage"],
+    ["Firebase DB", "읽기 · 하루 5만 건까지 무료 · 막대는 오늘 읽기", fsUsd ? won(fsUsd) : "0원", "", today > FS_FREE * 0.8 ? "warn" : "ok", bar(today, FS_FREE), `오늘 ${num(today)} / ${num(FS_FREE)}건${today > FS_FREE * 0.8 ? ` (${fsPct}%)` : ""}`, `이번 달 ${num(fsMonth)}건 · 화면 열기 ${num(loads)}회`, today > FS_FREE * 0.8, "https://console.firebase.google.com/project/edcf-monitor/usage"],
+    ["GitHub Actions", "검사 실행 · 공개 저장소 무료 (비공개면 월 2,000분 무료)", "0원", "", "ok", bar(ac.minutes || 0, 2000), `${num(ac.runs)}회 · 약 ${num(ac.minutes)}분`, "", false],
   ];
-  const BADGE = { ok: `<span class="badge none">정상</span>`, warn: `<span class="badge yellow">확인 필요</span>` };
   const total = aiUsd + fsUsd;
   // 돈이 나가는 것(Claude)과 무료 한도를 봐야 하는 것(Firebase 읽기)만. 0원인 항목은 주의가 필요할 때만
-  const shown = rows.filter(([k, , , amt, stt]) => k === "Claude AI" || k === "Firebase DB" || amt !== "0원" || stt !== "ok");
-  $("#usageList").innerHTML = `<div class="u-total"><span>합계</span><b>${total ? won(total) : "0원"}</b></div>`
-    + shown.map(([k, role, dd, amt, stt, b, link]) => `<div class="conn" title="${esc(role)}"><div class="ct"><div class="k">${k}${link ? `<a class="u-link" href="${link}" target="_blank" rel="noopener" title="실제 청구 화면">실제 사용량 ↗</a>` : ""}</div><div class="d">${esc(dd)}${b}</div></div><div class="cs"><b class="amt">${amt}</b>${stt === "ok" ? "" : BADGE[stt]}</div></div>`).join("");
+  const shown = rows.filter(([k, , amt, , stt]) => k === "Claude AI" || k === "Firebase DB" || amt !== "0원" || stt !== "ok");
+  $("#usageList").innerHTML = `<div class="ut-grid"><div class="ut total"><div class="ut-h"><b>합계</b></div><div class="ut-amt">${total ? won(total) : "0원"}${total ? `<small>$${total.toFixed(2)}</small>` : ""}</div></div>`
+    + shown.map(([k, role, amt, usd, stt, b, l1, l2, hot, link]) => `<div class="ut ${stt}" title="${esc(role)}"><div class="ut-h"><b>${k}</b>${link ? `<a class="u-link" href="${link}" target="_blank" rel="noopener" title="실제 청구 화면">실제 사용량 ↗</a>` : ""}</div><div class="ut-amt">${amt}${usd ? `<small>${usd}</small>` : ""}</div>${b}<div class="ut-d${hot ? " hot" : ""}">${esc(l1)}</div>${l2 ? `<div class="ut-d">${esc(l2)}</div>` : ""}</div>`).join("") + `</div>`;
 }
 $("#btnUsage").onclick = () => renderUsage(true);
 // 실제 금액 맞추기: Anthropic 콘솔의 '이번 달 지출'을 적으면, 기록으로 계산한 금액과의 차이를 저장해 이후 표시에 더함
