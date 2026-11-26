@@ -978,7 +978,7 @@ const GUIDE_HTML = `
       <section class="gd3-s g4"><h3>이슈 처리 버튼</h3>
         <div class="gd3-list">
           <div class="gd3-r"><span>${GUIDE_CHIP.ok}</span><p>이 업체 이야기가 맞음 · 등급 유지</p></div>
-          <div class="gd3-r"><span>${GUIDE_CHIP.no}</span><p>이 업체 이야기가 아님 · 등급에서 빠짐</p></div>
+          <div class="gd3-r"><span>${GUIDE_CHIP.no}</span><p>이 업체 이야기가 아님 · 등급 제외</p></div>
           <div class="gd3-r"><span><span class="ga">되돌리기</span></span><p>처리 전으로 돌아감</p></div>
           <div class="gd3-r"><span><span class="ga">후속 기사</span></span><p>자동 처리 · 등급이 오르면 다시 뜸</p></div>
         </div>
@@ -989,18 +989,24 @@ const GUIDE_HTML = `
     </div>
     <div class="gd3-col wide">
       <section class="gd3-s grow"><h3>상황별 판단</h3>
-        <div class="gd3-list">${GUIDE_CASES.map(([q, v, a]) => `<div class="gd3-c"><b>${q}</b><span>${GUIDE_CHIP[v]}</span><p>${a}</p></div>`).join("")}</div>
+        <div class="gd3-list">${GUIDE_CASES.map(([q, v, a]) => `<div class="gd3-c" data-gv="${v}"><b>${q}</b><span>${GUIDE_CHIP[v]}</span><p>${a}</p></div>`).join("")}</div>
       </section>
     </div>
   </div>
 </div>`;
-const GUIDE_PRINT_CSS = `body{font-family:'Pretendard','Malgun Gothic',sans-serif;color:#0B1220;margin:12mm;font-size:11px;line-height:1.5;word-break:keep-all}h1{font-size:19px;margin:0 0 6px}
-.gd3-lead{margin:0 0 10px;padding:7px 12px;border-radius:8px;background:#EEF0FE}h3{font-size:13px;margin:0 0 6px}section{margin-bottom:12px}p{margin:0}b{font-weight:700}
-.gd3-lv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.gd3-t{border:1px solid #DCE1EC;border-radius:8px;padding:8px 10px}.gd3-th{display:flex;gap:6px;align-items:center;margin-bottom:3px}
-.gd3-cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 12px}.gd3-col.wide{grid-column:2/4}.gd3-r,.gd3-c{display:grid;gap:8px;padding:5px 2px;border-bottom:1px solid #E3E7EF;align-items:center}.gd3-r{grid-template-columns:6.4em 1fr}.gd3-c{grid-template-columns:15em 6.4em 1fr}.gd3-k{border:1px solid #DCE1EC;border-radius:8px;padding:6px 10px;margin-bottom:5px}.gd3-k b{display:block;margin-bottom:2px}
-.gd3-rs span{display:inline-block;margin:3px 4px 0 0;padding:0 6px;border-radius:5px;background:#EEF1F6}i{font-style:normal;color:#64748B;margin:0 2px 0 6px}em{font-style:normal;font-weight:700}em.ok{color:#0D9488}em.no,em.red{color:#D92D20}em.orange{color:#C2570A}
-.ga{display:inline-block;padding:0 7px;border-radius:6px;border:1px solid #CBD2E0;font-weight:700;white-space:nowrap}.ga.ok{color:#0D9488;border-color:#0D9488}.ga.no{color:#D92D20;border-color:#D92D20}
-.badge{display:inline-block;padding:0 8px;border-radius:9px;font-weight:700;font-size:11px;white-space:nowrap}.badge.red{background:#D92D20;color:#fff}.badge.orange{background:#F57C00;color:#2B1400}.badge.none{background:#E2E8F0;color:#475569}@page{size:A4;margin:0}`;
+// 인쇄용 (A4 가로 한 장): 덩어리마다 테두리 상자 + 머리 띠, 상황별 판단은 관련 없음 묶음과 관련 있음 묶음 사이에 굵은 선 · 배지·칩 색도 그대로 찍히게(print-color-adjust)
+const GUIDE_PRINT_CSS = `*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Pretendard','Malgun Gothic',sans-serif;color:#0B1220;margin:11mm 12mm;font-size:13px;line-height:1.45;word-break:keep-all}h1{font-size:21px;margin:0 0 9px}
+p{margin:0;color:#334155}b{font-weight:700;color:#0B1220}.gd3-lead{margin:0 0 10px;padding:7px 12px;border-radius:8px;background:#EEF0FE;color:#0B1220}
+section{border:1px solid #CBD3E1;border-radius:10px;overflow:hidden;break-inside:avoid}h3{font-size:14px;margin:0;padding:7px 12px;background:#EEF1F7;border-bottom:1px solid #CBD3E1}
+.gd3-lv{display:grid;grid-template-columns:repeat(3,1fr)}.gd3-t{padding:9px 12px;border-left:1px solid #E1E6EF}.gd3-t:first-child{border-left:0}.gd3-th{display:flex;gap:7px;align-items:center;margin-bottom:3px}
+.gd3-cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}.gd3-col{display:flex;flex-direction:column;gap:10px;min-width:0}.gd3-col.wide{grid-column:2/4}
+.gd3-col .gd3-s{display:flex;flex-direction:column}.gd3-col .gd3-s.g5,.gd3-col .gd3-s.grow{flex:1 1 auto}.gd3-col .gd3-list{flex:1 1 auto;display:grid;align-content:stretch}
+.gd3-r,.gd3-c{display:grid;gap:10px;align-items:center;padding:7px 12px;border-top:1px solid #E7EBF2}.gd3-r:first-child,.gd3-c:first-child{border-top:0}
+.gd3-r{grid-template-columns:6.4em minmax(0,1fr)}.gd3-c{grid-template-columns:17.5em 6.4em minmax(0,1fr)}.gd3-c[data-gv="no"]+.gd3-c[data-gv="ok"]{border-top:2px solid #B4BECF}
+i{font-style:normal;color:#64748B;margin:0 2px 0 6px}em{font-style:normal;font-weight:700}em.ok{color:#0D9488}em.no,em.red{color:#D92D20}em.orange{color:#C2570A}
+.ga{display:inline-block;padding:1px 8px;border-radius:6px;background:#EEF1F6;color:#334155;font-size:12px;font-weight:700;white-space:nowrap}.ga.ok{background:#DDF3F0;color:#0B7A70}.ga.no{background:#FBE3E1;color:#C4261A}
+.badge{display:inline-block;padding:1px 9px;border-radius:999px;font-weight:700;font-size:12px;white-space:nowrap}.badge.red{background:#D92D20;color:#fff}.badge.orange{background:#F57C00;color:#2B1400}.badge.none{background:#D7F0E6;color:#0B7A55}@page{size:A4 landscape;margin:0}`;
 function openGuide() {
   try { localStorage.setItem("edcf_guide_seen", "1"); } catch {}
   $("#guideNew")?.remove();
