@@ -2993,3 +2993,9 @@ body.viewer #geoOnly { display: none; }
 .gd3 .ga.no { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red); }
 @media (max-width: 900px) { .gd3-lv, .gd3-cols { grid-template-columns: minmax(0, 1fr); } .gd3-cols { gap: 18px 0; } .gd3-c { grid-template-columns: minmax(0, 1fr) auto; } .gd3-c > p { grid-column: 1 / -1; } }
 .gd3-c > p > i:first-child { margin-left: 0; }
+/* 판단 가이드: 위 등급 세 칸과 아래 두 칸이 같은 세로 줄에 서게 (같은 3칸 격자 · 왼쪽 = 첫 칸, 오른쪽 = 둘째 + 셋째 칸) */
+.gd3-lv { gap: 16px; }
+.gd3-cols { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 16px; }
+.gd3-cols > .gd3-col:last-child { grid-column: 2 / 4; }
+.gd3-t { border-radius: 10px; }
+@media (max-width: 900px) { .gd3-cols { grid-template-columns: minmax(0, 1fr); gap: 18px 0; } .gd3-cols > .gd3-col:last-child { grid-column: auto; } }
