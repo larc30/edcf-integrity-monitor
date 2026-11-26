@@ -2868,3 +2868,15 @@ body.viewer #geoOnly { display: none; }
 .modal .form .row { gap: 14px 12px; }
 .modal .form label:not(.mini-check):not(.check), .modal .form .fld { gap: 6px; }
 .modal .dl-row { gap: 12px; } /* 업체명 칸과 [DART 검색] 사이 = 칸 사이 간격 */
+/* ===== 사업 등록·수정 창 줄 맞춤 (2026-11-26): 줄 사이 14px(다른 팝업과 같게) · 지도 아래 끝 = 마지막 입력칸 아래 끝 · '사업 완료' 체크 칸은 왼쪽 끝에 ===== */
+.pjf-l, .pjf-r { gap: 14px; }
+.pjf .pjf-done { height: var(--h-s); padding-top: 0; box-sizing: border-box; }
+.pjf .pjf-done input { margin-left: 0; }
+.pjf .site-f { min-height: var(--h-s); }
+/* 세 자리 사업 번호 (2026-11-26): 목록의 번호 칸은 같은 폭 알약으로, 지도 핀은 글자를 조금 작게 */
+#geoProjects.n3 .gp-no { width: 30px; border-radius: 999px; font-variant-numeric: tabular-nums; }
+.gpin.n3 span { font-size: 10.5px; letter-spacing: -.03em; }
+.pjf .pjf-done input { margin: 0; }
+.pjf .pjf-done { gap: 8px; }
+.pjf label.pjf-done { display: flex; flex-direction: row; align-items: center; line-height: 1; }
+.modal .form.pjf label.pjf-done input { margin: 0; top: 0; transform: none; }

@@ -1893,11 +1893,13 @@ function renderProjects() {
   // 상태(진행 중·완료·전체)와 수원국으로 거름: 팀 탭의 숫자도 고른 조건에 맞춰 셈
   const stOk = (p) => pjState.status === "all" || (pjState.status === "done") === !live(p);
   const ctrys = [...new Set(state.projects.filter(stOk).map((p) => p.country).filter(Boolean))].sort((a, b) => (COUNTRY[a] || a).localeCompare(COUNTRY[b] || b, "ko"));
-  if (pjState.country && !ctrys.includes(pjState.country)) pjState.country = "";
-  const base = state.projects.filter((p) => stOk(p) && (!pjState.country || p.country === pjState.country));
+  const noC = (p) => !p.country || !COUNTRY[p.country], noCN = state.projects.filter((p) => stOk(p) && noC(p)).length; // 수원국이 비어 있는 사업 (일괄 등록 등으로 생김)
+  if (pjState.country && pjState.country !== "_none" && !ctrys.includes(pjState.country)) pjState.country = "";
+  if (pjState.country === "_none" && !noCN) pjState.country = "";
+  const base = state.projects.filter((p) => stOk(p) && (!pjState.country || (pjState.country === "_none" ? noC(p) : p.country === pjState.country)));
   const doneN = state.projects.filter((p) => !live(p)).length;
   $("#pjStatus").innerHTML = [["live", `진행 중 ${state.projects.length - doneN}`], ["done", `완료 ${doneN}`], ["all", `전체 ${state.projects.length}`]].map(([k, l]) => `<option value="${k}" ${pjState.status === k ? "selected" : ""}>${l}</option>`).join("");
-  $("#pjCountry").innerHTML = `<option value="">수원국 전체</option>` + ctrys.map((c) => `<option value="${c}" ${pjState.country === c ? "selected" : ""}>${esc(COUNTRY[c] || c)}</option>`).join("");
+  $("#pjCountry").innerHTML = `<option value="">수원국 전체</option>` + (noCN ? `<option value="_none" ${pjState.country === "_none" ? "selected" : ""}>수원국 없음 ${noCN}</option>` : "") + ctrys.map((c) => `<option value="${c}" ${pjState.country === c ? "selected" : ""}>${esc(COUNTRY[c] || c)}</option>`).join("");
   const mineN = base.filter(isMine).length;
   // 슈퍼관리자는 모든 팀을 따로 볼 수 있음 · 그 밖은 전체와 우리 팀
   const scopeTabs = isSuper() ? [["all", "전체", base.length], ...Object.entries(TEAMS).map(([k, l]) => ["t:" + k, l, base.filter((p) => p.team === k).length])]
@@ -2182,6 +2184,7 @@ function openProjectEdit(pid) {
     const name = String(fd.name || "").trim();
     if (!name) return;
     if (state.projects.some((x) => x.id !== pid && x.name === name)) return toast("같은 이름의 사업이 이미 있습니다");
+    if (!fd.country) { f0.country.focus(); return toast("수원국을 고르세요"); }
     const off = site.lat != null && fd.country ? await siteMismatch(fd.country, [site.lat, site.lng]) : null;
     if (off && !confirm(`사업지 핀이 ${COUNTRY[fd.country] || fd.country} 밖에 있는 것 같습니다${off.near ? ` (${off.near} 쪽)` : ""}.\n\n그대로 저장할까요?`)) return;
     const team = isSuper() ? (fd.team || null) : myTeam();
