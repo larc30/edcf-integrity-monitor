@@ -572,11 +572,15 @@ def _load_guide(dis: list[str], conf: list[str], refresh: bool) -> str:
     auto = g.get("auto") or ""
     n = len(dis) + len(conf)
     if (refresh and config.ANTHROPIC_API_KEY and not analyzer.CLAUDE_ERROR and n >= 5
-            and _days_since(g.get("auto_at")) >= 7 and n != g.get("auto_n")):
+            and (not auto or (_days_since(g.get("auto_at")) >= 7 and n != g.get("auto_n")))):  # 지침이 비어 있으면 주 1회를 기다리지 않고 다시 만듦
         try:
-            auto = analyzer.summarize_guide(dis[:60], conf[:60], auto) or auto
-            store.update("meta", "ai_guide", {"auto": auto, "auto_at": store.now_str(), "auto_n": n})
-            log.info("판정 지침 갱신: 사례 %d건 → %d줄", n, len(auto.splitlines()))
+            made = analyzer.summarize_guide(dis[:60], conf[:60], auto)
+            if made:
+                auto = made
+                store.update("meta", "ai_guide", {"auto": auto, "auto_at": store.now_str(), "auto_n": n})
+                log.info("판정 지침 갱신: 사례 %d건 → %d줄", n, len(auto.splitlines()))
+            else:  # 빈 결과는 적지 않음: 예전에는 빈 값을 '갱신함'으로 적어 일주일 동안 지침 없이 판정했음
+                log.warning("판정 지침 갱신: 요약이 비어 있음 (사례 %d건) · 다음 스캔 때 다시", n)
         except Exception as e:
             log.warning("판정 지침 갱신 실패: %s", type(e).__name__)
     return auto.strip()  # 직접 적는 칸은 없앰 (2026-11-12): AI가 정리한 기준만

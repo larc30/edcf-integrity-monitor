@@ -241,16 +241,21 @@
         </div>
         <div class="card mail-card super-only">
           <div class="card-head"><h2>메일 받는 사람 <span class="count" id="rcCount">0</span></h2><div class="head-actions"><button class="btn sm primary" id="btnPreview" title="내일 아침 갈 메일을 미리 보고, 테스트로 받아 보거나 지금 보낼 수 있습니다">미리보기 · 보내기</button></div></div>
-          <form id="rcForm" class="add-row"><input name="email" type="email" placeholder="받는 사람 이메일" required><button class="btn">추가</button></form>
-          <div id="rcList" class="simple-list"></div>
+          <div class="lst-box">
+            <form id="rcForm" class="lst-row rc add"><input name="email" type="email" placeholder="받는 사람 이메일" required><button class="btn">추가</button></form>
+            <div id="rcList"></div>
+          </div>
         </div>
         </div>
         <div class="set-side">
         <div class="card acc-card">
-          <div class="card-head"><h2>계정·권한</h2></div>
-          <form id="accForm" class="add-row acc-form"><input name="email" type="email" placeholder="추가할 Google 계정" required><select name="team"></select><select name="role"></select><button class="btn">추가</button></form>
+          <div class="card-head"><h2>계정·권한 <span class="count" id="accCount">0</span></h2><span class="acc-warn hidden" id="accWarn"></span></div>
           <div id="accTools" class="acc-tools"></div>
-          <div id="accList" class="simple-list acc-list"></div>
+          <div class="lst-box">
+            <div class="lst-h acc"><span>계정</span><span>팀</span><span>권한</span><span></span></div>
+            <form id="accForm" class="lst-row acc add"><input name="email" type="email" placeholder="추가할 Google 계정" required><select name="team" aria-label="팀"></select><select name="role" aria-label="권한"></select><button class="btn">추가</button></form>
+          <div id="accList"></div>
+          </div>
         </div>
         </div>
       </div>

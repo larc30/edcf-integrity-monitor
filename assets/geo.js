@@ -383,11 +383,13 @@ export async function renderGeo(opt = {}) {
     const show = open ? xs : [];
     const zr = zoneRows(a), zTip = zr.map((z) => z.join(" ")).join(" / ");
     const chips = `${same ? siteChip(xs[0].r.site, zTip) : ""}${isSpecial(a) ? `<span class="alert-chip sp"${a.special_text ? ` title="${esc(a.special_text)}"` : ""}>특별여행주의보</span>` : ""}`;
-    const basis = open && (zr.length > 1 || (isSpecial(a) && a.special_text)) ? `<div class="gc-al">${zr.length > 1 ? zr.map(([k, v]) => `<div><b>${k}</b><span>${esc(short(v, 90))}</span></div>`).join("") : ""}${isSpecial(a) && a.special_text ? `<div><b>특별</b><span>${esc(short(a.special_text, 90))}</span></div>` : ""}</div>` : "";
+    const showZ = zr.length > 1 || alertZones(a).zones.some((z) => z.text && !z.rest);
+    const basis = open && (showZ || (isSpecial(a) && a.special_text)) ? `<div class="gc-al">${showZ ? zr.map(([k, v]) => `<div><b>${k}</b><span>${esc(short(v, 90))}</span></div>`).join("") : ""}${isSpecial(a) && a.special_text ? `<div><b>특별</b><span>${esc(short(a.special_text, 90))}</span></div>` : ""}</div>` : "";
     return `<div class="gc ${risk[c].lv} ${mv ? "" : "calm"} ${open ? "open" : ""}">
       <div class="gc-h" data-gc="${c}" role="button" tabindex="0"><b class="gc-n">${esc(cname(c))}</b>${chips}${newN[c] ? `<span class="gc-new">새 사건 ${newN[c]}</span>` : ""}${(chg[c] || []).map((x) => `<span class="gc-new" title="${ymd(x.at_ms)}">${esc(chgText(x))}</span>`).join("")}<span class="gc-cnt">사업 ${xs.length}</span><span class="badge ${risk[c].lv}">${LEVEL[risk[c].lv]}</span></div>
       ${show.length ? `<div class="gc-ps">${basis}${show.map((x) => pRow(x, same)).join("")}</div>` : ""}</div>`;
   };
+  $("#geoProjects").classList.toggle("n3", pins.length >= 100);
   $("#geoProjects").innerHTML = cOrder.map((c) => cCard(c, moved(c))).join("")
     || `<div class="empty small">${scope === "mine" ? "우리 팀 사업이 없습니다." : "등록된 사업이 없습니다."}</div>`;
   $$("#geoProjects [data-co]").forEach((el) => el.onclick = (e) => { e.stopPropagation(); ctx.openCompany?.(el.dataset.co); });
@@ -701,7 +703,7 @@ function drawPins() {
       const dim = f && f.p.id !== p.id, dx = sp.dx[p.id] || 0;
       const side = pins.some((o, k) => k < idx && o.pt && Math.abs(o.pt.ll[0] - pt.ll[0]) < 4 && o.pt.ll[1] > pt.ll[1] - 1 && o.pt.ll[1] - pt.ll[1] < 12) ? "l" : "r"; // 오른쪽 가까이에 다른 핀이 있으면 왼쪽에
       const lb = dim ? "" : `<span class="pin-lb ${side} ${r.lv}" style="visibility:hidden" title="${ctx.esc(p.name)}">${ctx.esc(short(p))}</span>`;
-      const m = L.marker(pt.ll, { icon: L.divIcon({ className: "", html: `<div class="gpin-w"><div class="gpin ${r.lv} ${dim ? "dim" : ""} ${f && f.p.id === p.id ? "hi" : ""}" data-pin="${p.id}">${PIN_SHAPE}<span>${idx + 1}</span></div>${lb}</div>`, iconSize: [28, 36], iconAnchor: [14 - dx, 35], tooltipAnchor: [dx, -32] }), zIndexOffset: dim ? 500 : 1000 })
+      const m = L.marker(pt.ll, { icon: L.divIcon({ className: "", html: `<div class="gpin-w"><div class="gpin ${r.lv} ${dim ? "dim" : ""} ${f && f.p.id === p.id ? "hi" : ""} ${idx >= 99 ? "n3" : ""}" data-pin="${p.id}">${PIN_SHAPE}<span>${idx + 1}</span></div>${lb}</div>`, iconSize: [28, 36], iconAnchor: [14 - dx, 35], tooltipAnchor: [dx, -32] }), zIndexOffset: dim ? 500 : 1000 })
         .bindTooltip(`<b>${ctx.esc(p.name)}</b><br><span class="en">${ctx.esc(pt.en)}</span> · ${LEVEL[r.lv]}${r.why.length ? `<br><span class="muted">${ctx.esc(r.why.join(" / "))}</span>` : ""}`, { direction: "top", className: "gtip" })
         .on("click", () => setFocus(ui.focus === p.id ? null : p.id))
         .addTo(layers.pin);

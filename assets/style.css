@@ -2868,3 +2868,104 @@ body.viewer #geoOnly { display: none; }
 .modal .form .row { gap: 14px 12px; }
 .modal .form label:not(.mini-check):not(.check), .modal .form .fld { gap: 6px; }
 .modal .dl-row { gap: 12px; } /* 업체명 칸과 [DART 검색] 사이 = 칸 사이 간격 */
+/* ===== 사업 등록·수정 창 줄 맞춤 (2026-11-26): 줄 사이 14px(다른 팝업과 같게) · 지도 아래 끝 = 마지막 입력칸 아래 끝 · '사업 완료' 체크 칸은 왼쪽 끝에 ===== */
+.pjf-l, .pjf-r { gap: 14px; }
+.pjf .pjf-done { height: var(--h-s); padding-top: 0; box-sizing: border-box; }
+.pjf .pjf-done input { margin-left: 0; }
+.pjf .site-f { min-height: var(--h-s); }
+/* 세 자리 사업 번호 (2026-11-26): 목록의 번호 칸은 같은 폭 알약으로, 지도 핀은 글자를 조금 작게 */
+#geoProjects.n3 .gp-no { width: 30px; border-radius: 999px; font-variant-numeric: tabular-nums; }
+.gpin.n3 span { font-size: 10.5px; letter-spacing: -.03em; }
+.pjf .pjf-done input { margin: 0; }
+.pjf .pjf-done { gap: 8px; }
+.pjf label.pjf-done { display: flex; flex-direction: row; align-items: center; line-height: 1; }
+.modal .form.pjf label.pjf-done input { margin: 0; top: 0; transform: none; }
+/* ===== 사업 관리 목록: 줄마다 [수정] 버튼 (2026-11-26) ===== */
+.pl-row { grid-template-columns: minmax(0, 1fr) 7em 7.5em 17.5em 9em 3.4em 1.4em; }
+.pl-act { display: flex; justify-content: flex-end; } .pl-act .btn { height: var(--h-s); padding: 0 10px; }
+@media (max-width: 1200px) { .pl-row { grid-template-columns: minmax(0, 1fr) 6em 15em 7em 3.4em 1.4em; } }
+@media (max-width: 760px) { .pl-row { grid-template-columns: minmax(0, 1fr) auto auto 1.4em; } }
+/* ===== 이슈 판단 가이드 (2026-11-26): 스크롤 없이 한 화면 · 왼쪽 기준 / 오른쪽 자주 묻는 경우 ===== */
+.modal.wide.guide { max-width: 1080px; }
+.gd2 { font-size: var(--fs-sm); line-height: 1.5; word-break: keep-all; }
+.gd2-lead { margin: 0 0 14px; padding: 8px 14px; border-radius: var(--r-l); background: var(--accent-soft); color: var(--text); }
+.gd2-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px 28px; }
+.gd2 section + section { margin-top: 14px; }
+.gd2 h3 { margin: 0 0 6px; font-size: var(--fs-base); font-weight: 750; }
+.gd2-r { display: grid; grid-template-columns: 6.6em minmax(0, 1fr); gap: 10px; align-items: start; padding: 5px 0; }
+.gd2-r.rs { grid-template-columns: 9.5em minmax(0, 1fr); }
+.gd2-r > .badge, .gd2-r > .ga { justify-self: start; }
+.gd2-r b { display: block; font-weight: 700; color: var(--text); } .gd2-r p { margin: 0; color: var(--text-2); }
+.gd2 .ga { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 7px; font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; background: var(--soft); color: var(--text-2); }
+.gd2 .ga.ok { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); }
+.gd2 .ga.no { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red); }
+.gd2-qa { padding: 9px 12px; border-radius: var(--r-l); background: var(--soft); }
+.gd2-qa + .gd2-qa { margin-top: 6px; }
+.gd2-qa .q { font-weight: 700; color: var(--text); } .gd2-qa .a { display: flex; gap: 0; margin-top: 4px; color: var(--text-2); }
+.gd2-qa em { flex: none; width: 1.5em; font-style: normal; font-weight: 800; color: var(--accent); } :root:not([data-theme="light"]) .gd2-qa em { color: #AEB3FF; }
+.gd2-qa .a > span { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.gd2-qa i { font-style: normal; color: var(--muted); margin-left: 6px; }
+@media (max-width: 760px) { .gd2-cols { grid-template-columns: minmax(0, 1fr); } }
+.gd2-qa .q { display: flex; } .gd2-qa { padding: 7px 12px; } .gd2-qa + .gd2-qa { margin-top: 5px; }
+.gd2-r { padding: 4px 0; } .gd2 section + section { margin-top: 10px; } .gd2-lead { margin-bottom: 10px; }
+.modal.wide.guide { max-height: 94vh; }
+/* ===== 업체 화면 레이더 (2026-11-26 사용자 결정): 배치는 예전 그대로 두고 레이더 크기만 줄임 (430 → 380px) ===== */
+@media (min-width: 1101px) { .dash:not(.geo-dash) .radar { max-width: min(100%, 380px); } }
+/* ===== 설정: 계정·권한 / 메일 받는 사람을 같은 모양의 목록으로 (2026-11-26) =====
+   옅은 면 안의 표: 맨 윗줄이 새로 추가하는 줄, 그 아래 한 줄에 하나씩 (팀 묶음·빈 팀 안내 없음). 배치 = 윗줄 리스크 키워드, 아랫줄 계정·권한 | 메일 받는 사람 */
+@media (min-width: 1101px) {
+  body.role-super .set-grid { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); grid-template-areas: "kw kw" "acc mail"; align-items: stretch; }
+  body.role-super .set-grid .set-left, body.role-super .set-grid > .set-side { display: contents; }
+  body.role-super .set-grid .kw-card { grid-area: kw; } body.role-super .set-grid .mail-card { grid-area: mail; } body.role-super .set-grid .acc-card { grid-area: acc; }
+}
+.lst-box { background: var(--soft); border-radius: 12px; padding: 4px; }
+.lst-h, .lst-row { display: grid; align-items: center; gap: 8px; padding: 4px 8px 4px 12px; }
+.lst-h.acc, .lst-row.acc { grid-template-columns: minmax(0, 1fr) 10.5em 8em 3.4em; }
+.lst-row.rc { grid-template-columns: minmax(0, 1fr) 3.4em; }
+.lst-h { padding-top: 7px; padding-bottom: 4px; font-size: var(--fs-xs); font-weight: 700; color: var(--muted); }
+.lst-row { min-height: 2.5rem; margin: 0; border-radius: 9px; font-size: var(--fs-base); }
+.lst-row:not(.add):hover { background: var(--soft-h); }
+#view-settings .lst-row.add { padding-top: 6px; padding-bottom: 6px; margin-bottom: 2px; background: color-mix(in srgb, var(--accent) 9%, transparent); }
+#view-settings .lst-row.add input, #view-settings .lst-row.add select { width: 100%; min-width: 0; max-width: none; height: var(--h-m); margin: 0; font-size: var(--fs-sm); box-sizing: border-box; }
+#view-settings .lst-row.add .btn { width: 100%; height: var(--h-m); padding: 0; justify-content: center; font-size: var(--fs-sm); }
+#view-settings .lst-row:not(.add) select { width: 100%; min-width: 0; height: var(--h-s); margin: 0; font-size: var(--fs-sm); border-color: transparent; background-color: transparent; }
+#view-settings .lst-row:not(.add) select:hover, #view-settings .lst-row:not(.add) select:focus { border-color: var(--line-2); background-color: var(--panel-2); }
+.lst-m { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lst-m em { margin-left: 8px; font-style: normal; font-size: var(--fs-xs); font-weight: 700; color: var(--accent-2); }
+.lst-t { padding-left: 11px; font-size: var(--fs-sm); color: var(--text-2); white-space: nowrap; } .lst-t.super { font-weight: 650; color: var(--text); }
+.lst-x { display: flex; justify-content: center; }
+.lst-empty { padding: 12px; font-size: var(--fs-sm); color: var(--muted); }
+.acc-card .card-head .acc-warn { margin-left: auto; }
+@media (max-width: 640px) {
+  .lst-h.acc { display: none; }
+  .lst-row.acc { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 3.4em; row-gap: 4px; padding-top: 8px; padding-bottom: 8px; }
+  .lst-row.acc > :first-child { grid-column: 1 / -1; }
+}
+#view-settings .lst-row select { padding-top: 0; padding-bottom: 0; line-height: 1.3; }
+.lst-h > span { text-align: left; } .lst-h.acc > span:nth-child(2), .lst-h.acc > span:nth-child(3) { padding-left: 11px; }
+.lst-h.acc, .lst-row.acc { grid-template-columns: minmax(0, 1fr) 9.8rem 7.5rem 3.2rem; } /* 머리줄과 글자 크기가 달라 em 이면 칸이 어긋남 → rem */
+.lst-row.rc { grid-template-columns: minmax(0, 1fr) 3.2rem; }
+.lst-t { padding-left: 16px; } .lst-h.acc > span:nth-child(2), .lst-h.acc > span:nth-child(3) { padding-left: 16px; }
+@media (max-width: 640px) { .lst-row.acc { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 3.2rem; } }
+/* ===== 판단 가이드: 상황별 판단 (상황 | 이렇게 처리) ===== */
+.modal.wide.guide { max-width: 1160px; }
+.gd2-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); }
+.gd2-cases { background: var(--soft); border-radius: 12px; padding: 4px; }
+.gd2-c { display: grid; grid-template-columns: minmax(0, 15.5em) minmax(0, 1fr); gap: 12px; align-items: center; padding: 6px 12px; border-radius: 9px; }
+.gd2-c:hover { background: var(--soft-h); }
+.gd2-c b { font-weight: 650; color: var(--text); }
+.gd2-c > span { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; color: var(--text-2); }
+.gd2-c i { font-style: normal; color: var(--muted); margin-left: 4px; }
+@media (max-width: 760px) { .gd2-cols { grid-template-columns: minmax(0, 1fr); } .gd2-c { grid-template-columns: minmax(0, 1fr); gap: 4px; } }
+.gd2-cols { grid-template-columns: minmax(0, .8fr) minmax(0, 1.6fr); }
+.gd2-c { grid-template-columns: minmax(0, 17.5em) minmax(0, 1fr); padding: 5px 12px; }
+@media (max-width: 760px) { .gd2-cols { grid-template-columns: minmax(0, 1fr); } .gd2-c { grid-template-columns: minmax(0, 1fr); } }
+/* 판단 가이드: 줄마다 떨어진 칸으로 (줄 사이 선 없이 · 2026-11-26 사용자) */
+.gd2-cases { background: none; padding: 0; display: grid; gap: 4px; }
+.gd2-c { background: var(--soft); padding: 7px 12px; }
+.gd2-r { margin-top: 4px; padding: 7px 12px; border-radius: 9px; background: var(--soft); }
+.gd2 h3 + .gd2-r { margin-top: 0; }
+.gd2-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr); }
+.gd2-c { grid-template-columns: minmax(0, 16.5em) minmax(0, 1fr); padding: 6px 12px; }
+.gd2-r { padding: 6px 12px; } .gd2-r.rs { grid-template-columns: 9em minmax(0, 1fr); }
+@media (max-width: 760px) { .gd2-cols { grid-template-columns: minmax(0, 1fr); } .gd2-c { grid-template-columns: minmax(0, 1fr); } }
