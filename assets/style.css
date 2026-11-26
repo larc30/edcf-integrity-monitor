@@ -3011,11 +3011,12 @@ body.viewer #geoOnly { display: none; }
    왼쪽 칸(등급 · 최근 7일 · 공식 제재 명단)은 그대로. 이름 줄이 범례를 겸해서 아래 범례는 숨김 · 레이더는 380 → 365px */
 .radar-names:empty { display: none; }
 .radar-names { position: relative; z-index: 2; align-self: stretch; display: grid; gap: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
-.rn-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.rn-k { flex: none; display: inline-flex; align-items: center; gap: 6px; width: 4.6rem; font-size: var(--fs-sm); font-weight: 700; color: var(--text-2); }
+.rn-row { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.rn-k { flex: none; display: inline-flex; align-items: center; gap: 6px; width: 4.6rem; height: var(--h-s); font-size: var(--fs-sm); font-weight: 700; color: var(--text-2); }
 .rn-k i { width: 8px; height: 8px; border-radius: 50%; background: var(--red); } .rn-row.orange .rn-k i { background: var(--orange); }
 .rn-k b { margin-left: 2px; font-variant-numeric: tabular-nums; color: var(--text); }
-.rn-list { flex: 0 1 auto; min-width: 0; display: flex; gap: 6px; overflow: hidden; }
+.rn-list { flex: 1 1 0; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; overflow: hidden; max-height: var(--h-s); }
+.rn-row.orange .rn-list { max-height: calc(var(--h-s) * 2 + 6px); } /* 주의는 두 줄까지 (한 줄이면 한 줄 높이) */
 .rn-chip, .rn-more { flex: none; height: var(--h-s); padding: 0 10px; border-radius: var(--r-s); border: 1px solid transparent; font: inherit; font-size: var(--fs-xs); font-weight: 650; white-space: nowrap; cursor: pointer; color: var(--text); background: color-mix(in srgb, var(--red) 14%, transparent); }
 .rn-row.orange .rn-chip { background: color-mix(in srgb, var(--orange) 14%, transparent); }
 .rn-chip { max-width: 11em; overflow: hidden; text-overflow: ellipsis; }
@@ -3023,8 +3024,21 @@ body.viewer #geoOnly { display: none; }
 .rn-more { background: var(--soft); color: var(--text-2); } .rn-more:hover { background: var(--soft-h); }
 .rn-none { font-size: var(--fs-xs); color: var(--muted); line-height: var(--h-s); }
 .rdot.hot { transform: scale(1.8); z-index: 5; }
-.d-radar:has(.radar-names:not(:empty)) .radar-hud .hud.bl { display: none; }
+/* 범례는 레이더 바로 아래 (2026-11-26 사용자) */
+.d-radar:has(.radar-names:not(:empty)) .radar-hud { align-self: stretch; }
+.d-radar:has(.radar-names:not(:empty)) .radar-hud .hud.bl { position: static; justify-content: center; }
 @media (min-width: 1101px) {
-  .dash:not(.geo-dash) .d-radar:has(.radar-names:not(:empty)) .radar { max-width: min(100%, 365px); margin-top: auto; margin-bottom: auto; }
+  .dash:not(.geo-dash) .d-radar:has(.radar-names:not(:empty)) .radar { max-width: min(100%, 365px); margin-top: auto; margin-bottom: 0; }
+  .dash:not(.geo-dash) .d-radar:has(.radar-names:not(:empty)) .radar-hud { margin-bottom: auto; }
+  .dash:not(.geo-dash) .d-radar:has(.radar-names.two) .radar { max-width: min(100%, 340px); }
   .dash:not(.geo-dash) .d-radar:has(.radar-names:not(:empty)) { justify-content: flex-start; padding-top: 40px; }
 }
+/* 업체 등급 칸: 업체 이름 줄을 뺌(레이더 아래 이름 줄과 겹침) → 세 줄을 같은 높이로 (칸 전체 높이는 수원국 등급 칸과 같게 4.3 + 4.3 + 3.1 = 3.9 × 3) */
+#kboard .rk-names:empty { display: none; }
+#kboard .rk.red, #kboard .rk.orange, #kboard .rk.none { min-height: 3.9rem; }
+/* 판단 가이드: 아래 = 이슈 처리 버튼 | 상황별 판단 한 묶음 (두 칸 격자가 위의 주의 · 정상 칸과 같은 세로 줄) */
+.gd3-cols3 > .gd3-col.wide { grid-column: 2 / 4; }
+.gd3-list.two { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(6, auto); grid-auto-flow: column; gap: 4px 16px; }
+.gd3-kh { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+@media (max-width: 900px) { .gd3-cols3 > .gd3-col.wide { grid-column: auto; } .gd3-list.two { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-flow: row; } }
+#kboard .rk.on .rk-num, #kboard .rk .rk-num { grid-row: auto; } #kboard .rk .rk-lv { align-self: center; }
