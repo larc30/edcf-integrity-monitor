@@ -5,3 +5,11 @@ __pycache__/
 *-firebase-adminsdk-*.json
 service-account*.json
 node_modules/
+
+# 매뉴얼 만들 때 생기는 파일
+tools/font/
+tools/manual/fig/
+tools/manual/vid/
+tools/manual/pg/
+tools/manual/manual.html
+tools/manual/manual.pdf
