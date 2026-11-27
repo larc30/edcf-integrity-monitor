@@ -522,9 +522,13 @@ def summarize_guide(dismissed: list[str], confirmed: list[str], current: str) ->
         "- 지금 지침에서 여전히 맞는 줄은 유지하고, 사례와 어긋나는 줄은 고치기\n"
         "지침 줄만 출력하세요."
     )
-    resp = client.messages.create(model=config.CLAUDE_MODEL, max_tokens=1200, messages=[{"role": "user", "content": user}])
+    # 한도 8000: 이 모델은 답을 쓰기 전에 '생각'에도 토큰을 쓰는데(기본으로 켜져 있음), 예전 한도 1200 은 생각만 하다 끝나 글이 한 줄도 안 나왔음 (2026-11-27 로그 '요약이 비어 있음')
+    resp = client.messages.create(model=config.CLAUDE_MODEL, max_tokens=8000, output_config={"effort": config.CLAUDE_EFFORT},
+                                  messages=[{"role": "user", "content": user}])
     usage.track(resp, config.CLAUDE_MODEL)
     text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text").strip()
+    if not text:
+        raise RuntimeError(f"Claude 응답에 글이 없음 (stop_reason={resp.stop_reason})")
     # 줄 머리가 '-' 가 아니어도(•, *, 1. 등) 지침 줄로 읽음: '-' 로 시작하는 줄만 받다가 한 줄도 못 건진 적이 있음 (2026-11-20 저장본이 빈 값)
     lines = [re.sub(r"^\s*(?:[-*•·▪◦]+|\d+[.)])\s*", "", ln).strip() for ln in text.splitlines()]
     lines = [ln for ln in lines if len(ln) >= 6 and not ln.endswith(":")][:10]

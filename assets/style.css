@@ -3215,3 +3215,10 @@ body.viewer #geoOnly { display: none; }
 }
 /* 보고서 창 체크 칸 (2026-11-26 최종 점검): 체크 상자가 글자보다 2px 위에 떠 있었음 → 글자 가운데에 맞춤 */
 .rp-opts label.check input { margin: 5px 0 0; }
+/* 메일 받는 사람 줄 맞춤 (2026-11-27 사용자: '줄이 안 맞음'): 예전 규칙(#rcList > * 의 좌우 -8px)이 남아 줄이 추가 줄보다 8px 넓고 글자가 입력칸보다 12px 왼쪽에 있었음 → 계정 목록과 같은 줄 여백 */
+#rcList > .lst-row { margin: 0; padding: 4px 8px 4px 12px; }
+/* 이번 달 요금 합계 띠 (2026-11-27 사용자: '전체 금액 UI 가 저게 맞나'): 큰 글자가 왼쪽에 몰린 높은 띠 → 낮은 한 줄, 이름 왼쪽 · 금액 오른쪽(메일·보고서의 등급 칸과 같은 짜임), 좌우 끝은 아래 칸의 안쪽 여백과 맞춤 */
+.ut-sum { align-items: center; justify-content: space-between; gap: 12px; min-height: 3.25rem; padding: 0 16px; box-sizing: border-box; }
+.ut-sum span { font-size: var(--fs-md); }
+.ut-sum b { margin-left: auto; font-size: var(--fs-lg); line-height: 1.2; }
+.ut-sum small { font-size: var(--fs-sm); }
