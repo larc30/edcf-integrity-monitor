@@ -3193,3 +3193,25 @@ body.viewer #geoOnly { display: none; }
   .d-radar:has(.radar-names:not(:empty)) .radar-hud .hud.bl { margin-top: 18px; }
   .geo-dash .ev-chip { padding-top: 4px; padding-bottom: 4px; }
 }
+/* 사업 카드 역할 구분 3차 (2026-11-26 사용자: '컨설턴트 · 본구매에 색이 없어 구분이 안 됨 · 색을 넣든 확실하게'):
+   역할마다 한 묶음 상자(옅은 면) + 역할 이름은 다른 화면과 같은 역할 색(컨설턴트 파랑 · 본구매 분홍 · F/S 청록). 세로선은 뺌(상자가 구분) */
+#projectMap .pj-roles, #projectMap .pj-roles:has(.mini) { gap: 6px 8px; }
+#projectMap .pj-roles > .pj-role, #projectMap .pj-roles:has(.mini) > .pj-role:not(.mini), #projectMap .pj-roles > .pj-role:last-child { gap: 6px; margin-right: 0; padding: 4px 6px 4px 4px; border-radius: 10px; background: var(--soft); }
+#projectMap .pj-roles > .pj-role:not(:last-child)::after { display: none; }
+#projectMap .pj-role > .role.consult { color: var(--consult); background: var(--consult-bg); }
+#projectMap .pj-role > .role.buy { color: var(--buy); background: var(--buy-bg); }
+#projectMap .pj-role > .role.fs { color: var(--fs); background: var(--fs-bg); }
+/* 휴대폰의 사업 관리 (2026-11-26 최종 점검: 팀 탭 5개와 필터가 한 줄 고정이라 화면이 옆으로 233px 넘침):
+   팀 탭은 그 줄 안에서 옆으로 밀어 보고, 필터는 두 칸씩 줄바꿈, 검색칸은 한 줄 전체 */
+@media (max-width: 760px) {
+  .pj-layout, .pj-main, .pj-toolbar { min-width: 0; max-width: 100%; }
+  .pj-toolbar > .seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .pj-toolbar > .seg::-webkit-scrollbar { display: none; }
+  .pj-toolbar > .seg button { flex: none; }
+  .pj-tools { flex-wrap: wrap; width: 100%; margin-left: 0; }
+  .pj-tools select { flex: 1 1 8em; max-width: none; min-width: 0; }
+  .pj-tools input { flex: 1 1 100%; width: auto; order: 3; }
+  .pj-tools .pj-view { flex: none; }
+}
+/* 보고서 창 체크 칸 (2026-11-26 최종 점검): 체크 상자가 글자보다 2px 위에 떠 있었음 → 글자 가운데에 맞춤 */
+.rp-opts label.check input { margin: 5px 0 0; }

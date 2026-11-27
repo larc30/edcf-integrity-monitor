@@ -1120,7 +1120,7 @@ function buildReport({ scope: sc0, period, done, detail = false }) {
   const coRows = risky.map((c) => { const gs = hotOf(c); return `<tr class="lv-${c.risk}"><td>${bd(c.risk)}</td><td><b>${esc(c.name)}</b><div class="mu one">${engOne(c)}</div></td><td>${gs.length ? esc(brief(sumText(gs[0].rep), 96)) + (gs.length > 1 ? ` <span class="mu">외 ${gs.length - 1}건</span>` : "") : `<span class="mu">-</span>`}</td></tr>`; }).join("");
   const projCo = projHot.filter((x) => x.hot.length).sort((x, y) => (LVN[y.hot[0].risk] || 0) - (LVN[x.hot[0].risk] || 0) || y.hot.length - x.hot.length);
   const simpleBody = `<h2>경고·주의 업체 <span class="mu">업체 ${risky.length}</span></h2>
-${risky.length ? `<table class="iss"><tr><th style="width:9%">등급</th><th style="width:33%">업체 · 참여 사업</th><th>내용</th></tr>${coRows}</table>` : `<div class="empty">경고·주의 업체가 없습니다</div>`}
+${risky.length ? `<table class="iss"><tr><th style="width:9%">등급</th><th style="width:42%">업체 · 참여 사업</th><th>내용</th></tr>${coRows}</table>` : `<div class="empty">경고·주의 업체가 없습니다</div>`}
 ${ps.length ? `<h2>경고·주의 업체가 있는 사업 <span class="mu">사업 ${projCo.length} / ${ps.length}</span></h2>${projCo.length ? `<table><tr><th style="width:38%">사업</th><th>경고·주의 업체</th><th style="width:26%">수원국 리스크</th></tr>${projCo.map(({ p, hot, g, n }) => `<tr><td><b>${esc(p.name)}</b>${p.country && COUNTRY[p.country] && !p.name.includes(COUNTRY[p.country]) ? `<div class="mu">${esc(COUNTRY[p.country])}</div>` : ""}</td><td>${hot.map((c) => { const e = c.engagements.find((x) => x.project_id === p.id) || {}; return `<div class="co">${bd(c.risk)} ${esc(c.name)} <span class="mu">${esc([e.role, e.stage && e.stage !== "계약" ? e.stage : ""].filter(Boolean).join(" · "))}</span></div>`; }).join("") || `<span class="mu">없음</span>`}</td><td>${g && LVN[g.lv] ? `<b style="color:${C[g.lv][0]}">${C[g.lv][2]}</b>${[g.alert, ...g.why.slice(0, 2)].filter(Boolean).map((w) => `<div class="mu">${esc(w)}</div>`).join("")}` : `<span class="mu">정상</span>`}</td></tr>`).join("")}</table>` : `<div class="empty">경고·주의 업체가 있는 사업이 없습니다</div>`}` : ""}
 `;
   const detailBody = `<h2>${done ? "이슈" : "확인할 이슈"} <span class="mu">${groups.length}건 · 등급 높은 순${groups.length > MAX ? ` · 앞의 ${MAX}건` : ""}</span></h2>
@@ -1139,7 +1139,7 @@ ${ps.length ? `<h2>사업별 현황 <span class="mu">사업 ${ps.length}</span><
 * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 body { margin: 0; color: #0B1220; font: 13.5px/1.55 "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; word-break: keep-all; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 a { color: #4F46E5; text-decoration: none; } td a { white-space: nowrap; }
-table.iss { table-layout: fixed; } .one { display: flex; gap: 6px; } .one .pn { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .one .r, .one .x { flex: none; } .one .r { font-weight: 700; }
+table.iss { table-layout: fixed; } table.iss td:last-child { text-wrap: balance; } .one { display: flex; gap: 6px; } .one .pn { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .one .r, .one .x { flex: none; } .one .r { font-weight: 700; }
 .hero { background: #0B101C; background-image: linear-gradient(125deg, #0B101C 0%, #171E3F 55%, #0C2C3D 100%); color: #fff; border-radius: 16px; padding: 20px 22px 22px; break-inside: avoid; }
 .hero .top { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
 .hero .brand { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 800; letter-spacing: .1em; color: #A5B4FC; }
@@ -1888,7 +1888,7 @@ async function deleteCompanies(ids) {
   for (let i = 0; i < ids.length; i += 8) await Promise.all(ids.slice(i, i + 8).map((id) => deleteCompany(id)));
   ids.forEach((id) => coState.sel.delete(id));
   if (state.openCid && ids.includes(state.openCid)) closeDrawer();
-  toast(`${names.length}개을 삭제했습니다`); rerender();
+  toast(`업체 ${names.length}개를 삭제했습니다`); rerender();
 }
 $("#poolSearch").addEventListener("input", () => renderCompanies());
 document.addEventListener("click", (e) => { const m = $("#coToolMenu"); if (m?.open && (!m.contains(e.target) || e.target.closest(".tool-pop button"))) m.open = false; });
@@ -2161,7 +2161,7 @@ function openProjectEdit(pid) {
       ${lvs.map((lv) => `<option value="${lv}" ${zoneSel === String(lv) ? "selected" : ""}>${esc(AL[lv])}: ${esc(zs.filter((z) => z.lv === lv).map((z) => z.text).join(" / ").slice(0, 70))}</option>`).join("")}</select></label>`;
     box.querySelector("select").onchange = (e) => { zoneSel = e.target.value; };
   };
-  const showSite = () => { const g = site.lat == null && projectPoint({ name: f0.name.value, country: f0.country.value }); $("#siteState").textContent = site.lat == null ? (g && g.how !== "국가 중심" ? `핀 없음 · 사업명의 ${g.how} 기준` : "핀 없음") : `핀 ${site.lat.toFixed(3)}, ${site.lng.toFixed(3)}`; showZone(); };
+  const showSite = () => { $("#siteClear").style.visibility = site.lat == null ? "hidden" : ""; const g = site.lat == null && projectPoint({ name: f0.name.value, country: f0.country.value }); $("#siteState").textContent = site.lat == null ? (g && g.how !== "국가 중심" ? `핀 없음 · 사업명의 ${g.how} 기준` : "핀 없음") : `핀 ${site.lat.toFixed(3)}, ${site.lng.toFixed(3)}`; showZone(); };
   let pk = null; // 지도 라이브러리를 받은 뒤에 사업지 지도를 붙임
   const picker = { set: (v) => pk?.set(v), country: (c, move) => pk?.country(c, move), clear: () => pk?.clear() };
   ensureGeoLibs().then((ok) => { const el = $("#sitePick"); if (ok && el && el.isConnected) pk = mountSitePicker(el, { ...site, country: f0.country.value || p.country }, (lat, lng) => { site.lat = +lat.toFixed(4); site.lng = +lng.toFixed(4); f0.ll.value = `${site.lat}, ${site.lng}`; showSite(); }); });
