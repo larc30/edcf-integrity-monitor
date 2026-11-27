@@ -6,13 +6,12 @@ import {
   query, where, orderBy, limit, writeBatch, increment,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO, SUPER_ADMIN, SUPER_ADMINS, TEAMS } from "./firebase-config.js?v=33";
-import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=80";
+import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=81";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
 const db = getFirestore(fbApp);
 const ACTIONS_URL = `https://github.com/${GITHUB_REPO}/actions/workflows/monitor.yml`;
-const SECRETS_URL = `https://github.com/${GITHUB_REPO}/settings/secrets/actions`;
 
 // ---------- 공통 ----------
 const $ = (s, el = document) => el.querySelector(s);
@@ -21,14 +20,7 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/\s—\s/g, " · ").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 // 등급은 3단계(경고·주의·정상). yellow 는 등급이 아니라 "참고 이력"으로만 남김 (업체 등급에는 넣지 않음)
 const LEVEL = { red: "경고", orange: "주의", yellow: "참고", none: "정상" };
-const LEVEL_DESC = { red: "지금 제재 중", orange: "제재로 이어질 수 있는 진행 중 사안", yellow: "참고 이력 (등급에 넣지 않음)", none: "경고·주의 이슈 없음" };
 // 등급 뜻 (i 에 마우스를 올리면): 경고는 실제로 지금 제재를 받고 있는 경우만
-const LEVEL_DEF = {
-  red: "<b>지금 유효한 제재</b><br>입찰참가자격 제한(부정당업자 제재), MDB 제재, 등록말소, 기간 중인 영업정지. 공식 명단(EXIMIIS '등록', 조달청, MDB)에 있거나, 기사에 처분 기간이 적혀 있고 오늘이 그 안인 경우. 기간이 끝나면 주의로 내려감",
-  orange: "<b>제재로 이어질 수 있는 진행 중 사안</b><br>최근 1년 내 수사, 압수수색, 기소, 유죄판결, 담합 적발, 공정위 과징금, 처분 예고와 청문, 집행정지로 멈춘 제재, 부도와 회생절차",
-  none: "<b>경고·주의 이슈 없음</b><br>아래 참고 이력만 있는 업체도 정상",
-  yellow: "기록만 남기는 이력: 1년 지난 제재와 처분(EXIMIIS '해지' 포함), 계열사가 받은 처분, 의혹과 고발, 소송과 분쟁, 중대재해와 부실시공, 재무 악화",
-};
 const levelTip = () => `<div class="tip-p">업체에 걸린 이슈 가운데 가장 높은 등급입니다.</div>
   <div class="tip-grid lv"><span>${badge("red")}</span><span>지금 유효한 제재<span class="tip-ex">입찰 제한 · MDB · 기간 중 영업정지</span></span>
   <span>${badge("orange")}</span><span>제재로 이어질 수 있는 진행 중 사안<span class="tip-ex">수사 · 기소 · 과징금</span></span>
@@ -94,7 +86,6 @@ function modal(html) {
 function closeModal() { $("#modalBg").classList.remove("open"); $("#modal").classList.remove("report"); }
 $("#modalBg").addEventListener("click", (e) => { if (e.target.id === "modalBg" && !$("#modal").querySelector("form, input, textarea, select")) closeModal(); });
 const projName = (pid) => state.projects.find((p) => p.id === pid)?.name || "(삭제된 사업)";
-const engText = (e) => `${esc(projName(e.project_id))} · ${esc(e.role)}${e.stage && e.stage !== "계약" ? ` · ${esc(e.stage)}${e.rank ? " " + e.rank + "순위" : ""}` : ""}`;
 const nowStr = () => new Date(Date.now() + 9 * 3600e3).toISOString().replace("T", " ").slice(0, 19); // KST
 const guessCountry = (t) => Object.entries(COUNTRY_BY_NAME).find(([n]) => t.includes(n))?.[1] || null;
 const scanned = () => !!state.status.last_scan_at;
@@ -232,7 +223,6 @@ function compute() {
   for (const c of state.companies) { c.idle = anyLive && !c.live; if (c.idle) { c.risk = "none"; c.open = 0; } }
 }
 const byLevelDate = (a, b) => (LV[b.level] - LV[a.level]) || String(b.published_at || "").localeCompare(String(a.published_at || ""));
-const worstOf = (cs) => cs.reduce((m, c) => LV[c.risk] > LV[m] ? c.risk : m, "none");
 
 // ---------- 화면 전환 ----------
 $$("#tabs button").forEach((b) => b.addEventListener("click", () => showView(b.dataset.view)));
@@ -254,7 +244,6 @@ $("#btnAdmin").onclick = () => {
   showView(state.adminOn ? "companies" : ADMIN_VIEWS.includes(cur) ? "home" : cur);
 };
 // 업체 리스크 ↔ 수원국 리스크: 카드를 뒤집듯 전환 (가벼운 모드·움직임 줄이기 설정이면 바로 전환)
-const FLIP = ["home", "geo"];
 function showView(v) {
   if (!$(`#view-${v}`)) v = "home";
   if (ADMIN_VIEWS.includes(v) && !state.adminOn) v = "home"; // 관리자 모드가 아니면 관리 화면은 열지 않음
@@ -435,7 +424,6 @@ function scopeCompanies() {
 const scopeProjects = () => scope === "mine" ? state.projects.filter(isMine) : state.projects.filter(live);
 
 // ---------- 대시보드 (한 화면) ----------
-const ROLE_ABBR = { 컨설턴트: "컨", 본구매: "본", "F/S": "FS" };
 // ---------- 리스크 레이더: 색 띠 = 등급(가운데일수록 경고), 주요 리스크 업체는 이름 표시 ----------
 function hash(s) { let h = 2166136261; for (const ch of String(s)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; } return h; }
 const polar = (deg, r) => { const rad = (deg * Math.PI) / 180; return [50 + (Math.sin(rad) * r) / 2, 50 - (Math.cos(rad) * r) / 2]; };
@@ -572,7 +560,6 @@ function focusProject(pid) {
 }
 
 // ---------- 대시보드 ----------
-const LEVEL_SHORT = { red: "지금 제재 중 (입찰제한·MDB·영업정지)", orange: "수사·기소·과징금·처분 예고·부도", none: "경고·주의 이슈 없음" };
 const ICON_USER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>`;
 const ICON_ORG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg>`;
 function renderHome() {
@@ -759,21 +746,6 @@ function pjRoles(rows, sc, compact = false) {
     return `<div class="pj-role">${roleTag(role || "기타")}<div class="pcos">${l.map(({ c, e }) => `<span class="cchip ${sc ? c.risk : ""}" data-cid="${c.id}" title="${esc(c.name)}${sc ? " · " + LEVEL[c.risk] : ""}${e.stage && e.stage !== "계약" ? " · " + esc(e.stage) : ""}"><span class="dot ${sc ? c.risk : ""}"></span>${esc(c.name)}${e.rank ? `<small>${e.rank}순위</small>` : e.stage && e.stage !== "계약" ? `<small>${esc(e.stage)}</small>` : ""}</span>`).join("")}</div></div>`;
   }).join("");
 }
-function showDataCheck(cs, cv, gapN) {
-  const row = (ok, k, d) => `<div class="chk-row ${ok}"><span class="ic">${{ ok: "✓", warn: "!", bad: "✕", na: "–" }[ok]}</span><div><b>${k}</b><div class="d">${d}</div></div></div>`;
-  const st = (k, t) => !t ? "na" : k === t ? "ok" : k === 0 ? "bad" : "warn";
-  const mk = state.mdbKorea;
-  modal(`<h2>데이터 점검</h2>
-    <p class="muted small">마지막 스캔에서 업체별로 무엇을 확인했는지입니다. '정상'은 아래 범위에서 발견되지 않았다는 뜻입니다.</p>
-    ${row(st(cv.news, cv.scanned), "뉴스 검색", `${cv.news}/${cv.scanned}개: Google·네이버 뉴스에서 업체명과 제재 키워드 검색`)}
-    ${row(st(cv.mdb, cv.scanned), "MDB 제재 리스트 대조", `${cv.mdb}/${cv.scanned}개: World Bank·ADB·AfDB·IDB·EBRD${cv.mdb < cv.scanned ? " (영문명이 없는 업체는 대조가 불완전)" : ""}`)}
-    ${cv.ppsConnected ? row(st(cv.pps, cv.ppsTotal), "조달청 부정당제재 조회", `${cv.pps}/${cv.ppsTotal}개: 사업자번호로 현재 유효한 제재 조회${cv.pps < cv.ppsTotal ? " (사업자번호가 없는 업체는 조회 못 함)" : ""}`) : row("na", "조달청 부정당제재 조회", "미연결")}
-    ${row(state.edcf.length ? "ok" : "warn", "EDCF 부정당업자 명단 (EXIMIIS)", state.edcf.length ? `${state.edcf.length}건과 대조` : "아직 등록되지 않음 → 업체 관리 [EXIMIIS 제재 명단]에서 올리기")}
-    ${row(mk?.count ? "warn" : "ok", "MDB 한국 국적 제재 기업", mk ? `${mk.count || 0}개 (우리 명단과 별개로 참고) <a href="#" id="dcMdb">목록 보기</a>` : "첫 스캔 후 표시")}
-    ${gapN ? `<div class="actions left"><button class="btn sm" id="dcGaps">보완할 업체 ${gapN} 보기</button></div>` : ""}`);
-  $("#dcMdb")?.addEventListener("click", (e) => { e.preventDefault(); showMdbKorea(); });
-  $("#dcGaps")?.addEventListener("click", showGaps);
-}
 
 const officialSrc = (f) => /EXIMIIS|EDCF/.test(f.source_name || "") ? "edcf" : /조달청|나라장터/.test(f.source_name || "") ? "pps" : "mdb";
 function openOfficial(cs = scopeCompanies()) {
@@ -825,7 +797,6 @@ function openOfficial(cs = scopeCompanies()) {
   $("#edcfPaste").onclick = openEdcfPaste;
   $("#edcfClear")?.addEventListener("click", clearEdcf);
   $("#dcMdb")?.addEventListener("click", (e) => { e.preventDefault(); showMdbKorea(() => openOfficial()); });
-  $("#dcGaps")?.addEventListener("click", showGaps);
 }
 function showMdbKorea(back) {
   const mk = state.mdbKorea || {};
@@ -1225,13 +1196,6 @@ function coverage(list = state.companies) {
     ppsConnected: !!state.status.connections?.pps,
   };
 }
-function showGaps() {
-  const list = state.companies.filter((c) => c.last_check && checkGaps(c).length).sort((a, b) => a.name.localeCompare(b.name));
-  modal(`<h2>보완할 업체 ${list.length}</h2>
-    <p class="muted small">아래 업체는 일부 항목을 확인하지 못했습니다. 업체를 눌러 <b>식별 정보</b>에 사업자번호·영문명을 넣으면 다음 스캔부터 확인됩니다.</p>
-    <div class="gap-list">${list.map((c) => `<div class="gap-row" data-cid="${c.id}"><b>${esc(c.name)}</b><div class="muted small">${checkGaps(c).map(esc).join(" · ")}</div></div>`).join("")}</div>`);
-  $$("#modal .gap-row").forEach((x) => x.onclick = () => { closeModal(); openCompany(x.dataset.cid); });
-}
 const fmtBiz = (b) => { const d = String(b || "").replace(/\D/g, ""); return d.length === 10 ? `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}` : (b || ""); };
 
 // ---------- 업체 상세 ----------
@@ -1472,34 +1436,6 @@ function errorModal(title, detail, tips) {
     <p><code>${esc(detail)}</code></p>
     <ul class="small">${tips.map((t) => `<li>${t}</li>`).join("")}</ul>
     <p class="muted small">계속 안 되면 이 창을 캡처해서 보내주세요. 토큰 없이 실행하려면 <a href="${ACTIONS_URL}" target="_blank" rel="noopener">GitHub에서 직접 실행 ↗</a></p>`);
-}
-const NET_TIPS = ["회사망·보안 프로그램이 <code>api.github.com</code> 접속을 막고 있을 수 있습니다 → 개인 PC·휴대폰 테더링으로 시도", "광고 차단 등 브라우저 확장 프로그램을 잠시 끄고 시도", "Ctrl + F5로 새로고침 후 다시 시도"];
-function tokenSetup(after) {
-  modal(`<h2>스캔 버튼 연결 (처음 한 번)</h2>
-    <p class="muted small">대시보드에서 바로 스캔하려면 GitHub 토큰을 한 번 등록해야 합니다. 토큰은 <b>이 브라우저에만</b> 저장되고, 이 저장소의 실행 권한만 가집니다.</p>
-    <ol>
-      <li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener"><b>토큰 만들기 페이지 열기 ↗</b></a></li>
-      <li><b>Token name</b>: <code>edcf-scan</code> · <b>Expiration</b>: 원하는 기간 (예: 90 days)</li>
-      <li><b>Repository access</b>: <b>Only select repositories</b> → <code>edcf-integrity-monitor</code> 선택</li>
-      <li><b>Permissions</b> → <b>Repository permissions</b> → <b>Actions</b>를 <b>Read and write</b>로 변경</li>
-      <li>맨 아래 <b>Generate token</b> → 나온 토큰(<code>github_pat_</code>로 시작)을 복사해 아래에 붙여넣기</li>
-    </ol>
-    <div class="add-row"><input id="tokenInput" placeholder="github_pat_..." autocomplete="off"><button class="btn primary" id="tokenSave">저장하고 실행</button></div>
-    <p class="muted small">토큰 없이 하려면 <a href="${ACTIONS_URL}" target="_blank" rel="noopener">GitHub에서 직접 실행 ↗</a> (Run workflow → scan)</p>`);
-  $("#tokenSave").onclick = async () => {
-    const t = $("#tokenInput").value.trim();
-    if (!t) return;
-    setGhToken(t);
-    let r;
-    try { r = await gh(""); }
-    catch (e) { setGhToken(""); return errorModal("GitHub에 연결하지 못했습니다", e.message, NET_TIPS); }
-    if (!r.ok) {
-      const d = await ghError(r); setGhToken("");
-      if (r.status === 401) return toast("토큰이 올바르지 않습니다. 복사가 잘 됐는지 확인하세요", 5000);
-      return errorModal("이 저장소에 접근할 수 없습니다", d, ["토큰의 <b>Repository access</b>에 <code>edcf-integrity-monitor</code>가 선택돼 있는지 확인"]);
-    }
-    closeModal(); toast("토큰을 저장했습니다"); after?.();
-  };
 }
 // 실행 요청: ① 토큰이 있고 api.github.com에 닿으면 바로 실행(빠름)
 //           ② 아니면 Firebase에 '실행 요청'을 남기고, GitHub가 10분마다 확인해 처리(회사망에서도 동작)
@@ -1779,8 +1715,6 @@ function normCat(cat) {
   for (const [t, re] of [["엔지니어링·설계·감리", /엔지니어링|설계|감리|CM/i], ["건설·시공", /건설|시공|토목/], ["ICT·시스템", /IT|ICT|시스템|통신|정보/i], ["제조·플랜트", /제조|플랜트|조선|전기|장비|기계/], ["상사·유통", /상사|유통|무역/]]) if (re.test(c)) return t;
   return "기타";
 }
-const CAT_SRC = { "DART 업종": "DART", "이름 추정": "추정", "명단": "명단", "직접 입력": "직접" };
-const categories = () => CATS;
 // 업종을 정하지 않았으면 이름으로 추정 (스캔 때 DART 업종코드가 있으면 그것으로 바꿈)
 function applyCat(c, cat, source) {
   const n = normCat(cat);
@@ -2342,7 +2276,6 @@ function newCompany(id, name, country) {
 const companyData = (c) => { const { id, risk, open, total, focus, mine, cat, catGuess, ...data } = c; return { ...data, teams: teamsOf(c) }; }; // 계산값은 저장하지 않음 (참여 팀은 권한 확인용으로 저장)
 
 // 업체 추가·업체 정보 수정 (같은 팝업): 업체명·사업자등록번호·대표자·영문명 + DART에서 가져오기. cid 가 없으면 추가
-const LANG_OPTS = [["ko", "한국어"], ["ko,en", "한국어 + 영어"], ["en", "영어"], ["en,id", "영어 + 인도네시아어"]];
 function openCompanyForm(cid = null) {
   const c0 = cid ? state.companies.find((x) => x.id === cid) : null, isNew = !c0;
   if (cid && !c0) return;
@@ -3002,15 +2935,6 @@ async function clearEdcf() {
 }
 // 업체 탭 [EDCF 부정당업자 명단]: 현재 명단 상태 + 올리기
 function openEdcf() { openOfficial(); }
-function openEdcfOld() {
-  modal(`<h2>EXIMIIS 제재 명단 <span class="count">${state.edcf.length}</span></h2>
-    <p class="muted small">EXIMIIS → 경협 → 업무지원 → <b>부정당업자조회</b>에서 내려받은 <b>EDCF 제재 업체 명단</b>입니다 (감시할 업체 명단과는 별개). 올려 두면 스캔 때 우리 업체와 사업자번호(없으면 업체명)로 대조해 '제재 중'이면 경고로 표시합니다. 새로 올리면 기존 명단을 교체합니다.</p>
-    <div id="edcfInfo" class="edcf-info"></div>
-    <div class="actions left"><button class="btn primary" id="edcfUp">엑셀 파일 올리기</button><button class="btn" id="edcfPaste">표 붙여넣기</button></div>`);
-  renderEdcfInfo();
-  $("#edcfUp").onclick = () => $("#edcfFile").click();
-  $("#edcfPaste").onclick = openEdcfPaste;
-}
 function openEdcfPaste() {
   modal(`<button type="button" class="d-back" id="edcfBack">← 공식 제재 명단</button><h2>EDCF 부정당업자 명단 붙여넣기</h2>
     <p class="muted small">EXIMIIS 엑셀에서 <b>제목 줄(업체명, 상태, 제재기간 …)부터</b> 표 전체를 복사해 붙여넣으세요.</p>
@@ -3028,21 +2952,6 @@ function openEdcfPaste() {
       edcfPreview(list);
     } catch (e) { toast(e.message, 5000); }
   };
-}
-function renderEdcfInfo() {
-  const st = state.settings || {}, list = state.edcf, g = edcfByCompany(edcfMatches(list)), act = g.filter((x) => x.active);
-  const active = list.filter(edcfActive).length, bad = list.filter((e) => !edcfValid(e)).length;
-  if (!$("#edcfInfo")) return;
-  if (bad) {
-    $("#edcfInfo").innerHTML = `<div class="edcf-bad"><b>지금 명단 ${list.length}건 중 ${bad}건은 상태·제재기간이 없어 제재 기록이 아닙니다</b>${bad === list.length ? ": 감시 업체 명단이 잘못 올라간 것으로 보입니다" : ""}.
-      이 행들은 대조에 쓰지 않으며, 다음 스캔 때 이 때문에 생긴 'EDCF 제재 이력'도 자동으로 지워집니다.<br>EXIMIIS 부정당업자조회 엑셀(예: 13건)을 다시 올리거나 비워 주세요.
-      <div class="actions left" style="margin-top:8px"><button class="btn sm danger" id="edcfClear">잘못된 명단 비우기</button></div></div>`;
-    $("#edcfClear").onclick = clearEdcf;
-    return;
-  }
-  $("#edcfInfo").innerHTML = !list.length ? "아직 등록된 명단이 없습니다."
-    : `${list.length}건 (등록 ${active} · 해지 ${list.length - active}) · ${esc(st.edcf_sanctions_at || "")} 반영${st.edcf_sanctions_by ? ` (${esc(st.edcf_sanctions_by.split("@")[0])})` : ""}
-       ${g.length ? `<div style="margin-top:6px">우리 명단과 일치 <b>${g.length}개</b>${act.length ? ` · <b style="color:var(--red)">현재 제재 중 ${act.map((x) => esc(x.c.name)).join(", ")}</b>` : ""}<br>${edcfHitText(g)}</div>` : `<div style="margin-top:6px">우리 명단과 일치하는 업체 없음</div>`}`;
 }
 
 const hoursSince = (t) => t ? (Date.now() - Date.parse(String(t).replace(" ", "T") + "+09:00")) / 3600e3 : null;

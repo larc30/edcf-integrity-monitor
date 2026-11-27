@@ -884,7 +884,6 @@ function declutter() {
 }
 function hiPin(pid, on) { const el = document.querySelector(`.gpin[data-pin="${pid}"]`); if (el) el.classList.toggle("hi", on || ui.focus === pid); }
 function flyEvent(id) { const m = evMarkers[id]; if (!m || !map) return; map.flyTo(m.getLatLng(), Math.max(map.getZoom(), 5), { duration: 0.8 }); setTimeout(() => m.openPopup(), 850); }
-export async function refreshGeo() { await loadLiveQuakes(true); renderGeo(); }
 
 // 사업지 고르기 (사업 수정 창의 작은 지도): 눌러서 핀을 놓고 끌어서 옮김. onPick(lat, lng)
 export function mountSitePicker(el, { lat, lng, country }, onPick) {
