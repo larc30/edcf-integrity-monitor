@@ -10,7 +10,7 @@
 
 PDF 매뉴얼
 1. `node tools/manual/figdefs.js` → `fig/` 에 번호 표시가 얹힌 화면 32장 (화면 요소 이름이 바뀌면 '못 찾음'으로 알려 줌)
-2. `python3 tools/manual/manual.py` → `manual.html` (본문·번호별 설명은 이 파일에)
+2. `python3 tools/manual/manual.py` → `manual.html` (화면 하나 = 한 쪽 · 본문·번호별 설명은 이 파일에) · `node tools/manual/fitchk.js` 로 쪽마다 넘침·빈 곳 확인
 3. `node tools/manual/topdf.js` → `manual.pdf`
 
 시연 동영상
