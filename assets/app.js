@@ -5,7 +5,7 @@ import {
   getFirestore, collection, getDocs, getDoc, doc, addDoc, setDoc, updateDoc, deleteDoc,
   query, where, orderBy, limit, writeBatch, increment,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO, SUPER_ADMIN, SUPER_ADMINS, TEAMS } from "./firebase-config.js?v=33";
+import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO, SUPER_ADMIN, SUPER_ADMINS, TEAMS, MANUAL } from "./firebase-config.js?v=34";
 import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=81";
 
 const fbApp = initializeApp(firebaseConfig);
@@ -97,6 +97,9 @@ $("#btnLogin").onclick = async () => {
 };
 const doLogout = () => signOut(auth);
 $("#btnLogout").onclick = doLogout; $("#btnLogout2").onclick = doLogout;
+// 계정 메뉴의 사용 매뉴얼 (firebase-config.js MANUAL 에 링크가 있을 때만)
+[["#manualPdf", MANUAL?.pdf], ["#manualVideo", MANUAL?.video]].forEach(([s, u]) => { if (u) { $(s).href = u; $(s).classList.remove("hidden"); } });
+$("#manualRow").classList.toggle("hidden", !(MANUAL?.pdf || MANUAL?.video));
 
 onAuthStateChanged(auth, async (user) => {
   const showLogin = (msg, denied) => {
