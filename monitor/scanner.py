@@ -582,7 +582,7 @@ def _load_guide(dis: list[str], conf: list[str], refresh: bool) -> str:
             else:  # 빈 결과는 적지 않음: 예전에는 빈 값을 '갱신함'으로 적어 일주일 동안 지침 없이 판정했음
                 log.warning("판정 지침 갱신: 요약이 비어 있음 (사례 %d건) · 다음 스캔 때 다시", n)
         except Exception as e:
-            log.warning("판정 지침 갱신 실패: %s", type(e).__name__)
+            log.warning("판정 지침 갱신 실패: %s %s", type(e).__name__, str(e)[:80] if isinstance(e, RuntimeError) else "")
     return auto.strip()  # 직접 적는 칸은 없앰 (2026-11-12): AI가 정리한 기준만
 
 

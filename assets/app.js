@@ -3232,7 +3232,9 @@ async function renderUsage(reload) {
   // Claude
   const cm = u.claude?.[m] || {};
   let aiUsd = 0; const aiParts = [];
-  for (const [model, x] of Object.entries(cm)) {
+  const tier = (k) => /haiku/.test(k) ? 0 : /sonnet/.test(k) ? 1 : 2;
+  const cmList = Object.entries(cm).sort((a, b) => tier(a[0]) - tier(b[0]) || a[0].localeCompare(b[0])); // Haiku → Sonnet → 그 밖 (저장된 순서는 읽을 때마다 달라 자리가 바뀌었음)
+  for (const [model, x] of cmList) {
     const pr = AI_PRICE[model.replace(/_/g, ".")] || AI_PRICE[model];
     const usd = pr ? ((x.in || 0) * pr[0] + (x.out || 0) * pr[1]) / 1e6 : 0; aiUsd += usd;
     aiParts.push(`${/sonnet/.test(model) ? "Sonnet" : /haiku/.test(model) ? "Haiku" : model} ${num(x.calls)}회 · 토큰 ${num((x.in || 0) + (x.out || 0))}`);
@@ -3259,19 +3261,19 @@ async function renderUsage(reload) {
   $("#usagePeriod").textContent = `${md(m + "-01")} ~ ${md(d)}`;
   const aiFirst = Object.keys(u.claude_days || {}).filter((x) => x.startsWith(m)).sort()[0], adjAt = u.claude_adj?.[m]?.at;
   const aiNote = actOk ? `실제 청구 · ${md(act.to)} ${String(act.to).slice(11, 16)}까지` : actErr ? `실제 청구액 조회 실패 · ${actErr.msg || ""}` : adjAt ? `콘솔 금액 반영 ${md(adjAt)}` : aiFirst && aiFirst.slice(8, 10) !== "01" ? `${md(aiFirst)}부터 기록` : "";
-  const aiCalls = Object.entries(cm).map(([model, x]) => `${/sonnet/.test(model) ? "Sonnet" : /haiku/.test(model) ? "Haiku" : model} ${num(x.calls)}회`).join(" · ");
+  const aiCalls = cmList.map(([model, x]) => `${/sonnet/.test(model) ? "Sonnet" : /haiku/.test(model) ? "Haiku" : model} ${num(x.calls)}회`).join(" · ");
   const fsPct = Math.round((today / FS_FREE) * 100);
   // [이름, 설명(마우스를 올리면), 금액, 달러, 상태, 막대, 줄 1, 줄 2, 줄 1 강조, 실제 청구 화면]
   const rows = [
-    ["Claude AI", `기사 판정 (Haiku · 경고·주의만 Sonnet 재검토) · 막대는 월 3만 원 기준${aiParts.length ? " · " + aiParts.join(" · ") : ""}`, aiUsd ? won(aiUsd) : "0원", aiUsd ? `$${aiUsd.toFixed(2)}` : "", aiUsd * KRW >= WARN_KRW ? "warn" : "ok", bar(aiUsd * KRW, WARN_KRW), aiCalls || "이번 달 기록 없음", aiNote, false, "https://console.anthropic.com/settings/usage"],
-    ["Firebase DB", "읽기 · 하루 5만 건까지 무료 · 막대는 오늘 읽기", fsUsd ? won(fsUsd) : "0원", "", today > FS_FREE * 0.8 ? "warn" : "ok", bar(today, FS_FREE), `오늘 ${num(today)} / ${num(FS_FREE)}건${today > FS_FREE * 0.8 ? ` (${fsPct}%)` : ""}`, `이번 달 ${num(fsMonth)}건 · 화면 열기 ${num(loads)}회`, today > FS_FREE * 0.8, "https://console.firebase.google.com/project/edcf-monitor/usage"],
+    ["Claude AI", `기사 판정 (Haiku · 경고·주의만 Sonnet 재검토) · 막대는 월 3만 원 기준${aiParts.length ? " · " + aiParts.join(" · ") : ""}`, aiUsd ? won(aiUsd) : "0원", aiUsd ? `$${aiUsd.toFixed(2)}` : "", aiUsd * KRW >= WARN_KRW ? "warn" : "ok", bar(aiUsd * KRW, WARN_KRW), aiCalls || "이번 달 기록 없음", aiNote, false, "https://console.anthropic.com/settings/usage", "Claude 콘솔"],
+    ["Firebase DB", "읽기 · 하루 5만 건까지 무료 · 막대는 오늘 읽기", fsUsd ? won(fsUsd) : "0원", "", today > FS_FREE * 0.8 ? "warn" : "ok", bar(today, FS_FREE), `오늘 ${num(today)} / ${num(FS_FREE)}건${today > FS_FREE * 0.8 ? ` (${fsPct}%)` : ""}`, `이번 달 ${num(fsMonth)}건 · 화면 열기 ${num(loads)}회`, today > FS_FREE * 0.8, "https://console.firebase.google.com/project/edcf-monitor/usage", "Firebase 콘솔"],
     ["GitHub Actions", "검사 실행 · 공개 저장소 무료 (비공개면 월 2,000분 무료)", "0원", "", "ok", bar(ac.minutes || 0, 2000), `${num(ac.runs)}회 · 약 ${num(ac.minutes)}분`, "", false],
   ];
   const total = aiUsd + fsUsd;
   // 돈이 나가는 것(Claude)과 무료 한도를 봐야 하는 것(Firebase 읽기)만. 0원인 항목은 주의가 필요할 때만
   const shown = rows.filter(([k, , amt, , stt]) => k === "Claude AI" || k === "Firebase DB" || amt !== "0원" || stt !== "ok");
-  $("#usageList").innerHTML = `<div class="ut-sum"><span>합계</span><b>${total ? won(total) : "0원"}</b>${total ? `<small>$${total.toFixed(2)}</small>` : ""}</div><div class="ut-grid">`
-    + shown.map(([k, role, amt, usd, stt, b, l1, l2, hot, link]) => `<div class="ut ${stt}" title="${esc(role)}"><div class="ut-h"><b>${k}</b>${link ? `<a class="u-link" href="${link}" target="_blank" rel="noopener" title="실제 청구 화면">실제 사용량 ↗</a>` : ""}</div><div class="ut-amt">${amt}${usd ? `<small>${usd}</small>` : ""}</div>${b}<div class="ut-d${hot ? " hot" : ""}">${esc(l1)}</div>${l2 ? `<div class="ut-d">${esc(l2)}</div>` : ""}</div>`).join("") + `</div>`;
+  $("#usageList").innerHTML = `<div class="ut-box"><div class="ut-sum"><span>합계</span><b>${total ? won(total) : "0원"}</b>${total ? `<small>$${total.toFixed(2)}</small>` : ""}</div><div class="ut-grid">`
+    + shown.map(([k, role, amt, usd, stt, b, l1, l2, hot, link, linkName]) => `<div class="ut ${stt}" title="${esc(role)}"><div class="ut-h"><b>${k}</b>${link ? `<a class="u-link" href="${link}" target="_blank" rel="noopener" title="실제 청구 화면">${linkName || "콘솔"} ↗</a>` : ""}</div><div class="ut-amt">${amt}${usd ? `<small>${usd}</small>` : ""}</div>${b}<div class="ut-d${hot ? " hot" : ""}">${esc(l1)}</div>${l2 ? `<div class="ut-d">${esc(l2)}</div>` : ""}</div>`).join("") + `</div></div>`;
 }
 $("#btnUsage").onclick = () => renderUsage(true);
 // 실제 금액 맞추기: Anthropic 콘솔의 '이번 달 지출'을 적으면, 기록으로 계산한 금액과의 차이를 저장해 이후 표시에 더함
