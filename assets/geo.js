@@ -282,8 +282,15 @@ let libs = null;
 export function ensureGeoLibs() {
   if (window.L && window.topojson) return Promise.resolve(true);
   const load = (u) => new Promise((ok, no) => { const el = document.createElement("script"); el.src = u; el.onload = ok; el.onerror = no; document.head.appendChild(el); });
-  libs = libs || load("https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js")
-    .then(() => load("https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"))
+  // 지도 스타일도 지도를 처음 열 때만 받음 (첫 화면을 막지 않게). style.css 보다 앞에 끼워 넣어 예전과 같은 순서로 적용
+  const css = () => new Promise((ok) => {
+    if (document.querySelector("link[data-leaflet]")) return ok();
+    const el = document.createElement("link"); el.rel = "stylesheet"; el.dataset.leaflet = "1"; el.onload = el.onerror = ok;
+    el.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";
+    document.head.insertBefore(el, document.querySelector('link[href*="assets/style.css"]'));
+  });
+  libs = libs || Promise.all([css(), load("https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js")
+    .then(() => load("https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"))])
     .then(() => true, () => { libs = null; return false; });
   return libs;
 }

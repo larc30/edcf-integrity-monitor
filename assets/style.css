@@ -3225,3 +3225,10 @@ body.viewer #geoOnly { display: none; }
 .ut-box .ut { padding: 16px 20px 18px; border-radius: 0; background: none; }
 .ut-box .ut + .ut { border-left: 1px solid var(--line); }
 @media (max-width: 760px) { .ut-box .ut + .ut { border-left: 0; border-top: 1px solid var(--line); } }
+
+/* ===== 2026-11-27 레이더 가볍게: 경고 점의 깜빡임을 점 전체가 아니라 둘레 점선 고리에 =====
+   점 전체(부모)의 투명도 움직임 + 그 안 고리의 회전이 겹치면 브라우저가 매 프레임 화면 계산을 다시 함(느린 PC에서 주 스레드 30%).
+   고리가 돌면서 깜빡이게 바꾸면 모두 가벼운 경로로 처리됨. 눌렀을 때의 깜빡임(burst)은 그대로 */
+@keyframes ringBlink { 0%, 100% { opacity: .85; } 50% { opacity: .4; } }
+html:not(.lite) .radar:not(.burst) .rdot.red { animation: none !important; }
+html:not(.lite) .rdot.red::before { animation: geoSpin 7s linear infinite, ringBlink 2.4s ease-in-out infinite !important; }

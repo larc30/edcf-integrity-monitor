@@ -6,7 +6,7 @@ import {
   query, where, orderBy, limit, writeBatch, increment,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig, ALLOWED_EMAILS, GITHUB_REPO, SUPER_ADMIN, SUPER_ADMINS, TEAMS } from "./firebase-config.js?v=33";
-import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=79";
+import { initGeo, renderGeo, mountSitePicker, ensureGeoLibs, GEO_CITY, GEO_COUNTRY, siteAlert, siteOpt, projectPoint, projectGeoRisk } from "./geo.js?v=80";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -548,8 +548,12 @@ function fitRadarNames() {
     const fits = () => list.scrollHeight <= list.clientHeight + 1;
     if (fits()) return;
     more.classList.remove("hidden");
-    let shown = chips.length;
-    do { shown--; chips[shown].classList.add("hidden"); more.textContent = `외 ${chips.length - shown}`; } while (shown > 1 && !fits()); // 적어도 한 곳은 남김
+    // 보여 줄 수를 반씩 좁혀 찾음: 칩을 하나씩 숨기며 재면 그때마다 화면 배치를 다시 계산해서 느림 (결과는 같음 · 적어도 한 곳은 남김)
+    const show = (n) => { chips.forEach((c, i) => c.classList.toggle("hidden", i >= n)); more.textContent = `외 ${chips.length - n}`; };
+    if (chips.length === 1) { show(0); return; }
+    let lo = 1, hi = chips.length - 1;
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; show(mid); if (fits()) lo = mid; else hi = mid - 1; }
+    show(lo);
   });
   // 주의 줄이 두 줄이 되면 레이더를 한 단계 줄여 칸 높이를 지킴
   const two = [...document.querySelectorAll("#radarNames .rn-list")].some((l) => l.offsetHeight > 40), box = $("#radarNames");
