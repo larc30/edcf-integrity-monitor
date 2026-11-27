@@ -335,12 +335,21 @@ export async function renderGeo(opt = {}) {
   $("#gboard").innerHTML = `<div class="card-head"><h2>수원국 등급 ${info(tip)}</h2></div>`
     + ["red", "orange", "none"].map((lv) => {
       const l = byLv[lv];
-      const names = l.length ? cname(l[0]) + (l.length > 1 ? ` 외 ${l.length - 1}` : "") : "해당 국가 없음"; // 업체 화면과 같은 표기 (한 곳 + 외 N)
+      const names = l.length ? cname(l[0]) + (l.length > 1 ? ` 외 ${l.length - 1}` : "") : "해당 국가 없음"; // 처음에는 한 곳 + 외 N, 아래에서 칸 폭에 들어가는 만큼 이름을 더 이어 붙임
       return `<button class="rk ${lv} ${l.length ? "on" : ""} ${ui.lv === lv ? "sel" : ""}" data-glv="${lv}" ${l.length ? "" : "disabled"}>
         <div class="rk-num"><span>${l.length}</span></div>
         <div class="rk-lv">${LEVEL[lv]}</div>
-        <div class="rk-names ${l.length ? "" : "zero"}">${esc(names)}</div></button>`;
+        <div class="rk-names ${l.length ? "" : "zero"}"${l.length > 1 ? ` data-nm="${esc(l.map(cname).join("|"))}" title="${esc(l.map(cname).join(" · "))}"` : ""}>${esc(names)}</div></button>`;
     }).join("");
+  // 나라 이름은 한 줄에 들어가는 만큼 가운뎃점으로 이어 붙이고 나머지는 '외 N' (2026-11-27 사용자: '한 나라 + 외 N 말고 되는 만큼')
+  $$("#gboard .rk-names[data-nm]").forEach((el) => {
+    if (!el.clientWidth) return; // 화면이 숨겨져 있으면 잴 수 없음: 처음 표기 그대로
+    const nm = el.dataset.nm.split("|");
+    for (let k = nm.length; k >= 1; k--) {
+      el.textContent = nm.slice(0, k).join(" · ") + (nm.length > k ? ` 외 ${nm.length - k}` : "");
+      if (k === 1 || el.scrollWidth <= el.clientWidth) break;
+    }
+  });
   $$("#gboard [data-glv]:not(:disabled)").forEach((b) => b.onclick = () => openGeoList(b.dataset.glv)); // 업체 리스크의 등급별 업체 목록과 같은 방식: 오른쪽 창에 나라별 내용
 
   // 왼쪽 아래: 이벤트 종류별 건수 (누르면 지도·목록 거르기)
