@@ -21,4 +21,4 @@ export const ALLOWED_EMAILS = ["larc30730@gmail.com", "juliana0513m@gmail.com", 
 export const GITHUB_REPO = "larc30/edcf-integrity-monitor";
 
 // 사용 매뉴얼 링크 (계정 메뉴의 [사용 매뉴얼]: 비어 있으면 그 버튼은 안 보임)
-export const MANUAL = { pdf: "", video: "" };
+export const MANUAL = { pdf: "manual/edcf-radar-manual.pdf", video: "manual/edcf-radar-video.mp4" };

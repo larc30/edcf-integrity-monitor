@@ -17,4 +17,4 @@ PDF 매뉴얼
 1. `mkdir -p tools/manual/vid && node tools/manual/video.js` → `vid/raw.mp4`(화면 녹화) + `vid/cap.ass`(자막). 시나리오와 자막 문구는 video.js 에
 2. `tools/manual/burn.sh vid/raw.mp4 vid/cap.ass vid/out.mp4` → 1920×1080, 아래 자막 띠
 
-만든 파일(fig · vid · manual.html · manual.pdf)은 저장소에 넣지 않습니다.
+만든 중간 파일(fig · vid · manual.html · manual.pdf)은 저장소에 넣지 않습니다. 완성본은 저장소 맨 위 manual/ 에 edcf-radar-manual.pdf · edcf-radar-video.mp4 로 바꿔 넣습니다(계정 메뉴의 [사용 매뉴얼]이 이 파일을 엶).
